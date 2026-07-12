@@ -91,7 +91,7 @@ class Component extends DCLogic {
       ]},
       { scene:'Entry Hall', file:'The Games Master - Entry Hall.dc.html', tests:[
         { name:'bridge present · scene = hall', fn:(w,GM)=>{ if(GM.scene!=='hall') throw new Error('scene='+GM.scene); return true; } },
-        { name:'scene builds with 11 points of interest', fn:async(w,GM,C,H)=>{ if(!await H.waitFor(()=>GM.getState().sceneReady && GM.getState().pois===11,5000)) throw new Error('pois='+GM.getState().pois+' ready='+GM.getState().sceneReady); return true; } },
+        { name:'scene builds with 20 points of interest', fn:async(w,GM,C,H)=>{ if(!await H.waitFor(()=>GM.getState().sceneReady && GM.getState().pois===20,5000)) throw new Error('pois='+GM.getState().pois+' ready='+GM.getState().sceneReady); return true; } },
         { name:'goTo(start) → explore + walk on', fn:async(w,GM,C,H)=>{ GM.goTo('start'); await H.sleep(160); const s=GM.getState(); if(s.phase!=='explore'||!s.walk) throw new Error('phase='+s.phase+' walk='+s.walk); return true; } },
         { name:'teleport to stairs fires beats', fn:async(w,GM,C,H)=>{ GM.goTo('stairs'); if(!await H.waitFor(()=>GM.getState().beat>=3,3000)) throw new Error('beat='+GM.getState().beat); return true; } },
         { name:'door → parlor arrival triggers', fn:async(w,GM,C,H)=>{ GM.goTo('door'); if(!await H.waitFor(()=>{ const s=GM.getState(); return s.mode==='arrival'||s.phase==='door'||s.phase==='card'; },3000)) throw new Error('mode='+GM.getState().mode); return true; } },
