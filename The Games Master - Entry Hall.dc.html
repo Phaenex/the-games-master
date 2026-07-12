@@ -760,7 +760,7 @@ class Component extends DCLogic {
       promptText: st.promptText,
       fadeStyle: 'position:fixed;inset:0;z-index:45;background:#000;transition:opacity 0.9s ease;opacity:'+st.fade+';pointer-events:'+(st.fade>0.02?'auto':'none')+';',
       goldStyle: 'position:fixed;inset:0;z-index:44;pointer-events:none;background:radial-gradient(60% 55% at 50% 52%, rgba(255,226,150,0.96), rgba(240,176,82,0.5) 45%, rgba(120,70,20,0) 78%);opacity:'+(st.gold||0)+';transition:opacity .5s ease;',
-      vignetteStyle: 'position:fixed;inset:0;z-index:43;pointer-events:none;box-shadow:inset 0 0 '+(140+(st.headachePulse||0)*90)+'px '+(40+(st.headachePulse||0)*30)+'px rgba(0,0,0,'+(0.35+(st.headachePulse||0)*0.35)+');',
+      vignetteStyle: 'position:fixed;inset:0;z-index:43;pointer-events:none;box-shadow:inset 0 0 '+((st.headachePulse||0)*230)+'px '+((st.headachePulse||0)*70)+'px rgba(0,0,0,'+((st.headachePulse||0)*0.7)+');',
       parlorHref: 'The Parlor - Playable Prototype.dc.html'
     };
   }

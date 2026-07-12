@@ -350,6 +350,18 @@ Replace with:
 }
 ```
 
+- [ ] **Step 5b: Fix the vignette's permanent floor (added after the final whole-implementation review)**
+
+The final review caught a scope issue: the formula above has a constant floor (`140+…`, `40+…`, `0.35+…`) rather than scaling from zero, so even at `headachePulse:0` — the resting value during all normal exploration, not just the wake-up sequence — the vignette still renders `box-shadow:inset 0 0 140px 40px rgba(0,0,0,0.35)`, a permanent extra darkening layer that was never scoped to persist. Confirmed live: computed `box-shadow` at rest was non-zero before this fix, `rgba(0,0,0,0) 0px 0px 0px 0px` (fully invisible) after.
+
+Find the `vignetteStyle` line from Step 5 and replace it with:
+
+```js
+      vignetteStyle: 'position:fixed;inset:0;z-index:43;pointer-events:none;box-shadow:inset 0 0 '+((st.headachePulse||0)*230)+'px '+((st.headachePulse||0)*70)+'px rgba(0,0,0,'+((st.headachePulse||0)*0.7)+');',
+```
+
+This preserves the exact same maximum intensity at `headachePulse:1` (`230px`/`70px`/`0.7` — identical to `140+90`, `40+30`, `0.35+0.35` from Step 5) but now scales linearly from a true zero, so the effect fully disappears once the wake sequence ends.
+
 - [ ] **Step 6: Manually verify in a browser**
 
 ```bash
