@@ -253,7 +253,7 @@ class Component extends DCLogic {
     else if (name==='invitation') { this.mode='menu'; this.walkEnabled=false; this.setState(Object.assign({}, base, { isIntro:true })); }
     else if (name==='walk' || name==='door' || name==='knockout') {
       this._beat=-1; this.yaw=0; this.pitch=-0.02; if(this.cam)this.cam.position.set(0,1.7,72);
-      this.mode='walk'; this.walkEnabled=true; this.knockStarted=false; this.arriving=false; this.arrDoor=0; this.arrHold=0;
+      this.mode='walk'; this.walkEnabled=true; this.knockStarted=false; this.arriving=false; this.arrDoor=0; this.arrHold=0; this._glimpseSaid=false;
       if(this.doorL)this.doorL.rotation.y=0; if(this.doorR)this.doorR.rotation.y=0; if(this.doorGlow)this.doorGlow.material.opacity=0; if(this.doorInner)this.doorInner.intensity=0;
       this.setState(Object.assign({}, base, { isWalk:true, hintOn:true, tutStep:0 }));
       if(this.cam && name==='door') this.cam.position.z=-33;
@@ -517,7 +517,10 @@ class Component extends DCLogic {
         if (this.doorInner) this.doorInner.intensity = a*9;
         if (this.doorGlow) this.doorGlow.material.opacity = 0.12 + a*0.88;
         this._setWarm(Math.min(0.6, a*0.6));
-        if (this.arrDoor>=1){ this.arrHold=(this.arrHold||0)+dt; if(this.arrHold>0.9){ this.knockStarted=true; this.knockT=0; this.knockBaseY=cam.position.y; this.knockBaseZ=cam.position.z; } }
+        if (this.arrDoor>=1){
+          if (!this._glimpseSaid) { this._glimpseSaid=true; this.setState({ beatMain:'Beyond the widening gap, gold light and a floor laid out in black and white.', beatSub:'A staircase climbing into the dark above it, and something enormous hanging dead center of it all, swaying very slightly, though no one had touched it.', beatOn:true, hintOn:false }); }
+          this.arrHold=(this.arrHold||0)+dt; if(this.arrHold>2.0){ this.knockStarted=true; this.knockT=0; this.knockBaseY=cam.position.y; this.knockBaseZ=cam.position.z; }
+        }
       } else {
         // the blow — drawn through the warm gap, a hand at the collar, the floor rising, black
         this.knockT += dt; const k=this.knockT;
@@ -623,7 +626,7 @@ class Component extends DCLogic {
     this.fadeThen(()=>{
       this._beat=-1; this.yaw=0; this.pitch=-0.02;
       if (this.cam) this.cam.position.set(0,1.7,72);
-      this.mode='walk'; this.walkEnabled=true; this.knockStarted=false; this.arriving=false; this.arrDoor=0; this.arrHold=0;
+      this.mode='walk'; this.walkEnabled=true; this.knockStarted=false; this.arriving=false; this.arrDoor=0; this.arrHold=0; this._glimpseSaid=false;
       if(this.doorL)this.doorL.rotation.y=0; if(this.doorR)this.doorR.rotation.y=0; if(this.doorGlow)this.doorGlow.material.opacity=0; if(this.doorInner)this.doorInner.intensity=0;
       this.setState({ isIntro:false, isWalk:true, hintOn:true, beatOn:false, tutStep:0, warm:0 });
     });
