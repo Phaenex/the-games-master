@@ -300,6 +300,31 @@ Replace with:
   }
 ```
 
+- [ ] **Step 4b: Also clear `_pulseTick` in `devGoTo` (added after code review — not in the original plan draft)**
+
+A code-quality review caught a real leak: `devGoTo(name)` (the dev-menu/console jump mechanism) resets `waking`/`rising`/`_wt` when jumping to any other phase, but didn't originally touch `_pulseTick` — so triggering the dev menu (or `window.__GM.goTo(...)`) while a wake sequence was still mid-flight left the interval running forever, pulsing the vignette at full amplitude indefinitely (since `decay` reads `1` once `rising` is false) and calling `setState` every 80ms with no end. Confirmed reproducible: calling `beginWake()` then immediately `devGoTo('start')` left `_pulseTick` truthy before the fix, `null` after.
+
+Find the start of `devGoTo`:
+
+```js
+  devGoTo(name) {
+    (this._wt||[]).forEach(clearTimeout); this._wt=[];
+    this.waking=false; this.rising=false; this.standY=1.7; this.wakeRoll=0; this.wakePitch=0;
+    const tp=(z)=>{ if(this.cam) this.cam.position.set(0,1.7,z); };
+```
+
+Replace with:
+
+```js
+  devGoTo(name) {
+    (this._wt||[]).forEach(clearTimeout); this._wt=[];
+    this.waking=false; this.rising=false; this.standY=1.7; this.wakeRoll=0; this.wakePitch=0;
+    if (this._pulseTick) { clearInterval(this._pulseTick); this._pulseTick=null; }
+    const tp=(z)=>{ if(this.cam) this.cam.position.set(0,1.7,z); };
+```
+
+This runs for every `devGoTo` destination (including `'wake'`, where `beginWake()` immediately clears-and-recreates its own interval right after — redundant but harmless, matching the idempotent-guard style already used elsewhere in this file).
+
 - [ ] **Step 5: Add `vignetteStyle` to `renderVals()`**
 
 Find:
