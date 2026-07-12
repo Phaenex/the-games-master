@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Spectral:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #060403; }
+  ::selection { background: rgba(242,199,89,0.28); color: #FFFFF2; }
+  @keyframes flick { 0%,100%{opacity:1} 48%{opacity:.9} 51%{opacity:.72} 54%{opacity:.95} }
+  @keyframes glint { 0%,100%{box-shadow:0 0 0 1px rgba(242,199,89,0.4)} 50%{box-shadow:0 0 22px 2px rgba(242,199,89,0.7)} }
+  @keyframes breathe { 0%,100%{transform:scale(1)} 50%{transform:scale(1.02)} }
+  @keyframes flashfade { 0%{opacity:.75} 100%{opacity:0} }
+  @keyframes pulseband { 0%,100%{border-color:rgba(242,199,89,0.5)} 50%{border-color:rgba(242,199,89,0.95)} }
+  @keyframes riseA { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:none} }
+  @keyframes riseB { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:none} }
+</style>
+</helmet>
+
+<div style="position:relative;min-height:100vh;background:radial-gradient(120% 80% at 50% 0%,#150f08 0%,#0a0705 55%,#060403 100%);color:#EBE0D1;font-family:'Spectral',serif;padding:26px 20px 40px;overflow-x:hidden;">
+  <div style="position:fixed;inset:0;pointer-events:none;z-index:60;box-shadow:inset 0 0 300px 70px rgba(0,0,0,0.85);"></div>
+  <div style="{{ flashStyle }}"></div>
+
+  <div style="position:relative;max-width:1000px;margin:0 auto;border:1px solid {{ frameColor }};clip-path:polygon(0 0,calc(100% - 18px) 0,100% 18px,100% 100%,18px 100%,0 calc(100% - 18px));background:linear-gradient(160deg,rgba(20,15,9,0.6),rgba(6,4,3,0.6));padding:22px 26px 26px;transition:border-color .5s ease;">
+    <div style="position:absolute;left:9px;top:6px;font-family:'Cormorant Garamond',serif;font-size:17px;color:{{ pip1 }};">✦</div>
+    <div style="position:absolute;right:9px;top:6px;font-family:'Cormorant Garamond',serif;font-size:17px;color:{{ pip2 }};">⋀</div>
+    <div style="position:absolute;left:9px;bottom:6px;font-family:'Cormorant Garamond',serif;font-size:17px;color:{{ pip3 }};">◉</div>
+    <div style="position:absolute;right:9px;bottom:6px;font-family:'Cormorant Garamond',serif;font-size:17px;color:{{ pip4 }};">❖</div>
+
+    <div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid rgba(242,199,89,0.16);padding-bottom:12px;margin-bottom:14px;">
+      <div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:26px;color:#F2C759;line-height:1;letter-spacing:0.02em;">The Parlor</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:0.16em;color:#A69980;margin-top:3px;">{{ roundLabel }}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:0.16em;color:#A69980;">CORRUPTION</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:20px;color:{{ corrColor }};">Tier {{ corrTier }} · {{ corrName }}</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:16px;align-items:flex-start;margin-bottom:12px;">
+      <div style="flex:none;width:290px;background:#EBE0D1;color:#1A120A;padding:12px 15px;position:relative;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));box-shadow:0 8px 22px rgba(0,0,0,0.5);">
+        <div style="font-family:'Cormorant Garamond',serif;font-weight:600;font-size:15px;letter-spacing:0.05em;color:{{ dlgColor }};">ALDRIC VOSS · <span style="font-weight:400;">{{ gmStateLabel }}</span></div>
+        <div style="font-family:'Spectral',serif;font-style:italic;font-size:14.5px;line-height:1.4;color:#2a2015;margin-top:4px;">"{{ gmLine }}"</div>
+      </div>
+      <div style="flex:1;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.16em;color:#A69980;margin-bottom:6px;">HIS HAND {{ gmHandNote }}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;min-height:56px;">
+          <sc-for list="{{ gmCards }}" as="c" hint-placeholder-count="7">
+            <div style="{{ c.style }}"><span style="font-size:11px;color:#1A120A;">{{ c.rank }}</span><span style="font-size:16px;line-height:1;">{{ c.glyph }}</span></div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <div style="position:relative;border-radius:120px/70px;background:radial-gradient(ellipse at 50% 35%,{{ feltColor }},#0a0705 78%);border:5px solid #241708;margin:6px 0 12px;padding:18px 10px;min-height:250px;box-shadow:inset 0 0 60px rgba(0,0,0,0.55),0 16px 40px rgba(0,0,0,0.5);{{ tableWarp }}">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+        <div style="height:104px;display:flex;align-items:center;justify-content:center;">
+          <sc-if value="{{ tableGm.shown }}" hint-placeholder-val="{{ true }}">
+            <div style="{{ tableGm.style }}"><span style="position:absolute;top:6px;left:8px;font-family:'Cormorant Garamond',serif;font-size:15px;color:#1A120A;">{{ tableGm.rank }}</span><span style="font-family:'Cormorant Garamond',serif;font-size:34px;">{{ tableGm.glyph }}</span></div>
+          </sc-if>
+        </div>
+        <div style="text-align:center;min-height:40px;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.18em;color:#A69980;">{{ leadInfo }}</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:17px;color:#FFFFF2;margin-top:2px;">{{ status }}</div>
+        </div>
+        <div style="height:104px;display:flex;align-items:center;justify-content:center;">
+          <sc-if value="{{ tablePlayer.shown }}" hint-placeholder-val="{{ true }}">
+            <div style="{{ tablePlayer.style }}"><span style="position:absolute;top:6px;left:8px;font-family:'Cormorant Garamond',serif;font-size:15px;color:#1A120A;">{{ tablePlayer.rank }}</span><span style="font-family:'Cormorant Garamond',serif;font-size:34px;">{{ tablePlayer.glyph }}</span></div>
+          </sc-if>
+        </div>
+      </div>
+      <div style="position:absolute;top:12px;left:16px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#A69980;">Tricks &nbsp;<span style="color:#40F259;">You {{ trickP }}</span> · <span style="color:#c76b64;">Him {{ trickG }}</span></div>
+    </div>
+
+    <!-- TEST banner -->
+    <sc-if value="{{ testActive }}" hint-placeholder-val="{{ false }}">
+      <div style="border:1px solid rgba(242,199,89,0.7);background:linear-gradient(90deg,rgba(242,199,89,0.12),transparent);padding:12px 16px;margin:0 0 12px;animation:pulseband 1.6s infinite;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.22em;color:#F2C759;margin-bottom:4px;">A TEST · you finally have a plan</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:16px;color:#FFFFF2;">{{ testLine }}</div>
+      </div>
+    </sc-if>
+
+    <div style="display:flex;justify-content:center;gap:12px;min-height:46px;align-items:center;margin-bottom:8px;">
+      <sc-if value="{{ readVisible }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ onRead }}" style="{{ readStyle }}">{{ readLabel }}</button>
+      </sc-if>
+      <sc-if value="{{ standVisible }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ onStand }}" style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;padding:11px 20px;cursor:pointer;border:1px solid rgba(166,153,128,0.4);background:transparent;color:#A69980;">Let it stand</button>
+      </sc-if>
+      <sc-if value="{{ continueVisible }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ onContinue }}" style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;padding:11px 22px;cursor:pointer;border:1px solid rgba(166,153,128,0.4);background:transparent;color:#A69980;">Continue</button>
+      </sc-if>
+      <sc-if value="{{ nextVisible }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ onNext }}" style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;padding:11px 22px;cursor:pointer;border:1px solid #F2C759;background:rgba(242,199,89,0.12);color:#FFFFF2;">{{ nextLabel }}</button>
+      </sc-if>
+    </div>
+
+    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.16em;color:#A69980;margin-bottom:6px;">YOUR HAND {{ playerHint }}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;min-height:104px;justify-content:center;">
+      <sc-for list="{{ playerCards }}" as="c" hint-placeholder-count="7">
+        <div style="{{ c.style }}" onClick="{{ c.on }}">
+          <span style="position:absolute;top:6px;left:8px;font-family:'Cormorant Garamond',serif;font-size:15px;color:#1A120A;">{{ c.rank }}</span>
+          <span style="font-family:'Cormorant Garamond',serif;font-size:32px;">{{ c.glyph }}</span>
+          <span style="position:absolute;bottom:5px;right:8px;font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:0.1em;color:#8a7a5e;">{{ c.suitName }}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;border-top:1px solid rgba(242,199,89,0.16);margin-top:16px;padding-top:14px;">
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:0.14em;color:#A69980;margin-bottom:6px;">SANITY {{ sanityVal }}</div>
+        <div style="display:flex;align-items:flex-end;gap:6px;height:34px;">
+          <div style="width:11px;background:linear-gradient(180deg,#F2C759,#8a6a1e);{{ candleStyle }}"></div>
+          <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:12px;color:#A69980;">{{ sanityNote }}</div>
+        </div>
+      </div>
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:0.14em;color:#A69980;margin-bottom:8px;">DEFIANCE ↔ COMPLIANCE</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-family:'Cormorant Garamond',serif;font-size:13px;color:#40F259;">{{ defianceVal }}</span>
+          <div style="flex:1;height:2px;background:#6b5327;position:relative;"><div style="position:absolute;top:-4px;width:10px;height:10px;border-radius:50%;background:#F2C759;box-shadow:0 0 8px rgba(242,199,89,0.6);{{ balanceStyle }}"></div></div>
+          <span style="font-family:'Cormorant Garamond',serif;font-size:13px;color:#c76b64;">{{ complianceVal }}</span>
+        </div>
+      </div>
+      <div>
+        <sc-if value="{{ hudSuspicion }}" hint-placeholder-val="{{ true }}">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:0.14em;color:#A69980;margin-bottom:6px;">SUSPICION</div>
+          <div style="height:8px;background:#241a0d;border:1px solid rgba(242,199,89,0.2);position:relative;overflow:hidden;"><div style="height:100%;background:linear-gradient(90deg,#8a6a1e,#F2C759);{{ suspStyle }}"></div></div>
+          <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:12px;color:#5c5344;margin-top:4px;">you can't prove it. yet.</div>
+        </sc-if>
+        <sc-if value="{{ hudCaught }}" hint-placeholder-val="{{ false }}">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:0.14em;color:#A69980;margin-bottom:6px;">CHEATS CAUGHT</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:26px;color:#40F259;line-height:0.9;">{{ cheatsCaught }} <span style="font-size:13px;color:#5c5344;">/ 8 for the truth</span></div>
+        </sc-if>
+      </div>
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:0.14em;color:#A69980;margin-bottom:6px;">ROUNDS</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:26px;color:#FFFFF2;line-height:0.9;"><span style="color:#40F259;">{{ roundsP }}</span> · <span style="color:#c76b64;">{{ roundsG }}</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:1000px;margin:14px auto 0;display:flex;gap:16px;flex-wrap:wrap;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:0.06em;color:#8a7a5e;justify-content:center;">
+    <span><span style="color:#F2C759;">✦ Flames</span> — trump, burns any suit</span>
+    <span><span style="color:#c76b64;">⋀ Teeth</span> — win with it, glimpse his hand</span>
+    <span><span style="color:#8a92a0;">◉ Eyes</span> — lead it to see his cards</span>
+    <span><span style="color:#cdbfa6;">❖ Bones</span> — if it loses, it comes back (once)</span>
+  </div>
+  <div style="max-width:1000px;margin:8px auto 0;text-align:center;font-family:'Spectral',serif;font-style:italic;font-size:13px;color:#5c5344;">At first he's too good to catch — you'll only feel that something's wrong as you lose hands you know you'd won. Keep playing. When the doubt gets loud enough, you'll find a way to test him.</div>
+
+</div>
+
+  <!-- ===== ARRIVAL: through the doors, cross the room, take the seat across from Aldric ===== -->
+  <sc-if value="{{ intro }}" hint-placeholder-val="{{ true }}">
+    <div onClick="{{ onAdvIntro }}" style="{{ introOverlayStyle }}">
+      <div style="max-width:780px;padding:0 8vw;text-align:center;">
+        <sc-if value="{{ introIsAldric }}" hint-placeholder-val="{{ false }}">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.3em;color:#8a6a1e;text-transform:uppercase;margin-bottom:20px;">Aldric Voss</div>
+        </sc-if>
+        <div style="{{ introLineStyle }}">{{ introText }}</div>
+      </div>
+      <div style="position:absolute;bottom:8vh;left:0;right:0;text-align:center;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:0.24em;color:#6a614e;text-transform:uppercase;{{ introHintStyle }}">{{ introHint }}</div>
+    </div>
+  </sc-if>
+
+  <!-- ===== THE CATCH (authored payoff — first successful read) ===== -->
+  <sc-if value="{{ catchActive }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ onAdvCatch }}" style="{{ catchOverlayStyle }}">
+      <div style="max-width:760px;padding:0 8vw;text-align:center;display:flex;flex-direction:column;align-items:center;gap:22px;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.34em;color:#F2C759;text-transform:uppercase;">{{ catchKicker }}</div>
+        <sc-if value="{{ catchShowCard }}" hint-placeholder-val="{{ false }}">
+          <div style="{{ catchCardStyle }}"><span style="position:absolute;top:8px;left:11px;font-family:'Cormorant Garamond',serif;font-size:19px;color:#1A120A;">{{ catchCardRank }}</span><span style="font-family:'Cormorant Garamond',serif;font-size:52px;">{{ catchCardGlyph }}</span></div>
+        </sc-if>
+        <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:clamp(24px,3.6vw,42px);line-height:1.16;color:#FFFFF2;text-shadow:0 3px 28px rgba(0,0,0,0.95);">{{ catchBig }}</div>
+        <div style="font-family:'Spectral',serif;font-style:italic;font-size:clamp(15px,1.8vw,19px);line-height:1.6;color:#E6B86B;max-width:600px;">{{ catchSub }}</div>
+        <sc-if value="{{ catchBtn }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ onAdvCatch }}" style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.18em;text-transform:uppercase;padding:14px 30px;cursor:pointer;border:1px solid #F2C759;background:rgba(242,199,89,0.14);color:#FFFFF2;margin-top:6px;">Hold his gaze →</button>
+        </sc-if>
+      </div>
+      <sc-if value="{{ catchHint }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute;bottom:8vh;left:0;right:0;text-align:center;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:0.24em;color:#6a614e;text-transform:uppercase;">click to continue</div>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <!-- ===== DEV MENU (backtick) ===== -->
+  <sc-if value="{{ devOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;top:12px;left:12px;z-index:95;width:256px;background:rgba(8,8,10,0.95);border:1px solid rgba(242,199,89,0.4);color:#EBE0D1;padding:12px 13px;box-shadow:0 14px 44px rgba(0,0,0,0.75);">
+      <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(242,199,89,0.2);padding-bottom:7px;margin-bottom:9px;">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.22em;color:#F2C759;">DEV · THE PARLOR</span>
+        <span onClick="{{ onDevClose }}" style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#A69980;cursor:pointer;">✕</span>
+      </div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:0.14em;color:#8a7a5e;margin-bottom:6px;">JUMP TO</div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px;">
+        <sc-for list="{{ devPhases }}" as="p" hint-placeholder-count="8">
+          <span onClick="{{ p.on }}" style="{{ p.style }}">{{ p.label }}</span>
+        </sc-for>
+      </div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:0.14em;color:#8a7a5e;margin-bottom:6px;">STATE</div>
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-family:'JetBrains Mono',monospace;font-size:10px;line-height:1.5;">
+        <sc-for list="{{ devRows }}" as="r" hint-placeholder-count="8">
+          <span style="color:#8a7a5e;">{{ r.k }}</span><span style="color:#EBE0D1;text-align:right;">{{ r.v }}</span>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+  <div onClick="{{ onDevToggle }}" style="position:fixed;bottom:8px;left:10px;z-index:93;font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:0.18em;color:#5c5344;cursor:pointer;">` DEV</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1060,&quot;height&quot;:900},&quot;startCorruption&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:1,&quot;min&quot;:0,&quot;max&quot;:4,&quot;step&quot;:1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Tuning&quot;,&quot;unit&quot;:&quot; tier&quot;}}">
+class Component extends DCLogic {
+  SUITS = {
+    flames: { glyph: '✦', accent: '#F2C759', name: 'FLAMES' },
+    teeth:  { glyph: '⋀', accent: '#c76b64', name: 'TEETH' },
+    eyes:   { glyph: '◉', accent: '#8a92a0', name: 'EYES' },
+    bones:  { glyph: '❖', accent: '#cdbfa6', name: 'BONES' }
+  };
+  CORR = [
+    { name: 'Honest', color: '#EBE0D1' },
+    { name: 'Unease', color: '#E6B86B' },
+    { name: 'Slippage', color: '#c76b64' },
+    { name: 'Brazen', color: '#8f2f2a' },
+    { name: 'The Stage', color: '#8f2f2a' }
+  ];
+  LINES = {
+    CHARMING: ['A pleasure. Lead when you are ready.', 'Take your time. I have nothing but.', 'Sit. The chair remembers you.'],
+    COLD: ['Noted.', 'As expected of you.', 'You will tire before I do.'],
+    HOSTILE: ['You think you are winning?', 'Careful, now.', 'Say it, then. Accuse me.'],
+    PREDATORY: ['You are tired. I can hear it.', 'So close to nothing.'],
+    IRRITATED: ['…must you.', 'Fine. Take it. — I meant to keep that.', 'Yes. You saw. Happy?'],
+    VULNERABLE: ['I was very good, once.', 'Stop being so careful.'],
+    FALSE: ['There was nothing there. Look at you.', 'Seeing things already?', 'No. But do keep guessing.']
+  };
+  DOUBT = ['That shouldn’t have beaten me.', '…how did he have that?', 'Something about that was wrong.', 'I had him. I know I had him.', 'That is twice now.'];
+
+  introSeq = [
+    { who:'n', t:'The doors gave without a sound — the way a house opens when it has been expecting you.' },
+    { who:'n', t:'Firelight, still from a source I couldn’t find. A small round table. Two chairs, one already drawn out and turned toward me, as though someone had risen from it to leave it warm.' },
+    { who:'n', t:'And a man at the far side, dealing, unhurried, as though we had done this a hundred nights running.' },
+    { who:'a', t:'There you are. I was beginning to think the hall had kept you — it does that, shows a guest the long way round.' },
+    { who:'n', t:'I crossed the room. I sat. The seat was still warm from whoever had it before me.' },
+    { who:'a', t:'You came for the money. They always do. Forty-one thousand and change — owed to men who do not take excuses, and not past Friday.' },
+    { who:'a', t:'You may have every note of it. You need only win it from me. One hand at a time. Simple.' },
+    { who:'a', t:'And I will play perfectly fair.' },
+    { who:'a', t:'… forgive me. Old habit, that last word. Pick up your hand. We begin.' }
+  ];
+
+  constructor(props) { super(props); this.state = Object.assign(this.freshGame(), { intro:true, introStep:0, devOpen:false }); }
+  componentDidMount(){ this._errs=[]; this._onErr=(e)=>{ this._errs.push(String((e&&e.message)||e)); }; window.addEventListener('error', this._onErr); this._kd=(e)=>{ if(e.key==='`'||e.code==='Backquote'){ e.preventDefault(); this.toggleDev(); } }; window.addEventListener('keydown', this._kd); window.__GMC=this; window.__GM={ scene:'parlor', phases:this.devPhaseList(), goTo:(n)=>this.devGoTo(n), getState:()=>this.devSnapshot(), errors:()=>this._errs||[] }; }
+  componentWillUnmount(){ window.removeEventListener('error', this._onErr); window.removeEventListener('keydown', this._kd); if(this._devTick) clearInterval(this._devTick); }
+  toggleDev(){ const open=!this.state.devOpen; this.setState({ devOpen:open }); if(open){ this._devTick=setInterval(()=>this.forceUpdate(),300);} else if(this._devTick){ clearInterval(this._devTick); this._devTick=null; } }
+  devPhaseList(){ return ['intro','skipIntro','fresh','testPending','reveal','caught','winGame','loseGame']; }
+  devSnapshot(){ const g=this.state; return { phase:g.phase||(g.intro?'intro':'?'), intro:!!g.intro, round:g.round, corr:g.corruption, sanity:g.sanity, cheats:g.cheatsCaught, susp:g.suspicion, readUnlocked:!!g.readUnlocked, test:g.testState, hand:(g.playerHand||[]).length, errors:(this._errs||[]).length }; }
+  devGoTo(name){ const keep={ devOpen:this.state.devOpen };
+    if(name==='intro'){ this.setState(Object.assign(this.freshGame(),{ intro:true, introStep:0 }, keep)); }
+    else if(name==='skipIntro'){ this.setState({ intro:false }); }
+    else if(name==='fresh'){ this.setState(Object.assign(this.freshGame(),{ intro:false }, keep)); }
+    else if(name==='testPending'){ const g=Object.assign(this.freshGame(),{ intro:false }, keep); g.suspicion=2; g.testState='pending'; this.setState(g); }
+    else if(name==='reveal'){ this.setState({ ...this.state, peek:true }); }
+    else if(name==='caught'){ const g={ ...this.state }; g.readUnlocked=true; g.cheatsCaught=Math.max(g.cheatsCaught||0,1); this.setState(g); }
+    else if(name==='winGame'){ const g=Object.assign(this.freshGame(),{ intro:false }, keep); g.phase='gameDone'; g.roundsP=2; g.readUnlocked=true; g.cheatsCaught=5; g.gmState='VULNERABLE'; g.line='I was very good, once. You were better.'; g.status='You beat him — and you saw how.'; this.setState(g); }
+    else if(name==='loseGame'){ const g=Object.assign(this.freshGame(),{ intro:false }, keep); g.phase='gameDone'; g.roundsG=2; g.gmState='HOSTILE'; g.line='The house keeps you a while longer.'; g.status='He wins the night. Try again.'; this.setState(g); }
+  }
+
+  advIntro() {
+    const n = (this.state.introStep||0) + 1;
+    if (n >= this.introSeq.length) { this.setState({ intro:false }); return; }
+    this.setState({ introStep:n });
+  }
+
+  freshGame() {
+    const start = Math.max(0, Math.min(4, (this.props && this.props.startCorruption != null) ? this.props.startCorruption : 1));
+    const g = {
+      sanity: 80, defiance: 0, compliance: 0, corruption: start, cheatsCaught: 0,
+      round: 1, roundsP: 0, roundsG: 0,
+      gmState: 'CHARMING', line: this.pick('CHARMING'),
+      flash: null, revealed: {}, peek: false, phase: null,
+      readUnlocked: false, suspicion: 0, testState: 'none'
+    };
+    this.dealInto(g, 'player');
+    return g;
+  }
+
+  pick(state) { const a = this.LINES[state] || this.LINES.CHARMING; return a[Math.floor(Math.random()*a.length)]; }
+  doubtLine() { return this.DOUBT[Math.floor(Math.random()*this.DOUBT.length)]; }
+
+  buildDeck() {
+    const d = []; let id = 0;
+    Object.keys(this.SUITS).forEach(s => { for (let r=1;r<=7;r++) d.push({ suit:s, rank:r, id:'c'+(id++) }); });
+    for (let i=d.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=d[i]; d[i]=d[j]; d[j]=t; }
+    return d;
+  }
+
+  dealInto(g, leader) {
+    const d = this.buildDeck();
+    g.playerHand = d.slice(0,7); g.gmHand = d.slice(7,14);
+    g.trickP = 0; g.trickG = 0; g.leader = leader;
+    g.table = { player:null, gm:null, leadSuit:null, gmCheated:false, cheatType:null };
+    g.revealed = {}; g.peek = false; g.bonesUsed = false;
+    if (leader === 'gm') { this.gmLead(g); g.phase='gmLead'; g.status='He leads. You must follow.'; }
+    else { g.phase='playerLead'; g.status='Your lead. Choose a card.'; }
+    return g;
+  }
+
+  winner(pc, gc, leadSuit) {
+    const pF = pc.suit==='flames', gF = gc.suit==='flames';
+    if (pF && gF) return pc.rank>gc.rank ? 'player':'gm';
+    if (pF) return 'player';
+    if (gF) return 'gm';
+    if (pc.suit===gc.suit) return pc.rank>gc.rank ? 'player':'gm';
+    if (pc.suit===leadSuit) return 'player';
+    if (gc.suit===leadSuit) return 'gm';
+    return pc.rank>=gc.rank ? 'player':'gm';
+  }
+
+  gmFollow(g, force) {
+    const lead = g.table.leadSuit, pc = g.table.player, hand = g.gmHand;
+    const inLead = hand.filter(c=>c.suit===lead);
+    const flames = hand.filter(c=>c.suit==='flames');
+    let card = null, cheated = false, ctype = null;
+    const canWinLegal = () => {
+      if (inLead.length) { const beats = inLead.filter(c=> this.winner(pc, c, lead)==='gm'); if (beats.length){ beats.sort((a,b)=>a.rank-b.rank); return beats[0]; } return null; }
+      if (lead!=='flames' && flames.length) { flames.sort((a,b)=>a.rank-b.rank); return flames[0]; }
+      return null;
+    };
+    const legalWin = canWinLegal();
+    if (legalWin && !force) { card = legalWin; }
+    else {
+      const tier = [0,0.28,0.5,0.68,0.82][g.corruption] || 0;
+      const p = g.readUnlocked ? tier : 0.55; // blind phase: cheats often, so doubt builds
+      const willCheat = force || (Math.random() < p);
+      if (willCheat && !legalWin) {
+        cheated = true;
+        if (inLead.length && flames.length) { flames.sort((a,b)=>b.rank-a.rank); card = flames[0]; ctype='renege'; }
+        else { const pool = inLead.length ? inLead.slice() : hand.filter(c=>c.suit!=='flames'); const use = pool.length ? pool : hand.slice(); use.sort((a,b)=>b.rank-a.rank); card = use[0]; ctype='phantom'; }
+      } else if (legalWin) { card = legalWin; }
+      else { const pool = inLead.length ? inLead.slice() : hand.filter(c=>c.suit!=='flames'); const use = pool.length ? pool : hand.slice(); use.sort((a,b)=>a.rank-b.rank); card = use[0]; }
+    }
+    g.gmHand = hand.filter(c=>c.id!==card.id);
+    g.table.gm = card; g.table.gmCheated = cheated; g.table.cheatType = ctype;
+    g.effWinner = cheated ? 'gm' : this.winner(pc, card, lead);
+    g.legitWinner = this.winner(pc, card, lead);
+  }
+
+  gmLead(g) {
+    const hand = g.gmHand.slice();
+    const nonF = hand.filter(c=>c.suit!=='flames'); const pool = nonF.length ? nonF : hand;
+    pool.sort((a,b)=>a.rank-b.rank);
+    const card = pool[Math.floor(pool.length/2)] || pool[0];
+    g.gmHand = hand.filter(c=>c.id!==card.id);
+    g.table = { player:null, gm:card, leadSuit:card.suit, gmCheated:false, cheatType:null };
+  }
+
+  playerPlay(card) {
+    const g = { ...this.state, table: { ...this.state.table }, revealed: { ...this.state.revealed } };
+    if (g.phase === 'playerLead') {
+      g.playerHand = g.playerHand.filter(c=>c.id!==card.id);
+      g.table = { player:card, gm:null, leadSuit:card.suit, gmCheated:false, cheatType:null };
+      if (card.suit==='eyes') g.peek = true;
+      const forceTest = g.testState==='active';
+      this.gmFollow(g, forceTest);
+      g.phase = 'awaitRead';
+      g.status = forceTest ? 'Watch his hands. Now.' : (g.readUnlocked ? 'He has played. Do you believe him?' : 'He answers.');
+      this.setState(g);
+    } else if (g.phase === 'gmLead') {
+      const lead = g.table.leadSuit;
+      const hasLead = g.playerHand.some(c=>c.suit===lead);
+      if (hasLead && card.suit!==lead) return;
+      g.playerHand = g.playerHand.filter(c=>c.id!==card.id);
+      g.table = { ...g.table, player:card };
+      g.effWinner = this.winner(card, g.table.gm, lead); g.legitWinner = g.effWinner;
+      this.settle(g, false, false);
+      this.setState(g);
+    }
+  }
+
+  onRead() {
+    const g = { ...this.state, table:{ ...this.state.table }, revealed:{ ...this.state.revealed } };
+    if (g.phase !== 'awaitRead') return;
+    if (g.table.gmCheated) {
+      g.flash = 'green'; g.cheatsCaught += 1;
+      g.defiance = Math.min(20, g.defiance+2); g.corruption = Math.min(4, g.corruption+1);
+      g.sanity = Math.min(100, g.sanity+3);
+      g.effWinner = 'player';
+      if (g.testState === 'active') {
+        g.readUnlocked = true; g.testState = 'done';
+        g.gmState = 'IRRITATED'; g.line = 'You… saw that. Clever thing.';
+        g.status = 'There. He cheats — and now you can call it.';
+        // authored payoff: freeze the table and play the catch cinematic
+        g.caughtCard = g.table.gm ? { ...g.table.gm } : null;
+        g.caughtType = g.table.cheatType; g.caughtLead = g.table.leadSuit;
+        g.catchSeq = 0;
+      } else {
+        g.gmState = 'IRRITATED'; g.line = this.pick('IRRITATED');
+        g.status = 'Caught. He takes the card back.';
+      }
+      this.settle(g, true, true);
+    } else {
+      g.flash = 'crimson'; g.sanity = Math.max(0, g.sanity-6);
+      g.compliance = Math.min(20, g.compliance+1);
+      g.gmState = g.sanity<25 ? 'PREDATORY' : 'COLD'; g.line = this.pick('FALSE');
+      g.status = 'There was nothing to catch.';
+      this.settle(g, false, true);
+    }
+    this.setState(g); this.clearFlash();
+  }
+
+  onStand() {
+    const g = { ...this.state, table:{ ...this.state.table }, revealed:{ ...this.state.revealed } };
+    if (g.phase !== 'awaitRead') return;
+    if (g.table.gmCheated) { g.corruption = Math.min(4, g.corruption+1); g.sanity = Math.max(0, g.sanity-4); g.status = 'You let it stand. Something curdles.'; }
+    else { g.status = g.effWinner==='player' ? 'You take the trick, fair and square.' : 'His, honestly.'; }
+    this.settle(g, false, false); this.setState(g);
+  }
+
+  onContinue() {
+    const g = { ...this.state, table:{ ...this.state.table }, revealed:{ ...this.state.revealed } };
+    if (g.phase !== 'awaitRead') return;
+    if (g.table.gmCheated) {
+      g.corruption = Math.min(4, g.corruption+1);
+      g.sanity = Math.max(0, g.sanity-3);
+      g.suspicion = (g.suspicion||0) + 1;
+      g.status = this.doubtLine();
+      if (!g.readUnlocked && g.suspicion >= 2 && g.testState === 'none') g.testState = 'pending';
+    } else {
+      g.status = g.effWinner==='player' ? 'You take the trick.' : 'His, this time.';
+    }
+    this.settle(g, false, false); this.setState(g);
+  }
+
+  settle(g, caught, readUsed) {
+    let win = g.effWinner; if (caught) win = 'player';
+    const pcard = g.table.player, gcard = g.table.gm;
+    let bonesBack = null;
+    if (!caught && win==='gm' && pcard && pcard.suit==='bones' && !g.bonesUsed) { bonesBack = pcard; g.bonesUsed = true; }
+    const winnerCard = win==='player' ? pcard : gcard;
+    if (winnerCard && winnerCard.suit==='teeth' && win==='player' && g.gmHand.length) {
+      const r = g.gmHand[Math.floor(Math.random()*g.gmHand.length)]; g.revealed = { ...g.revealed, [r.id]:true };
+    }
+    if (win==='player') g.trickP += 1; else g.trickG += 1;
+    if (bonesBack) g.playerHand = [...g.playerHand, bonesBack];
+    g.lastWinner = win; g.peek = false; g.phase = 'trickDone';
+    if (!g.status) g.status = win==='player' ? 'The trick is yours.' : 'He takes it.';
+  }
+
+  nextTrick() {
+    const g = { ...this.state, table:{ ...this.state.table }, revealed:{ ...this.state.revealed } };
+    g.flash = null;
+    if (g.playerHand.length===0 && g.gmHand.length===0) {
+      const pWin = g.trickP >= 4;
+      if (pWin) g.roundsP += 1; else g.roundsG += 1;
+      if (g.roundsP===2 || g.roundsG===2) {
+        g.phase = 'gameDone';
+        if (g.roundsP===2) { g.gmState = g.cheatsCaught>=4 ? 'VULNERABLE':'IRRITATED'; g.line = g.cheatsCaught>=4 ? 'I was very good, once. You were better.' : 'You won. Do not mistake it for the end.'; g.status = g.cheatsCaught>=4 ? 'You beat him — and you saw how.' : 'You beat him. But did you see how?'; }
+        else { g.gmState='HOSTILE'; g.line='The house keeps you a while longer.'; g.status='He wins the night. Try again.'; }
+        this.setState(g); return;
+      }
+      g.round += 1; g.gmState = g.round===2 ? 'COLD' : 'HOSTILE'; g.line = this.pick(g.gmState);
+      this.dealInto(g, 'player'); this.setState(g); return;
+    }
+    const lead = g.lastWinner || 'player';
+    g.leader = lead; g.table = { player:null, gm:null, leadSuit:null, gmCheated:false, cheatType:null };
+    if (g.sanity < 25) g.gmState='PREDATORY';
+    else if (g.gmState==='IRRITATED' && g.testState!=='done') g.gmState = g.round>=3?'HOSTILE':(g.round===2?'COLD':'CHARMING');
+    if (lead==='gm') { this.gmLead(g); g.phase='gmLead'; g.status='He leads. You must follow.'; g.line=this.pick(g.gmState); }
+    else {
+      g.phase='playerLead';
+      if (g.testState==='pending') { g.testState='active'; g.status='Test him.'; g.line='Getting bold, are we.'; }
+      else g.status='Your lead.';
+    }
+    this.setState(g);
+  }
+
+  advCatch() { if (this.state.catchSeq == null) return; const n = this.state.catchSeq + 1; this.setState({ catchSeq: n > 3 ? null : n }); }
+
+  newGame() { this.setState(this.freshGame()); }
+  clearFlash() { setTimeout(()=>{ if(this.state.flash){ this.setState({ flash:null }); } }, 620); }
+
+  cardStyle(accent, opts) {
+    opts = opts||{};
+    let s = 'position:relative;width:64px;height:92px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:linear-gradient(155deg,#EBE0D1,#d3c6ad);border:1px solid rgba(0,0,0,0.25);color:'+accent+';box-shadow:0 6px 16px rgba(0,0,0,0.45);flex:none;';
+    if (opts.click) s += 'cursor:pointer;transition:transform .12s ease;';
+    if (opts.dim) s += 'opacity:0.4;filter:grayscale(0.4);cursor:not-allowed;';
+    if (opts.lift) s += 'transform:translateY(-6px);box-shadow:0 12px 22px rgba(0,0,0,0.55);border-color:rgba(242,199,89,0.6);';
+    return s;
+  }
+
+  renderVals() {
+    const g = this.state, S = this.SUITS, corr = this.CORR[g.corruption];
+    const _snap=this.devSnapshot(); const _cur=_snap.phase;
+    const _phStyle=(n)=>'font-family:\'JetBrains Mono\',monospace;font-size:9px;letter-spacing:0.05em;padding:4px 7px;border:1px solid '+(n===_cur?'#F2C759':'rgba(242,199,89,0.25)')+';color:'+(n===_cur?'#FFFFF2':'#A69980')+';background:'+(n===_cur?'rgba(242,199,89,0.14)':'transparent')+';cursor:pointer;';
+    const devPhases=this.devPhaseList().map(n=>({label:n,on:()=>this.devGoTo(n),style:_phStyle(n)}));
+    const devRows=Object.keys(_snap).map(k=>({k,v:String(_snap[k])}));
+    const introStep = Math.min(this.introSeq.length-1, g.introStep||0);
+    const introCur = this.introSeq[introStep] || this.introSeq[0];
+    const introIsAldric = introCur.who==='a';
+    const introGrog = Math.max(0, 2 - introStep);
+    const introBlur = introGrog*3.4;
+    const introDark = introStep<=1 ? 0.92 : 0.82;
+    const lead = g.table && g.table.leadSuit;
+    const following = g.phase==='gmLead';
+    const hasLead = following && g.playerHand.some(c=>c.suit===lead);
+    const canPlay = g.phase==='playerLead' || g.phase==='gmLead';
+    const testActive = g.testState==='active';
+    // suggest lowest card during test
+    let lowestId = null;
+    if (testActive && g.playerHand && g.playerHand.length) { const sorted = g.playerHand.slice().sort((a,b)=>a.rank-b.rank); lowestId = sorted[0].id; }
+    const playerCards = (g.playerHand||[]).map(c=>{
+      const legal = canPlay && (!following || !hasLead || c.suit===lead);
+      return { rank:c.rank, glyph:S[c.suit].glyph, suitName:S[c.suit].name,
+        style:this.cardStyle(S[c.suit].accent, { click:legal, dim:(canPlay && !legal), lift:(testActive && c.id===lowestId) }),
+        on: legal ? (()=>this.playerPlay(c)) : (()=>{}) };
+    });
+
+    const gmCards = (g.gmHand||[]).map(c=>{
+      const show = g.peek || (g.revealed && g.revealed[c.id]);
+      if (show) return { rank:c.rank, glyph:S[c.suit].glyph, style:'position:relative;width:38px;height:54px;border-radius:5px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(155deg,#EBE0D1,#d3c6ad);border:1px solid rgba(242,199,89,0.5);color:'+S[c.suit].accent+';flex:none;' };
+      return { rank:'', glyph:'✦', style:'position:relative;width:38px;height:54px;border-radius:5px;display:flex;align-items:center;justify-content:center;background:repeating-linear-gradient(45deg,#1c1409,#1c1409 4px,#241a0d 4px,#241a0d 8px);border:1px solid rgba(242,199,89,0.3);color:rgba(242,199,89,0.35);flex:none;' };
+    });
+
+    const cheating = g.phase==='awaitRead' && g.table.gmCheated;
+    let tell = 0;
+    if (cheating) tell = testActive ? 3.6 : (g.readUnlocked ? (1.2 + g.corruption*1.1) : 0.0);
+    const gmc = g.table && g.table.gm;
+    const tableGm = gmc ? { shown:true, rank:gmc.rank, glyph:S[gmc.suit].glyph,
+      style:'position:relative;width:74px;height:104px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:linear-gradient(155deg,#EBE0D1,#d3c6ad);color:'+S[gmc.suit].accent+';border:1px solid rgba(0,0,0,0.25);'+
+        'box-shadow:'+(-tell)+'px 0 0 rgba(143,47,42,'+Math.min(0.8,tell*0.18)+'),'+tell+'px 0 0 rgba(64,242,89,'+Math.min(0.8,tell*0.18)+'),0 8px 20px rgba(0,0,0,0.5);'+
+        (cheating && tell>0.5 ? 'animation:flick 1.6s infinite;' : '') } : { shown:false };
+    const pc = g.table && g.table.player;
+    const winFlashP = g.phase==='trickDone' && g.lastWinner==='player';
+    const tablePlayer = pc ? { shown:true, rank:pc.rank, glyph:S[pc.suit].glyph,
+      style:'position:relative;width:74px;height:104px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:linear-gradient(155deg,#EBE0D1,#d3c6ad);color:'+S[pc.suit].accent+';border:1px solid '+(winFlashP?'rgba(64,242,89,0.7)':'rgba(0,0,0,0.25)')+';box-shadow:0 8px 20px rgba(0,0,0,0.5);' } : { shown:false };
+
+    const feltColor = ['#14210F','#152110','#1a1c0d','#241610','#0c0c08'][g.corruption] || '#14210F';
+    let warp = '';
+    if (g.sanity<=25) warp = 'animation:breathe 5s ease-in-out infinite;transform:rotate(1deg);';
+    else if (g.sanity<=50) warp = 'animation:breathe 6s ease-in-out infinite;';
+
+    const frameColor = ['rgba(242,199,89,0.55)','rgba(242,199,89,0.45)','rgba(199,107,100,0.5)','rgba(143,47,42,0.7)','rgba(143,47,42,0.85)'][g.corruption];
+    const tarnish = g.corruption>=3 ? '#8f2f2a' : (g.corruption>=2? '#c76b64':'#F2C759');
+
+    const candleStyle = 'height:'+Math.max(4, g.sanity*0.34)+'px;transition:height .4s ease;'+ (g.sanity<=25?'filter:hue-rotate(-20deg);':'');
+    const sanityNote = g.sanity>50?'steady':(g.sanity>25?'fraying':'hollowing');
+    const balanceStyle = 'left:calc('+ (50 + (g.defiance-g.compliance)*2.4) +'% - 5px);transition:left .4s ease;';
+    const suspStyle = 'width:'+Math.min(100,(g.suspicion||0)/2*100)+'%;transition:width .4s ease;';
+
+    const awaiting = g.phase==='awaitRead';
+    let readVisible=false, standVisible=false, continueVisible=false, readLabel='⟡ Read him';
+    if (awaiting) {
+      if (testActive) { readVisible=true; readLabel='⟡ Now — read him'; }
+      else if (g.readUnlocked) { readVisible=true; standVisible=true; }
+      else { continueVisible=true; }
+    }
+    const nextVisible = g.phase==='trickDone' || g.phase==='gameDone';
+    const nextLabel = g.phase==='gameDone' ? 'Play again' : (g.playerHand.length===0 && g.gmHand.length===0 ? 'End the round' : 'Next trick');
+    const onNext = g.phase==='gameDone' ? (()=>this.newGame()) : (()=>this.nextTrick());
+    const readStyle = 'font-family:\'JetBrains Mono\',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;padding:11px 22px;cursor:pointer;border:1px solid #F2C759;background:rgba(242,199,89,0.14);color:#FFFFF2;animation:glint 1.8s infinite;';
+    const flashStyle = g.flash ? ('position:fixed;inset:0;z-index:70;pointer-events:none;animation:flashfade .62s ease forwards;background:radial-gradient(circle at 50% 45%,'+ (g.flash==='green'?'rgba(64,242,89,0.4)':'rgba(143,47,42,0.45)') +' 0%,transparent 60%);') : 'display:none;';
+
+    const roundLabel = 'Round '+g.round+' — best of three · win 4 tricks';
+    const leadInfo = g.table && g.table.leadSuit ? ('LEAD SUIT · '+S[g.table.leadSuit].name) : 'AWAITING LEAD';
+    const gmHandNote = g.peek ? '· revealed (Eyes)' : ('· '+(g.gmHand?g.gmHand.length:0)+' cards');
+    const playerHint = g.phase==='gmLead' && hasLead ? '· follow '+S[lead].name : (g.phase==='playerLead'?'· your lead':'');
+    const testLine = 'He always covers your highest card. So do not give him one — lead your lowest, and watch his hands.';
+
+    // ---- the catch cinematic (authored first-read payoff) ----
+    const cs = g.catchSeq;
+    const catchActive = cs != null;
+    let catchKicker='', catchBig='', catchSub='', catchShowCard=false, catchBtn=false;
+    const cc = g.caughtCard, ct = g.caughtType, cl = g.caughtLead;
+    const leadName = cl ? S[cl].name : 'the suit';
+    if (catchActive) {
+      if (cs===0) { catchKicker='YOU CAUGHT IT'; catchBig='Your hand moved before you decided to.'; catchSub='Time went thick. His fingers stopped an inch above the felt, and the room held its breath with you.'; }
+      else if (cs===1) { catchKicker='THE SWITCH'; catchShowCard=true;
+        catchBig = ct==='renege'
+          ? ('You led '+leadName+'. He was holding '+leadName+' — you’d seen it. Instead a Flame fell, to burn a trick he had no right to take.')
+          : ('The '+(cc?cc.rank:'')+' of '+(cc?S[cc.suit].name:'')+' that beat you was already spent tonight. It had no business being in his hand.');
+        catchSub='You saw it. Both cards, for half a second, held in the same hand.'; }
+      else if (cs===2) { catchKicker='ALDRIC VOSS'; catchBig='For the first time, he went still.';
+        catchSub='Not the stillness of a man caught out. Something older than that. For half a breath the charm slid off his face, and underneath was a look that was almost — grateful. Then a lid came down, and the smile came back.'; }
+      else { catchKicker='YOU CAN CALL IT NOW'; catchBig='Watch his hands.'; catchSub='Every hand from here, if he cheats, you will see it — so long as you are looking. And he knows now that you can.'; catchBtn=true; }
+    }
+    const catchCardStyle = 'position:relative;width:96px;height:136px;border-radius:11px;display:flex;align-items:center;justify-content:center;background:linear-gradient(155deg,#EBE0D1,#d3c6ad);color:'+(cc?S[cc.suit].accent:'#c76b64')+';border:1px solid rgba(0,0,0,0.3);box-shadow:-7px 0 0 rgba(143,47,42,0.75),7px 0 0 rgba(64,242,89,0.75),0 14px 34px rgba(0,0,0,0.6);animation:flick 1.6s infinite;';
+
+    return {
+      playerCards, gmCards, tableGm, tablePlayer,
+      feltColor, tableWarp:warp, frameColor,
+      pip1: g.corruption>=3?tarnish:'#F2C759', pip2: g.corruption>=2?tarnish:'rgba(242,199,89,0.4)', pip3: 'rgba(242,199,89,0.4)', pip4: tarnish,
+      corrTier:g.corruption, corrName:corr.name, corrColor:corr.color,
+      dlgColor: (g.gmState==='IRRITATED'||g.gmState==='VULNERABLE')?'#2f7a3a':(g.gmState==='HOSTILE'?'#8f2f2a':'#8a6a1e'),
+      gmStateLabel: g.gmState, gmLine: g.line,
+      status: g.status, leadInfo, gmHandNote, playerHint,
+      trickP:g.trickP, trickG:g.trickG, roundsP:g.roundsP, roundsG:g.roundsG,
+      sanityVal:g.sanity, defianceVal:g.defiance, complianceVal:g.compliance, cheatsCaught:g.cheatsCaught,
+      candleStyle, sanityNote, balanceStyle, suspStyle,
+      hudSuspicion: !g.readUnlocked, hudCaught: !!g.readUnlocked,
+      testActive, testLine,
+      readVisible, standVisible, continueVisible, nextVisible, nextLabel, readLabel, readStyle, flashStyle,
+      onRead:()=>this.onRead(), onStand:()=>this.onStand(), onContinue:()=>this.onContinue(), onNext, onNewGame:()=>this.newGame(), roundLabel,
+      devOpen:g.devOpen, devPhases, devRows, onDevToggle:()=>this.toggleDev(), onDevClose:()=>this.toggleDev(),
+      intro: !!g.intro,
+      catchActive, catchKicker, catchBig, catchSub, catchShowCard, catchBtn,
+      catchCardRank: cc?cc.rank:'', catchCardGlyph: cc?S[cc.suit].glyph:'', catchCardStyle,
+      catchHint: cs!=null && cs<3, onAdvCatch: ()=>this.advCatch(),
+      catchOverlayStyle: 'position:fixed;inset:0;z-index:84;display:flex;flex-direction:column;justify-content:center;align-items:center;cursor:pointer;background:radial-gradient(68% 68% at 50% 44%,rgba(4,3,2,0.9),rgba(1,1,1,0.99));',
+      onAdvIntro: ()=>this.advIntro(),
+      introText: introCur.t, introIsAldric: introIsAldric,
+      introOverlayStyle: 'position:fixed;inset:0;z-index:80;display:flex;flex-direction:column;justify-content:center;align-items:center;cursor:pointer;background:radial-gradient(78% 78% at 50% 45%,rgba(6,4,3,'+introDark+'),rgba(2,1,1,0.99));backdrop-filter:blur('+introBlur+'px);-webkit-backdrop-filter:blur('+introBlur+'px);transition:backdrop-filter 1s ease,background 1s ease;',
+      introLineStyle: 'font-family:\'Cormorant Garamond\',serif;font-style:italic;font-size:clamp(23px,3.4vw,41px);line-height:1.18;color:'+(introIsAldric?'#F2C759':'#F3ECDD')+';text-shadow:0 3px 28px rgba(0,0,0,0.95);animation:'+((introStep%2)?'riseA':'riseB')+' .85s ease both;',
+      introHint: (introStep>=this.introSeq.length-1) ? 'click to pick up your hand' : 'click to continue',
+      introHintStyle: 'opacity:'+(g.intro?0.7:0)+';animation:'+((introStep%2)?'riseA':'riseB')+' 1.2s ease both;'
+    };
+  }
+}
+</script>
+</body>
+</html>

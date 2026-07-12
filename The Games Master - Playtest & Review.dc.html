@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400&family=Spectral:ital,wght@0,400;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; background:#080706; }
+  ::selection { background: rgba(242,199,89,0.28); color:#FFFFF2; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  a { color:#E6B86B; } a:hover { color:#F2C759; }
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:radial-gradient(130% 90% at 50% -10%,#160f08,#080706 62%);color:#EBE0D1;font-family:'Spectral',serif;padding:32px 26px 70px;">
+  <div style="max-width:1160px;margin:0 auto;">
+
+    <!-- HEADER -->
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1px solid rgba(242,199,89,0.2);padding-bottom:18px;">
+      <div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:38px;color:#F2C759;line-height:0.95;">The Table Talks Back</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:0.26em;color:#A69980;text-transform:uppercase;margin-top:8px;">Playtest &amp; Review · six players sit down with the current build</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-family:'Cormorant Garamond',serif;font-size:15px;color:#8a7a5e;letter-spacing:0.04em;">consensus</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:46px;color:#FFFFF2;line-height:0.9;">{{ avg }}<span style="font-size:20px;color:#6b6152;"> / 10</span></div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#8a7a5e;margin-top:2px;">{{ headline }}</div>
+      </div>
+    </div>
+
+    <!-- CONTROLS -->
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:18px 0 26px;">
+      <span onClick="{{ onRunAll }}" style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:#0d0b08;background:#F2C759;padding:11px 22px;cursor:pointer;font-weight:700;">Seat all six players</span>
+      <sc-if value="{{ runningAll }}" hint-placeholder-val="{{ false }}">
+        <span style="display:inline-flex;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#E6B86B;">
+          <span style="display:inline-block;width:13px;height:13px;border:2px solid rgba(242,199,89,0.3);border-top-color:#F2C759;border-radius:50%;animation:spin .8s linear infinite;"></span>
+          dealing them in…
+        </span>
+      </sc-if>
+      <span style="flex:1;"></span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#6b6152;letter-spacing:0.06em;">depth</span>
+      <div style="display:flex;border:1px solid rgba(242,199,89,0.3);">
+        <span onClick="{{ onHaiku }}" style="{{ haikuStyle }}">quick</span>
+        <span onClick="{{ onSonnet }}" style="{{ sonnetStyle }}">deep</span>
+      </div>
+    </div>
+
+    <!-- PERSONA GRID -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(348px,1fr));gap:16px;">
+      <sc-for list="{{ personas }}" as="p" hint-placeholder-count="6">
+        <div style="{{ p.cardStyle }}">
+          <!-- card head -->
+          <div style="display:flex;align-items:center;gap:13px;padding:15px 16px 13px;border-bottom:1px solid rgba(242,199,89,0.1);">
+            <div style="{{ p.avatarStyle }}">{{ p.initials }}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-family:'Cormorant Garamond',serif;font-size:21px;color:#FFFFF2;line-height:1;">{{ p.name }}</div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:#8a7a5e;margin-top:5px;">{{ p.tag }}</div>
+            </div>
+            <div style="{{ p.ratingStyle }}">{{ p.ratingLabel }}</div>
+          </div>
+
+          <!-- card body -->
+          <div style="padding:14px 16px 16px;">
+            <sc-if value="{{ p.isIdle }}" hint-placeholder-val="{{ true }}">
+              <div style="font-style:italic;color:#6b6152;font-size:14px;">Hasn't played yet. <span onClick="{{ p.onRun }}" style="color:#E6B86B;cursor:pointer;font-style:normal;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.08em;">→ sit them down</span></div>
+            </sc-if>
+            <sc-if value="{{ p.isRunning }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;align-items:center;gap:10px;color:#E6B86B;font-style:italic;font-size:14px;">
+                <span style="display:inline-block;width:12px;height:12px;border:2px solid rgba(242,199,89,0.3);border-top-color:#F2C759;border-radius:50%;animation:spin .8s linear infinite;"></span>
+                playing through it…
+              </div>
+            </sc-if>
+            <sc-if value="{{ p.isErr }}" hint-placeholder-val="{{ false }}">
+              <div style="color:#F24033;font-size:12.5px;font-family:'JetBrains Mono',monospace;line-height:1.5;">{{ p.err }} <span onClick="{{ p.onRun }}" style="color:#E6B86B;cursor:pointer;">retry</span></div>
+            </sc-if>
+
+            <sc-if value="{{ p.isDone }}" hint-placeholder-val="{{ false }}">
+              <div>
+                <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:19px;color:#EBE0D1;line-height:1.32;">"{{ p.verdict }}"</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.08em;color:#8a7a5e;margin-top:9px;">KEEP PLAYING? &nbsp;<span style="color:#EBE0D1;">{{ p.keep }}</span></div>
+
+                <div style="margin-top:13px;display:grid;gap:5px;">
+                  <sc-for list="{{ p.praise }}" as="pr" hint-placeholder-count="3">
+                    <div style="display:grid;grid-template-columns:14px 1fr;gap:8px;font-size:13.5px;line-height:1.4;color:#cbe0c6;"><span style="color:#5FA88B;">+</span><span>{{ pr }}</span></div>
+                  </sc-for>
+                </div>
+
+                <div onClick="{{ p.onToggle }}" style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:0.1em;color:#E6B86B;cursor:pointer;margin-top:13px;">{{ p.probLabel }}</div>
+                <sc-if value="{{ p.expanded }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-top:10px;display:grid;gap:11px;">
+                    <sc-for list="{{ p.problems }}" as="pb" hint-placeholder-count="2">
+                      <div style="border-left:2px solid rgba(242,199,89,0.25);padding-left:11px;">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                          <span style="{{ pb.sevStyle }}">{{ pb.severity }}</span>
+                          <span style="font-family:'Cormorant Garamond',serif;font-size:16px;color:#FFFFF2;">{{ pb.title }}</span>
+                        </div>
+                        <div style="font-size:13px;color:#c9bda9;line-height:1.45;margin-top:4px;">{{ pb.why }}</div>
+                        <div style="font-size:12.5px;color:#EBE0D1;line-height:1.45;margin-top:5px;"><span style="color:#8a7a5e;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:0.1em;">FIX &nbsp;</span>{{ pb.fix }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- FIX BACKLOG -->
+    <div style="margin-top:40px;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid rgba(242,199,89,0.2);padding-bottom:12px;">
+        <div style="font-family:'Cormorant Garamond',serif;font-size:28px;color:#F2C759;">The Fix Backlog</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.12em;color:#8a7a5e;">{{ backlogCount }} · sorted by severity · check what we take on</div>
+      </div>
+
+      <sc-if value="{{ hasBacklog }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top:4px;">
+          <sc-for list="{{ backlog }}" as="b" hint-placeholder-count="5">
+            <div style="{{ b.rowStyle }}">
+              <span onClick="{{ b.onPlan }}" style="{{ b.checkStyle }}">{{ b.checkMark }}</span>
+              <div>
+                <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;">
+                  <span style="{{ b.sevStyle }}">{{ b.severity }}</span>
+                  <span style="font-family:'Cormorant Garamond',serif;font-size:18px;color:#FFFFF2;">{{ b.title }}</span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.1em;color:#7a6f5c;">— {{ b.source }}</span>
+                </div>
+                <div style="font-size:13.5px;color:#EBE0D1;line-height:1.5;margin-top:6px;"><span style="color:#8a7a5e;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:0.1em;">FIX &nbsp;</span>{{ b.fix }}</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#7fd0a0;line-height:1.5;margin-top:5px;background:rgba(95,168,139,0.07);border:1px solid rgba(95,168,139,0.2);padding:6px 9px;"><span style="color:#5FA88B;letter-spacing:0.1em;">TEST · </span>{{ b.test }}</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ noBacklog }}" hint-placeholder-val="{{ true }}">
+        <div style="font-style:italic;color:#6b6152;font-size:15px;margin-top:16px;">No notes yet. Seat the players and their complaints collect here — each with a suggested test to add to the harness.</div>
+      </sc-if>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { runningAll:false, results:{}, planned:{}, expanded:{}, model:'haiku' };
+
+  DIGEST = `THE GAMES MASTER — a first-person psychological-horror card game (solo dev, atmospheric, Inscryption-adjacent).
+
+PREMISE: An engraved invitation arrives that knows your debts to the cent. It draws you to a decaying manor. Inside, a bound host — Aldric Voss, "the Games Master" — seats you at his table. He is a cheat and he never loses. THE TWIST: he WANTS to lose. He is trapped in the house by the same game and only a player who beats him fairly can end the cycle — so he plants tells, small telltale clues that he is cheating, hoping you will finally catch him.
+
+CORE LOOP: a trick-taking card game with four custom suits (Flames, Eyes, Bones, Teeth); Flames trump. EARNED VERB: at first you CANNOT accuse him — he is simply too good, and you lose tricks you know you should have won. A Suspicion meter rises as you feel something is off. Only once you have felt it do you EARN "the Read" — the ability to slow the table and catch a specific cheat. Catching cheats, not winning tricks, is the real game.
+
+TWO GAUGES: Corruption (0–4) — the house's grip; as it climbs, the UI, the cards, and Aldric distort and glitch and the language curdles. Sanity — your grip; low sanity tints and warps the room.
+
+STRUCTURE: Prologue (a quiet cold open of a life coming apart — missed calls, a hospital's Friday deadline, Mara, an envelope under the door — then a first-person foggy walk up to a huge mansion, the doors swing open, and a hand pulls you in as everything goes black). Entry Hall (explore a lived-in mansion — library, drawing room, dining room, study, grand staircase, portraits — with examine points that murmur to you). The Parlor (home base; the card table). Later rooms escalate: the Court, the Gallery, the Labyrinth. Six endings. A save-file-aware "house remembers" system (Inscryption-like): a hidden ledger records your habits and Aldric references them; it survives New Game and even save deletion.
+
+WRITING: the protagonist is NEVER named — the horror comes from precision, not from naming. Aldric is courtly, warm-but-wrong.
+
+CURRENT PLAYABLE BUILD: a playable Prologue (WASD + mouse-look, cold open, an invitation you can re-read, story beats along the walk, an animated door, the knockout); an explorable Entry Hall (real textures, 11 examinable points of interest, lightning); a playable Parlor prototype (real trick-taking, the blind phase leading to the earned Read, Corruption/Sanity, win/lose). Plus a dev menu and an automated test harness.`;
+
+  SHARED = 'You are reviewing a real, in-progress build — this is a working playtest, not marketing copy. Be specific to THIS game, referencing its actual mechanics by name. Be honest and critical. Respond with ONLY a single JSON object, no prose before or after.';
+
+  PERSONAS = [
+    { id:'devotee', name:'Vera Koll', tag:'Horror devotee', tint:'#C4463B',
+      system:"You are Vera, a devoted psychological-horror player who has finished Inscryption, Signalis and every meta-horror game twice. You care about dread, whether the 'he wants to lose' twist actually lands emotionally or is merely told to the player, and whether the game earns its scares instead of borrowing them. Warm, but you have standards." },
+    { id:'systems', name:'Dex Arroyo', tag:'Systems / optimizer', tint:'#5E86C4',
+      system:"You are Dex, a systems-first player and theorycrafter. You care about mechanical depth: whether trick-taking plus the Read verb has genuine decision space or is fake, whether it is exploitable, and whether Corruption and Sanity are real systems with feedback loops or just set dressing. You reason about edge cases and dominant strategies." },
+    { id:'critic', name:'E. Halloran', tag:'Narrative critic', tint:'#A97CC4',
+      system:"You are Professor Halloran, a narrative critic. You care about writing quality, pacing and structure, and character (Aldric, the unnamed protagonist, Mara). You judge whether the cold open earns the walk and the walk earns the table. You cite specifics and you do not tolerate cliche or on-the-nose exposition." },
+    { id:'firsttimer', name:'Sam Ng', tag:'First-timer', tint:'#5FA88B',
+      system:"You are Sam, a curious but non-hardcore player who gets lost or bored easily. You care about whether you understand what to do, whether the opening drags before anything happens, and whether you would keep playing past ten minutes. You speak plainly and admit when you are confused." },
+    { id:'ux', name:'Iris Vance', tag:'Accessibility & UX', tint:'#E6B86B',
+      system:"You are Iris, an accessibility and UX reviewer. You care about the two-reds palette risk for colorblind players, flashing and motion (lightning, glitch effects, screen tint) for photosensitivity and motion sickness, control clarity, text legibility, and whether feedback is clear. You are practical and specific about remedies." },
+    { id:'skeptic', name:'The Skeptic', tag:'Commercial skeptic', tint:'#9a8a6e',
+      system:"You are a blunt commercial skeptic. You care whether this is genuinely differentiated or just aesthetic, what the one-line pitch is, whether the first ten minutes retain a player, and whether the 'house remembers' system is a real selling point or a footnote most players never notice. No flattery." }
+  ];
+
+  userPrompt() {
+    return this.DIGEST + '\n\nReview it in your own voice. Give 2–4 items of praise and 2–4 problems. Return ONLY this JSON shape:\n' +
+      '{"rating": <integer 1-10>, "verdict": "<one vivid sentence in your voice>", "keepPlaying": "<yes or no, plus a few words why>", "praise": ["<specific>", "..."], "problems": [{"title": "<short>", "severity": "high|med|low", "why": "<specific to this game>", "fix": "<one concrete change>", "test": "<a checkable acceptance criterion we could add to the automated test harness>"}]}';
+  }
+
+  parse(text) {
+    try { return JSON.parse(text); } catch(e) {}
+    const a = text.indexOf('{'), b = text.lastIndexOf('}');
+    if (a>=0 && b>a) { try { return JSON.parse(text.slice(a, b+1)); } catch(e) {} }
+    throw new Error('Could not parse the review');
+  }
+
+  async runOne(id) {
+    const p = this.PERSONAS.find(x=>x.id===id); if (!p) return;
+    this.setState({ results: Object.assign({}, this.state.results, { [id]:{ status:'running' } }) });
+    try {
+      if (!(window.claude && window.claude.complete)) throw new Error('Claude is unavailable in this preview — open the design normally to run reviews.');
+      const model = this.state.model==='sonnet' ? 'claude-sonnet-4-5' : 'claude-haiku-4-5';
+      const text = await window.claude.complete({ model, max_tokens:1600, system: p.system+' '+this.SHARED, messages:[{ role:'user', content:this.userPrompt() }] });
+      const data = this.parse(text);
+      this.setState({ results: Object.assign({}, this.state.results, { [id]:{ status:'done', data } }) });
+    } catch(e) {
+      this.setState({ results: Object.assign({}, this.state.results, { [id]:{ status:'error', err:String((e&&e.message)||e) } }) });
+    }
+  }
+
+  async runAll() {
+    if (this.state.runningAll) return;
+    this.setState({ runningAll:true });
+    for (const p of this.PERSONAS) { await this.runOne(p.id); }
+    this.setState({ runningAll:false });
+  }
+
+  togglePlanned(key) { const pl = Object.assign({}, this.state.planned); pl[key] = !pl[key]; this.setState({ planned: pl }); }
+  toggleExpand(id) { const ex = Object.assign({}, this.state.expanded); ex[id] = !ex[id]; this.setState({ expanded: ex }); }
+  setModel(m) { this.setState({ model:m }); }
+
+  renderVals() {
+    const R = this.state.results || {}, PL = this.state.planned || {}, EX = this.state.expanded || {};
+    const sevStyle = (s)=>{ const m={high:'#F24033',med:'#E6B86B',low:'#5FA88B'}; const c=m[s]||'#8a7a5e'; return 'font-family:\'JetBrains Mono\',monospace;font-size:8.5px;letter-spacing:0.12em;text-transform:uppercase;padding:2px 6px;color:'+c+';border:1px solid '+c+';'; };
+
+    const personas = this.PERSONAS.map(p=>{
+      const r = R[p.id] || { status:'idle' }; const d = r.data;
+      const initials = p.name.replace(/[^A-Za-z ]/g,'').split(' ').filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase() || '?';
+      const problems = (d && d.problems ? d.problems : []).map(pb=>({ title:pb.title, severity:pb.severity, why:pb.why, fix:pb.fix, sevStyle:sevStyle(pb.severity) }));
+      return {
+        id:p.id, name:p.name, tag:p.tag, initials,
+        cardStyle:'background:rgba(13,11,8,0.72);border:1px solid rgba(242,199,89,0.16);border-top:2px solid '+p.tint+';',
+        avatarStyle:'flex:0 0 auto;width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:\'JetBrains Mono\',monospace;font-size:13px;font-weight:700;color:#0d0b08;background:'+p.tint+';',
+        status:r.status, isIdle:r.status==='idle', isRunning:r.status==='running', isDone:r.status==='done', isErr:r.status==='error',
+        err:r.err||'',
+        ratingLabel: d?String(d.rating):'—',
+        ratingStyle: 'font-family:\'Cormorant Garamond\',serif;font-size:30px;color:'+(d?(d.rating>=7?'#5FA88B':d.rating>=5?'#E6B86B':'#F24033'):'#3a352c')+';line-height:1;min-width:34px;text-align:right;',
+        verdict: d?d.verdict:'', keep: d?d.keepPlaying:'',
+        praise: d&&d.praise?d.praise:[],
+        problems,
+        probLabel: (EX[p.id]?'– hide ':'+ ')+problems.length+' problem'+(problems.length===1?'':'s'),
+        expanded: !!EX[p.id],
+        onToggle: ()=>this.toggleExpand(p.id), onRun: ()=>this.runOne(p.id)
+      };
+    });
+
+    // backlog
+    let bl = [];
+    this.PERSONAS.forEach(p=>{ const r=R[p.id]; if (r && r.data && r.data.problems) r.data.problems.forEach((pb,i)=>{ bl.push({ key:p.id+':'+i, source:p.name, title:pb.title, severity:pb.severity, fix:pb.fix, test:pb.test, why:pb.why }); }); });
+    const order={high:0,med:1,low:2};
+    bl.sort((a,b)=>(order[a.severity]??3)-(order[b.severity]??3));
+    const backlog = bl.map(x=>{
+      const planned = !!PL[x.key];
+      return Object.assign({}, x, {
+        sevStyle:sevStyle(x.severity),
+        planned,
+        checkMark: planned?'✓':'',
+        checkStyle:'flex:0 0 auto;width:20px;height:20px;border:1px solid '+(planned?'#5FA88B':'rgba(242,199,89,0.35)')+';background:'+(planned?'rgba(95,168,139,0.18)':'transparent')+';color:#5FA88B;display:flex;align-items:center;justify-content:center;font-family:\'JetBrains Mono\',monospace;font-size:12px;cursor:pointer;margin-top:2px;',
+        rowStyle:'display:grid;grid-template-columns:20px 1fr;gap:13px;align-items:start;padding:14px 2px;border-bottom:1px solid rgba(242,199,89,0.08);opacity:'+(planned?'0.62':'1')+';'
+      });
+    });
+
+    const done = this.PERSONAS.map(p=>R[p.id]).filter(r=>r && r.data);
+    const avg = done.length ? (done.reduce((s,r)=>s+(+r.data.rating||0),0)/done.length).toFixed(1) : '—';
+    const highN = bl.filter(x=>x.severity==='high').length;
+    const headline = done.length ? (done.length+' of 6 played · '+bl.length+' notes'+(highN?' · '+highN+' high':'')) : 'nobody has played yet';
+
+    const mSel = (on)=> 'font-family:\'JetBrains Mono\',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;padding:8px 15px;cursor:pointer;'+(on?'background:#F2C759;color:#0d0b08;font-weight:700;':'color:#A69980;');
+
+    return {
+      personas, backlog,
+      avg, headline,
+      runningAll: this.state.runningAll,
+      hasBacklog: backlog.length>0, noBacklog: backlog.length===0,
+      backlogCount: backlog.length+' note'+(backlog.length===1?'':'s'),
+      haikuStyle: mSel(this.state.model==='haiku'), sonnetStyle: mSel(this.state.model==='sonnet'),
+      onRunAll: ()=>this.runAll(), onHaiku: ()=>this.setModel('haiku'), onSonnet: ()=>this.setModel('sonnet')
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; background:#080706; }
+  ::selection { background: rgba(242,199,89,0.28); color:#FFFFF2; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:radial-gradient(120% 80% at 50% 0%,#140f08,#080706 60%);color:#EBE0D1;font-family:'JetBrains Mono',monospace;padding:30px 26px 60px;">
+  <div style="max-width:1080px;margin:0 auto;">
+
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1px solid rgba(242,199,89,0.2);padding-bottom:16px;margin-bottom:8px;">
+      <div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:32px;color:#F2C759;line-height:1;">The Games Master</div>
+        <div style="font-size:11px;letter-spacing:0.26em;color:#A69980;text-transform:uppercase;margin-top:6px;">Automated Test Harness</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-family:'Cormorant Garamond',serif;font-size:26px;{{ summaryStyle }}">{{ summary }}</div>
+        <div style="font-size:10.5px;letter-spacing:0.14em;color:#8a7a5e;margin-top:4px;">{{ total }} &nbsp;·&nbsp; {{ statusText }}</div>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:14px;margin:14px 0 22px;">
+      <span onClick="{{ onRerun }}" style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#FFFFF2;border:1px solid #F2C759;background:rgba(242,199,89,0.12);padding:9px 18px;cursor:pointer;">Re-run all</span>
+      <sc-if value="{{ running }}" hint-placeholder-val="{{ true }}">
+        <span style="display:inline-block;width:13px;height:13px;border:2px solid rgba(242,199,89,0.3);border-top-color:#F2C759;border-radius:50%;animation:spin .8s linear infinite;"></span>
+      </sc-if>
+      <span style="font-size:10.5px;color:#6b6152;letter-spacing:0.08em;">Each scene loads live below · press ` in any scene for its dev menu</span>
+    </div>
+
+    <sc-for list="{{ groups }}" as="g" hint-placeholder-count="3">
+      <div style="border:1px solid rgba(242,199,89,0.16);background:rgba(12,10,7,0.6);margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid rgba(242,199,89,0.12);background:rgba(20,15,9,0.5);">
+          <span style="font-family:'Cormorant Garamond',serif;font-size:22px;color:#FFFFF2;">{{ g.scene }}</span>
+          <span style="font-size:13px;font-weight:700;letter-spacing:0.1em;{{ g.tallyStyle }}">{{ g.tally }}</span>
+        </div>
+        <div style="padding:6px 16px 12px;">
+          <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="6">
+            <div style="display:grid;grid-template-columns:18px 1fr auto;gap:12px;align-items:baseline;padding:6px 0;border-bottom:1px solid rgba(242,199,89,0.05);">
+              <span style="font-size:14px;{{ r.markStyle }}">{{ r.mark }}</span>
+              <span style="font-size:12px;{{ r.nameStyle }}">{{ r.name }}</span>
+              <span style="font-size:10.5px;color:#c76b64;text-align:right;">{{ r.msg }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+
+    <div style="font-size:10.5px;letter-spacing:0.14em;color:#8a7a5e;text-transform:uppercase;margin:26px 0 10px;">Live scene previews</div>
+    <div id="gm-harness-frames" style="display:flex;flex-wrap:wrap;gap:12px;"></div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { results:[], running:false, done:false, started:false };
+
+  componentDidMount() { this.run(); }
+
+  sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
+  waitFor(fn, ms) {
+    return new Promise(res=>{ const t0=Date.now(); const tick=()=>{ let ok=false; try{ ok=fn(); }catch(e){} if(ok) return res(true); if(Date.now()-t0>ms) return res(false); setTimeout(tick,60); }; tick(); });
+  }
+
+  specs() {
+    const err = (e)=>{ if(e && e.length) throw new Error(e.length+' error(s): '+e[0]); return true; };
+    return [
+      { scene:'Prologue', file:'The Games Master - Prologue.dc.html', tests:[
+        { name:'bridge present · scene = prologue', fn:(w,GM)=>{ if(GM.scene!=='prologue') throw new Error('scene='+GM.scene); return true; } },
+        { name:'three.js scene builds', fn:async(w,GM,C,H)=>{ if(!await H.waitFor(()=>GM.getState().sceneReady,5000)) throw new Error('sceneReady never true'); return true; } },
+        { name:'goTo(menu) → phase = menu', fn:async(w,GM,C,H)=>{ GM.goTo('menu'); await H.sleep(140); const s=GM.getState(); if(s.phase!=='menu') throw new Error('phase='+s.phase); return true; } },
+        { name:'goTo(invitation) → phase = invitation', fn:async(w,GM,C,H)=>{ GM.goTo('invitation'); await H.sleep(140); const s=GM.getState(); if(s.phase!=='invitation') throw new Error('phase='+s.phase); return true; } },
+        { name:'goTo(walk) enables movement', fn:async(w,GM,C,H)=>{ GM.goTo('walk'); await H.sleep(160); const s=GM.getState(); if(s.mode!=='walk'||!s.walk) throw new Error('mode='+s.mode+' walk='+s.walk); return true; } },
+        { name:'walk → door fires story beats', fn:async(w,GM,C,H)=>{ GM.goTo('door'); if(!await H.waitFor(()=>GM.getState().beat>=3,3000)) throw new Error('beat='+GM.getState().beat); return true; } },
+        { name:'goTo(aftermath) → knockout screen', fn:async(w,GM,C,H)=>{ GM.goTo('aftermath'); await H.sleep(160); const s=GM.getState(); if(s.phase!=='aftermath') throw new Error('phase='+s.phase); return true; } },
+        { name:'no runtime errors', fn:(w,GM)=>err(GM.errors()) }
+      ]},
+      { scene:'Entry Hall', file:'The Games Master - Entry Hall.dc.html', tests:[
+        { name:'bridge present · scene = hall', fn:(w,GM)=>{ if(GM.scene!=='hall') throw new Error('scene='+GM.scene); return true; } },
+        { name:'scene builds with 11 points of interest', fn:async(w,GM,C,H)=>{ if(!await H.waitFor(()=>GM.getState().sceneReady && GM.getState().pois===11,5000)) throw new Error('pois='+GM.getState().pois+' ready='+GM.getState().sceneReady); return true; } },
+        { name:'goTo(start) → explore + walk on', fn:async(w,GM,C,H)=>{ GM.goTo('start'); await H.sleep(160); const s=GM.getState(); if(s.phase!=='explore'||!s.walk) throw new Error('phase='+s.phase+' walk='+s.walk); return true; } },
+        { name:'teleport to stairs fires beats', fn:async(w,GM,C,H)=>{ GM.goTo('stairs'); if(!await H.waitFor(()=>GM.getState().beat>=3,3000)) throw new Error('beat='+GM.getState().beat); return true; } },
+        { name:'door → parlor arrival triggers', fn:async(w,GM,C,H)=>{ GM.goTo('door'); if(!await H.waitFor(()=>{ const s=GM.getState(); return s.mode==='arrival'||s.phase==='door'||s.phase==='card'; },3000)) throw new Error('mode='+GM.getState().mode); return true; } },
+        { name:'goTo(card) → parlor-door card', fn:async(w,GM,C,H)=>{ GM.goTo('card'); await H.sleep(160); const s=GM.getState(); if(s.phase!=='card') throw new Error('phase='+s.phase); return true; } },
+        { name:'no runtime errors', fn:(w,GM)=>err(GM.errors()) }
+      ]},
+      { scene:'The Parlor', file:'The Parlor - Playable Prototype.dc.html', tests:[
+        { name:'bridge present · scene = parlor', fn:(w,GM)=>{ if(GM.scene!=='parlor') throw new Error('scene='+GM.scene); return true; } },
+        { name:'deck builds 28 cards', fn:(w,GM,C)=>{ const n=C.buildDeck().length; if(n!==28) throw new Error('deck='+n); return true; } },
+        { name:'four custom suits defined', fn:(w,GM,C)=>{ const n=Object.keys(C.SUITS).length; if(n!==4) throw new Error('suits='+n); return true; } },
+        { name:'five corruption tiers defined', fn:(w,GM,C)=>{ if(C.CORR.length!==5) throw new Error('tiers='+C.CORR.length); return true; } },
+        { name:'goTo(skipIntro) clears wake-up', fn:async(w,GM,C,H)=>{ GM.goTo('skipIntro'); await H.sleep(140); if(GM.getState().intro!==false) throw new Error('intro still true'); return true; } },
+        { name:'goTo(fresh) deals a 7-card hand', fn:async(w,GM,C,H)=>{ GM.goTo('fresh'); await H.sleep(140); const n=GM.getState().hand; if(n!==7) throw new Error('hand='+n); return true; } },
+        { name:'rule · Flames trumps off-suit', fn:(w,GM,C)=>{ const r=C.winner({suit:'flames',rank:1},{suit:'eyes',rank:7},'eyes'); if(r!=='player') throw new Error('got '+r); return true; } },
+        { name:'rule · lead suit beats off-suit', fn:(w,GM,C)=>{ const r=C.winner({suit:'eyes',rank:2},{suit:'bones',rank:7},'eyes'); if(r!=='player') throw new Error('got '+r); return true; } },
+        { name:'rule · higher rank wins in-suit', fn:(w,GM,C)=>{ const r=C.winner({suit:'teeth',rank:6},{suit:'teeth',rank:3},'teeth'); if(r!=='player') throw new Error('got '+r); return true; } },
+        { name:'goTo(testPending) arms the test', fn:async(w,GM,C,H)=>{ GM.goTo('testPending'); await H.sleep(140); const t=GM.getState().test; if(t!=='pending') throw new Error('test='+t); return true; } },
+        { name:'goTo(winGame) → game over', fn:async(w,GM,C,H)=>{ GM.goTo('winGame'); await H.sleep(140); const p=GM.getState().phase; if(p!=='gameDone') throw new Error('phase='+p); return true; } },
+        { name:'no runtime errors', fn:(w,GM)=>err(GM.errors()) }
+      ]}
+    ];
+  }
+
+  async run() {
+    if (this.state.started) return;
+    this.setState({ started:true, running:true, done:false });
+    const container = document.getElementById('gm-harness-frames');
+    const specs = this.specs();
+    const results = [];
+    for (const spec of specs) {
+      const grp = { scene:spec.scene, rows:[], pass:0, fail:0 };
+      results.push(grp); this.setState({ results:[...results] });
+      const f = document.createElement('iframe');
+      f.style.cssText = 'width:340px;height:214px;border:1px solid rgba(242,199,89,0.2);background:#000;';
+      f.title = spec.scene;
+      if (container) container.appendChild(f);
+      f.src = spec.file;
+      const ready = await this.waitFor(()=> f.contentWindow && f.contentWindow.__GM && f.contentWindow.__GM.scene, 9000);
+      const win = f.contentWindow, GM = win && win.__GM, C = win && win.__GMC;
+      if (!ready) {
+        grp.rows.push({ name:'load & expose window.__GM', ok:false, msg:'bridge never appeared' }); grp.fail++;
+        this.setState({ results:[...results] }); continue;
+      }
+      grp.rows.push({ name:'load & expose window.__GM', ok:true, msg:'' }); grp.pass++;
+      this.setState({ results:[...results] });
+      await this.sleep(1400);
+      for (const t of spec.tests) {
+        let ok=false, msg='';
+        try { const r = await t.fn(win, GM, C, this); ok = (r !== false); }
+        catch(e) { ok=false; msg = String((e && e.message) || e); }
+        grp.rows.push({ name:t.name, ok, msg }); ok ? grp.pass++ : grp.fail++;
+        this.setState({ results:[...results] });
+        await this.sleep(40);
+      }
+    }
+    this.setState({ running:false, done:true });
+  }
+
+  rerun() {
+    const c = document.getElementById('gm-harness-frames'); if (c) c.innerHTML='';
+    this.setState({ results:[], running:false, done:false, started:false });
+    setTimeout(()=>this.run(), 60);
+  }
+
+  renderVals() {
+    const st = this.state;
+    let pass=0, fail=0;
+    const groups = (st.results||[]).map(g=>{
+      pass+=g.pass; fail+=g.fail;
+      return {
+        scene:g.scene,
+        tally: g.pass+' / '+(g.pass+g.fail),
+        tallyStyle: 'color:'+(g.fail? '#F24033' : '#40F259')+';',
+        rows: (g.rows||[]).map(r=>({
+          name:r.name, msg:r.msg||'', mark: r.ok?'✓':'✗',
+          markStyle:'color:'+(r.ok?'#40F259':'#F24033')+';',
+          nameStyle:'color:'+(r.ok?'#EBE0D1':'#f3b0ab')+';'
+        }))
+      };
+    });
+    const total = pass+fail;
+    return {
+      groups,
+      running: st.running, done: st.done,
+      summary: st.running ? 'RUNNING' : (total===0 ? '—' : (fail ? (fail+' FAILING') : 'ALL PASSING')),
+      summaryStyle: 'color:'+(fail? '#F24033' : (st.done ? '#40F259' : '#E6B86B'))+';',
+      total: pass+' passed · '+fail+' failed',
+      statusText: st.running ? 'running…' : (st.done ? 'complete' : 'idle'),
+      onRerun: ()=>this.rerun()
+    };
+  }
+}
+</script>
+</body>
+</html>
