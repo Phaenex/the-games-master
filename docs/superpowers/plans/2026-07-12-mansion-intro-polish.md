@@ -132,12 +132,12 @@ Replace it with:
 
 ```js
         if (this.arrDoor>=1){
-          if (!this._glimpseSaid) { this._glimpseSaid=true; this.speak('Beyond the widening gap, gold light and a floor laid out in black and white.', 'A staircase climbing into the dark above it, and something enormous hanging dead center of it all, swaying very slightly, though no one had touched it.', 2600); }
+          if (!this._glimpseSaid) { this._glimpseSaid=true; this.setState({ beatMain:'Beyond the widening gap, gold light and a floor laid out in black and white.', beatSub:'A staircase climbing into the dark above it, and something enormous hanging dead center of it all, swaying very slightly, though no one had touched it.', beatOn:true, hintOn:false }); }
           this.arrHold=(this.arrHold||0)+dt; if(this.arrHold>2.0){ this.knockStarted=true; this.knockT=0; this.knockBaseY=cam.position.y; this.knockBaseZ=cam.position.z; }
         }
 ```
 
-This fires once (guarded by `this._glimpseSaid`) the moment the doors finish opening, using the same `speak(main, sub, holdMs)` mechanism the walk-up beats already use. The hold window before the grab triggers is extended from 0.9s to 2.0s so there's time to read the beat before the blackout.
+This fires once (guarded by `this._glimpseSaid`) the moment the doors finish opening. **Correction from the original plan draft:** this originally called `this.speak(main, sub, holdMs)`, incorrectly assuming Prologue shared Entry Hall's `speak()` helper — it doesn't; `speak()` is only defined in the Entry Hall file. Prologue's own `checkBeats()` sets beat text via a direct `setState({beatMain, beatSub, beatOn:true, hintOn:false})` with no auto-clear timer, so the fix here follows that existing convention instead. This was caught by a code-quality review (the call would have thrown `TypeError: this.speak is not a function` on every arrival) and confirmed fixed via a live browser trace: the glimpse now fires at the correct moment with the correct text, stays visible for the full hold window, and the sequence completes with zero console errors. The hold window before the grab triggers is extended from 0.9s to 2.0s so there's time to read the beat before the blackout.
 
 - [ ] **Step 2: Reset `_glimpseSaid` wherever the arrival state resets, so replaying via the dev menu re-fires the beat**
 
