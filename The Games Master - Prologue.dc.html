@@ -276,9 +276,10 @@ class Component extends DCLogic {
   arrivalZ = -36;
   carZ = 78;
   gateZ = 65;
+  BEAT_HOLD_MS = 4200; // minimum time each story beat holds on screen before the next queued one can show
 
   componentDidMount() {
-    this._beat = -1; this.mode = 'menu'; this.walkEnabled = false;
+    this._beat = -1; this._beatQueue = []; this._beatQueueTimer = null; this.mode = 'menu'; this.walkEnabled = false;
     this.keys = {}; this.yaw = 0; this.pitch = -0.02; this.dragging = false; this.standY = 1.7; this.jumpOff = 0; this.vy = 0;
     this._onKey = (e,d)=>{ const k=e.key.toLowerCase(); this.keys[k]=d; if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault(); };
     this._kd = (e)=>{ if(e.key==='`'||e.code==='Backquote'){ e.preventDefault(); this.toggleDev(); return; } this._onKey(e,true); const k=e.key.toLowerCase(); if(this.mode!=='walk'||this.state.letterMounted) return; if(k==='i'){ this.onRaiseLetter(); } }; this._ku = (e)=>this._onKey(e,false);
@@ -298,6 +299,7 @@ class Component extends DCLogic {
     window.removeEventListener('resize', this._resize);
     window.removeEventListener('error', this._onErr);
     if (this._devTick) clearInterval(this._devTick);
+    if (this._beatQueueTimer) clearTimeout(this._beatQueueTimer);
     (this._ct||[]).forEach(clearTimeout);
   }
 
@@ -325,7 +327,8 @@ class Component extends DCLogic {
     else if (name==='coldopen') { this.mode='menu'; this.walkEnabled=false; this.setState(Object.assign({}, base, { isColdOpen:true })); this.advanceCold(0); }
     else if (name==='invitation') { this.mode='menu'; this.walkEnabled=false; this.setState(Object.assign({}, base, { isIntro:true })); }
     else if (name==='walk' || name==='door' || name==='knockout') {
-      this._beat=-1; this.yaw=0; this.pitch=-0.02; if(this.cam)this.cam.position.set(0,1.7,72);
+      this._beat=-1; this._beatQueue=[]; if(this._beatQueueTimer){ clearTimeout(this._beatQueueTimer); this._beatQueueTimer=null; }
+      this.yaw=0; this.pitch=-0.02; if(this.cam)this.cam.position.set(0,1.7,72);
       this.mode='walk'; this.walkEnabled=true; this.knockStarted=false; this.arriving=false; this.arrDoor=0; this.arrHold=0; this._glimpseSaid=false;
       // same reset onStepOut() does — without it, _minZReached stays undefined on a dev-bridge
       // entry (never having gone through onStepOut()), which makes `zNow > this._minZReached + 0.5`
@@ -631,10 +634,12 @@ class Component extends DCLogic {
       this.vx+=(dvx-this.vx)*rate; this.vz+=(dvz-this.vz)*rate;
       cam.position.x += this.vx*dt; cam.position.z += this.vz*dt;
       cam.position.x = Math.max(-3.0, Math.min(3.0, cam.position.x));
-      // once the gate lock has fired, retreat is physically capped just behind the shut gate instead of
-      // all the way back at the car — otherwise the "gate is locked" narration is just spoken, not enforced.
-      const retreatCap = this._gateLockFired ? (this.gateZ + 2) : this.carZ;
-      cam.position.z = Math.max(this.arrivalZ, Math.min(retreatCap, cam.position.z));
+      // retreat is capped at the car in both directions. The gate lock beat (below) no longer
+      // physically traps the player just behind the gate — that cap made the genuine secret-ending
+      // path (retreat all the way back to the car after a beat has played) physically unreachable,
+      // since the very first backward step past the gate fired the lock and capped position forever.
+      // The "gate is locked" line is now atmosphere, not a wall.
+      cam.position.z = Math.max(this.arrivalZ, Math.min(this.carZ, cam.position.z));
       // vertical: crouch, jump, gravity
       const targetStand = crouch?1.12:1.7;
       this.standY += (targetStand - this.standY)*Math.min(1,dt*12);
@@ -663,14 +668,19 @@ class Component extends DCLogic {
       if (ts===0 && advanced > 3.5) this.setState({ tutStep:1 });
       else if (ts===1 && (looked || advanced > 13)) this.setState({ tutStep:2 });
       this.checkBeats(cam.position.z);
-      // retreat detection: locks the gate shut behind the player once they've passed it,
-      // or reveals a secret ending if they retreat all the way back to the car first
+      // retreat detection: locks the gate shut (narration only, see retreatCap above) the first time
+      // the player turns back after passing it, or reveals a secret ending if they make it genuinely
+      // all the way back to the car. The secret ending additionally requires at least one story beat
+      // to have already fired — beats only start once the player has walked forward through the gate,
+      // so this is what stops a player from triggering the ending by accident just by glancing back at
+      // the car in the first few seconds of a fresh walk, before any beat (or the gate itself) has been
+      // reached (playtest finding: 3 units of backward drift from spawn was enough to fire it).
       const zNow = cam.position.z;
       if (zNow < this._minZReached) this._minZReached = zNow;
       if (!this._passedGate && zNow <= this.gateZ) this._passedGate = true;
       const movingBackward = zNow > this._minZReached + 0.5; // small tolerance, not every frame's float jitter
       if (movingBackward) {
-        if (!this._passedGate && zNow >= this.carZ - 3) {
+        if (this._beat > -1 && zNow >= this.carZ - 1) {
           this.triggerSecretEnding();
         } else if (this._passedGate && !this._gateLockFired) {
           this._gateLockFired = true;
@@ -733,13 +743,31 @@ class Component extends DCLogic {
     let idx=-1;
     for (let i=0;i<this.beats.length;i++){ if (z <= this.beats[i].z) idx=i; }
     if (idx > this._beat) {
-      this._beat = idx; const b=this.beats[idx];
-      this.setState({ beatMain:b.main, beatSub:b.sub, beatOn:true, hintOn:false });
+      // a sprinting player can cross more than one beat threshold before the currently-displayed beat
+      // has held its full readable duration — queue every newly-crossed beat instead of letting a later
+      // one instantly overwrite an earlier one's text, so running can no longer skip or cut a beat off
+      // mid-subtext (playtest finding: holding Shift blew past 3 of 5 beats before they finished).
+      for (let i=this._beat+1; i<=idx; i++) this._beatQueue.push(i);
+      this._beat = idx;
+      this._advanceBeatQueue();
     }
     if (z <= this.arrivalZ && this.mode==='walk') {
+      this._beatQueue = [];
+      if (this._beatQueueTimer) { clearTimeout(this._beatQueueTimer); this._beatQueueTimer = null; }
       this.mode='arrival'; this.walkEnabled=false; this.arrDoor=0; this.arriving=true;
       this.setState({ isWalk:false, beatOn:false, hintOn:false });
     }
+  }
+
+  // drains _beatQueue one entry at a time, holding each on screen for BEAT_HOLD_MS before the next
+  // queued beat (if any) can replace it — this is what actually makes a beat "un-outrunnable."
+  _advanceBeatQueue() {
+    if (this._beatQueueTimer) return; // a beat is already holding on screen — let it finish first
+    const i = this._beatQueue.shift();
+    if (i === undefined) return;
+    const b = this.beats[i];
+    this.setState({ beatMain:b.main, beatSub:b.sub, beatOn:true, hintOn:false });
+    this._beatQueueTimer = setTimeout(() => { this._beatQueueTimer = null; this._advanceBeatQueue(); }, this.BEAT_HOLD_MS);
   }
 
   triggerGateLock() {
@@ -795,9 +823,12 @@ class Component extends DCLogic {
     const lines = this.coldLines();
     this._coldI = i;
     this.setState({ coldText: lines[i], coldOn: true });
+    // trimmed from 3600/4900ms — playtesting flagged Menu → cold open → invitation as three passive
+    // screens in a row before any interactivity; the sequence is already click-to-advance (see
+    // onColdNext below), so this just tightens the auto-play pace for anyone who doesn't click through.
     this._ct = [
-      setTimeout(()=> this.setState({ coldOn:false }), 3600),
-      setTimeout(()=> { (i+1 < lines.length) ? this.advanceCold(i+1) : this.finishCold(); }, 4900)
+      setTimeout(()=> this.setState({ coldOn:false }), 2800),
+      setTimeout(()=> { (i+1 < lines.length) ? this.advanceCold(i+1) : this.finishCold(); }, 4100)
     ];
   }
 
@@ -844,7 +875,8 @@ class Component extends DCLogic {
 
   onStepOut() {
     this.fadeThen(()=>{
-      this._beat=-1; this.yaw=0; this.pitch=-0.02;
+      this._beat=-1; this._beatQueue=[]; if(this._beatQueueTimer){ clearTimeout(this._beatQueueTimer); this._beatQueueTimer=null; }
+      this.yaw=0; this.pitch=-0.02;
       if (this.cam) this.cam.position.set(0,1.7,72);
       this.mode='walk'; this.walkEnabled=true; this.knockStarted=false; this.arriving=false; this.arrDoor=0; this.arrHold=0; this._glimpseSaid=false;
       this._minZReached = 72; // starting z
