@@ -14,6 +14,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Spectral:ital,wght@0,400;1,400;1,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js" integrity="sha384-fljlqkjWlmSFjkESkQvm77heIZpoWmXEOzlCA7kOpGUH+95Zk0yGfQieWM2q136E" crossorigin="anonymous"></script>
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: #000; overflow: hidden; }
@@ -665,6 +666,24 @@ class Component extends DCLogic {
       if(this.doorL)this.doorL.rotation.y=0; if(this.doorR)this.doorR.rotation.y=0; if(this.doorGlow)this.doorGlow.material.opacity=0; if(this.doorInner)this.doorInner.intensity=0;
       this.setState({ isIntro:false, isWalk:true, hintOn:true, beatOn:false, tutStep:0, warm:0 });
     });
+  }
+
+  loadGLTF(url, onLoad) {
+    if (!this._gltfLoader) this._gltfLoader = new THREE.GLTFLoader();
+    this._gltfLoader.load(url, (gltf) => onLoad(gltf.scene), undefined, (err) => {
+      console.warn('GLTF load failed:', url, err);
+    });
+  }
+
+  playSfx(url) {
+    try {
+      const settings = window.GMSettings ? GMSettings.get() : { volMaster: 100, volSfx: 100 };
+      const vol = (settings.volMaster / 100) * (settings.volSfx / 100);
+      if (vol <= 0) return;
+      const a = new Audio(url);
+      a.volume = Math.min(1, vol);
+      a.play().catch(() => {});
+    } catch (e) {}
   }
 
   renderVals() {
