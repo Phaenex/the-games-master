@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="./support.js"></script>
 <script src="./gm-doubt.js"></script>
+<script src="./gm-progress.js"></script>
 </head>
 <body>
 <x-dc>
@@ -271,7 +272,7 @@ class Component extends DCLogic {
   componentWillUnmount(){ window.removeEventListener('error', this._onErr); window.removeEventListener('keydown', this._kd); if(this._devTick) clearInterval(this._devTick); }
   toggleDev(){ const open=!this.state.devOpen; this.setState({ devOpen:open }); if(open){ this._devTick=setInterval(()=>this.forceUpdate(),300);} else if(this._devTick){ clearInterval(this._devTick); this._devTick=null; } }
   devPhaseList(){ return ['intro','skipIntro','fresh','testPending','reveal','caught','winGame','loseGame']; }
-  devSnapshot(){ const g=this.state; return { phase:g.phase||(g.intro?'intro':'?'), intro:!!g.intro, round:g.round, corr:g.corruption, sanity:g.sanity, cheats:g.cheatsCaught, susp:g.suspicion, readUnlocked:!!g.readUnlocked, test:g.testState, hand:(g.playerHand||[]).length, errors:(this._errs||[]).length }; }
+  devSnapshot(){ const g=this.state; return { phase:g.phase||(g.intro?'intro':'?'), intro:!!g.intro, round:g.round, corr:g.corruption, sanity:g.sanity, cheats:g.cheatsCaught, cheatsPersisted:(window.GMProgress?GMProgress.get():null), susp:g.suspicion, readUnlocked:!!g.readUnlocked, test:g.testState, hand:(g.playerHand||[]).length, errors:(this._errs||[]).length }; }
   devGoTo(name){ const keep={ devOpen:this.state.devOpen };
     if(name==='intro'){ this.setState(Object.assign(this.freshGame(),{ intro:true, introStep:0 }, keep)); }
     else if(name==='skipIntro'){ this.setState({ intro:false }); }
@@ -291,8 +292,11 @@ class Component extends DCLogic {
 
   freshGame() {
     const start = Math.max(0, Math.min(4, (this.props && this.props.startCorruption != null) ? this.props.startCorruption : 1));
+    // cheatsCaught seeds from the persisted cross-scene/cross-session total (gm-progress.js)
+    // rather than 0, so the "8 for the truth" count keeps accumulating across reloads and
+    // new games instead of losing everything the moment a fresh hand is dealt.
     const g = {
-      sanity: 80, defiance: 0, compliance: 0, corruption: start, cheatsCaught: 0,
+      sanity: 80, defiance: 0, compliance: 0, corruption: start, cheatsCaught: (window.GMProgress ? GMProgress.get() : 0),
       round: 1, roundsP: 0, roundsG: 0,
       gmState: 'CHARMING', line: this.pick('CHARMING'),
       flash: null, revealed: {}, peek: false, phase: null,
@@ -405,6 +409,9 @@ class Component extends DCLogic {
     if (g.phase !== 'awaitRead') return;
     if (g.table.gmCheated) {
       g.flash = 'green'; g.cheatsCaught += 1;
+      // Every real catch writes through to the persisted cross-scene total too, so it
+      // survives a reload and keeps counting toward the story bible's 8+ threshold.
+      if (window.GMProgress) GMProgress.add(1);
       // A correct Read gets real weight: it caps corruption's growth for this hand instead of
       // letting it climb unchecked (onStand/onContinue still increment on a missed/unread cheat).
       g.defiance = Math.min(20, g.defiance+2);
