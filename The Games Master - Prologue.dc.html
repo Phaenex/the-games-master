@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="./support.js"></script>
+<script src="./gm-doubt.js"></script>
 </head>
 <body>
 <x-dc>
@@ -144,7 +145,7 @@
           <div style="position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;transform:rotateY(180deg);background:linear-gradient(168deg,#e7dcc7,#cfc0a4);color:#20180d;padding:36px 34px;box-shadow:0 40px 90px rgba(0,0,0,0.75),0 3px 0 rgba(0,0,0,0.25);clip-path:polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,16px 100%,0 calc(100% - 16px));">
             <div style="position:absolute;inset:7px;border:1px solid rgba(26,18,10,0.14);clip-path:polygon(0 0,calc(100% - 11px) 0,100% 11px,100% 100%,11px 100%,0 calc(100% - 11px));pointer-events:none;"></div>
             <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:34px;">
-              <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:20px;line-height:1.55;color:rgba(36,26,13,0.13);letter-spacing:0.03em;transform:rotate(-2deg);text-align:center;">the back is bare —<br>though the paper holds<br>a faint impression,<br>as if something waits<br>to be written</div>
+              <div style="{{ letterBackStyle }}">{{ letterBackText }}</div>
             </div>
           </div>
 
@@ -243,7 +244,7 @@ class Component extends DCLogic {
   devSnapshot() {
     const c=this.cam, st=this.state;
     const phase = st.isMenu?'menu':st.isColdOpen?'coldopen':st.isIntro?'invitation':st.isWalk?'walk':st.isArrival?'aftermath':'?';
-    return { phase, mode:this.mode||'?', walk:!!this.walkEnabled, camZ:c?+c.position.z.toFixed(1):null, camY:c?+c.position.y.toFixed(2):null, yaw:+(this.yaw||0).toFixed(2), beat:this._beat, tutStep:st.tutStep, sceneReady:!!this.scene, errors:(this._errs||[]).length };
+    return { phase, mode:this.mode||'?', walk:!!this.walkEnabled, camZ:c?+c.position.z.toFixed(1):null, camY:c?+c.position.y.toFixed(2):null, yaw:+(this.yaw||0).toFixed(2), beat:this._beat, tutStep:st.tutStep, sceneReady:!!this.scene, errors:(this._errs||[]).length, doubt:(window.GMDoubt ? GMDoubt.get() : 0) };
   }
   devGoTo(name) {
     if (this._ct) this.clearColdTimers();
@@ -262,6 +263,7 @@ class Component extends DCLogic {
       if(this.cam && this.beats && (name==='door' || name==='knockout')) this.checkBeats(this.cam.position.z);
     }
     else if (name==='aftermath') { this.mode='arrival'; this.walkEnabled=false; this.arriving=false; this.setState(Object.assign({}, base, { isArrival:true, fade:1, warm:0.4 })); }
+    else if (name.indexOf('doubt:')===0) { const n=parseInt(name.split(':')[1],10); if(window.GMDoubt) GMDoubt.set(n); this.forceUpdate(); }
   }
 
   waitThree() { if (window.THREE) { try { this.initScene(); } catch(e){ console.warn('scene init', e); } } else { setTimeout(()=>this.waitThree(), 70); } }
@@ -670,6 +672,14 @@ class Component extends DCLogic {
       tutCaps: this.tutCaps(st.tutStep),
       tutText: ['Walk','Look around','Open your invitation',''][st.tutStep] || '',
       onRaiseLetter:()=>this.onRaiseLetter(), onLowerLetter:()=>this.onLowerLetter(), onFlip:(e)=>this.onFlip(e),
+      letterBackText: (()=>{ const s = (window.GMDoubt ? GMDoubt.get() : 0);
+        if (s>=2) return 'a friend who never left. The hand is Aldric’s own. He wrote the warning. He is the friend.';
+        if (s>=1) return 'He cannot lose… watch his hands. — a friend who got out.';
+        return 'the back is bare —\nthough the paper holds\na faint impression,\nas if something waits\nto be written';
+      })(),
+      letterBackStyle: (()=>{ const s = (window.GMDoubt ? GMDoubt.get() : 0);
+        return 'font-family:\'Cormorant Garamond\',serif;font-style:italic;font-size:20px;line-height:1.55;color:'+(s>0?'rgba(36,26,13,0.82)':'rgba(36,26,13,0.13)')+';letter-spacing:0.03em;transform:rotate(-2deg);text-align:center;white-space:pre-line;';
+      })(),
       fadeStyle: 'position:fixed;inset:0;z-index:50;background:#000;transition:opacity .5s ease;opacity:'+st.fade+';pointer-events:'+(st.fade>0.02?'auto':'none')+';',
       warmStyle: 'position:fixed;inset:0;z-index:48;pointer-events:none;background:radial-gradient(58% 52% at 50% 46%, rgba(255,228,168,0.96), rgba(242,182,92,0.55) 42%, rgba(120,80,30,0) 74%);opacity:'+(st.warm||0)+';transition:opacity .4s ease;',
       onNewGame:()=>this.onNewGame(), onStepOut:()=>this.onStepOut(),
