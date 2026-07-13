@@ -287,11 +287,19 @@ class Component extends DCLogic {
   toggleDev() { const open=!this.state.devOpen; this.setState({ devOpen:open }); if(open){ this._devTick=setInterval(()=>this.forceUpdate(),250); } else if(this._devTick){ clearInterval(this._devTick); this._devTick=null; } }
   devSnapshot() {
     const c=this.cam, st=this.state;
-    const phase = st.isMenu?'menu':st.isColdOpen?'coldopen':st.isIntro?'invitation':st.isWalk?'walk':st.isArrival?'aftermath':'?';
+    // isOptions and isSecretEnding are read straight off state; mode==='arrival' is read directly off
+    // the FSM instead of the lagging state.isArrival flag, since checkBeats() flips this.mode the instant
+    // z<=arrivalZ while state.isArrival doesn't land until much later in the knock animation — reading
+    // only state flags here left the readout showing '?' for that entire gap (and during Options).
+    const phase = st.isMenu?'menu':st.isOptions?'options':st.isColdOpen?'coldopen':st.isIntro?'invitation':st.isSecretEnding?'secretEnding':st.isWalk?'walk':(this.mode==='arrival')?(st.isArrival?'aftermath':'arrival'):'?';
     return { phase, mode:this.mode||'?', walk:!!this.walkEnabled, camZ:c?+c.position.z.toFixed(1):null, camY:c?+c.position.y.toFixed(2):null, yaw:+(this.yaw||0).toFixed(2), beat:this._beat, tutStep:st.tutStep, sceneReady:!!this.scene, errors:(this._errs||[]).length, doubt:(window.GMDoubt ? GMDoubt.get() : 0) };
   }
   devGoTo(name) {
     if (this._ct) this.clearColdTimers();
+    // if a dev-bridge call lands during the async gap before initScene() has created this.cam, the
+    // position sets below all silently no-op and the camera never catches up once it exists. Stash the
+    // requested phase and replay this same call once initScene() assigns this.cam (see initScene()).
+    if (!this.cam && (name==='menu'||name==='walk'||name==='door'||name==='knockout')) { this._pendingDevGoTo = name; }
     const base = { isMenu:false, isOptions:false, isColdOpen:false, isIntro:false, isWalk:false, isArrival:false, isSecretEnding:false, fade:0, warm:0, beatOn:false, letterMounted:false };
     if (name==='menu') { this.mode='menu'; this.walkEnabled=false; if(this.cam)this.cam.position.set(0,1.7,72); this.yaw=0; this.pitch=-0.02; this.setState(Object.assign({}, base, { isMenu:true, tutStep:0 })); }
     else if (name==='options') { this.mode='menu'; this.walkEnabled=false; this.setState(Object.assign({}, base, { isOptions:true })); }
@@ -350,6 +358,8 @@ class Component extends DCLogic {
     cam.rotation.order = 'YXZ';
     cam.position.set(0, 1.7, 72);
     this.cam = cam;
+    // replay a devGoTo() that landed before this.cam existed, now that it does
+    if (this._pendingDevGoTo) { const n = this._pendingDevGoTo; this._pendingDevGoTo = null; this.devGoTo(n); }
 
     scene.add(new THREE.AmbientLight('#28324c', 0.62));
     const moon = new THREE.DirectionalLight('#9fb0d6', 0.5); moon.position.set(-55,75,25); scene.add(moon);
@@ -420,6 +430,10 @@ class Component extends DCLogic {
       gate.scale.set(scale, scale, scale);
       this.scene.add(gate);
       this.gateModel = gate;
+      // triggerGateLock() may have already fired narration/audio while this load was still in flight
+      // and deferred its rotation with _pendingGateLock rather than silently skipping it forever —
+      // catch the model up to the locked rotation the instant it's actually available.
+      if (this._pendingGateLock) { this._pendingGateLock = false; this.gateModel.rotation.y += 0.35; }
     });
 
     // wrought-iron fence + hedges lining the drive
@@ -529,7 +543,7 @@ class Component extends DCLogic {
     const cam = this.cam;
     const THREE = window.THREE;
 
-    if (this.mode==='walk' && this.walkEnabled) {
+    if (this.mode==='walk' && this.walkEnabled && !this.state.letterMounted) {
       const k=this.keys;
       const crouch = !!(k['c']||k['control']);
       const running = !!(k['shift']) && !crouch;
@@ -549,7 +563,10 @@ class Component extends DCLogic {
       this.vx+=(dvx-this.vx)*rate; this.vz+=(dvz-this.vz)*rate;
       cam.position.x += this.vx*dt; cam.position.z += this.vz*dt;
       cam.position.x = Math.max(-3.0, Math.min(3.0, cam.position.x));
-      cam.position.z = Math.max(this.arrivalZ, Math.min(this.carZ, cam.position.z));
+      // once the gate lock has fired, retreat is physically capped just behind the shut gate instead of
+      // all the way back at the car — otherwise the "gate is locked" narration is just spoken, not enforced.
+      const retreatCap = this._gateLockFired ? (this.gateZ + 2) : this.carZ;
+      cam.position.z = Math.max(this.arrivalZ, Math.min(retreatCap, cam.position.z));
       // vertical: crouch, jump, gravity
       const targetStand = crouch?1.12:1.7;
       this.standY += (targetStand - this.standY)*Math.min(1,dt*12);
@@ -658,6 +675,9 @@ class Component extends DCLogic {
   }
 
   triggerGateLock() {
+    // self-defending re-entry guard: don't rely solely on the caller's _gateLockFired check.
+    // Cancel any still-running tick chain from a prior call so its requestAnimationFrame id is never orphaned.
+    if (this._gateRaf) { cancelAnimationFrame(this._gateRaf); this._gateRaf = null; }
     this.playSfx('assets/sfx/gate_slam.ogg');
     setTimeout(() => this.playSfx('assets/sfx/gate_lock.ogg'), 550);
     if (this.gateModel) {
@@ -672,6 +692,10 @@ class Component extends DCLogic {
         this._gateRaf = requestAnimationFrame(tick);
       };
       tick();
+    } else {
+      // gate model hasn't finished loading yet, so defer the rotation instead of silently dropping it;
+      // the graveyard_gate loadGLTF callback checks this flag and catches the model up once it's ready.
+      this._pendingGateLock = true;
     }
     this.setState({ beatMain:'Something slammed shut behind me.', beatSub:'When I looked back, the gate was closed \u2014 and the lock, somehow, had already turned.', beatOn:true, hintOn:false });
   }
@@ -679,7 +703,7 @@ class Component extends DCLogic {
   triggerSecretEnding() {
     this.walkEnabled = false;
     this.mode = 'secretEnding';
-    this.setState({ isSecretEnding: true, fade: 1 });
+    this.setState({ isSecretEnding: true, isWalk: false, fade: 1 });
   }
 
   onReturnToMenu(e) {
