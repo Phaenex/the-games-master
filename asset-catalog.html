@@ -66,8 +66,8 @@
 <main>
 
   <section>
-    <h2>✓ Downloaded &amp; Ready <span class="count">14 models</span></h2>
-    <p class="note">Already sitting in <code>assets/models/hall/</code> and <code>assets/models/sourced/</code> in this repo. Click any thumbnail to load and rotate it — previews load one at a time on purpose, since loading all 14 simultaneously hits a hard WebGL limit in some browsers.</p>
+    <h2>✓ Downloaded &amp; Ready <span class="count">16 models</span></h2>
+    <p class="note">Already sitting in <code>assets/models/hall/</code>, <code>assets/models/sourced/</code>, and <code>assets/models/exterior/</code> in this repo. Click any thumbnail to load and rotate it — previews load one at a time on purpose, since loading them all simultaneously hits a hard WebGL limit in some browsers.</p>
     <div class="grid">
 
       <div class="card">
@@ -188,11 +188,20 @@
       </div>
 
       <div class="card">
-        <div class="preview-wrap" data-src="assets/models/sourced/metal_fence.glb"><div class="preview-placeholder"><span class="play-icon">&#9654;</span><span class="play-label">Click to preview</span></div></div>
+        <div class="preview-wrap" data-src="assets/models/sourced/iron_fence/scene.gltf"><div class="preview-placeholder"><span class="play-icon">&#9654;</span><span class="play-label">Click to preview</span></div></div>
         <div class="card-body">
-          <div class="card-title">Metal Fence <span style="color:var(--ink-dim);font-size:13px;">(gate/grounds boundary)</span></div>
-          <div class="meta-row"><span class="license cc0">CC0</span><span>Quaternius · poly.pizza</span></div>
-          <div class="path">assets/models/sourced/metal_fence.glb</div>
+          <div class="card-title">Iron Fence <span style="color:var(--ink-dim);font-size:13px;">(gate/grounds boundary)</span></div>
+          <div class="meta-row"><span class="license ccby">CC-BY</span><span>plaggy · Sketchfab</span></div>
+          <div class="path">assets/models/sourced/iron_fence/scene.gltf</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="preview-wrap" data-src="assets/models/exterior/scene.gltf"><div class="preview-placeholder"><span class="play-icon">&#9654;</span><span class="play-label">Click to preview</span></div></div>
+        <div class="card-body">
+          <div class="card-title">Mansion Exterior <span style="color:var(--ink-dim);font-size:13px;">(the house itself)</span></div>
+          <div class="meta-row"><span class="license ccby">CC-BY</span><span>gravyart · Sketchfab</span></div>
+          <div class="path">assets/models/exterior/scene.gltf</div>
         </div>
       </div>
 
@@ -200,62 +209,10 @@
   </section>
 
   <section>
-    <h2>⚠ Needs Manual Action <span class="count">1 real gap</span></h2>
-    <p class="note">The mansion exterior itself. Sketchfab's download flow requires being logged into a real account and clicking through their license dialog — not something fetchable by a script, and not something I should do with your credentials. Every link below was live-checked (200 OK) this session.</p>
-    <ul class="todo-list">
-
-      <li class="todo-item">
-        <input type="checkbox" data-key="exterior-primary">
-        <div>
-          <div class="todo-title">Download: "HAUNTED MANSION" by n-malmberg <span class="verify-badge ok">link verified</span></div>
-          <div class="todo-meta">CC-BY 4.0 · 68.6k triangles / 40.3k vertices · purpose-built Victorian horror house (cracked windows, broken glass, spiderwebs) — the best style match found</div>
-          <ol class="steps">
-            <li>Open <a href="https://sketchfab.com/3d-models/haunted-mansion-94e1f8e882014d95a0ab14f195372443" target="_blank">sketchfab.com/3d-models/haunted-mansion-94e1f8e882014d95a0ab14f195372443</a></li>
-            <li>Log in (or create a free Sketchfab account)</li>
-            <li>Click "Download 3D Model," choose glTF format</li>
-            <li>Save the file into <code>assets/models/exterior/</code> in this repo</li>
-            <li>Credit "n-malmberg" per CC-BY 4.0 wherever this project's credits live</li>
-          </ol>
-        </div>
-      </li>
-
-      <li class="todo-item">
-        <input type="checkbox" data-key="exterior-alt1">
-        <div>
-          <div class="todo-title">Alternative: "Haunted Victorian House" by Gravity3D <span class="verify-badge ok">link verified</span></div>
-          <div class="todo-meta">CC-BY · 216.9k triangles / 112.5k vertices — 3x heavier than the pick above, no clear upside</div>
-          <ol class="steps">
-            <li>Open <a href="https://sketchfab.com/3d-models/haunted-victorian-house-07d00daba8ea42608cc0c1f440507705" target="_blank">sketchfab.com/3d-models/haunted-victorian-house-07d00daba8ea42608cc0c1f440507705</a></li>
-            <li>Same login + download flow as above</li>
-          </ol>
-        </div>
-      </li>
-
-      <li class="todo-item">
-        <input type="checkbox" data-key="exterior-alt2">
-        <div>
-          <div class="todo-title">Alternative: "Victorian mansion 2025" by shirlanne <span class="verify-badge ok">link verified</span></div>
-          <div class="todo-meta">CC-BY · lightest at 28.1k triangles, but exported from SketchUp — often means messier topology/UVs once brought into Three.js. Riskier pick.</div>
-          <ol class="steps">
-            <li>Open <a href="https://sketchfab.com/3d-models/victorian-mansion-2025-6e717e506f4a4a18abf54621777bfeb0" target="_blank">sketchfab.com/3d-models/victorian-mansion-2025-6e717e506f4a4a18abf54621777bfeb0</a></li>
-            <li>Same login + download flow as above</li>
-          </ol>
-        </div>
-      </li>
-
-      <li class="todo-item">
-        <input type="checkbox" data-key="fence-upgrade">
-        <div>
-          <div class="todo-title">Optional upgrade: period-accurate iron fence <span class="verify-badge ok">link verified</span></div>
-          <div class="todo-meta">The downloaded "Metal Fence" (Quaternius, already in the ready list above) works today. This is a more ornate, period-styled alternative if you want to swap it later.</div>
-          <ol class="steps">
-            <li>Open <a href="https://sketchfab.com/3d-models/cc0-iron-fence-9c5ad29c104c48e69a1227927655d489" target="_blank">sketchfab.com/3d-models/cc0-iron-fence-9c5ad29c104c48e69a1227927655d489</a> (CC0, by plaggy)</li>
-            <li>Same login + download flow as above</li>
-          </ol>
-        </div>
-      </li>
-
-    </ul>
+    <h2>✓ Resolved this session</h2>
+    <p class="note">Both manually downloaded, compared side-by-side, and decided:</p>
+    <div class="attr-box"><strong>Mansion exterior</strong> — chose "Haunted Victorian House" by gravyart over "HAUNTED MANSION" by n-malmberg. Both were CC-BY and similarly licensed, but a direct visual comparison settled it: n-malmberg's model rendered dark and murky with visible geometry gaps in the porch area, while gravyart's has real clapboard siding, window/shutter detail, a wraparound porch and staircase, and a widow's-walk tower — it actually reads as a Victorian mansion. The extra triangle count (216.9k vs 68.6k) earns its keep.
+<strong>Fence/gate</strong> — swapped the generic Quaternius "Metal Fence" (a flat industrial guardrail, wrong style entirely) for plaggy's ornate wrought-iron picket fence with spear-tip finials — genuinely period-appropriate, not just technically available.</div>
   </section>
 
   <section>
@@ -268,7 +225,8 @@
     <p class="note">CC0 items above need no credit. These do, per their license terms:</p>
     <div class="attr-box"><strong>Coat Rack</strong> — "Poly by Google," CC-BY 4.0, via poly.pizza
 <strong>Desk (alt)</strong> — "Poly by Google," CC-BY 4.0, via poly.pizza
-<strong>Mansion exterior</strong> (once downloaded) — credit the specific model's creator per the CC-BY terms on its Sketchfab page</div>
+<strong>Iron Fence</strong> — "CC0 - Iron Fence" by plaggy, CC-BY 4.0, via Sketchfab (titled "CC0" but its actual license field is CC-BY — verified against the license.txt bundled in the download, not just the title)
+<strong>Mansion Exterior</strong> — "Haunted Victorian House" by gravyart, CC-BY 4.0, via Sketchfab</div>
   </section>
 
 </main>
