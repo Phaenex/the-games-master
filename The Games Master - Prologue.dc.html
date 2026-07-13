@@ -274,6 +274,7 @@ class Component extends DCLogic {
   }
   componentWillUnmount() {
     if (this._raf) cancelAnimationFrame(this._raf);
+    if (this._gateRaf) cancelAnimationFrame(this._gateRaf);
     window.removeEventListener('keydown', this._kd); window.removeEventListener('keyup', this._ku);
     window.removeEventListener('resize', this._resize);
     window.removeEventListener('error', this._onErr);
@@ -299,6 +300,14 @@ class Component extends DCLogic {
     else if (name==='walk' || name==='door' || name==='knockout') {
       this._beat=-1; this.yaw=0; this.pitch=-0.02; if(this.cam)this.cam.position.set(0,1.7,72);
       this.mode='walk'; this.walkEnabled=true; this.knockStarted=false; this.arriving=false; this.arrDoor=0; this.arrHold=0; this._glimpseSaid=false;
+      // same reset onStepOut() does — without it, _minZReached stays undefined on a dev-bridge
+      // entry (never having gone through onStepOut()), which makes `zNow > this._minZReached + 0.5`
+      // permanently NaN/false and silently disables retreat detection. Also true even when jumping to
+      // 'door'/'knockout' (already past the gate): the per-frame check self-corrects both values to the
+      // actual position on the very next frame, so a fixed starting point here is always safe.
+      this._minZReached = 72;
+      this._passedGate = false;
+      this._gateLockFired = false;
       if(this.doorL)this.doorL.rotation.y=0; if(this.doorR)this.doorR.rotation.y=0; if(this.doorGlow)this.doorGlow.material.opacity=0; if(this.doorInner)this.doorInner.intensity=0;
       this.setState(Object.assign({}, base, { isWalk:true, hintOn:true, tutStep:0 }));
       if(this.cam && name==='door') this.cam.position.z=-33;
@@ -652,13 +661,15 @@ class Component extends DCLogic {
     this.playSfx('assets/sfx/gate_slam.ogg');
     setTimeout(() => this.playSfx('assets/sfx/gate_lock.ogg'), 550);
     if (this.gateModel) {
+      // `_gateRaf` is stored and cancelled in componentWillUnmount the same way `_chandRaf` is for
+      // the Entry Hall chandelier sway, in case a hot-swap tears this logic down mid-animation.
       const startRot = this.gateModel.rotation.y;
       const start = Date.now();
       const tick = () => {
         const t = (Date.now() - start) / 260;
-        if (t >= 1) { this.gateModel.rotation.y = startRot + 0.35; return; }
+        if (t >= 1) { this.gateModel.rotation.y = startRot + 0.35; this._gateRaf = null; return; }
         this.gateModel.rotation.y = startRot + 0.35 * t;
-        requestAnimationFrame(tick);
+        this._gateRaf = requestAnimationFrame(tick);
       };
       tick();
     }
