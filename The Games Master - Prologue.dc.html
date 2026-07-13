@@ -373,8 +373,6 @@ class Component extends DCLogic {
     renderer.outputEncoding = THREE.sRGBEncoding;
     const _tl = new THREE.TextureLoader();
     const T = (url,rx,ry,srgb)=>{ const t=_tl.load(url); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(rx,ry); t.anisotropy=4; if(srgb) t.encoding=THREE.sRGBEncoding; return t; };
-    const brickMat  = new THREE.MeshStandardMaterial({ color:'#7d6a55', map:T('assets/tex/brick_diffuse.jpg',3,4,true), bumpMap:T('assets/tex/brick_bump.jpg',3,4), bumpScale:0.5, roughnessMap:T('assets/tex/brick_roughness.jpg',3,4), roughness:1, metalness:0 });
-    const stoneMat  = new THREE.MeshStandardMaterial({ color:'#4b453a', map:T('assets/tex/stone.jpg',2,2,true), bumpMap:T('assets/tex/stone.jpg',2,2), bumpScale:0.3, roughness:1, metalness:0 });
     const groundMat = new THREE.MeshStandardMaterial({ color:'#2a3220', map:T('assets/tex/grass.jpg',44,44,true), roughness:1, metalness:0 });
     const pathMat   = new THREE.MeshStandardMaterial({ color:'#5a5142', map:T('assets/tex/stone.jpg',2,26,true), bumpMap:T('assets/tex/stone.jpg',2,26), bumpScale:0.45, roughness:1, metalness:0 });
     const woodMat   = new THREE.MeshStandardMaterial({ color:'#4a3620', map:T('assets/tex/wood_diffuse.jpg',1.4,2.6,true), bumpMap:T('assets/tex/wood_bump.jpg',1.4,2.6), bumpScale:0.4, roughnessMap:T('assets/tex/wood_roughness.jpg',1.4,2.6), roughness:1, metalness:0 });
@@ -463,52 +461,63 @@ class Component extends DCLogic {
     const fc=new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.85,3,12), mat('#252017')); fc.position.set(-16,1.9,26); scene.add(fc);
 
     // ===== THE MANSION — huge, gothic, intimidating =====
-    const g = new THREE.Group(); g.position.set(0,0,-58); scene.add(g);
-    const wall = brickMat, roofM = mat('#0f0d0a'), stone = stoneMat;
-    const gAdd = (w,h,d,x,y,z,m)=>{ const me=new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m); me.position.set(x,y,z); g.add(me); return me; };
-    gAdd(52,3,26,0,1.5,2, stone);                        // terrace plinth
-    for(let i=0;i<5;i++){ gAdd(20,0.8,1.6,0,2.6-i*0.5,15+i*1.5, stone); } // grand steps
-    gAdd(26,30,15,0,18,-2, wall);                        // central block (huge)
-    gAdd(14,19,13,-18,12.5,1, wall); gAdd(14,19,13,18,12.5,1, wall); // wings
-    gAdd(26.4,0.7,15.4,0,10,-2, stone); gAdd(26.4,0.7,15.4,0,20,-2, stone); // string courses
-    const roof = new THREE.Mesh(new THREE.ConeGeometry(19,12,4), roofM); roof.rotation.y=Math.PI/4; roof.position.set(0,39,-2); g.add(roof);
-    [-18,18].forEach(x=>{ const wr=new THREE.Mesh(new THREE.ConeGeometry(10.5,6,4), roofM); wr.rotation.y=Math.PI/4; wr.position.set(x,25,1); g.add(wr); });
-    [-12,12].forEach(x=>{ const t=new THREE.Mesh(new THREE.CylinderGeometry(2.4,2.4,40,12), stone); t.position.set(x,23,6); g.add(t); const tc=new THREE.Mesh(new THREE.ConeGeometry(3.4,11,12), roofM); tc.position.set(x,48.5,6); g.add(tc); }); // corner towers
-    gAdd(9,20,9,0,45,-2, wall);                          // bell/clock tower
-    const spire = new THREE.Mesh(new THREE.ConeGeometry(6,16,4), roofM); spire.rotation.y=Math.PI/4; spire.position.set(0,63,-2); g.add(spire);
-    const clock = new THREE.Mesh(new THREE.CircleGeometry(2.4,24), basic('#F2C759')); clock.position.set(0,48,5.6); clock.material.transparent=true; clock.material.opacity=0.55; g.add(clock);
-    gAdd(0.35,4.4,0.2,0,48,5.75, mat('#0a0806')); gAdd(3.4,0.35,0.2,0.6,49,5.75, mat('#0a0806')); // stopped hands
-    [-6,-2.2,2.2,6].forEach(x=>{ const col=new THREE.Mesh(new THREE.CylinderGeometry(0.9,0.9,15,12), stone); col.position.set(x,10.5,7.6); g.add(col); }); // portico columns
-    gAdd(16,2,3,0,18.5,7, stone);                        // entablature
-    const ped = new THREE.Mesh(new THREE.ConeGeometry(9,4,3), stone); ped.rotation.y=-Math.PI/2; ped.position.set(0,21.4,7); g.add(ped); // pediment
-    // grand doors — two leaves that swing open on arrival
-    const doorMat = woodMat;
-    // a real doorway cut into the facade: dark interior panel + warm glow, a carved stone surround, then the two wood leaves hung in front
-    const doorDark = new THREE.Mesh(new THREE.PlaneGeometry(6.3,11.0), mat('#080604')); doorDark.position.set(0,7.6,5.52); g.add(doorDark);
-    const doorGlow = new THREE.Mesh(new THREE.PlaneGeometry(6.0,10.6), basic('#FFE9BF')); doorGlow.position.set(0,7.6,5.55); doorGlow.material.transparent=true; doorGlow.material.opacity=0; g.add(doorGlow); this.doorGlow=doorGlow;
-    gAdd(0.7,11.6,0.7,-3.5,7.6,5.62, stone); gAdd(0.7,11.6,0.7,3.5,7.6,5.62, stone);
-    gAdd(8.2,1.2,0.9,0,13.6,5.62, stone);
-    const dpL = new THREE.Group(); dpL.position.set(-3, 8, 5.7); g.add(dpL);
-    const leafL = new THREE.Mesh(new THREE.BoxGeometry(2.94,10.8,0.4), doorMat); leafL.position.set(1.47,0,0); dpL.add(leafL);
-    const leafLtrim = new THREE.Mesh(new THREE.BoxGeometry(0.16,10.8,0.46), mat('#1c140a')); leafLtrim.position.set(2.86,0,0); dpL.add(leafLtrim);
-    const dpR = new THREE.Group(); dpR.position.set(3, 8, 5.7); g.add(dpR);
-    const leafR = new THREE.Mesh(new THREE.BoxGeometry(2.94,10.8,0.4), doorMat); leafR.position.set(-1.47,0,0); dpR.add(leafR);
-    const leafRtrim = new THREE.Mesh(new THREE.BoxGeometry(0.16,10.8,0.46), mat('#1c140a')); leafRtrim.position.set(-2.86,0,0); dpR.add(leafRtrim);
+    // Sourced model: "Haunted Victorian House" by gravyart (CC-BY 4.0) — see assets/models/exterior/license.txt.
+    // Its own wraparound porch/staircase and widow's-walk tower replace all the primitive walls, roof,
+    // towers, windows, chimneys, columns, pediment, battlements and string courses that used to live here.
+    // The model's native front (porch + entrance + tower) faces local +X; rotating -90° about Y brings
+    // that face to world +Z — the direction the player actually approaches from (walking from +Z down
+    // to arrivalZ). Native bbox (local, unscaled): x -8.04..7.96, y -1.43..15.69, z -6.07..7.11 — the
+    // porch/tower are centered on local Z (~0.52), and -1.43 is the foundation's lowest point.
+    const mansionScale = 1.0; // visually verified: reads as a proper 2.5-story Victorian at 1.7-unit eye height, no change needed
+    const mansionX = 0.52 * mansionScale;  // recenters the model's left-right axis (local Z) onto the path (world x=0)
+    const mansionY = 1.43 * mansionScale;  // lifts the model's lowest point (foundation) to ground level
+    const mansionZ = -58;                  // same depth as the old mansion group — keeps continuity with the fence/trees/lamps already placed
+    this.loadGLTF('assets/models/exterior/scene.gltf', (mansion) => {
+      mansion.position.set(mansionX, mansionY, mansionZ);
+      mansion.rotation.y = -Math.PI / 2;
+      mansion.scale.set(mansionScale, mansionScale, mansionScale);
+      scene.add(mansion);
+      this.mansionModel = mansion;
+    });
+
+    // grand doors — two leaves that swing open on arrival. Kept as simple primitive geometry (it's
+    // mid-swing motion during the arrival beat, not a static hero shot to detail up) but repositioned
+    // and rescaled to land on the real model's own front entrance: centered on the path (world x=0),
+    // at the model's actual front-wall depth (world z≈-52.1 at this scale/position), at real door height.
+    // woodMat's texture repeat (1.4,2.6) was tuned for the old 2.94x10.8 door — reused as-is on a
+    // real-world 1x2.3 door it tiled so densely the plank texture read as a brick/lattice grate, so
+    // the door leaves get their own material with a repeat scaled down to match the smaller panel.
+    const doorMat = new THREE.MeshStandardMaterial({ color:'#4a3620', map:T('assets/tex/wood_diffuse.jpg',0.5,0.6,true), bumpMap:T('assets/tex/wood_bump.jpg',0.5,0.6), bumpScale:0.25, roughness:1, metalness:0 });
+    const doorCenterY = 2.75, doorHalfW = 1.0, doorH = 2.3, doorWallZ = mansionZ + mansionScale*5.9;
+    const doorDark = new THREE.Mesh(new THREE.PlaneGeometry(2.3,2.7), mat('#080604')); doorDark.position.set(0,doorCenterY,doorWallZ+0.02); scene.add(doorDark);
+    const doorGlow = new THREE.Mesh(new THREE.PlaneGeometry(2.0,2.4), basic('#FFE9BF')); doorGlow.position.set(0,doorCenterY,doorWallZ+0.05); doorGlow.material.transparent=true; doorGlow.material.opacity=0; scene.add(doorGlow); this.doorGlow=doorGlow;
+    const dpL = new THREE.Group(); dpL.position.set(-doorHalfW, doorCenterY, doorWallZ+0.12); scene.add(dpL);
+    const leafL = new THREE.Mesh(new THREE.BoxGeometry(doorHalfW*0.98,doorH,0.09), doorMat); leafL.position.set(doorHalfW*0.49,0,0); dpL.add(leafL);
+    const leafLtrim = new THREE.Mesh(new THREE.BoxGeometry(doorHalfW*0.06,doorH,0.11), mat('#1c140a')); leafLtrim.position.set(doorHalfW*0.95,0,0); dpL.add(leafLtrim);
+    const dpR = new THREE.Group(); dpR.position.set(doorHalfW, doorCenterY, doorWallZ+0.12); scene.add(dpR);
+    const leafR = new THREE.Mesh(new THREE.BoxGeometry(doorHalfW*0.98,doorH,0.09), doorMat); leafR.position.set(-doorHalfW*0.49,0,0); dpR.add(leafR);
+    const leafRtrim = new THREE.Mesh(new THREE.BoxGeometry(doorHalfW*0.06,doorH,0.11), mat('#1c140a')); leafRtrim.position.set(-doorHalfW*0.95,0,0); dpR.add(leafRtrim);
     this.doorL = dpL; this.doorR = dpR;
-    const doorInner = new THREE.PointLight('#F2C75A', 0, 34, 2); doorInner.position.set(0,7,7.5); g.add(doorInner); this.doorInner=doorInner;
-    const doorLight = new THREE.PointLight('#F2C75A', 2, 44, 2); doorLight.position.set(0,9,12); g.add(doorLight);
-    // warm grazing wash so the brick facade reads as you approach (short range — still a fogged silhouette from the gate)
-    [-15,15].forEach(x=>{ const fl=new THREE.PointLight('#c8a874', 0.75, 42, 2); fl.position.set(x,6.5,12); g.add(fl); });
-    const uplight = new THREE.PointLight('#b79a6a', 0.55, 50, 2); uplight.position.set(0,1.5,16); g.add(uplight);
-    const winLit = basic('#F2C759'), winDark = mat('#0d0b08');
-    const addWin = (x,y,z,w,h,lit)=>{ const me=new THREE.Mesh(new THREE.PlaneGeometry(w,h), lit?winLit:winDark); me.position.set(x,y,z); g.add(me); };
-    const cz=5.55;
-    for(let row=0;row<4;row++){ for(let col=-2;col<=2;col++){ if(col===0 && row<2) continue; addWin(col*4.4, 8+row*5.4, cz, 2.2, 3.6, Math.random()<0.72); } }
-    [-18,18].forEach(wx=>{ for(let row=0;row<3;row++){ for(let col=-1;col<=1;col++){ addWin(wx+col*3.6, 7+row*5, 7.55, 1.8, 2.8, Math.random()<0.6); } } });
-    for(let col=-1;col<=1;col++){ addWin(col*6, 34, 3, 1.6, 2, Math.random()<0.7); } // dormers
-    addWin(0, 30, cz, 4, 6, true);                       // high arched window
-    [-18,18].forEach(wx=>{ for(let c=-2;c<=2;c++){ gAdd(1.2,1.2,1.2, wx+c*3, 22.5, 7.2, stone); } }); // battlements
-    gAdd(1.4,6,1.4,-8,42,-2, stone); gAdd(1.4,6,1.4,8,42,-2, stone); gAdd(1.4,5,1.4,-18,23,1, stone); gAdd(1.4,5,1.4,18,23,1, stone); // chimneys
+    const doorInner = new THREE.PointLight('#F2C75A', 0, 20, 2); doorInner.position.set(0,doorCenterY-0.5,doorWallZ+2); scene.add(doorInner); this.doorInner=doorInner;
+    const doorLight = new THREE.PointLight('#F2C75A', 2, 34, 2); doorLight.position.set(0,doorCenterY+1,doorWallZ+6); scene.add(doorLight);
+    // warm grazing wash so the facade reads as you approach (short range — still a fogged silhouette from the gate)
+    [-15,15].forEach(x=>{ const fl=new THREE.PointLight('#c8a874', 0.75, 42, 2); fl.position.set(x,6.5,doorWallZ+6.5); scene.add(fl); });
+    const uplight = new THREE.PointLight('#b79a6a', 0.55, 50, 2); uplight.position.set(0,1.5,doorWallZ+10.5); scene.add(uplight);
+
+    // the stopped clock — matches the frozen clock in the Entry Hall (deliberate environmental coherence,
+    // not set dressing for its own sake). Placed on the sourced model's widow's-walk tower, on its
+    // front-facing wall in the solid band between the tower's two arched window tiers (local y 9.72..11.26)
+    // so the glowing disc doesn't intersect modeled window glass. Tower local footprint: x -0.4..3.75,
+    // z -1.6..2.6, centered on the same local-Z symmetry axis as the front door (~0.52).
+    const clockLocal = { x: 3.05, y: 10.5, z: 0.52 };
+    const clockWorld = {
+      x: mansionX - mansionScale*clockLocal.z,
+      y: mansionY + mansionScale*clockLocal.y,
+      z: mansionZ + mansionScale*clockLocal.x,
+    };
+    const clock = new THREE.Mesh(new THREE.CircleGeometry(0.85,24), basic('#F2C759')); clock.position.set(clockWorld.x, clockWorld.y, clockWorld.z+0.06); clock.material.transparent=true; clock.material.opacity=0.55; scene.add(clock);
+    const clockHandV = new THREE.Mesh(new THREE.BoxGeometry(0.05,0.55,0.05), mat('#0a0806')); clockHandV.position.set(clockWorld.x, clockWorld.y+0.15, clockWorld.z+0.09); scene.add(clockHandV);
+    const clockHandH = new THREE.Mesh(new THREE.BoxGeometry(0.42,0.05,0.05), mat('#0a0806')); clockHandH.position.set(clockWorld.x+0.16, clockWorld.y+0.32, clockWorld.z+0.09); scene.add(clockHandH);
 
     // big moon behind the house + stars
     const moonDisc = new THREE.Mesh(new THREE.CircleGeometry(16,40), basic('#c9cede')); moonDisc.position.set(-95,85,-210); scene.add(moonDisc);
