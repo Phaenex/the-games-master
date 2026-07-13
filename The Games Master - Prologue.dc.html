@@ -634,12 +634,12 @@ class Component extends DCLogic {
       this.vx+=(dvx-this.vx)*rate; this.vz+=(dvz-this.vz)*rate;
       cam.position.x += this.vx*dt; cam.position.z += this.vz*dt;
       cam.position.x = Math.max(-3.0, Math.min(3.0, cam.position.x));
-      // retreat is capped at the car in both directions. The gate lock beat (below) no longer
-      // physically traps the player just behind the gate — that cap made the genuine secret-ending
-      // path (retreat all the way back to the car after a beat has played) physically unreachable,
-      // since the very first backward step past the gate fired the lock and capped position forever.
-      // The "gate is locked" line is now atmosphere, not a wall.
-      cam.position.z = Math.max(this.arrivalZ, Math.min(this.carZ, cam.position.z));
+      // retreat is capped at the car before the gate, but tightens to just behind the gate once it
+      // has locked — the secret ending is only reachable by retreating before ever passing the gate
+      // (see the !this._passedGate check below), so this cap never conflicts with it; it only stops
+      // a player from walking straight back through a gate the game just told them was shut.
+      const retreatCap = this._gateLockFired ? (this.gateZ + 2) : this.carZ;
+      cam.position.z = Math.max(this.arrivalZ, Math.min(retreatCap, cam.position.z));
       // vertical: crouch, jump, gravity
       const targetStand = crouch?1.12:1.7;
       this.standY += (targetStand - this.standY)*Math.min(1,dt*12);
@@ -668,19 +668,19 @@ class Component extends DCLogic {
       if (ts===0 && advanced > 3.5) this.setState({ tutStep:1 });
       else if (ts===1 && (looked || advanced > 13)) this.setState({ tutStep:2 });
       this.checkBeats(cam.position.z);
-      // retreat detection: locks the gate shut (narration only, see retreatCap above) the first time
-      // the player turns back after passing it, or reveals a secret ending if they make it genuinely
-      // all the way back to the car. The secret ending additionally requires at least one story beat
-      // to have already fired — beats only start once the player has walked forward through the gate,
-      // so this is what stops a player from triggering the ending by accident just by glancing back at
-      // the car in the first few seconds of a fresh walk, before any beat (or the gate itself) has been
-      // reached (playtest finding: 3 units of backward drift from spawn was enough to fire it).
+      // retreat detection: these two outcomes are mutually exclusive by design, gated on whether the
+      // player has ever passed the gate. Turn back and walk genuinely all the way to the car BEFORE
+      // ever reaching the gate -> secret ending. Turn back AFTER passing it -> the gate locks shut
+      // (narration + the tightened retreatCap above, which then physically blocks the return trip).
+      // Requiring the player to actually reach the car (not just drift a few units from spawn) is what
+      // stops the secret ending firing by accident in the first few seconds of a fresh walk (playtest
+      // finding: the old check only needed 3 units of backward drift from spawn to fire it).
       const zNow = cam.position.z;
       if (zNow < this._minZReached) this._minZReached = zNow;
       if (!this._passedGate && zNow <= this.gateZ) this._passedGate = true;
       const movingBackward = zNow > this._minZReached + 0.5; // small tolerance, not every frame's float jitter
       if (movingBackward) {
-        if (this._beat > -1 && zNow >= this.carZ - 1) {
+        if (!this._passedGate && zNow >= this.carZ - 1) {
           this.triggerSecretEnding();
         } else if (this._passedGate && !this._gateLockFired) {
           this._gateLockFired = true;
