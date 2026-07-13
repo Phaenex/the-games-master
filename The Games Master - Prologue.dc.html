@@ -388,6 +388,20 @@ class Component extends DCLogic {
       this.carModel = car;
     });
 
+    // the graveyard gate: a single mesh already modeled as two flared-open panels with a walkable
+    // gap between them, straddling the path right where the "gate was open" beat fires (z<=64);
+    // native mesh sits with local min y ~ -2.0609 * scale, so position.y lifts its base to ground level.
+    // visually verified at scale 1.0: ~4.45 units tall (taller than the 1.7-unit eye height and the
+    // fence line), gap between panels is wide open at path-center (x=0), no overlap with the fence,
+    // ground, car, or the existing procedural gate posts/leaves further back at z=68.
+    this.loadGLTF('assets/models/sourced/graveyard_gate.glb', (gate) => {
+      const scale = 1.0; // visually verified: reads as a proper gate at 1.7-unit eye height, no change needed
+      gate.position.set(0, 2.0609 * scale, this.gateZ);
+      gate.scale.set(scale, scale, scale);
+      this.scene.add(gate);
+      this.gateModel = gate;
+    });
+
     // wrought-iron fence + hedges lining the drive
     const fenceM = mat('#14130f');
     for (let z=62; z>-34; z-=5){ addBox(0.4,3,0.4,-3.9,1.5,z,fenceM); addBox(0.4,3,0.4,3.9,1.5,z,fenceM); }
