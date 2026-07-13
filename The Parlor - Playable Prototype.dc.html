@@ -240,6 +240,9 @@ class Component extends DCLogic {
     { name: 'Brazen', color: '#8f2f2a' },
     { name: 'The Stage', color: '#8f2f2a' }
   ];
+  // Probability the visual tell matches the true gmCheated state for that hand, by corruption tier.
+  // Low tiers are unreliable on purpose (real judgment required); only the scripted test forces 100%.
+  TELL_RELIABILITY = [0.5, 0.58, 0.7, 0.84, 0.95];
   LINES = {
     CHARMING: ['A pleasure. Lead when you are ready.', 'Take your time. I have nothing but.', 'Sit. The chair remembers you.'],
     COLD: ['Noted.', 'As expected of you.', 'You will tire before I do.'],
@@ -314,7 +317,7 @@ class Component extends DCLogic {
     const d = this.buildDeck();
     g.playerHand = d.slice(0,7); g.gmHand = d.slice(7,14);
     g.trickP = 0; g.trickG = 0; g.leader = leader;
-    g.table = { player:null, gm:null, leadSuit:null, gmCheated:false, cheatType:null };
+    g.table = { player:null, gm:null, leadSuit:null, gmCheated:false, cheatType:null, tellShown:false };
     g.revealed = {}; g.peek = false; g.bonesUsed = false;
     if (leader === 'gm') { this.gmLead(g); g.phase='gmLead'; g.status='He leads. You must follow.'; }
     else { g.phase='playerLead'; g.status='Your lead. Choose a card.'; }
@@ -359,6 +362,10 @@ class Component extends DCLogic {
     g.table.gm = card; g.table.gmCheated = cheated; g.table.cheatType = ctype;
     g.effWinner = cheated ? 'gm' : this.winner(pc, card, lead);
     g.legitWinner = this.winner(pc, card, lead);
+    // The visual tell is a probabilistic proxy for `cheated`, not a direct mirror of it.
+    // Reliability rises with corruption tier; the scripted test (force) is always accurate.
+    const reliability = force ? 1 : (this.TELL_RELIABILITY[g.corruption] != null ? this.TELL_RELIABILITY[g.corruption] : 0.5);
+    g.table.tellShown = Math.random() < reliability ? cheated : !cheated;
   }
 
   gmLead(g) {
@@ -367,14 +374,14 @@ class Component extends DCLogic {
     pool.sort((a,b)=>a.rank-b.rank);
     const card = pool[Math.floor(pool.length/2)] || pool[0];
     g.gmHand = hand.filter(c=>c.id!==card.id);
-    g.table = { player:null, gm:card, leadSuit:card.suit, gmCheated:false, cheatType:null };
+    g.table = { player:null, gm:card, leadSuit:card.suit, gmCheated:false, cheatType:null, tellShown:false };
   }
 
   playerPlay(card) {
     const g = { ...this.state, table: { ...this.state.table }, revealed: { ...this.state.revealed } };
     if (g.phase === 'playerLead') {
       g.playerHand = g.playerHand.filter(c=>c.id!==card.id);
-      g.table = { player:card, gm:null, leadSuit:card.suit, gmCheated:false, cheatType:null };
+      g.table = { player:card, gm:null, leadSuit:card.suit, gmCheated:false, cheatType:null, tellShown:false };
       if (card.suit==='eyes') g.peek = true;
       const forceTest = g.testState==='active';
       this.gmFollow(g, forceTest);
@@ -398,27 +405,29 @@ class Component extends DCLogic {
     if (g.phase !== 'awaitRead') return;
     if (g.table.gmCheated) {
       g.flash = 'green'; g.cheatsCaught += 1;
-      g.defiance = Math.min(20, g.defiance+2); g.corruption = Math.min(4, g.corruption+1);
+      // A correct Read gets real weight: it caps corruption's growth for this hand instead of
+      // letting it climb unchecked (onStand/onContinue still increment on a missed/unread cheat).
+      g.defiance = Math.min(20, g.defiance+2);
       g.sanity = Math.min(100, g.sanity+3);
       g.effWinner = 'player';
       if (g.testState === 'active') {
         g.readUnlocked = true; g.testState = 'done';
         g.gmState = 'IRRITATED'; g.line = 'You… saw that. Clever thing.';
-        g.status = 'There. He cheats — and now you can call it.';
+        g.status = 'There. He had no honest card left — and cheated anyway. Now you can call it.';
         // authored payoff: freeze the table and play the catch cinematic
         g.caughtCard = g.table.gm ? { ...g.table.gm } : null;
         g.caughtType = g.table.cheatType; g.caughtLead = g.table.leadSuit;
         g.catchSeq = 0;
       } else {
         g.gmState = 'IRRITATED'; g.line = this.pick('IRRITATED');
-        g.status = 'Caught. He takes the card back.';
+        g.status = 'Caught. He had nothing legal to answer with — and reached for the felt anyway.';
       }
       this.settle(g, true, true);
     } else {
       g.flash = 'crimson'; g.sanity = Math.max(0, g.sanity-6);
       g.compliance = Math.min(20, g.compliance+1);
       g.gmState = g.sanity<25 ? 'PREDATORY' : 'COLD'; g.line = this.pick('FALSE');
-      g.status = 'There was nothing to catch.';
+      g.status = 'There was nothing to catch. He played it clean.';
       this.settle(g, false, true);
     }
     this.setState(g); this.clearFlash();
@@ -485,7 +494,7 @@ class Component extends DCLogic {
       this.dealInto(g, 'player'); this.setState(g); return;
     }
     const lead = g.lastWinner || 'player';
-    g.leader = lead; g.table = { player:null, gm:null, leadSuit:null, gmCheated:false, cheatType:null };
+    g.leader = lead; g.table = { player:null, gm:null, leadSuit:null, gmCheated:false, cheatType:null, tellShown:false };
     if (g.sanity < 25) g.gmState='PREDATORY';
     else if (g.gmState==='IRRITATED' && g.testState!=='done') g.gmState = g.round>=3?'HOSTILE':(g.round===2?'COLD':'CHARMING');
     if (lead==='gm') { this.gmLead(g); g.phase='gmLead'; g.status='He leads. You must follow.'; g.line=this.pick(g.gmState); }
@@ -544,14 +553,14 @@ class Component extends DCLogic {
       return { rank:'', glyph:'✦', style:'position:relative;width:38px;height:54px;border-radius:5px;display:flex;align-items:center;justify-content:center;background:repeating-linear-gradient(45deg,#1c1409,#1c1409 4px,#241a0d 4px,#241a0d 8px);border:1px solid rgba(242,199,89,0.3);color:rgba(242,199,89,0.35);flex:none;' };
     });
 
-    const cheating = g.phase==='awaitRead' && g.table.gmCheated;
+    const tellShown = g.phase==='awaitRead' && !!g.table.tellShown;
     let tell = 0;
-    if (cheating) tell = testActive ? 3.6 : (g.readUnlocked ? (1.2 + g.corruption*1.1) : 0.0);
+    if (tellShown) tell = testActive ? 3.6 : (g.readUnlocked ? (1.2 + g.corruption*1.1) : 0.0);
     const gmc = g.table && g.table.gm;
     const tableGm = gmc ? { shown:true, rank:gmc.rank, glyph:S[gmc.suit].glyph,
       style:'position:relative;width:74px;height:104px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:linear-gradient(155deg,#EBE0D1,#d3c6ad);color:'+S[gmc.suit].accent+';border:1px solid rgba(0,0,0,0.25);'+
         'box-shadow:'+(-tell)+'px 0 0 rgba(143,47,42,'+Math.min(0.8,tell*0.18)+'),'+tell+'px 0 0 rgba(64,242,89,'+Math.min(0.8,tell*0.18)+'),0 8px 20px rgba(0,0,0,0.5);'+
-        (cheating && tell>0.5 ? 'animation:flick 1.6s infinite;' : '') } : { shown:false };
+        (tellShown && tell>0.5 ? 'animation:flick 1.6s infinite;' : '') } : { shown:false };
     const pc = g.table && g.table.player;
     const winFlashP = g.phase==='trickDone' && g.lastWinner==='player';
     const tablePlayer = pc ? { shown:true, rank:pc.rank, glyph:S[pc.suit].glyph,
