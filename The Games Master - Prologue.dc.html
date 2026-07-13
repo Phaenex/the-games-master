@@ -196,6 +196,17 @@
     </div>
   </sc-if>
 
+  <!-- ===== SECRET ENDING (retreated to the car) ===== -->
+  <sc-if value="{{ isSecretEnding }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:55;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;background:#000;">
+      <div style="animation:rise 2.6s ease both;max-width:640px;padding:0 8vw;">
+        <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:clamp(20px,2.7vw,31px);line-height:1.4;color:#EBE0D1;text-shadow:0 2px 18px #000;">I got back in the car.<br>Whatever was waiting up that drive would have to wait for someone else — there would always be someone else, hungrier or more desperate than I was tonight.<br><br>The house didn't need me specifically. It only needed someone to say yes.</div>
+        <div style="margin-top:30px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.3em;color:#8a6a1e;text-transform:uppercase;">— you left —</div>
+        <a href="#" onClick="{{ onReturnToMenu }}" style="display:inline-block;margin-top:44px;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.26em;text-transform:uppercase;color:#A69980;border-bottom:1px solid rgba(166,153,128,0.45);padding-bottom:7px;text-decoration:none;">return to the menu</a>
+      </div>
+    </div>
+  </sc-if>
+
   <!-- ===== DEV MENU (backtick) ===== -->
   <sc-if value="{{ devOpen }}" hint-placeholder-val="{{ false }}">
     <div style="position:fixed;top:12px;left:12px;z-index:90;width:252px;background:rgba(8,8,10,0.94);border:1px solid rgba(242,199,89,0.4);color:#EBE0D1;padding:12px 13px;box-shadow:0 14px 44px rgba(0,0,0,0.7);">
@@ -280,7 +291,7 @@ class Component extends DCLogic {
   }
   devGoTo(name) {
     if (this._ct) this.clearColdTimers();
-    const base = { isMenu:false, isOptions:false, isColdOpen:false, isIntro:false, isWalk:false, isArrival:false, fade:0, warm:0, beatOn:false, letterMounted:false };
+    const base = { isMenu:false, isOptions:false, isColdOpen:false, isIntro:false, isWalk:false, isArrival:false, isSecretEnding:false, fade:0, warm:0, beatOn:false, letterMounted:false };
     if (name==='menu') { this.mode='menu'; this.walkEnabled=false; if(this.cam)this.cam.position.set(0,1.7,72); this.yaw=0; this.pitch=-0.02; this.setState(Object.assign({}, base, { isMenu:true, tutStep:0 })); }
     else if (name==='options') { this.mode='menu'; this.walkEnabled=false; this.setState(Object.assign({}, base, { isOptions:true })); }
     else if (name==='coldopen') { this.mode='menu'; this.walkEnabled=false; this.setState(Object.assign({}, base, { isColdOpen:true })); this.advanceCold(0); }
@@ -660,6 +671,11 @@ class Component extends DCLogic {
     this.setState({ isSecretEnding: true, fade: 1 });
   }
 
+  onReturnToMenu(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    this.devGoTo('menu');
+  }
+
   fadeThen(cb) {
     this.setState({ fade:1 });
     setTimeout(()=>{ cb(); setTimeout(()=>this.setState({ fade:0 }), 60); }, 520);
@@ -768,6 +784,7 @@ class Component extends DCLogic {
     }];
     return {
       isMenu:st.isMenu, isColdOpen:st.isColdOpen, isIntro:st.isIntro, isWalk:st.isWalk, isArrival:st.isArrival,
+      isSecretEnding: st.isSecretEnding, onReturnToMenu:(e)=>this.onReturnToMenu(e),
       cinematic: st.isIntro || st.isWalk || st.isArrival,
       coldText:st.coldText, coldStyle:'opacity:'+(st.coldOn?1:0)+';', coldHintStyle:'opacity:'+(st.isColdOpen?0.55:0)+';', onColdNext:()=>this.nextCold(),
       beatMain:st.beatMain, beatSub:st.beatSub,
