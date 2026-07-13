@@ -529,7 +529,7 @@ class Component extends DCLogic {
       this.vx+=(dvx-this.vx)*rate; this.vz+=(dvz-this.vz)*rate;
       cam.position.x += this.vx*dt; cam.position.z += this.vz*dt;
       cam.position.x = Math.max(-3.0, Math.min(3.0, cam.position.x));
-      cam.position.z = Math.max(this.arrivalZ, Math.min(74, cam.position.z));
+      cam.position.z = Math.max(this.arrivalZ, Math.min(this.carZ, cam.position.z));
       // vertical: crouch, jump, gravity
       const targetStand = crouch?1.12:1.7;
       this.standY += (targetStand - this.standY)*Math.min(1,dt*12);
