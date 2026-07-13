@@ -524,12 +524,51 @@ class Component extends DCLogic {
       if (this._pendingGateLock) { this._pendingGateLock = false; this.gateModel.rotation.y += 0.35; }
     });
 
-    // wrought-iron fence + hedges lining the drive
-    const fenceM = mat('#14130f');
-    for (let z=62; z>-34; z-=5){ addBox(0.4,3,0.4,-3.9,1.5,z,fenceM); addBox(0.4,3,0.4,3.9,1.5,z,fenceM); }
-    addBox(0.2,0.2,96,-3.9,2.4,14,fenceM); addBox(0.2,0.2,96,3.9,2.4,14,fenceM);
-    addBox(0.2,0.2,96,-3.9,0.9,14,fenceM); addBox(0.2,0.2,96,3.9,0.9,14,fenceM);
-    for (let z=62; z>-34; z-=2.2){ addBox(0.09,2.4,0.09,-3.9,1.6,z,fenceM); addBox(0.09,2.4,0.09,3.9,1.6,z,fenceM); }
+    // wrought-iron fence lining the drive — real sourced model: "CC0 - Iron Fence" by plaggy (CC-BY 4.0),
+    // see assets/models/sourced/iron_fence/license.txt, replacing the old boxes-and-cylinders posts/pickets.
+    // Its scene.gltf is a single flat repeating panel, not one continuous run — native bbox (local, unscaled,
+    // as returned by loadGLTF's gltf.scene): x -1.4263..1.4263 (width 2.8526), y -0.8817..0.8817
+    // (height 1.7634, centered on the local origin), z -0.0195..0.0195 (depth 0.039 — a thin picket card).
+    // rotation.y=Math.PI/2 turns the panel's width axis (local X) to run along world Z (the drive) and its
+    // thin face-normal (local Z) to face world X (visible from the path) — same axis fix as the mansion's
+    // -90° turn to face the approach. One GLTF load, then N cheap clones (shared geometry/material) spaced
+    // at the panel's own scaled width so seams meet edge-to-edge; the step is nudged a hair from that width
+    // so a whole number of panels closes the exact old fence span (z=62 to z=-34) with no stray gap at the end.
+    const fenceRunStart = 62, fenceRunEnd = -34; // same span as the old primitive fence
+    const fenceScale = 1.55; // visually verified: reads as a proper perimeter fence at 1.7-unit eye height alongside the car/gate/mansion
+    const fencePanelW = 2.8526 * fenceScale;
+    const fenceCount = Math.max(1, Math.round((fenceRunStart - fenceRunEnd) / fencePanelW));
+    const fenceStep = (fenceRunStart - fenceRunEnd) / fenceCount;
+    const fenceBaseY = 0.8817 * fenceScale; // lifts the panel's lowest point (it's centered on its own origin) to ground level
+    this.loadGLTF('assets/models/sourced/iron_fence/scene.gltf', (panel) => {
+      [-3.9, 3.9].forEach(x=>{
+        for (let i=0; i<fenceCount; i++){
+          const seg = (i===0 && x===-3.9) ? panel : panel.clone(true);
+          seg.scale.set(fenceScale, fenceScale, fenceScale);
+          seg.rotation.y = Math.PI/2;
+          seg.position.set(x, fenceBaseY, fenceRunStart - fenceStep*(i+0.5));
+          scene.add(seg);
+        }
+      });
+      this.fenceModel = panel;
+    });
+    // the sourced panel is a middle-of-run repeating segment — its decorative top-rail drape just stops
+    // mid-curve at whichever panel lands on the run's outer edge, with no post or cap mesh to terminate it
+    // cleanly (visually confirmed via screenshot: a bare cut, not a seam, right where the player walks
+    // past on the final approach). Same thin-post-plus-spear-finial language mkGate() already uses for
+    // the procedural gate leaves masks it at both ends, on both sides, at the fence's own height.
+    // (round, like the picket rods, rather than a flat-faced box — a box's large flat sides catch the
+    // nearby lamp/facade lights dead-on and blow out lighter than the rest of the fence reads)
+    const capM = mat('#14130f');
+    const fenceHeight = fenceBaseY*2;
+    [-3.9, 3.9].forEach(x=>{
+      [fenceRunStart, fenceRunEnd].forEach(z=>{
+        const post=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.11,fenceHeight,10),capM); post.position.set(x,fenceHeight/2,z); scene.add(post);
+        const cap=new THREE.Mesh(new THREE.ConeGeometry(0.18,0.42,10),capM); cap.position.set(x,fenceHeight+0.21,z); scene.add(cap);
+      });
+    });
+
+    // hedges lining the drive, just outside the fence line
     const hedge = mat('#0b1108');
     addBox(2.6,2.2,96,-5.7,1.1,14,hedge); addBox(2.6,2.2,96,5.7,1.1,14,hedge);
 
