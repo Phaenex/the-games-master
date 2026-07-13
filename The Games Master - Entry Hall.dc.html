@@ -114,6 +114,7 @@ class Component extends DCLogic {
   }
   componentWillUnmount() {
     if (this._raf) cancelAnimationFrame(this._raf);
+    if (this._chandRaf) cancelAnimationFrame(this._chandRaf);
     window.removeEventListener('keydown', this._kd); window.removeEventListener('keyup', this._ku);
     window.removeEventListener('resize', this._resize);
     if (this._t0) clearTimeout(this._t0);
@@ -140,12 +141,35 @@ class Component extends DCLogic {
     T(4700, ()=> this.setState({ fade:0.82 }));
     T(5500, ()=> this.setState({ fade:0.2, beatMain:'How long had I been under?', beatSub:'Long enough to be arranged. Set down facing the room \u2014 the way you pose a thing you mean to use.' }));
     T(7800, ()=> { this.setState({ fade:0 }); this.rising = true; this._riseStart = Date.now(); });
-    T(11400,()=> { this.waking=false; this.rising=false; this.standY=1.7; this.wakeRoll=0; this.wakePitch=0; this.walkEnabled=true; this.setState({ beatOn:false, hintOn:true, headachePulse:0 }); if (this._pulseTick) { clearInterval(this._pulseTick); this._pulseTick=null; } });
+    T(11400,()=> {
+      this.waking=false; this.rising=false; this.standY=1.7; this.wakeRoll=0; this.wakePitch=0;
+      this.setState({ beatMain:'The chandelier hung dead still overhead.', beatSub:'Then — not a draft, nothing in this house moved on its own — it swayed, once, the way a thing does when someone has just let go of it.' });
+      this.swayChandelier();
+    });
+    T(15000,()=> { this.walkEnabled=true; this.setState({ beatOn:false, hintOn:true, headachePulse:0 }); if (this._pulseTick) { clearInterval(this._pulseTick); this._pulseTick=null; } });
     this._pulseTick = setInterval(()=>{
       const decay = this.rising ? Math.max(0, 1 - (Date.now()-(this._riseStart||Date.now()))/3600) : 1;
       const t = Date.now()/1000;
       this.setState({ headachePulse: decay * (0.5+0.5*Math.sin(t*2*Math.PI/1.1)) });
     }, 80);
+  }
+
+  // scripted sway after waking — takes over from the render loop's ambient
+  // chandelier idle-sway (see `this.chand.rotation.z = Math.sin(t*0.5)*0.014`
+  // in loop()) for the duration so the two writers don't fight over the same
+  // property; `_chandRaf` is stored and cancelled in componentWillUnmount the
+  // same way `_raf` is, in case a hot-swap tears this logic down mid-sway.
+  swayChandelier() {
+    if (!this.chand) return;
+    this._chandSway = true;
+    const start = Date.now(), dur = 2600;
+    const tick = () => {
+      const t = (Date.now()-start)/dur;
+      if (t >= 1) { this.chand.rotation.z = 0; this._chandSway = false; this._chandRaf = null; return; }
+      this.chand.rotation.z = Math.sin(t*Math.PI*3) * 0.05 * (1-t);
+      this._chandRaf = requestAnimationFrame(tick);
+    };
+    tick();
   }
 
   makeTextures(THREE, renderer){
@@ -619,7 +643,7 @@ class Component extends DCLogic {
       if (this.moon) this.moon.intensity = 0.55 + f*1.6;
       if (this.winMat) this.winMat.color.setRGB(0.15+f*0.8, 0.22+f*0.72, 0.31+f*0.6);
     } else if (this.bolt && this.bolt.intensity!==0) { this.bolt.intensity=0; if(this.moon) this.moon.intensity=0.55; if(this.winMat) this.winMat.color.setRGB(0.15,0.22,0.31); }
-    if (this.chand) this.chand.rotation.z = Math.sin(t*0.5)*0.014;
+    if (this.chand && !this._chandSway) this.chand.rotation.z = Math.sin(t*0.5)*0.014;
 
     this.renderer.render(this.scene, cam);
   }
