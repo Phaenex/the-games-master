@@ -32,12 +32,13 @@ function startServer() {
 
 async function main() {
   const server = await startServer();
-  const browser = await chromium.launch();
-  const page = await browser.newPage();
-  const consoleErrors = [];
-  page.on('console', (msg) => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
-
+  let browser;
   try {
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+    const consoleErrors = [];
+    page.on('console', (msg) => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
+
     await page.goto(`http://localhost:${PORT}/${encodeURIComponent(HARNESS_FILE)}`);
 
     const finalText = await page.evaluate(async (timeoutMs) => {
@@ -85,7 +86,7 @@ async function main() {
 
     process.exitCode = failed === 0 ? 0 : 1;
   } finally {
-    await browser.close();
+    if (browser) await browser.close();
     server.close();
   }
 }
