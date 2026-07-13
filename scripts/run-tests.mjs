@@ -10,7 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const PORT = 8765;
+const PORT = 8813;
 const HARNESS_FILE = 'The Games Master - Test Harness.dc.html';
 const TIMEOUT_MS = 60_000;
 
