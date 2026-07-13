@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="./support.js"></script>
 <script src="./gm-doubt.js"></script>
+<script src="./gm-settings.js"></script>
 </head>
 <body>
 <x-dc>
@@ -48,10 +49,39 @@
       <div style="display:flex;flex-direction:column;gap:2px;margin-top:52px;">
         <button onClick="{{ onNewGame }}" style="font-family:'Cormorant Garamond',serif;font-size:26px;color:#FFFFF2;background:none;border:none;cursor:pointer;padding:9px 30px;letter-spacing:0.04em;transition:color .2s;" style-hover="color:#F2C759;">New Game</button>
         <div style="font-family:'Cormorant Garamond',serif;font-size:23px;color:#5c5344;padding:9px 30px;letter-spacing:0.04em;cursor:not-allowed;">Continue</div>
-        <button onClick="{{ onToggleBob }}" style="font-family:'Cormorant Garamond',serif;font-size:23px;color:#8a7a5e;background:none;border:none;cursor:pointer;padding:9px 30px;letter-spacing:0.04em;transition:color .2s;" style-hover="color:#E6B86B;">Head-bob · {{ bobLabel }}</button>
+        <button onClick="{{ onOpenOptions }}" style="font-family:'Cormorant Garamond',serif;font-size:23px;color:#8a7a5e;background:none;border:none;cursor:pointer;padding:9px 30px;letter-spacing:0.04em;transition:color .2s;" style-hover="color:#E6B86B;">Options</button>
         <div style="font-family:'Cormorant Garamond',serif;font-size:23px;color:#5c5344;padding:9px 30px;letter-spacing:0.04em;cursor:not-allowed;">Leave the house</div>
       </div>
       <div style="position:fixed;bottom:3.5vh;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.28em;color:#5c5344;text-transform:uppercase;">prologue build · click to look</div>
+    </div>
+  </sc-if>
+
+  <!-- ===== OPTIONS ===== -->
+  <sc-if value="{{ isOptions }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:31;display:flex;flex-direction:column;align-items:center;background:rgba(0,0,0,0.88);padding:8vh 8vw;overflow-y:auto;">
+      <h2 style="font-family:'Cormorant Garamond',serif;font-weight:500;font-size:38px;color:#FFFFF2;margin:0 0 8px;">Options</h2>
+      <div style="width:min(520px,88vw);margin-top:26px;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.2em;color:#A69980;text-transform:uppercase;margin-bottom:10px;">Audio</div>
+        <sc-for list="{{ audioSliders }}" as="a" hint-placeholder-count="3">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px;">
+            <span style="font-family:'Cormorant Garamond',serif;font-size:16px;color:#EBE0D1;width:90px;">{{ a.label }}</span>
+            <input type="range" min="0" max="100" value="{{ a.value }}" onInput="{{ a.onInput }}" style="flex:1;" />
+            <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#A69980;width:32px;text-align:right;">{{ a.value }}</span>
+          </div>
+        </sc-for>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.2em;color:#A69980;text-transform:uppercase;margin:22px 0 10px;">Accessibility</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <span style="font-family:'Cormorant Garamond',serif;font-size:16px;color:#EBE0D1;">Reduce motion</span>
+          <button onClick="{{ onToggleReduceMotion }}" style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;background:none;border:1px solid rgba(166,153,128,0.4);color:#EBE0D1;cursor:pointer;padding:6px 14px;">{{ reduceMotionLabel }}</button>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <span style="font-family:'Cormorant Garamond',serif;font-size:16px;color:#EBE0D1;">Text size</span>
+          <button onClick="{{ onCycleTextSize }}" style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;background:none;border:1px solid rgba(166,153,128,0.4);color:#EBE0D1;cursor:pointer;padding:6px 14px;">{{ textSizeLabel }}</button>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.2em;color:#A69980;text-transform:uppercase;margin:22px 0 10px;">Controls</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:12px;line-height:2;color:#A69980;">Click · look · move mouse<br>Arrows turn · WASD walk<br>Space jump · C crouch · F light · E interact</div>
+      </div>
+      <button onClick="{{ onCloseOptions }}" style="margin-top:36px;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.16em;text-transform:uppercase;color:#FFFFF2;background:rgba(242,199,89,0.12);border:1px solid #F2C759;cursor:pointer;padding:12px 26px;">Back</button>
     </div>
   </sc-if>
 
@@ -195,7 +225,7 @@
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:720}}">
 class Component extends DCLogic {
-  state = { isMenu:true, isColdOpen:false, isIntro:false, isWalk:false, isArrival:false, devOpen:false, fade:0, warm:0, beatOn:false, beatMain:'', beatSub:'', hintOn:false, coldText:'', coldOn:false, letterMounted:false, letterRaised:false, letterFlipped:false, letterReads:0, invSeen:false, tutStep:0, nearFlashlight:false, invHasFlashlight:false, flashOnUI:false, bobOn:true };
+  state = { isMenu:true, isOptions:false, isColdOpen:false, isIntro:false, isWalk:false, isArrival:false, devOpen:false, fade:0, warm:0, beatOn:false, beatMain:'', beatSub:'', hintOn:false, coldText:'', coldOn:false, letterMounted:false, letterRaised:false, letterFlipped:false, letterReads:0, invSeen:false, tutStep:0, nearFlashlight:false, invHasFlashlight:false, flashOnUI:false };
 
   coldLines() {
     return [
@@ -217,7 +247,6 @@ class Component extends DCLogic {
 
   componentDidMount() {
     this._beat = -1; this.mode = 'menu'; this.walkEnabled = false;
-    try{ const b=localStorage.getItem('gm_bob'); if(b!==null) this.setState({bobOn:b==='1'}); }catch(e){}
     this.keys = {}; this.yaw = 0; this.pitch = -0.02; this.dragging = false; this.standY = 1.7; this.jumpOff = 0; this.vy = 0;
     this._onKey = (e,d)=>{ const k=e.key.toLowerCase(); this.keys[k]=d; if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault(); };
     this._kd = (e)=>{ if(e.key==='`'||e.code==='Backquote'){ e.preventDefault(); this.toggleDev(); return; } this._onKey(e,true); const k=e.key.toLowerCase(); if(this.mode!=='walk'||this.state.letterMounted) return; if(k==='i'){ this.onRaiseLetter(); } }; this._ku = (e)=>this._onKey(e,false);
@@ -239,7 +268,7 @@ class Component extends DCLogic {
   }
 
   // ===== DEV BRIDGE =====
-  devPhaseList() { return ['menu','coldopen','invitation','walk','door','knockout','aftermath']; }
+  devPhaseList() { return ['menu','options','coldopen','invitation','walk','door','knockout','aftermath']; }
   toggleDev() { const open=!this.state.devOpen; this.setState({ devOpen:open }); if(open){ this._devTick=setInterval(()=>this.forceUpdate(),250); } else if(this._devTick){ clearInterval(this._devTick); this._devTick=null; } }
   devSnapshot() {
     const c=this.cam, st=this.state;
@@ -248,8 +277,9 @@ class Component extends DCLogic {
   }
   devGoTo(name) {
     if (this._ct) this.clearColdTimers();
-    const base = { isMenu:false, isColdOpen:false, isIntro:false, isWalk:false, isArrival:false, fade:0, warm:0, beatOn:false, letterMounted:false };
+    const base = { isMenu:false, isOptions:false, isColdOpen:false, isIntro:false, isWalk:false, isArrival:false, fade:0, warm:0, beatOn:false, letterMounted:false };
     if (name==='menu') { this.mode='menu'; this.walkEnabled=false; if(this.cam)this.cam.position.set(0,1.7,72); this.yaw=0; this.pitch=-0.02; this.setState(Object.assign({}, base, { isMenu:true, tutStep:0 })); }
+    else if (name==='options') { this.mode='menu'; this.walkEnabled=false; this.setState(Object.assign({}, base, { isOptions:true })); }
     else if (name==='coldopen') { this.mode='menu'; this.walkEnabled=false; this.setState(Object.assign({}, base, { isColdOpen:true })); this.advanceCold(0); }
     else if (name==='invitation') { this.mode='menu'; this.walkEnabled=false; this.setState(Object.assign({}, base, { isIntro:true })); }
     else if (name==='walk' || name==='door' || name==='knockout') {
@@ -478,7 +508,7 @@ class Component extends DCLogic {
       this.vy -= 20*dt; this.jumpOff += this.vy*dt; if (this.jumpOff<0){ this.jumpOff=0; this.vy=0; }
       // head-bob + walk-sway (toggleable)
       const speed=Math.hypot(this.vx,this.vz); this._bob=(this._bob||0)+speed*dt*1.9;
-      const bobOn = this.state.bobOn !== false;
+      const bobOn = !(window.GMSettings && GMSettings.get().reduceMotion);
       const amt=Math.min(1,speed/4.5);
       const bob = bobOn ? Math.sin(this._bob*2)*0.055*amt : 0;
       const sway = bobOn ? Math.sin(this._bob)*0.02*amt : 0;
@@ -613,6 +643,9 @@ class Component extends DCLogic {
 
   onFlip(e) { if (e && e.stopPropagation) e.stopPropagation(); this.setState({ letterFlipped: !this.state.letterFlipped }); }
 
+  onOpenOptions() { this.setState({ isMenu:false, isOptions:true }); }
+  onCloseOptions() { this.setState({ isMenu:true, isOptions:false }); }
+
 
   cap(label, wide) {
     return { label, style:'font-family:\'JetBrains Mono\',monospace;font-size:11px;font-weight:700;letter-spacing:0.08em;color:#F2C759;text-transform:uppercase;border:1px solid rgba(242,199,89,0.55);border-bottom-width:2px;border-radius:4px;padding:3px '+(wide?'10px':'0')+';min-width:'+(wide?'auto':'22px')+';height:22px;display:inline-flex;align-items:center;justify-content:center;background:rgba(242,199,89,0.08);animation:keyfloat 2.4s ease-in-out infinite;' };
@@ -683,7 +716,16 @@ class Component extends DCLogic {
       fadeStyle: 'position:fixed;inset:0;z-index:50;background:#000;transition:opacity .5s ease;opacity:'+st.fade+';pointer-events:'+(st.fade>0.02?'auto':'none')+';',
       warmStyle: 'position:fixed;inset:0;z-index:48;pointer-events:none;background:radial-gradient(58% 52% at 50% 46%, rgba(255,228,168,0.96), rgba(242,182,92,0.55) 42%, rgba(120,80,30,0) 74%);opacity:'+(st.warm||0)+';transition:opacity .4s ease;',
       onNewGame:()=>this.onNewGame(), onStepOut:()=>this.onStepOut(),
-      bobLabel: (st.bobOn!==false)?'On':'Off', onToggleBob:()=>{ const v=!(this.state.bobOn!==false); this.setState({bobOn:v}); try{localStorage.setItem('gm_bob', v?'1':'0');}catch(e){} },
+      isOptions: st.isOptions,
+      onOpenOptions:()=>this.onOpenOptions(), onCloseOptions:()=>this.onCloseOptions(),
+      audioSliders: ['volMaster','volMusic','volSfx'].map((k,i)=>({
+        label:['Master','Music','SFX'][i], value:(GMSettings.get()[k]),
+        onInput:(e)=>{ GMSettings.set({[k]:parseInt(e.target.value,10)}); this.forceUpdate(); }
+      })),
+      reduceMotionLabel: GMSettings.get().reduceMotion ? 'On' : 'Off',
+      onToggleReduceMotion: ()=>{ const cur=GMSettings.get().reduceMotion; GMSettings.set({reduceMotion:!cur}); this.forceUpdate(); },
+      textSizeLabel: {default:'Default',large:'Large',small:'Small'}[GMSettings.get().textSize] || 'Default',
+      onCycleTextSize: ()=>{ const order=['default','large','small']; const cur=GMSettings.get().textSize; const next=order[(order.indexOf(cur)+1)%order.length]; GMSettings.set({textSize:next}); this.forceUpdate(); },
       devOpen: st.devOpen, devPhases, devRows, onDevToggle:()=>this.toggleDev(), onDevClose:()=>this.toggleDev(),
       parlorHref: 'The Games Master - Entry Hall.dc.html'
     };
