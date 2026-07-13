@@ -226,7 +226,7 @@
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:720}}">
 class Component extends DCLogic {
-  state = { isMenu:true, isOptions:false, isColdOpen:false, isIntro:false, isWalk:false, isArrival:false, devOpen:false, fade:0, warm:0, beatOn:false, beatMain:'', beatSub:'', hintOn:false, coldText:'', coldOn:false, letterMounted:false, letterRaised:false, letterFlipped:false, letterReads:0, invSeen:false, tutStep:0, nearFlashlight:false, invHasFlashlight:false, flashOnUI:false };
+  state = { isMenu:true, isOptions:false, isColdOpen:false, isIntro:false, isWalk:false, isArrival:false, isSecretEnding:false, devOpen:false, fade:0, warm:0, beatOn:false, beatMain:'', beatSub:'', hintOn:false, coldText:'', coldOn:false, letterMounted:false, letterRaised:false, letterFlipped:false, letterReads:0, invSeen:false, tutStep:0, nearFlashlight:false, invHasFlashlight:false, flashOnUI:false };
 
   coldLines() {
     return [
@@ -558,6 +558,20 @@ class Component extends DCLogic {
       if (ts===0 && advanced > 3.5) this.setState({ tutStep:1 });
       else if (ts===1 && (looked || advanced > 13)) this.setState({ tutStep:2 });
       this.checkBeats(cam.position.z);
+      // retreat detection: locks the gate shut behind the player once they've passed it,
+      // or reveals a secret ending if they retreat all the way back to the car first
+      const zNow = cam.position.z;
+      if (zNow < this._minZReached) this._minZReached = zNow;
+      if (!this._passedGate && zNow <= this.gateZ) this._passedGate = true;
+      const movingBackward = zNow > this._minZReached + 0.5; // small tolerance, not every frame's float jitter
+      if (movingBackward) {
+        if (!this._passedGate && zNow >= this.carZ - 3) {
+          this.triggerSecretEnding();
+        } else if (this._passedGate && !this._gateLockFired) {
+          this._gateLockFired = true;
+          this.triggerGateLock();
+        }
+      }
     } else if (this.mode==='arrival' && this.arriving) {
       // scripted arrival: climb the steps onto the terrace, settle before the doors, they swing open, then the hand takes you
       const climbY = (z)=>{ if (z<=-43) return 3; if (z<-37) return 3*((-37-z)/6); return 0; };
@@ -621,6 +635,29 @@ class Component extends DCLogic {
       this.mode='arrival'; this.walkEnabled=false; this.arrDoor=0; this.arriving=true;
       this.setState({ isWalk:false, beatOn:false, hintOn:false });
     }
+  }
+
+  triggerGateLock() {
+    this.playSfx('assets/sfx/gate_slam.ogg');
+    setTimeout(() => this.playSfx('assets/sfx/gate_lock.ogg'), 550);
+    if (this.gateModel) {
+      const startRot = this.gateModel.rotation.y;
+      const start = Date.now();
+      const tick = () => {
+        const t = (Date.now() - start) / 260;
+        if (t >= 1) { this.gateModel.rotation.y = startRot + 0.35; return; }
+        this.gateModel.rotation.y = startRot + 0.35 * t;
+        requestAnimationFrame(tick);
+      };
+      tick();
+    }
+    this.setState({ beatMain:'Something slammed shut behind me.', beatSub:'When I looked back, the gate was closed \u2014 and the lock, somehow, had already turned.', beatOn:true, hintOn:false });
+  }
+
+  triggerSecretEnding() {
+    this.walkEnabled = false;
+    this.mode = 'secretEnding';
+    this.setState({ isSecretEnding: true, fade: 1 });
   }
 
   fadeThen(cb) {
@@ -691,6 +728,9 @@ class Component extends DCLogic {
       this._beat=-1; this.yaw=0; this.pitch=-0.02;
       if (this.cam) this.cam.position.set(0,1.7,72);
       this.mode='walk'; this.walkEnabled=true; this.knockStarted=false; this.arriving=false; this.arrDoor=0; this.arrHold=0; this._glimpseSaid=false;
+      this._minZReached = 72; // starting z
+      this._passedGate = false;
+      this._gateLockFired = false;
       if(this.doorL)this.doorL.rotation.y=0; if(this.doorR)this.doorR.rotation.y=0; if(this.doorGlow)this.doorGlow.material.opacity=0; if(this.doorInner)this.doorInner.intensity=0;
       this.setState({ isIntro:false, isWalk:true, hintOn:true, beatOn:false, tutStep:0, warm:0 });
     });
