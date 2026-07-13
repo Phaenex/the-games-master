@@ -245,6 +245,8 @@ class Component extends DCLogic {
     { z:-28, main:'Two years, chasing one good night.', sub:'I lied to my brother. Lied to Nora\u2019s doctors about money that was always almost here. Tonight the lying stops. I leave with everything, or I don\u2019t leave. Either way it ends.' }
   ];
   arrivalZ = -36;
+  carZ = 78;
+  gateZ = 65;
 
   componentDidMount() {
     this._beat = -1; this.mode = 'menu'; this.walkEnabled = false;
@@ -373,6 +375,18 @@ class Component extends DCLogic {
     };
     this.gateL = mkGate(-4.7, 1); this.gateR = mkGate(4.7, -1);
     this.gateClosed = 0; this.gateTriggered = false;
+
+    // the car the player arrived in, parked off the drive just behind the walk's start.
+    // native mesh sits low (local min y ~ -1.02 * scale), so position.y lifts the wheels to ground level;
+    // x is pushed past the path curb (curb at x=-3.95..-3.55) so it can't be walked into or clip the border stones.
+    this.loadGLTF('assets/models/sourced/old_car.glb', (car) => {
+      const scale = 0.6; // visually verified: native scale read as an oversized van/building, 0.6 reads as a car at 1.7-unit eye height
+      car.position.set(-6.5, 1.0186 * scale, 78);
+      car.rotation.y = Math.PI * 0.15;
+      car.scale.set(scale, scale, scale);
+      this.scene.add(car);
+      this.carModel = car;
+    });
 
     // wrought-iron fence + hedges lining the drive
     const fenceM = mat('#14130f');
