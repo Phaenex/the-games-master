@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="./support.js"></script>
+<script src="./gm-doubt.js"></script>
 </head>
 <body>
 <x-dc>
@@ -192,6 +193,15 @@
     </div>
   </sc-if>
 
+  <!-- ===== ONE-TIME LETTER INSERT (doubt-stage-2, fires on cheatsCaught>=4 win) ===== -->
+  <sc-if value="{{ showLetterInsert }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ onDismissLetterInsert }}" style="position:fixed;inset:0;z-index:60;background:rgba(0,0,0,0.86);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:8vh 8vw;">
+      <div style="max-width:520px;text-align:center;font-family:'Cormorant Garamond',serif;font-style:italic;font-size:22px;line-height:1.6;color:#EBE0D1;">a friend who never left. The hand is Aldric&rsquo;s own. He wrote the warning. He is the friend.
+        <div style="margin-top:26px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.2em;color:#5c5344;text-transform:uppercase;">click to continue</div>
+      </div>
+    </div>
+  </sc-if>
+
   <!-- ===== DEV MENU (backtick) ===== -->
   <sc-if value="{{ devOpen }}" hint-placeholder-val="{{ false }}">
     <div style="position:fixed;top:12px;left:12px;z-index:95;width:256px;background:rgba(8,8,10,0.95);border:1px solid rgba(242,199,89,0.4);color:#EBE0D1;padding:12px 13px;box-shadow:0 14px 44px rgba(0,0,0,0.75);">
@@ -283,7 +293,8 @@ class Component extends DCLogic {
       round: 1, roundsP: 0, roundsG: 0,
       gmState: 'CHARMING', line: this.pick('CHARMING'),
       flash: null, revealed: {}, peek: false, phase: null,
-      readUnlocked: false, suspicion: 0, testState: 'none'
+      readUnlocked: false, suspicion: 0, testState: 'none',
+      showLetterInsert: false
     };
     this.dealInto(g, 'player');
     return g;
@@ -459,7 +470,14 @@ class Component extends DCLogic {
       if (pWin) g.roundsP += 1; else g.roundsG += 1;
       if (g.roundsP===2 || g.roundsG===2) {
         g.phase = 'gameDone';
-        if (g.roundsP===2) { g.gmState = g.cheatsCaught>=4 ? 'VULNERABLE':'IRRITATED'; g.line = g.cheatsCaught>=4 ? 'I was very good, once. You were better.' : 'You won. Do not mistake it for the end.'; g.status = g.cheatsCaught>=4 ? 'You beat him — and you saw how.' : 'You beat him. But did you see how?'; }
+        if (g.roundsP===2) {
+          g.gmState = g.cheatsCaught>=4 ? 'VULNERABLE':'IRRITATED'; g.line = g.cheatsCaught>=4 ? 'I was very good, once. You were better.' : 'You won. Do not mistake it for the end.'; g.status = g.cheatsCaught>=4 ? 'You beat him — and you saw how.' : 'You beat him. But did you see how?';
+          if (g.cheatsCaught>=4 && window.GMDoubt) {
+            const wasBelow = GMDoubt.get() < 2;
+            GMDoubt.set(2);
+            if (wasBelow) g.showLetterInsert = true;
+          }
+        }
         else { g.gmState='HOSTILE'; g.line='The house keeps you a while longer.'; g.status='He wins the night. Try again.'; }
         this.setState(g); return;
       }
@@ -610,6 +628,7 @@ class Component extends DCLogic {
       catchActive, catchKicker, catchBig, catchSub, catchShowCard, catchBtn,
       catchCardRank: cc?cc.rank:'', catchCardGlyph: cc?S[cc.suit].glyph:'', catchCardStyle,
       catchHint: cs!=null && cs<3, onAdvCatch: ()=>this.advCatch(),
+      showLetterInsert: !!g.showLetterInsert, onDismissLetterInsert: ()=>this.setState({showLetterInsert:false}),
       catchOverlayStyle: 'position:fixed;inset:0;z-index:84;display:flex;flex-direction:column;justify-content:center;align-items:center;cursor:pointer;background:radial-gradient(68% 68% at 50% 44%,rgba(4,3,2,0.9),rgba(1,1,1,0.99));',
       onAdvIntro: ()=>this.advIntro(),
       introText: introCur.t, introIsAldric: introIsAldric,
