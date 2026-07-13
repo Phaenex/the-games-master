@@ -29,7 +29,7 @@
 </style>
 </helmet>
 
-<div style="position:relative;width:100vw;height:100vh;background:#000;color:#EBE0D1;font-family:'Spectral',serif;overflow:hidden;">
+<div style="position:relative;width:100vw;height:100vh;background:#000;color:#EBE0D1;font-family:'Spectral',serif;overflow:hidden;{{ rootStyle }}">
 
   <canvas id="gm-scene"></canvas>
 
@@ -62,53 +62,61 @@
   <!-- ===== MAIN MENU ===== -->
   <sc-if value="{{ isMenu }}" hint-placeholder-val="{{ true }}">
     <div style="position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;background:radial-gradient(60% 60% at 50% 42%,rgba(0,0,0,0.35),rgba(0,0,0,0.72));">
-      <div style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.44em;text-transform:uppercase;color:#A69980;margin-bottom:22px;">A parlor-horror in seven games</div>
-      <h1 style="font-family:'Cormorant Garamond',serif;font-weight:500;font-size:clamp(46px,8.5vw,116px);line-height:0.86;color:#FFFFF2;margin:0;text-shadow:0 4px 40px rgba(0,0,0,0.8);">THE GAMES<br><span style="font-style:italic;color:#F2C759;">MASTER</span></h1>
-      <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:clamp(16px,2.2vw,26px);color:#E6B86B;margin-top:22px;letter-spacing:0.02em;">Seven games. One host. He's never lost.</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:calc(var(--gm-text-scale,1) * 12px);letter-spacing:0.44em;text-transform:uppercase;color:#A69980;margin-bottom:22px;">A parlor-horror in seven games</div>
+      <h1 style="font-family:'Cormorant Garamond',serif;font-weight:500;font-size:clamp(calc(var(--gm-text-scale,1) * 46px),calc(var(--gm-text-scale,1) * 8.5vw),calc(var(--gm-text-scale,1) * 116px));line-height:0.86;color:#FFFFF2;margin:0;text-shadow:0 4px 40px rgba(0,0,0,0.8);">THE GAMES<br><span style="font-style:italic;color:#F2C759;">MASTER</span></h1>
+      <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:clamp(calc(var(--gm-text-scale,1) * 16px),calc(var(--gm-text-scale,1) * 2.2vw),calc(var(--gm-text-scale,1) * 26px));color:#E6B86B;margin-top:22px;letter-spacing:0.02em;">Seven games. One host. He's never lost.</div>
       <div style="display:flex;flex-direction:column;gap:2px;margin-top:52px;">
-        <button onClick="{{ onNewGame }}" style="font-family:'Cormorant Garamond',serif;font-size:26px;color:#FFFFF2;background:none;border:none;cursor:pointer;padding:9px 30px;letter-spacing:0.04em;transition:color .2s;" style-hover="color:#F2C759;">New Game</button>
-        <div style="font-family:'Cormorant Garamond',serif;font-size:23px;color:#5c5344;padding:9px 30px;letter-spacing:0.04em;cursor:not-allowed;">Continue</div>
-        <button onClick="{{ onOpenOptions }}" style="font-family:'Cormorant Garamond',serif;font-size:23px;color:#8a7a5e;background:none;border:none;cursor:pointer;padding:9px 30px;letter-spacing:0.04em;transition:color .2s;" style-hover="color:#E6B86B;">Options</button>
-        <div style="font-family:'Cormorant Garamond',serif;font-size:23px;color:#5c5344;padding:9px 30px;letter-spacing:0.04em;cursor:not-allowed;">Leave the house</div>
+        <button onClick="{{ onNewGame }}" style="font-family:'Cormorant Garamond',serif;font-size:calc(var(--gm-text-scale,1) * 26px);color:#FFFFF2;background:none;border:none;cursor:pointer;padding:9px 30px;letter-spacing:0.04em;transition:color .2s;" style-hover="color:#F2C759;">New Game</button>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:calc(var(--gm-text-scale,1) * 23px);color:#5c5344;padding:9px 30px;letter-spacing:0.04em;cursor:not-allowed;">Continue</div>
+        <button onClick="{{ onOpenOptions }}" style="font-family:'Cormorant Garamond',serif;font-size:calc(var(--gm-text-scale,1) * 23px);color:#8a7a5e;background:none;border:none;cursor:pointer;padding:9px 30px;letter-spacing:0.04em;transition:color .2s;" style-hover="color:#E6B86B;">Options</button>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:calc(var(--gm-text-scale,1) * 23px);color:#5c5344;padding:9px 30px;letter-spacing:0.04em;cursor:not-allowed;">Leave the house</div>
       </div>
       <div style="position:fixed;bottom:3.5vh;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.28em;color:#5c5344;text-transform:uppercase;">prologue build · click to look</div>
     </div>
   </sc-if>
 
   <!-- ===== OPTIONS ===== -->
+  <!-- z-index:40 — Options is now reachable mid-walk (not just from the main menu), so it must sit
+       above every walk-HUD layer (tut bar 33, inventory/interact 34) or those would visually poke
+       through its background while it's meant to be a full takeover. Below the letter-in-hand (36,
+       mutually exclusive with Options being open) and well below fade/aftermath/dev.
+       Background changed from the original rgba(0,0,0,0.88) to solid #000 for the same reason: even at
+       0.97 alpha, the walk-phase beat text's own glow (text-shadow) still legibly ghosted through when
+       Options opened mid-walk — confirmed in testing. Solid black reads as a clean pause takeover the
+       same way aftermath/secretEnding already do. -->
   <sc-if value="{{ isOptions }}" hint-placeholder-val="{{ false }}">
-    <div style="position:fixed;inset:0;z-index:31;display:flex;flex-direction:column;align-items:center;background:rgba(0,0,0,0.88);padding:8vh 8vw;overflow-y:auto;">
-      <h2 style="font-family:'Cormorant Garamond',serif;font-weight:500;font-size:38px;color:#FFFFF2;margin:0 0 8px;">Options</h2>
+    <div style="position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;background:#000;padding:8vh 8vw;overflow-y:auto;">
+      <h2 style="font-family:'Cormorant Garamond',serif;font-weight:500;font-size:calc(var(--gm-text-scale,1) * 38px);color:#FFFFF2;margin:0 0 8px;">Options</h2>
       <div style="width:min(520px,88vw);margin-top:26px;">
-        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.2em;color:#A69980;text-transform:uppercase;margin-bottom:10px;">Audio</div>
-        <sc-for list="{{ audioSliders }}" as="a" hint-placeholder-count="3">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:calc(var(--gm-text-scale,1) * 11px);letter-spacing:0.2em;color:#A69980;text-transform:uppercase;margin-bottom:10px;">Audio</div>
+        <sc-for list="{{ audioSliders }}" as="a" hint-placeholder-count="2">
           <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px;">
-            <span style="font-family:'Cormorant Garamond',serif;font-size:16px;color:#EBE0D1;width:90px;">{{ a.label }}</span>
+            <span style="font-family:'Cormorant Garamond',serif;font-size:calc(var(--gm-text-scale,1) * 16px);color:#EBE0D1;width:90px;">{{ a.label }}</span>
             <input type="range" min="0" max="100" value="{{ a.value }}" onInput="{{ a.onInput }}" style="flex:1;" />
-            <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#A69980;width:32px;text-align:right;">{{ a.value }}</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:calc(var(--gm-text-scale,1) * 11px);color:#A69980;width:32px;text-align:right;">{{ a.value }}</span>
           </div>
         </sc-for>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.2em;color:#A69980;text-transform:uppercase;margin:22px 0 10px;">Accessibility</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:calc(var(--gm-text-scale,1) * 11px);letter-spacing:0.2em;color:#A69980;text-transform:uppercase;margin:22px 0 10px;">Accessibility</div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-          <span style="font-family:'Cormorant Garamond',serif;font-size:16px;color:#EBE0D1;">Reduce motion</span>
-          <button onClick="{{ onToggleReduceMotion }}" style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;background:none;border:1px solid rgba(166,153,128,0.4);color:#EBE0D1;cursor:pointer;padding:6px 14px;">{{ reduceMotionLabel }}</button>
+          <span style="font-family:'Cormorant Garamond',serif;font-size:calc(var(--gm-text-scale,1) * 16px);color:#EBE0D1;">Reduce motion</span>
+          <button onClick="{{ onToggleReduceMotion }}" style="font-family:'JetBrains Mono',monospace;font-size:calc(var(--gm-text-scale,1) * 11px);letter-spacing:0.12em;text-transform:uppercase;background:none;border:1px solid rgba(166,153,128,0.4);color:#EBE0D1;cursor:pointer;padding:6px 14px;">{{ reduceMotionLabel }}</button>
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-          <span style="font-family:'Cormorant Garamond',serif;font-size:16px;color:#EBE0D1;">Text size</span>
-          <button onClick="{{ onCycleTextSize }}" style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;background:none;border:1px solid rgba(166,153,128,0.4);color:#EBE0D1;cursor:pointer;padding:6px 14px;">{{ textSizeLabel }}</button>
+          <span style="font-family:'Cormorant Garamond',serif;font-size:calc(var(--gm-text-scale,1) * 16px);color:#EBE0D1;">Text size</span>
+          <button onClick="{{ onCycleTextSize }}" style="font-family:'JetBrains Mono',monospace;font-size:calc(var(--gm-text-scale,1) * 11px);letter-spacing:0.12em;text-transform:uppercase;background:none;border:1px solid rgba(166,153,128,0.4);color:#EBE0D1;cursor:pointer;padding:6px 14px;">{{ textSizeLabel }}</button>
         </div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.2em;color:#A69980;text-transform:uppercase;margin:22px 0 10px;">Controls</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:12px;line-height:2;color:#A69980;">Click · look · move mouse<br>Arrows turn · WASD walk<br>Space jump · C crouch · F light · E interact</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:calc(var(--gm-text-scale,1) * 11px);letter-spacing:0.2em;color:#A69980;text-transform:uppercase;margin:22px 0 10px;">Controls</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:calc(var(--gm-text-scale,1) * 12px);line-height:2;color:#A69980;">Click · look · move mouse<br>Arrows turn · WASD walk<br>Space jump · C crouch · F light · E interact</div>
       </div>
-      <button onClick="{{ onCloseOptions }}" style="margin-top:36px;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.16em;text-transform:uppercase;color:#FFFFF2;background:rgba(242,199,89,0.12);border:1px solid #F2C759;cursor:pointer;padding:12px 26px;">Back</button>
+      <button onClick="{{ onCloseOptions }}" style="margin-top:36px;font-family:'JetBrains Mono',monospace;font-size:calc(var(--gm-text-scale,1) * 12px);letter-spacing:0.16em;text-transform:uppercase;color:#FFFFF2;background:rgba(242,199,89,0.12);border:1px solid #F2C759;cursor:pointer;padding:12px 26px;">Back</button>
     </div>
   </sc-if>
 
   <!-- ===== COLD OPEN — slow lead-in ===== -->
   <sc-if value="{{ isColdOpen }}" hint-placeholder-val="{{ false }}">
     <div onClick="{{ onColdNext }}" style="position:fixed;inset:0;z-index:32;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;background:#020202;cursor:pointer;padding:9vh 9vw;">
-      <div style="max-width:700px;font-family:'Cormorant Garamond',serif;font-style:italic;font-size:clamp(22px,3vw,37px);line-height:1.32;color:#EBE0D1;transition:opacity 1.5s ease;{{ coldStyle }}">{{ coldText }}</div>
-      <div style="position:fixed;bottom:7vh;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.28em;color:#3a352b;text-transform:uppercase;transition:opacity 1s ease;{{ coldHintStyle }}">click to continue</div>
+      <div style="max-width:700px;font-family:'Cormorant Garamond',serif;font-style:italic;font-size:clamp(calc(var(--gm-text-scale,1) * 22px),calc(var(--gm-text-scale,1) * 3vw),calc(var(--gm-text-scale,1) * 37px));line-height:1.32;color:#EBE0D1;transition:opacity 1.5s ease;{{ coldStyle }}">{{ coldText }}</div>
+      <div style="position:fixed;bottom:7vh;font-family:'JetBrains Mono',monospace;font-size:calc(var(--gm-text-scale,1) * 10px);letter-spacing:0.28em;color:#3a352b;text-transform:uppercase;transition:opacity 1s ease;{{ coldHintStyle }}">click to continue</div>
     </div>
   </sc-if>
 
@@ -118,14 +126,14 @@
       <div style="max-width:560px;animation:rise 1.2s ease both;">
         <div style="background:#EBE0D1;color:#1A120A;padding:30px 34px;position:relative;clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));box-shadow:0 24px 60px rgba(0,0,0,0.7);">
           <div style="position:absolute;inset:6px;border:1px solid rgba(26,18,10,0.3);clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));pointer-events:none;"></div>
-          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.3em;color:#8a6a1e;text-transform:uppercase;margin-bottom:14px;">An Invitation</div>
-          <div style="font-family:'Cormorant Garamond',serif;font-size:22px;line-height:1.4;color:#2a2015;">An evening of seven games, at the house on Wend Hill — the host's chair against the guest's. No one has left this table without precisely what they came for.</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:calc(var(--gm-text-scale,1) * 10px);letter-spacing:0.3em;color:#8a6a1e;text-transform:uppercase;margin-bottom:14px;">An Invitation</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:calc(var(--gm-text-scale,1) * 22px);line-height:1.4;color:#2a2015;">An evening of seven games, at the house on Wend Hill — the host's chair against the guest's. No one has left this table without precisely what they came for.</div>
           <div style="margin-top:16px;height:1px;background:rgba(26,18,10,0.16);"></div>
-          <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:18.5px;line-height:1.5;color:#5a3d1c;margin-top:15px;transform:rotate(-0.4deg);">Enough to clear the men at your door. Enough, after, for the child. One night, and you keep all of it.</div>
-          <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:19px;color:#3a2c1a;margin-top:12px;text-align:right;">— V.</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:calc(var(--gm-text-scale,1) * 18.5px);line-height:1.5;color:#5a3d1c;margin-top:15px;transform:rotate(-0.4deg);">Enough to clear the men at your door. Enough, after, for the child. One night, and you keep all of it.</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:calc(var(--gm-text-scale,1) * 19px);color:#3a2c1a;margin-top:12px;text-align:right;">— V.</div>
         </div>
-        <p style="font-family:'Spectral',serif;font-style:italic;font-size:17px;line-height:1.6;color:#A69980;margin:30px 0 0;">No stamp. No sender. It never named a figure — it didn't have to. Whoever sent it knew what I owed to the last cent, and knew, worse, what the rest was meant for.<br>I told myself I'd burn it. I brought a coat instead.</p>
-        <button onClick="{{ onStepOut }}" style="margin-top:34px;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.16em;text-transform:uppercase;color:#FFFFF2;background:rgba(242,199,89,0.12);border:1px solid #F2C759;cursor:pointer;padding:13px 26px;">Step out of the car</button>
+        <p style="font-family:'Spectral',serif;font-style:italic;font-size:calc(var(--gm-text-scale,1) * 17px);line-height:1.6;color:#A69980;margin:30px 0 0;">No stamp. No sender. It never named a figure — it didn't have to. Whoever sent it knew what I owed to the last cent, and knew, worse, what the rest was meant for.<br>I told myself I'd burn it. I brought a coat instead.</p>
+        <button onClick="{{ onStepOut }}" style="margin-top:34px;font-family:'JetBrains Mono',monospace;font-size:calc(var(--gm-text-scale,1) * 12px);letter-spacing:0.16em;text-transform:uppercase;color:#FFFFF2;background:rgba(242,199,89,0.12);border:1px solid #F2C759;cursor:pointer;padding:13px 26px;">Step out of the car</button>
       </div>
     </div>
   </sc-if>
@@ -137,13 +145,19 @@
         <sc-for list="{{ tutCaps }}" as="k" hint-placeholder-count="4">
           <span style="{{ k.style }}">{{ k.label }}</span>
         </sc-for>
-        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.16em;color:#EBE0D1;text-transform:uppercase;">{{ tutText }}</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:calc(var(--gm-text-scale,1) * 11px);letter-spacing:0.16em;color:#EBE0D1;text-transform:uppercase;">{{ tutText }}</span>
       </div>
     </div>
-    <div style="position:fixed;bottom:4.5vh;right:4vw;z-index:32;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.14em;color:#6b5f4a;text-transform:uppercase;text-align:right;line-height:1.8;pointer-events:none;transition:opacity .5s ease;{{ legendStyle }}">Click · look · move mouse<br>Arrows turn · WASD walk<br>Space jump · C crouch · F light · E interact</div>
+    <!-- always-visible Options entry point during the walk phase (playtest finding: Options was only
+         reachable from the main menu, with no way back to it once inside the walk). Escape does the
+         same thing (see the _kd handler) — this corner affordance is what makes it discoverable
+         without knowing the shortcut. Styled to match the WASD legend's HUD conventions (JetBrains
+         Mono, muted color, low opacity until hovered). -->
+    <div onClick="{{ onOpenOptions }}" style="position:fixed;top:3vh;right:3.5vw;z-index:33;font-family:'JetBrains Mono',monospace;font-size:calc(var(--gm-text-scale,1) * 10px);letter-spacing:0.18em;color:#6b5f4a;text-transform:uppercase;text-align:right;cursor:pointer;transition:opacity .5s ease,color .2s ease;{{ walkOptionsBtnStyle }}" style-hover="color:#EBE0D1;">&#9881; Options <span style="opacity:0.65;">[Esc]</span></div>
+    <div style="position:fixed;bottom:4.5vh;right:4vw;z-index:32;font-family:'JetBrains Mono',monospace;font-size:calc(var(--gm-text-scale,1) * 9px);letter-spacing:0.14em;color:#6b5f4a;text-transform:uppercase;text-align:right;line-height:1.8;pointer-events:none;transition:opacity .5s ease;{{ legendStyle }}">Click · look · move mouse<br>Arrows turn · WASD walk<br>Space jump · C crouch · F light · E interact</div>
     <div style="position:fixed;bottom:13vh;left:0;right:0;z-index:30;text-align:center;padding:0 8vw;pointer-events:none;{{ beatStyle }}">
-      <div style="font-family:'Cormorant Garamond',serif;font-size:clamp(22px,3.4vw,40px);line-height:1.1;color:#FFFFF2;text-shadow:0 3px 24px rgba(0,0,0,0.9);max-width:820px;margin:0 auto;">{{ beatMain }}</div>
-      <div style="font-family:'Spectral',serif;font-style:italic;font-size:clamp(14px,1.7vw,19px);line-height:1.55;color:#E6B86B;text-shadow:0 2px 16px rgba(0,0,0,0.9);max-width:680px;margin:12px auto 0;">{{ beatSub }}</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:clamp(calc(var(--gm-text-scale,1) * 22px),calc(var(--gm-text-scale,1) * 3.4vw),calc(var(--gm-text-scale,1) * 40px));line-height:1.1;color:#FFFFF2;text-shadow:0 3px 24px rgba(0,0,0,0.9);max-width:820px;margin:0 auto;">{{ beatMain }}</div>
+      <div style="font-family:'Spectral',serif;font-style:italic;font-size:clamp(calc(var(--gm-text-scale,1) * 14px),calc(var(--gm-text-scale,1) * 1.7vw),calc(var(--gm-text-scale,1) * 19px));line-height:1.55;color:#E6B86B;text-shadow:0 2px 16px rgba(0,0,0,0.9);max-width:680px;margin:12px auto 0;">{{ beatSub }}</div>
     </div>
 
   </sc-if>
@@ -153,7 +167,7 @@
     <div style="position:fixed;bottom:27vh;left:0;right:0;z-index:34;display:flex;justify-content:center;pointer-events:none;">
       <div style="display:flex;align-items:center;gap:10px;background:rgba(4,3,2,0.66);padding:9px 16px;border:1px solid rgba(242,199,89,0.45);">
         <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:#F2C759;border:1px solid rgba(242,199,89,0.55);border-bottom-width:2px;border-radius:4px;padding:2px 0;min-width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;background:rgba(242,199,89,0.08);">E</span>
-        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.16em;color:#EBE0D1;text-transform:uppercase;">{{ interactLabel }}</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:calc(var(--gm-text-scale,1) * 11px);letter-spacing:0.16em;color:#EBE0D1;text-transform:uppercase;">{{ interactLabel }}</span>
       </div>
     </div>
   </sc-if>
@@ -161,7 +175,7 @@
   <!-- ===== INVENTORY (on the walk & at the door) ===== -->
   <sc-if value="{{ showInventory }}" hint-placeholder-val="{{ false }}">
     <div style="position:fixed;bottom:8vh;left:3vw;z-index:34;display:flex;align-items:flex-end;gap:14px;padding-bottom:20px;transition:opacity .6s ease;{{ invStyle }}">
-      <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.24em;color:#8a7a5e;text-transform:uppercase;writing-mode:vertical-rl;transform:rotate(180deg);padding-bottom:20px;">On you</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:calc(var(--gm-text-scale,1) * 9px);letter-spacing:0.24em;color:#8a7a5e;text-transform:uppercase;writing-mode:vertical-rl;transform:rotate(180deg);padding-bottom:20px;">On you</div>
       <sc-for list="{{ invItems }}" as="it" hint-placeholder-count="1">
         <div onClick="{{ it.on }}" style="{{ it.style }}" style-hover="border-color:#F2C759;background:rgba(242,199,89,0.12);">
           <span style="font-family:'Cormorant Garamond',serif;font-size:25px;color:#F2C759;line-height:1;">{{ it.glyph }}</span>
@@ -177,17 +191,20 @@
     <div onClick="{{ onLowerLetter }}" style="position:fixed;inset:0;z-index:36;cursor:pointer;perspective:1600px;overflow:hidden;{{ letterBackdrop }}">
       <div style="position:absolute;left:50%;top:50%;transform-origin:50% 100%;transform-style:preserve-3d;transition:transform 1.15s cubic-bezier(.16,.84,.29,1),filter 1.15s ease;{{ letterTransform }}">
         <!-- flip container -->
-        <div onClick="{{ onFlip }}" style="position:relative;width:min(430px,82vw);height:330px;transform-style:preserve-3d;transition:transform .95s cubic-bezier(.5,.05,.2,1);cursor:pointer;{{ flipTransform }}">
+        <!-- height scales with --gm-text-scale, not just a fixed 330px: at "large" the front panel's
+             own text (also scaled, see below) needs more vertical room or its clip-path silently
+             clips the last line off the bottom — confirmed in testing before this line was added. -->
+        <div onClick="{{ onFlip }}" style="position:relative;width:min(430px,82vw);height:calc(330px * var(--gm-text-scale,1));transform-style:preserve-3d;transition:transform .95s cubic-bezier(.5,.05,.2,1);cursor:pointer;{{ flipTransform }}">
 
           <!-- FRONT -->
           <div style="position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;background:linear-gradient(168deg,#efe6d6,#d9ccb2);color:#1A120A;padding:34px 34px 28px;box-shadow:0 40px 90px rgba(0,0,0,0.75),0 3px 0 rgba(0,0,0,0.25);clip-path:polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,16px 100%,0 calc(100% - 16px));">
             <div style="position:absolute;inset:7px;border:1px solid rgba(26,18,10,0.28);clip-path:polygon(0 0,calc(100% - 11px) 0,100% 11px,100% 100%,11px 100%,0 calc(100% - 11px));pointer-events:none;"></div>
             <div style="position:absolute;top:-14px;right:34px;width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#a8443b,#6e241f);box-shadow:0 4px 12px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:22px;color:#3a0f0c;">V</div>
-            <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:0.32em;color:#8a6a1e;text-transform:uppercase;margin-bottom:16px;">An Invitation</div>
-            <div style="font-family:'Cormorant Garamond',serif;font-size:20px;line-height:1.38;color:#2a2015;">An evening of seven games, at the house on Wend Hill — the host's chair against the guest's. No one has left this table without precisely what they came for.</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:calc(var(--gm-text-scale,1) * 9.5px);letter-spacing:0.32em;color:#8a6a1e;text-transform:uppercase;margin-bottom:16px;">An Invitation</div>
+            <div style="font-family:'Cormorant Garamond',serif;font-size:calc(var(--gm-text-scale,1) * 20px);line-height:1.38;color:#2a2015;">An evening of seven games, at the house on Wend Hill — the host's chair against the guest's. No one has left this table without precisely what they came for.</div>
             <div style="margin-top:15px;height:1px;background:rgba(26,18,10,0.18);"></div>
-            <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:16px;line-height:1.48;color:#5a3d1c;margin-top:13px;transform:rotate(-0.4deg);">Enough to clear the men at your door. Enough, after, for the child. One night, and you keep all of it.</div>
-            <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:18px;color:#3a2c1a;margin-top:11px;text-align:right;">— V.</div>
+            <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:calc(var(--gm-text-scale,1) * 16px);line-height:1.48;color:#5a3d1c;margin-top:13px;transform:rotate(-0.4deg);">Enough to clear the men at your door. Enough, after, for the child. One night, and you keep all of it.</div>
+            <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:calc(var(--gm-text-scale,1) * 18px);color:#3a2c1a;margin-top:11px;text-align:right;">— V.</div>
           </div>
 
           <!-- BACK (blank on the walk — the clue only surfaces inside the house) -->
@@ -200,7 +217,7 @@
 
         </div>
       </div>
-      <div style="position:fixed;bottom:5vh;left:0;right:0;text-align:center;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.26em;color:#A69980;text-transform:uppercase;transition:opacity .6s ease;{{ letterHintStyle }}">{{ letterHintText }}</div>
+      <div style="position:fixed;bottom:5vh;left:0;right:0;text-align:center;font-family:'JetBrains Mono',monospace;font-size:calc(var(--gm-text-scale,1) * 10px);letter-spacing:0.26em;color:#A69980;text-transform:uppercase;transition:opacity .6s ease;{{ letterHintStyle }}">{{ letterHintText }}</div>
     </div>
   </sc-if>
 
@@ -208,8 +225,8 @@
   <sc-if value="{{ isArrival }}" hint-placeholder-val="{{ false }}">
     <div style="position:fixed;inset:0;z-index:55;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;background:#000;">
       <div style="animation:rise 2.6s ease both;max-width:660px;padding:0 8vw;">
-        <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:clamp(20px,2.7vw,31px);line-height:1.3;color:#7a6f5c;text-shadow:0 2px 18px #000;">A hand at my collar. The floor, rising to meet me. The dark took the rest.</div>
-        <a href="{{ parlorHref }}" style="display:inline-block;margin-top:44px;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.26em;text-transform:uppercase;color:#A69980;border-bottom:1px solid rgba(166,153,128,0.45);padding-bottom:7px;text-decoration:none;">continue</a>
+        <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:clamp(calc(var(--gm-text-scale,1) * 20px),calc(var(--gm-text-scale,1) * 2.7vw),calc(var(--gm-text-scale,1) * 31px));line-height:1.3;color:#7a6f5c;text-shadow:0 2px 18px #000;">A hand at my collar. The floor, rising to meet me. The dark took the rest.</div>
+        <a href="{{ parlorHref }}" style="display:inline-block;margin-top:44px;font-family:'JetBrains Mono',monospace;font-size:calc(var(--gm-text-scale,1) * 12px);letter-spacing:0.26em;text-transform:uppercase;color:#A69980;border-bottom:1px solid rgba(166,153,128,0.45);padding-bottom:7px;text-decoration:none;">continue</a>
       </div>
     </div>
   </sc-if>
@@ -218,9 +235,9 @@
   <sc-if value="{{ isSecretEnding }}" hint-placeholder-val="{{ false }}">
     <div style="position:fixed;inset:0;z-index:55;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;background:#000;">
       <div style="animation:rise 2.6s ease both;max-width:640px;padding:0 8vw;">
-        <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:clamp(20px,2.7vw,31px);line-height:1.4;color:#EBE0D1;text-shadow:0 2px 18px #000;">I got back in the car.<br>Whatever was waiting up that drive would have to wait for someone else — there would always be someone else, hungrier or more desperate than I was tonight.<br><br>The house didn't need me specifically. It only needed someone to say yes.</div>
-        <div style="margin-top:30px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.3em;color:#8a6a1e;text-transform:uppercase;">— you left —</div>
-        <a href="#" onClick="{{ onReturnToMenu }}" style="display:inline-block;margin-top:44px;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.26em;text-transform:uppercase;color:#A69980;border-bottom:1px solid rgba(166,153,128,0.45);padding-bottom:7px;text-decoration:none;">return to the menu</a>
+        <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:clamp(calc(var(--gm-text-scale,1) * 20px),calc(var(--gm-text-scale,1) * 2.7vw),calc(var(--gm-text-scale,1) * 31px));line-height:1.4;color:#EBE0D1;text-shadow:0 2px 18px #000;">I got back in the car.<br>Whatever was waiting up that drive would have to wait for someone else — there would always be someone else, hungrier or more desperate than I was tonight.<br><br>The house didn't need me specifically. It only needed someone to say yes.</div>
+        <div style="margin-top:30px;font-family:'JetBrains Mono',monospace;font-size:calc(var(--gm-text-scale,1) * 11px);letter-spacing:0.3em;color:#8a6a1e;text-transform:uppercase;">— you left —</div>
+        <a href="#" onClick="{{ onReturnToMenu }}" style="display:inline-block;margin-top:44px;font-family:'JetBrains Mono',monospace;font-size:calc(var(--gm-text-scale,1) * 12px);letter-spacing:0.26em;text-transform:uppercase;color:#A69980;border-bottom:1px solid rgba(166,153,128,0.45);padding-bottom:7px;text-decoration:none;">return to the menu</a>
       </div>
     </div>
   </sc-if>
@@ -282,7 +299,18 @@ class Component extends DCLogic {
     this._beat = -1; this._beatQueue = []; this._beatQueueTimer = null; this.mode = 'menu'; this.walkEnabled = false;
     this.keys = {}; this.yaw = 0; this.pitch = -0.02; this.dragging = false; this.standY = 1.7; this.jumpOff = 0; this.vy = 0;
     this._onKey = (e,d)=>{ const k=e.key.toLowerCase(); this.keys[k]=d; if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault(); };
-    this._kd = (e)=>{ if(e.key==='`'||e.code==='Backquote'){ e.preventDefault(); this.toggleDev(); return; } this._onKey(e,true); const k=e.key.toLowerCase(); if(this.mode!=='walk'||this.state.letterMounted) return; if(k==='i'){ this.onRaiseLetter(); } }; this._ku = (e)=>this._onKey(e,false);
+    this._kd = (e)=>{
+      if(e.key==='`'||e.code==='Backquote'){ e.preventDefault(); this.toggleDev(); return; }
+      this._onKey(e,true);
+      const k=e.key.toLowerCase();
+      // Escape opens/closes Options mid-walk (playtest finding: Options was only reachable from the
+      // main menu, with no way back to it once inside the walk phase). Handled ahead of the
+      // mode!=='walk' early-return below so it still works while Options itself is the active state.
+      if (k==='escape') { if (this.state.isOptions) this.onCloseOptions(); else if (this.mode==='walk' && !this.state.letterMounted) this.onOpenOptions(); return; }
+      if(this.mode!=='walk'||this.state.letterMounted) return;
+      if(k==='i'){ this.onRaiseLetter(); }
+    };
+    this._ku = (e)=>this._onKey(e,false);
     window.addEventListener('keydown', this._kd); window.addEventListener('keyup', this._ku);
     this._resize = ()=>this.onResize();
     window.addEventListener('resize', this._resize);
@@ -591,12 +619,15 @@ class Component extends DCLogic {
     const applyLook = (dx, dy, kf)=>{ this.yaw -= dx*kf; this.pitch = Math.max(-1.1, Math.min(1.0, this.pitch - dy*kf)); };
     this.locked = false;
     let lx=0, ly=0;
-    canvas.addEventListener('click', ()=>{ if(this.mode!=='walk'||this.state.letterMounted) return; try{ const p=canvas.requestPointerLock && canvas.requestPointerLock(); if(p&&p.catch) p.catch(()=>{}); }catch(e){} });
+    // every gate below also excludes this.state.isOptions so opening Options mid-walk (Escape or the
+    // HUD affordance) can't re-lock the pointer or keep steering the camera underneath the overlay —
+    // the same freeze letterMounted already gets, extended to the new Options-during-walk state.
+    canvas.addEventListener('click', ()=>{ if(this.mode!=='walk'||this.state.letterMounted||this.state.isOptions) return; try{ const p=canvas.requestPointerLock && canvas.requestPointerLock(); if(p&&p.catch) p.catch(()=>{}); }catch(e){} });
     document.addEventListener('pointerlockchange', ()=>{ this.locked = (document.pointerLockElement===canvas); if(this.locked && this.state.hintOn) this.setState({ hintOn:false }); });
-    window.addEventListener('mousemove', (e)=>{ if(this.locked && this.mode==='walk'){ applyLook(e.movementX||0, e.movementY||0, 0.0022); } });
-    canvas.addEventListener('pointerdown', (e)=>{ if(this.mode!=='walk'||this.locked) return; this.dragging=true; lx=e.clientX; ly=e.clientY; });
+    window.addEventListener('mousemove', (e)=>{ if(this.locked && this.mode==='walk' && !this.state.isOptions){ applyLook(e.movementX||0, e.movementY||0, 0.0022); } });
+    canvas.addEventListener('pointerdown', (e)=>{ if(this.mode!=='walk'||this.locked||this.state.isOptions) return; this.dragging=true; lx=e.clientX; ly=e.clientY; });
     window.addEventListener('pointerup', ()=>{ this.dragging=false; });
-    window.addEventListener('pointermove', (e)=>{ if(!this.dragging||this.mode!=='walk'||this.locked) return; const dx=e.clientX-lx, dy=e.clientY-ly; lx=e.clientX; ly=e.clientY; applyLook(dx, dy, 0.003); });
+    window.addEventListener('pointermove', (e)=>{ if(!this.dragging||this.mode!=='walk'||this.locked||this.state.isOptions) return; const dx=e.clientX-lx, dy=e.clientY-ly; lx=e.clientX; ly=e.clientY; applyLook(dx, dy, 0.003); });
 
     this.clock = new THREE.Clock();
     // (the flashlight is found inside the mansion, not on the approach)
@@ -614,7 +645,7 @@ class Component extends DCLogic {
     const cam = this.cam;
     const THREE = window.THREE;
 
-    if (this.mode==='walk' && this.walkEnabled && !this.state.letterMounted) {
+    if (this.mode==='walk' && this.walkEnabled && !this.state.letterMounted && !this.state.isOptions) {
       const k=this.keys;
       const crouch = !!(k['c']||k['control']);
       const running = !!(k['shift']) && !crouch;
@@ -722,6 +753,11 @@ class Component extends DCLogic {
         if (k>0.06 && (this.state.fade||0)<1) this.setState({ fade: Math.min(1, (k-0.02)*3.6) });
         if (k>0.9 && !this.state.isArrival) this.setState({ isArrival:true });
       }
+    } else if (this.mode==='walk') {
+      // walk paused (letter open or Options open): freeze exactly where the player left off — no
+      // menu-style cinematic drift underneath the overlay, so camera position/rotation is bit-for-bit
+      // unchanged whenever the pause ends (playtest finding: Options had no way to reach it mid-walk,
+      // and closing it must resume exactly where the player was, not drift and snap back).
     } else {
       // menu: slow cinematic drift
       cam.rotation.y = Math.sin(t*0.14)*0.09;
@@ -768,6 +804,18 @@ class Component extends DCLogic {
     const b = this.beats[i];
     this.setState({ beatMain:b.main, beatSub:b.sub, beatOn:true, hintOn:false });
     this._beatQueueTimer = setTimeout(() => { this._beatQueueTimer = null; this._advanceBeatQueue(); }, this.BEAT_HOLD_MS);
+  }
+
+  // pause/resume the beat-hold countdown while Options is open mid-walk, so a queued beat can't
+  // silently replace the one on screen while the player is away in the menu (playtest finding: Options
+  // must pause "relevant state (movement, beat timers)" the same way the letter-reading overlay does).
+  // Deliberately restarts a fresh BEAT_HOLD_MS on resume rather than tracking exact remaining time —
+  // that only ever gives the current beat *more* reading time back, never skips or duplicates one.
+  pauseBeatTimer() {
+    if (this._beatQueueTimer) { clearTimeout(this._beatQueueTimer); this._beatQueueTimer = null; this._beatTimerPaused = true; }
+  }
+  resumeBeatTimer() {
+    if (this._beatTimerPaused) { this._beatTimerPaused = false; this._beatQueueTimer = setTimeout(() => { this._beatQueueTimer = null; this._advanceBeatQueue(); }, this.BEAT_HOLD_MS); }
   }
 
   triggerGateLock() {
@@ -859,8 +907,30 @@ class Component extends DCLogic {
 
   onFlip(e) { if (e && e.stopPropagation) e.stopPropagation(); this.setState({ letterFlipped: !this.state.letterFlipped }); }
 
-  onOpenOptions() { this.setState({ isMenu:false, isOptions:true }); }
-  onCloseOptions() { this.setState({ isMenu:true, isOptions:false }); }
+  onOpenOptions() {
+    // remember whether Options was opened from the main menu or mid-walk, so Back/Escape returns to
+    // the right place instead of always bouncing to the menu (playtest finding: no way to reach
+    // Options once inside the walk phase — this is what makes that new entry point safe to add).
+    this._optionsReturnTo = this.state.isWalk ? 'walk' : 'menu';
+    if (this.mode==='walk') {
+      this.pauseBeatTimer();
+      // release pointer lock so the cursor is usable for the Options sliders/buttons instead of
+      // staying captured for camera-look underneath the overlay.
+      if (this.locked && document.exitPointerLock) { try { document.exitPointerLock(); } catch(e) {} }
+    }
+    this.setState({ isMenu:false, isOptions:true });
+  }
+  onCloseOptions() {
+    if (this._optionsReturnTo==='walk') {
+      this.resumeBeatTimer();
+      // isWalk, camera position/rotation and beat state were never touched while paused — this just
+      // lifts the isOptions gate so the walk loop, checkBeats() and pointer-lock all resume exactly
+      // where the player left off, in place of always returning to the main menu.
+      this.setState({ isOptions:false });
+    } else {
+      this.setState({ isMenu:true, isOptions:false });
+    }
+  }
 
 
   cap(label, wide) {
@@ -908,6 +978,10 @@ class Component extends DCLogic {
 
   renderVals() {
     const st = this.state;
+    // drives --gm-text-scale (set on the root element below) so every font-size in the game that's
+    // wrapped in calc(var(--gm-text-scale,1) * ...) actually responds to the Options text-size control —
+    // playtest finding: the setting was fully wired through state/UI but scaled zero real text.
+    const _tsScale = ({ default:1, large:1.2, small:0.85 })[GMSettings.get().textSize] || 1;
     const _snap = this.devSnapshot(); const _cur = _snap.phase;
     const _phStyle = (n)=> 'font-family:\'JetBrains Mono\',monospace;font-size:9px;letter-spacing:0.05em;padding:4px 7px;border:1px solid '+(n===_cur?'#F2C759':'rgba(242,199,89,0.25)')+';color:'+(n===_cur?'#FFFFF2':'#A69980')+';background:'+(n===_cur?'rgba(242,199,89,0.14)':'transparent')+';cursor:pointer;';
     const devPhases = this.devPhaseList().map(n=>({ label:n, on:()=>this.devGoTo(n), style:_phStyle(n) }));
@@ -919,6 +993,7 @@ class Component extends DCLogic {
       dotStyle:'position:absolute;top:-4px;right:-4px;width:9px;height:9px;border-radius:50%;background:#40F259;box-shadow:0 0 8px #40F259;'+(st.invSeen?'display:none;':'')
     }];
     return {
+      rootStyle: '--gm-text-scale:'+_tsScale+';',
       bootLoading:st.bootLoading, bootError:st.bootError,
       isMenu:st.isMenu, isColdOpen:st.isColdOpen, isIntro:st.isIntro, isWalk:st.isWalk, isArrival:st.isArrival,
       isSecretEnding: st.isSecretEnding, onReturnToMenu:(e)=>this.onReturnToMenu(e),
@@ -942,6 +1017,9 @@ class Component extends DCLogic {
       showInteract: false,
       interactLabel: '',
       legendStyle: 'opacity:'+((st.isWalk && !st.letterMounted && !st.beatOn)?0.75:0)+';',
+      // stays visible through beats (unlike the legend) since checking Options mid-beat is a reasonable
+      // thing a player might want to do; hidden only when the letter or Options itself is already up.
+      walkOptionsBtnStyle: 'opacity:'+((st.isWalk && !st.letterMounted && !st.isOptions)?0.7:0)+';pointer-events:'+((st.isWalk && !st.letterMounted && !st.isOptions)?'auto':'none')+';',
       tutBarStyle: 'opacity:'+((st.isWalk && st.tutStep<3 && !st.letterMounted)?1:0)+';',
       tutCaps: this.tutCaps(st.tutStep),
       tutText: ['Walk','Look around','Open your invitation',''][st.tutStep] || '',
@@ -952,15 +1030,19 @@ class Component extends DCLogic {
         return 'the back is bare —\nthough the paper holds\na faint impression,\nas if something waits\nto be written';
       })(),
       letterBackStyle: (()=>{ const s = (window.GMDoubt ? GMDoubt.get() : 0);
-        return 'font-family:\'Cormorant Garamond\',serif;font-style:italic;font-size:20px;line-height:1.55;color:'+(s>0?'rgba(36,26,13,0.82)':'rgba(36,26,13,0.13)')+';letter-spacing:0.03em;transform:rotate(-2deg);text-align:center;white-space:pre-line;';
+        return 'font-family:\'Cormorant Garamond\',serif;font-style:italic;font-size:calc(var(--gm-text-scale,1) * 20px);line-height:1.55;color:'+(s>0?'rgba(36,26,13,0.82)':'rgba(36,26,13,0.13)')+';letter-spacing:0.03em;transform:rotate(-2deg);text-align:center;white-space:pre-line;';
       })(),
       fadeStyle: 'position:fixed;inset:0;z-index:50;background:#000;transition:opacity .5s ease;opacity:'+st.fade+';pointer-events:'+(st.fade>0.02?'auto':'none')+';',
       warmStyle: 'position:fixed;inset:0;z-index:48;pointer-events:none;background:radial-gradient(58% 52% at 50% 46%, rgba(255,228,168,0.96), rgba(242,182,92,0.55) 42%, rgba(120,80,30,0) 74%);opacity:'+(st.warm||0)+';transition:opacity .4s ease;',
       onNewGame:()=>this.onNewGame(), onStepOut:()=>this.onStepOut(),
       isOptions: st.isOptions,
       onOpenOptions:()=>this.onOpenOptions(), onCloseOptions:()=>this.onCloseOptions(),
-      audioSliders: ['volMaster','volMusic','volSfx'].map((k,i)=>({
-        label:['Master','Music','SFX'][i], value:(GMSettings.get()[k]),
+      // Music is deliberately excluded: there is no music/audio system in the game yet, only SFX
+      // (gate/car sounds). A slider that "works" but drives nothing would mislead the player
+      // (playtest finding) — hide it from Options rather than ship a fake control. Re-add 'volMusic'
+      // here once an actual music system exists to play through it.
+      audioSliders: ['volMaster','volSfx'].map((k,i)=>({
+        label:['Master','SFX'][i], value:(GMSettings.get()[k]),
         onInput:(e)=>{ GMSettings.set({[k]:parseInt(e.target.value,10)}); this.forceUpdate(); }
       })),
       reduceMotionLabel: GMSettings.get().reduceMotion ? 'On' : 'Off',
