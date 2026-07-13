@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="./support.js"></script>
 <script src="./gm-doubt.js"></script>
+<script src="./gm-settings.js"></script>
 </head>
 <body>
 <x-dc>
@@ -149,8 +150,10 @@ class Component extends DCLogic {
     T(15000,()=> { this.walkEnabled=true; this.setState({ beatOn:false, hintOn:true, headachePulse:0 }); if (this._pulseTick) { clearInterval(this._pulseTick); this._pulseTick=null; } });
     this._pulseTick = setInterval(()=>{
       const decay = this.rising ? Math.max(0, 1 - (Date.now()-(this._riseStart||Date.now()))/3600) : 1;
-      const t = Date.now()/1000;
-      this.setState({ headachePulse: decay * (0.5+0.5*Math.sin(t*2*Math.PI/1.1)) });
+      const reduceMotion = !!(window.GMSettings && GMSettings.get().reduceMotion);
+      // Reduce Motion: hold the vignette at a static mid-strength instead of pulsing.
+      const wave = reduceMotion ? 0.5 : (0.5+0.5*Math.sin(Date.now()/1000*2*Math.PI/1.1));
+      this.setState({ headachePulse: decay * wave });
     }, 80);
   }
 
@@ -161,6 +164,9 @@ class Component extends DCLogic {
   // same way `_raf` is, in case a hot-swap tears this logic down mid-sway.
   swayChandelier() {
     if (!this.chand) return;
+    // Reduce Motion: freeze at the resting frame instead of playing the sway —
+    // the beat text (set just before this call) still lands, only the motion is cut.
+    if (window.GMSettings && GMSettings.get().reduceMotion) { this.chand.rotation.z = 0; this._chandSway = false; return; }
     this._chandSway = true;
     const start = Date.now(), dur = 2600;
     const tick = () => {
@@ -633,17 +639,19 @@ class Component extends DCLogic {
     if (this.fires) this.fires.forEach((l,i)=>{ l.intensity = 1.5*(0.78+0.22*Math.sin(t*11+i*2.1)) - (Math.random()<0.06?0.4:0); });
     if (this.parlorSeam && this.mode!=='arrival') this.parlorSeam.material.opacity = 0.35 + 0.25*Math.sin(t*3.5);
     if (this.dust){ this.dust.rotation.y = t*0.02; }
+    // Reduce Motion: suppresses the lightning flash and the chandelier's ambient idle-sway below.
+    const reduceMotion = !!(window.GMSettings && GMSettings.get().reduceMotion);
     // lightning through the window
     if (this._ltNext == null) this._ltNext = 4;
-    if (t > this._ltNext) { this._lt = 1; this._ltNext = t + 7 + Math.random()*11; }
-    if (this._lt > 0) {
+    if (!reduceMotion && t > this._ltNext) { this._lt = 1; this._ltNext = t + 7 + Math.random()*11; }
+    if (!reduceMotion && this._lt > 0) {
       this._lt = Math.max(0, this._lt - dt*4.2);
       const f = this._lt * (0.55 + 0.45*Math.random());
       if (this.bolt) this.bolt.intensity = f*8;
       if (this.moon) this.moon.intensity = 0.55 + f*1.6;
       if (this.winMat) this.winMat.color.setRGB(0.15+f*0.8, 0.22+f*0.72, 0.31+f*0.6);
-    } else if (this.bolt && this.bolt.intensity!==0) { this.bolt.intensity=0; if(this.moon) this.moon.intensity=0.55; if(this.winMat) this.winMat.color.setRGB(0.15,0.22,0.31); }
-    if (this.chand && !this._chandSway) this.chand.rotation.z = Math.sin(t*0.5)*0.014;
+    } else if (this.bolt && this.bolt.intensity!==0) { this._lt = 0; this.bolt.intensity=0; if(this.moon) this.moon.intensity=0.55; if(this.winMat) this.winMat.color.setRGB(0.15,0.22,0.31); }
+    if (this.chand && !this._chandSway) this.chand.rotation.z = reduceMotion ? 0 : Math.sin(t*0.5)*0.014;
 
     this.renderer.render(this.scene, cam);
   }
