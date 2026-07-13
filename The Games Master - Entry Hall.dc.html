@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="./support.js"></script>
+<script src="./gm-doubt.js"></script>
 </head>
 <body>
 <x-dc>
@@ -642,6 +643,13 @@ class Component extends DCLogic {
         m:'Two suits of armour by the door, visors down.', s:'Empty, surely. I decided not to lift one to check.' },
       { x:6.6, z:13.2, r:4.2, type:'murmur',
         m:'Two coats already waiting on the stand.', s:'Both cut to my size. Neither of them mine \u2014 not yet.' },
+      { x:-3, z:14, r:3.4, type:'examine', verb:'Check your coat pocket',
+        em:'I felt for the invitation, still folded where I\u2019d put it.', esFn:()=>{
+          const s = (window.GMDoubt ? GMDoubt.get() : 0);
+          if (s>=2) return 'The back, this time, was not bare. a friend who never left. The hand is Aldric\u2019s own. He wrote the warning. He is the friend.';
+          if (s>=1) return 'Something had changed on the back since I\u2019d last looked. He cannot lose\u2026 watch his hands. \u2014 a friend who got out.';
+          return 'The back was still bare. Whatever waited to be written there hadn\u2019t been, not yet.';
+        } },
       { x:6.6, z:8, r:4.0, type:'both', verb:'Pour the waiting glass',
         m:'Fresh flowers, a week dead, and a glass set out for a guest.', s:'The guest, of course, was always going to be me.',
         em:'I lifted the decanter.', es:'One glass, already poured and gone cold. He knew what I drank before I sat down. I put it back full.' },
@@ -721,7 +729,17 @@ class Component extends DCLogic {
 
   tryExamine() {
     const p=this._active; if(!p||this.mode!=='hall'||!this.walkEnabled) return;
-    if (p.em) this.speak(p.em, p.es, 6800);
+    const text = p.esFn ? p.esFn() : p.es;
+    if (p.em) { this.speak(p.em, text, 6800); this.trackDoubtProgress(p); }
+  }
+
+  trackDoubtProgress(p) {
+    if (!window.GMDoubt) return;
+    p._read = true;
+    const isTracked = (poi)=> poi.type==='examine' && poi.verb==='Read the nameplate';
+    const ledgerRead = this.pois.some(poi => poi.verb==='Read the open ledger' && poi._read);
+    const portraitsRead = this.pois.filter(poi => isTracked(poi) && poi._read).length;
+    if (ledgerRead && portraitsRead >= 5) GMDoubt.set(1);
   }
 
   // ===== DEV BRIDGE =====
