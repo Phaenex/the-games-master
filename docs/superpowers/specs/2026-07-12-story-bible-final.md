@@ -2,9 +2,9 @@
 
 ## What this document is
 
-The complete, consolidated story: Aldric Voss's mythology, why he cheats and can't stop, how each game's hidden cheat works, where the clues live, what the hidden room contains, and how the six endings resolve. This merges and supersedes three working documents — `2026-07-12-aldric-mythology-story-bible.md`, `2026-07-12-per-game-cheats-design.md`, `2026-07-12-clues-and-secret-rooms-design.md` — which remain in place as backing reference: they carry the full review trail (four adversarial lenses, across two full revision cycles) for anyone who wants the reasoning behind a given decision, or needs to trace a claim back to the exact line of shipped code or Art Direction text it was checked against. This document states the destination; those three document the road there.
+The complete, consolidated story: Aldric Voss's mythology, why he cheats and can't stop, how each game's hidden cheat works, where the clues live, what the hidden room contains, and how the six endings resolve.
 
-Primary canon underneath all of it is `The Games Master - Art Direction.dc.html` — its thesis, its six endings, its room designs for Court and Labyrinth, and its persistence system are treated as authoritative throughout. Nothing here contradicts it; where earlier drafts of this design pass tried to, they were corrected, and that correction is recorded in the source documents above, not repeated here.
+Primary canon underneath all of it is `The Games Master - Art Direction.dc.html` — its thesis, its six endings, its room designs for Court and Labyrinth, and its persistence system are treated as authoritative throughout. Three working documents — `2026-07-12-aldric-mythology-story-bible.md`, `2026-07-12-per-game-cheats-design.md`, `2026-07-12-clues-and-secret-rooms-design.md` — hold the detailed reasoning behind individual decisions and the exact shipped-code references each claim was checked against, for anyone who needs to trace a specific line back to its source.
 
 ---
 
@@ -17,6 +17,8 @@ He was a guest once, exactly like the protagonist: desperate, in debt, playing f
 He knows this, and he can't consciously choose either side of it. He can't throw the game (that's still a choice the house recognizes and punishes the same way), and he can't let a guest win ordinarily either (same trap, just handed forward). The only outcome that breaks the cycle for both parties is getting caught — decisively, past a full reckoning — which is exactly what he fell short of doing to the host before him, centuries ago.
 
 Why this particular guest, tonight — not fate. The house's invitation is indiscriminate; it finds whoever is desperate enough to say yes to an offer this strange, and that's what the protagonist and Aldric-as-a-guest actually have in common. Not destiny. Just what every guest who ever answered the letter already shared.
+
+Art Direction's own line — "He is not here to gamble. He is here because it is the last door left, and the house knew that before he did" — reads like foreknowledge about this specific man, and it isn't. The house recognizes the shape of desperation on sight, the same recognition it extends to every guest who ever said yes; "knew that before he did" describes how well it reads a man out of options, not that it singled him out in advance. Nobody is chosen. Everybody who reaches the gate already qualified.
 
 ## 2. What's Actually Escalating
 
@@ -106,6 +108,10 @@ Conditions are unchanged from Art Direction; only the meaning underneath them is
 - **Collection** (Compliance ≥15) — the player's portrait joins the wall. One more name for the next guest's ledger.
 - **Cheat / true ending** (8+ cheats caught, 3+ shards, hidden room found) — the player succeeds exactly where Aldric fell short, centuries ago. **"Finally."** Freed, the curse breaks, credits roll — no second reading needed. The two "victories" a player instinctively chases, beating him hard or playing nice, are the two that trap you. Only understanding gets everyone out.
 - **Hollow** (Sanity hits 0) — the one ending where he tries hardest to help: a last numberless game, blank cards, no credits, he goes quiet, then human, and almost helps, and can't. He tried hardest here, and it wasn't enough — the starkest version of the rule that's driven this whole story: even mercy isn't a choice the house lets him make on purpose. No portrait, no ledger line, no trace anywhere in the house — worse than the other five specifically because it's forgotten completely.
+
+**A seventh state, outside the six: leaving before the game starts.** Retreating to the car before ever passing the gate at the start of the walk ends the game immediately — a real, shipped state (`triggerSecretEnding()` in the Prologue), not a design placeholder. It isn't one of the six above and shouldn't be counted as one: the six are all reached by sitting at the table and playing the game out to one of its real conclusions; this one is reached by never sitting down. It leaves no trace — no portrait, no ledger line, nothing written to shared state — the same way Hollow leaves nothing, but for the opposite reason: Hollow is what's left of someone the house used up, this is someone the house never got. Mechanically and thematically it's the cleanest possible proof of §1's thesis: the invitation was never fate, so declining it costs nothing and changes nothing for the house, which will simply find someone else. That's the point of the ending, not a flaw in it.
+
+Art Direction's §11 sketches an earlier, different fourth ending called "The Debt" — losing the night with the house keeping the guest "a while longer," remembered by the ledger for next time. That sketch is superseded by the canonical six in §13 above and shares no mechanical identity with the new secret ending: Debt was a *post-play loss with memory*; the secret ending is a *pre-play exit with none*. Treat Debt as retired, not as an alternate name for leaving before the gate.
 
 ## 8. Twists, Honestly Ranked
 
