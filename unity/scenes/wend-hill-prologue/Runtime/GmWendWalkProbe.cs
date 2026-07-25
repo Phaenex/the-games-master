@@ -103,6 +103,17 @@ public sealed class GmWendWalkProbe : MonoBehaviour
         yield return new WaitForSecondsRealtime(SettleSeconds);
         yield return Capture(playerGo.transform.position, 0f);
 
+        // The world-floor test comes from GmWendCatchPlane so the probe and the gameplay failsafe
+        // cannot disagree about what falling means. The old test here was "25m below the SPAWN", which
+        // is wrong for a route that legitimately descends: this one drops 22m from its first waypoint
+        // to its last, so a clean walk to the end would have tripped it with 3m to spare.
+        var catcher = FindFirstObjectByType<GmWendCatchPlane>();
+        Terrain terrain = Terrain.activeTerrain;
+        float catchHeight = catcher != null ? catcher.CatchHeight : playerGo.transform.position.y - FellOutOfWorld;
+        if (catcher == null)
+            Debug.LogWarning("[GmWendWalkProbe] no GmWendCatchPlane in the scene; falling back to a " +
+                             "spawn-relative floor test, which a descending route can trip on its own");
+
         float began = Time.realtimeSinceStartup;
         lastFrameAt = Time.realtimeSinceStartupAsDouble;
         float nextCaptureAt = CaptureEveryMeters;
@@ -136,10 +147,14 @@ public sealed class GmWendWalkProbe : MonoBehaviour
                     // frames that a luma check alone would have read as "the night got darker". Stop
                     // and say so. GmWendCatchPlane now recovers the player in a normal run; this stays
                     // fatal here because a probe exists to report the hole, not to survive it.
-                    if (here.y < spawnY - FellOutOfWorld)
+                    float? surfaceHere = SurfaceUnder(terrain, here);
+                    if (GmWendCatchPlane.IsBelowWorld(here.y, catchHeight, surfaceHere, 10f))
                     {
-                        Debug.LogError($"[GmWendWalkProbe] FELL OUT OF THE WORLD at {here}, " +
-                                       $"{spawnY - here.y:0}m below the spawn.");
+                        Debug.LogError($"[GmWendWalkProbe] FELL OUT OF THE WORLD at {here}. " +
+                                       (surfaceHere.HasValue
+                                           ? $"The terrain surface here is {surfaceHere.Value:0}, so the " +
+                                             $"player is {surfaceHere.Value - here.y:0}m under it."
+                                           : $"Off the terrain entirely, below the catch height {catchHeight:0}."));
                         yield return Capture(here, walked, "fell");
                         Finish($"walked {walked:0}m before falling out of the world", 1);
                         yield break;
@@ -242,6 +257,19 @@ public sealed class GmWendWalkProbe : MonoBehaviour
     // consecutive waypoints. Keeping a superseded copy of the route logic inside the walker is the
     // setup for the bug this file's header already warns about, the spawn and the walk describing two
     // different places, so it is deleted rather than left for someone to call by accident.
+
+    /// Terrain surface height under a point, or null when there is no terrain or the point is off it.
+    static float? SurfaceUnder(Terrain terrain, Vector3 at)
+    {
+        if (terrain == null || terrain.terrainData == null) return null;
+
+        Vector3 origin = terrain.transform.position;
+        Vector3 size = terrain.terrainData.size;
+        if (at.x < origin.x || at.x > origin.x + size.x ||
+            at.z < origin.z || at.z > origin.z + size.z) return null;
+
+        return terrain.SampleHeight(at) + origin.y;
+    }
 
     /// Records the time since the previous sampled frame.
     ///

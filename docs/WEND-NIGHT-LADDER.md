@@ -441,6 +441,69 @@ It also inverts the assumed next lever. The previous handoff said the remaining 
 stretches with no lamp in them, wanting ambient FILL. The measured spread is a factor of 23 and its
 loud end is open ground going pale, so the ambient path is already dominating rather than missing.
 
+## The bisect: it is the fog's ambient, and it is not the lamps
+
+Two rungs, one value each, against the walk as the measurement rather than a single vantage. Both ran
+unattended: night build with an override, app build from the saved scene, walk, measure. The overrides
+are command-line flags (`-gmPracticalScale`, `-gmFogDimmer`) so a rung never needs a code edit, which
+is what stops a campaign losing track of which change made which frame.
+
+Whole-frame luma at matched distances. Milestone naming is what makes the columns comparable at all:
+
+| distance | view | baseline | practicals x0.5 | fog ambient x0.5 |
+|---|---|---|---|---|
+| 0m | enclosed forest | 0.024 | 0.024 | 0.019 |
+| 150m | mid, near lamps | 0.230 | 0.229 | 0.225 |
+| 285m | opening out | 0.239 | 0.240 | 0.199 |
+| 300m | open street | 0.402 | 0.395 | **0.282** |
+| 315m | open street | 0.535 | 0.536 | **0.313** |
+| 330m | open street | 0.556 | 0.555 | **0.326** |
+| 345m | open street | 0.326 | 0.327 | **0.189** |
+| 405m | enclosed | n/a | 0.020 | 0.014 |
+
+**The practicals are not the cause.** Halving all 24 of them moved every matched frame by less than
+0.01, against a fog rung that moved single frames by 0.23. No run-to-run variance was measured for
+this scene, so those small deltas are not formally attributable to noise; what can be said is that
+they are more than an order of magnitude below the effect the fog rung produced. The scene is not
+lit by its own lamps in any meaningful sense, and the warm cast at 150m does not come from them either.
+That is worth stating flatly because the previous session cut them 104907 -> 2475 lumens and treated
+that as the fix for brightness.
+
+**The fog's ambient term is the cause of the blown open views.** Halving `globalLightProbeDimmer` cut
+330m by 41% while moving the enclosed frames by 0.005. The effect scales with how open the view is,
+which is the signature the depth hypothesis predicted: fog integrates along the view ray, so a street
+running hundreds of metres accumulates the ambient term and a forest with geometry at 10m does not.
+
+Two things it does NOT fix, both measured rather than assumed:
+
+1. **0.5 is not low enough.** 315m to 360m still reads 0.31 to 0.33 against a 0.03 to 0.06 target. The
+   next rung is a lower dimmer, and 0 is worth trying as a bracket end rather than a guess.
+2. **There is a third cause in the middle of the route.** 150m barely moved under either rung, and it
+   is 0.225 with a properly dark sky and warm-lit geometry. Not the lamps, not the fog. The remaining
+   suspect is the ambient/sky term lighting SURFACES rather than the fog, which no rung has touched.
+
+## The route walks into a hole at 506m, twice
+
+Both bisect runs reached 506m and both went under the world at the same place, which makes it a
+reproducible world defect rather than a one-off. The captured frame is unambiguous once looked at: a
+flat tan plane filling the lower half with a hard horizontal edge and rocks beyond, which is the
+underside of the pack's water plane seen from below.
+
+**This exposed a real flaw in the catch plane written earlier the same day.** It fired at 30m below the
+terrain's LOWEST point, which put it at -102. The player went through the ground at -24. Being above
+the lowest point of a landscape says nothing about being above the ground you are standing on, so the
+failsafe could not have caught the one fall that has ever actually happened.
+
+It is terrain-surface relative now: fallen means more than 10m below the surface sampled at the
+player's own XZ, with the absolute height kept as the backstop for when the player is off the terrain
+entirely and there is no surface to be under.
+
+The walk probe's own detector had the mirror-image bug and it was luckier rather than righter. It
+tested "25m below the SPAWN", and this route descends 22m from its first waypoint to its last, so a
+clean walk to the end would have reported itself as falling out of the world with 3m to spare. Both
+now share `GmWendCatchPlane.IsBelowWorld`, so the probe and the failsafe cannot disagree about what
+falling means.
+
 ## Verified, and not
 
 Verified by running it this session and reading the real output: the four materials and five prototype

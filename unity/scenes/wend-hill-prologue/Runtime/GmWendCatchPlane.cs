@@ -24,8 +24,18 @@ public sealed class GmWendCatchPlane : MonoBehaviour
     [SerializeField] float catchY;
     [SerializeField] Vector3[] respawnPoints = new Vector3[0];
 
+    /// How far under the terrain SURFACE counts as having gone through it.
+    ///
+    /// The absolute catch height alone is not enough, and a walk proved it: the player went under the
+    /// pack's water plane at y=-24 near the end of the route, while the catch height sat at -102
+    /// because that is 30m below the terrain's LOWEST point. Being above the lowest point of a
+    /// landscape says nothing about being above the ground you are standing on. A terrain that drops
+    /// 70m somewhere else cannot be the reference for whether you fell through it here.
+    const float BelowSurface = 10f;
+
     CharacterController controller;
     Transform player;
+    Terrain terrain;
     Vector3 lastGrounded;
     int catches;
 
@@ -51,7 +61,30 @@ public sealed class GmWendCatchPlane : MonoBehaviour
             return;
         }
         controller = player.GetComponent<CharacterController>();
+        terrain = Terrain.activeTerrain;
         lastGrounded = player.position;
+    }
+
+    /// The terrain surface under a point, or null when there is no terrain or the point is off it.
+    /// Off the terrain there is no surface to be under, so only the absolute catch height applies.
+    float? SurfaceUnder(Vector3 at)
+    {
+        if (terrain == null || terrain.terrainData == null) return null;
+
+        Vector3 origin = terrain.transform.position;
+        Vector3 size = terrain.terrainData.size;
+        if (at.x < origin.x || at.x > origin.x + size.x ||
+            at.z < origin.z || at.z > origin.z + size.z) return null;
+
+        return terrain.SampleHeight(at) + origin.y;
+    }
+
+    /// Whether a position is under the world. Pure and public so both conditions can be tested
+    /// without a terrain, a fall or a build.
+    public static bool IsBelowWorld(float playerY, float catchY, float? surfaceY, float belowSurface)
+    {
+        if (playerY < catchY) return true;
+        return surfaceY.HasValue && playerY < surfaceY.Value - belowSurface;
     }
 
     // The builder's constant lives in an Editor-only class, so the name is repeated rather than
@@ -67,14 +100,17 @@ public sealed class GmWendCatchPlane : MonoBehaviour
         // horizontally and the nearest waypoint to the bottom of a ravine is not where they left.
         if (controller != null && controller.isGrounded) lastGrounded = here;
 
-        if (here.y >= catchY) return;
+        float? surface = SurfaceUnder(here);
+        if (!IsBelowWorld(here.y, catchY, surface, BelowSurface)) return;
 
         catches++;
         Vector3 to = Recover(lastGrounded);
-        Debug.LogError($"[GmWendCatchPlane] FELL OUT OF THE WORLD at {here} " +
-                       $"({catchY - here.y:0}m below the catch height {catchY:0}). " +
-                       $"Recovered to {to}. This is catch {catches}: the boundary has a gap here and " +
-                       "the walls are what should have stopped it, not this.");
+        string why = surface.HasValue && here.y < surface.Value - BelowSurface
+            ? $"{surface.Value - here.y:0}m under the terrain surface ({surface.Value:0})"
+            : $"below the catch height {catchY:0}";
+        Debug.LogError($"[GmWendCatchPlane] FELL OUT OF THE WORLD at {here}, {why}. " +
+                       $"Recovered to {to}. This is catch {catches}: something here has no floor, and " +
+                       "the walls only close the map edge, not a hole in the middle of it.");
 
         // A CharacterController writes the transform itself every frame, so assigning position while it
         // is enabled is overwritten before it takes effect. Disabling it for the teleport is the

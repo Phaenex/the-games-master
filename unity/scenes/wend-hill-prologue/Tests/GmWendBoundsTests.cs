@@ -92,6 +92,35 @@ public sealed class GmWendBoundsTests
     }
 
     [Test]
+    public void FallingThroughTheGroundIsCaughtEvenWellAboveTheCatchHeight()
+    {
+        // The defect a walk actually found. The player went under the pack's water plane at y=-24
+        // while the catch height sat at -102, because -102 is 30m below the terrain's LOWEST point
+        // somewhere else entirely. Being above the lowest point of a landscape says nothing about
+        // being above the ground beneath you.
+        Assert.IsTrue(GmWendCatchPlane.IsBelowWorld(-24f, -102f, surfaceY: 2f, belowSurface: 10f),
+            "26m under the surface must count as fallen even though it is 78m above the catch height");
+    }
+
+    [Test]
+    public void WalkingDownhillIsNotFalling()
+    {
+        // This route descends 22m from its first waypoint to its last, so any test measured against
+        // the SPAWN reports a clean walk to the end as a fall. Measured against the surface underfoot
+        // it is just a hill.
+        Assert.IsFalse(GmWendCatchPlane.IsBelowWorld(-22f, -102f, surfaceY: -21f, belowSurface: 10f));
+    }
+
+    [Test]
+    public void OffTheTerrainOnlyTheAbsoluteCatchHeightApplies()
+    {
+        // Past the edge of the terrain there is no surface to be under, so the absolute height is the
+        // only test left. It must still fire.
+        Assert.IsFalse(GmWendCatchPlane.IsBelowWorld(-50f, -102f, surfaceY: null, belowSurface: 10f));
+        Assert.IsTrue(GmWendCatchPlane.IsBelowWorld(-150f, -102f, surfaceY: null, belowSurface: 10f));
+    }
+
+    [Test]
     public void RecoveryFallsBackWhenThereIsNoRoute()
     {
         // A scene whose road meshes did not match leaves an empty route. Recovering to the origin

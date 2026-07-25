@@ -155,7 +155,42 @@ public static class GmWendNight
     ///
     /// Not idempotent by design: applying it twice scales twice. Every path that calls it rebuilds the
     /// scene from the purchased source first, so it always runs against the pack's original values.
-    const float PracticalScale = 0.06f;
+    /// Bisect overrides.
+    ///
+    /// These exist so a rung can move ONE value and nothing else, without editing code between runs.
+    /// Editing constants by hand between builds is how a campaign ends up unable to say which change
+    /// produced which frame, which is the exact failure the ladder was built to prevent. The defaults
+    /// reproduce the committed night byte for byte, so a run with no flags is the control.
+    ///
+    ///   -gmPracticalScale <f>   multiplier on every practical light, default 0.06
+    ///   -gmFogDimmer <f>        volumetric fog's ambient probe dimmer, default 1.0
+    public const float DefaultPracticalScale = 0.06f;
+    public const float DefaultFogProbeDimmer = 1.0f;
+
+    static float PracticalScale = DefaultPracticalScale;
+    static float FogProbeDimmer = DefaultFogProbeDimmer;
+
+    /// Parses the overrides and SAYS what it read, including when it read nothing. A bisect that
+    /// silently ignored its flag would produce a frame identical to the control and get recorded as
+    /// "that value does nothing".
+    public static void ReadBisectOverrides()
+    {
+        PracticalScale = ReadFlag("-gmPracticalScale", DefaultPracticalScale);
+        FogProbeDimmer = ReadFlag("-gmFogDimmer", DefaultFogProbeDimmer);
+        Debug.Log($"[{LogTag}] bisect: PracticalScale={PracticalScale} (default {DefaultPracticalScale}), " +
+                  $"FogProbeDimmer={FogProbeDimmer} (default {DefaultFogProbeDimmer})");
+    }
+
+    static float ReadFlag(string flag, float fallback)
+    {
+        string[] args = Environment.GetCommandLineArgs();
+        int at = Array.IndexOf(args, flag);
+        if (at < 0 || at + 1 >= args.Length) return fallback;
+        if (!float.TryParse(args[at + 1], System.Globalization.NumberStyles.Float,
+                            System.Globalization.CultureInfo.InvariantCulture, out float value))
+            throw new InvalidOperationException($"{flag} was given '{args[at + 1]}', which is not a number");
+        return value;
+    }
     const float PracticalCeilingLumens = 200f;
 
     /// The lamp glass, scaled rather than zeroed, because unlike the grass it is meant to glow.
@@ -280,6 +315,14 @@ public static class GmWendNight
                 fog.sliceDistributionUniformity.Override(0.6f);
                 fog.multipleScatteringIntensity.Override(0.3f);
                 fog.enableVolumetricFog.Override(true);
+
+                // How much AMBIENT the fog receives. The pack leaves this at 1 and the night never
+                // touched it, so while the albedo above stops the fog scattering daylight, the fog was
+                // still being lit at full strength by the ambient probe. Suspected cause of open views
+                // going pale while enclosed ones stay night: fog integrates over view depth, so a
+                // street running hundreds of metres accumulates far more of this term than a forest
+                // with geometry a few metres away. Overridden explicitly now, default unchanged at 1.
+                fog.globalLightProbeDimmer.Override(FogProbeDimmer);
                 fogEdited++;
                 EditorUtility.SetDirty(p);
             }
@@ -443,6 +486,8 @@ public static class GmWendNight
     /// shipping path; the ladder is the review path.
     public static void ApplyCommitted()
     {
+        ReadBisectOverrides();
+
         GmWendBuilder.LightingCensus before = GmWendBuilder.TakeCensus();
 
         SunToMoon();
