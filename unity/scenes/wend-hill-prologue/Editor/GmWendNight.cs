@@ -164,11 +164,18 @@ public static class GmWendNight
     ///
     ///   -gmPracticalScale <f>   multiplier on every practical light, default 0.06
     ///   -gmFogDimmer <f>        volumetric fog's ambient probe dimmer, default 1.0
+    ///   -gmSkyExposureDrop <f>  stops taken off the pack's HDRI sky, default 5.5
     public const float DefaultPracticalScale = 0.06f;
     public const float DefaultFogProbeDimmer = 1.0f;
 
+    /// The HDRI sky is the scene's ambient source, so this is the dial that lights SURFACES rather
+    /// than the fog. It is a relative drop, not an absolute value, because the pack's own exposure is
+    /// the starting point and is not ours to assume.
+    public const float DefaultSkyExposureDrop = 5.5f;
+
     static float PracticalScale = DefaultPracticalScale;
     static float FogProbeDimmer = DefaultFogProbeDimmer;
+    static float SkyExposureDrop = DefaultSkyExposureDrop;
 
     /// Parses the overrides and SAYS what it read, including when it read nothing. A bisect that
     /// silently ignored its flag would produce a frame identical to the control and get recorded as
@@ -177,8 +184,10 @@ public static class GmWendNight
     {
         PracticalScale = ReadFlag("-gmPracticalScale", DefaultPracticalScale);
         FogProbeDimmer = ReadFlag("-gmFogDimmer", DefaultFogProbeDimmer);
+        SkyExposureDrop = ReadFlag("-gmSkyExposureDrop", DefaultSkyExposureDrop);
         Debug.Log($"[{LogTag}] bisect: PracticalScale={PracticalScale} (default {DefaultPracticalScale}), " +
-                  $"FogProbeDimmer={FogProbeDimmer} (default {DefaultFogProbeDimmer})");
+                  $"FogProbeDimmer={FogProbeDimmer} (default {DefaultFogProbeDimmer}), " +
+                  $"SkyExposureDrop={SkyExposureDrop} (default {DefaultSkyExposureDrop})");
     }
 
     static float ReadFlag(string flag, float fallback)
@@ -340,7 +349,12 @@ public static class GmWendNight
             {
                 // Do not swap the pack's sky texture; just take it down. A daytime HDRI at a night
                 // exposure still reads as a photograph of a day.
-                hdri.exposure.Override(hdri.exposure.value - 5.5f);
+                //
+                // This is also the scene's AMBIENT source, so it lights every surface, not just the
+                // visible sky. That makes it the remaining suspect for the mid-route frames, which sit
+                // at 0.225 with a properly dark sky and warm-lit geometry and did not move when either
+                // the practicals or the fog ambient were halved.
+                hdri.exposure.Override(hdri.exposure.value - SkyExposureDrop);
                 skyEdited++;
                 EditorUtility.SetDirty(p);
             }

@@ -461,6 +461,22 @@ Whole-frame luma at matched distances. Milestone naming is what makes the column
 | 345m | open street | 0.326 | 0.327 | **0.189** |
 | 405m | enclosed | n/a | 0.020 | 0.014 |
 
+A third rung took the dimmer to 0, and it lands the worst frame in the scene inside the target:
+
+| distance | baseline | fog x0.5 | **fog x0** |
+|---|---|---|---|
+| 150m | 0.230 | 0.225 | 0.183 |
+| 300m | 0.402 | 0.282 | 0.190 |
+| 315m | 0.535 | 0.313 | 0.113 |
+| 330m | 0.556 | 0.326 | **0.030** |
+| 345m | 0.326 | 0.189 | 0.053 |
+| 375-480m | n/a | 0.014-0.030 | 0.013-0.031 |
+
+330m goes from six times over target to inside it, from one value, and the enclosed stretch is
+untouched. That is as clean a single-cause result as this scene has produced. What it does NOT settle
+is the middle: 150m is still 0.183 and 285m to 360m still runs 0.11 to 0.19, so the fog was the whole
+story for the worst frame and only part of it elsewhere.
+
 **The practicals are not the cause.** Halving all 24 of them moved every matched frame by less than
 0.01, against a fog rung that moved single frames by 0.23. No run-to-run variance was measured for
 this scene, so those small deltas are not formally attributable to noise; what can be said is that
@@ -482,17 +498,30 @@ Two things it does NOT fix, both measured rather than assumed:
    is 0.225 with a properly dark sky and warm-lit geometry. Not the lamps, not the fog. The remaining
    suspect is the ambient/sky term lighting SURFACES rather than the fog, which no rung has touched.
 
-## The route walks into a hole at 506m, twice
+## The route wades into a lake at 506m. It was never a hole, and that claim is retracted
 
-Both bisect runs reached 506m and both went under the world at the same place, which makes it a
-reproducible world defect rather than a one-off. The captured frame is unambiguous once looked at: a
-flat tan plane filling the lower half with a hard horizontal edge and rocks beyond, which is the
-underside of the pack's water plane seen from below.
+Recorded as a correction rather than quietly edited, because it was written up as a reproducible world
+defect and it is not one.
 
-**This exposed a real flaw in the catch plane written earlier the same day.** It fired at 30m below the
-terrain's LOWEST point, which put it at -102. The player went through the ground at -24. Being above
-the lowest point of a landscape says nothing about being above the ground you are standing on, so the
-failsafe could not have caught the one fall that has ever actually happened.
+Two runs reported FELL OUT OF THE WORLD at 506m, and the captured frame showed a flat tan plane with a
+hard horizontal edge filling the lower half and rocks beyond. The water-plane reading of that frame was
+right. The conclusion drawn from it was wrong: the player was SUBMERGED and standing on the lake bed,
+not falling through anything.
+
+What settled it is the next run. With the floor test corrected to terrain-surface relative, the walk
+went straight past that point and finished at **517m with zero falls and zero catch-plane fires**. A
+player 2m under a water surface while standing on the ground is not falling, and the old test could not
+tell those apart because it measured against the SPAWN: this route descends 22m from its first waypoint
+to its last, so it fired at 25m below spawn while the ground was 2m away.
+
+`GmWendRoute` had already said so in its own report, which nobody had read closely:
+`cluster of 12 piece(s): 2325 settlement prop(s) within 50m, overlaps water`. The road cluster the
+route picks overlaps water, and its final waypoint is at y=-22.80. So this is a ROUTE quality finding,
+the prologue's walk ends in a lake, and not a world integrity one.
+
+**The catch plane flaw it exposed was real regardless.** It fired at 30m below the terrain's LOWEST
+point, which put it at -102, and nothing in the middle of the map could ever reach that. Being above the
+lowest point of a landscape says nothing about being above the ground you are standing on.
 
 It is terrain-surface relative now: fallen means more than 10m below the surface sampled at the
 player's own XZ, with the absolute height kept as the backstop for when the player is off the terrain
