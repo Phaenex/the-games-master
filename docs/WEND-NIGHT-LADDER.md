@@ -477,6 +477,38 @@ untouched. That is as clean a single-cause result as this scene has produced. Wh
 is the middle: 150m is still 0.183 and 285m to 360m still runs 0.11 to 0.19, so the fog was the whole
 story for the worst frame and only part of it elsewhere.
 
+Confirmed by eye as well as by number, at the same camera position that produced the foggy-daylight
+frame: dark sky, dim green-grey plaster, a warm lit window, road receding into black. The fog still
+scatters direct lamp light, so zeroing the AMBIENT dimmer removes the daylight wash without removing
+the halo the fog was ported for.
+
+## Two more rungs, and the finding that global dimming makes the spread worse
+
+The sky was the remaining suspect for the middle of the route, being the ambient source that lights
+SURFACES rather than fog. Bracketing it settled that and something more useful.
+
+| variant | in 0.03-0.06 | in 0.02-0.10 | near-black | spread | ratio |
+|---|---|---|---|---|---|
+| baseline | 2/26 | 12 | 0 | 0.024-0.556 | 23x |
+| **fog ambient 0** | **7/35** | **22** | **0** | 0.013-0.190 | **14x** |
+| sky -8.5 stops | 5/35 | 10 | **19** | 0.000-0.149 | 149x |
+| fog 0 + sky -6.5 | 7/35 | 16 | 11 | 0.002-0.137 | 56x |
+
+The sky IS the master ambient dial and it moves everything: three more stops took 150m from 0.230 to
+0.058, straight into target. It also took nineteen of thirty-five frames to near-black. Combining a
+gentler sky trim with the fog fix was worse than the fog fix alone on every measure except the narrow
+target count.
+
+**The structural finding, which is worth more than the numbers: global dimming increases the spread.**
+Lamp-lit ground has a floor that does not scale with ambient, so turning ambient down drives the dark
+stretches to zero faster than it brings the lit ones into range. Baseline sits at 23x max-to-min, the
+fog fix improves it to 14x, and every further dimming rung made it worse, up to 149x.
+
+That is the measured version of what the previous handoff guessed at when it said exposure slides the
+window and cannot compress the spread. The instinct was right and the proposed remedy was backwards:
+what is left after the fog fix is not too much light to be removed, it is too little in the stretches
+between lamps. Raising the floor there is level work, more or better placed practicals, not a dial.
+
 **The practicals are not the cause.** Halving all 24 of them moved every matched frame by less than
 0.01, against a fog rung that moved single frames by 0.23. No run-to-run variance was measured for
 this scene, so those small deltas are not formally attributable to noise; what can be said is that
