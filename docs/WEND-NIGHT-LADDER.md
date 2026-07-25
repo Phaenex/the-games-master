@@ -392,6 +392,55 @@ with `AssetDatabase.CopyAsset` from a purchased scene that ships binary, and a b
 format. The other two scenes in the project are text. Nothing depends on it being diffable, but do not
 expect to read a diff of it.
 
+## The walk was run, and it found that the night does not survive an open view
+
+2026-07-25, first walk in the built player since the NavMesh. Numbers the run printed:
+
+| | before | after |
+|---|---|---|
+| distance | 188m of 580m | **379m of 580m** |
+| stalls | 9 | **2** |
+| waypoints pathed | n/a | 7 of 11 on the NavMesh, 4 walked straight |
+| catch plane fires | n/a | 0 |
+| runtime errors | n/a | 0 |
+
+So the NavMesh roughly doubled coverage and cut stalls from nine to two, and the distance-named
+frames land on exact 15m milestones from `walk-0000m.png` to `walk-0375m.png`. Four waypoints still
+could not be pathed, and stall 2 was 134m short of waypoint 10, so the last third of the route is
+still not reachable. That is the next pathfinding question, not a solved one.
+
+**The lighting finding is bigger than the pathing one.** Whole-frame luma across the 26 walk frames
+runs **0.024 to 0.556, mean 0.166, with 2 of 26 inside the 0.03 to 0.06 target.** It climbs steadily
+along the route and peaks at 0.556 around 330m.
+
+Two frames were LOOKED AT, not just measured, because a luma number alone has already fooled this
+project twice:
+
+- `walk-0000m.png` at 0.024 is a real night. Dark, close forest, one distant warm lamp.
+- `walk-0330m.png` at 0.556 is not a bright night. It is pale blue-white **foggy daylight**, with a
+  single lit window the only thing in frame reading as night at all.
+
+That is a change of register, not of exposure, so no EV fixes it.
+
+One hypothesis was tested and DISPROVEN, recorded because it is the obvious one: the pack's other
+volumes are not reasserting a daylight look. All 30 volumes are global at priority 1 weight 1, and 29
+carry `profile=NONE`, so they contribute nothing. `GmWendNight.Inspect` prints this.
+
+What the evidence points at instead, stated as the hypothesis it is: the fog is lit by AMBIENT and its
+contribution accumulates with view depth. The night profile has fog albedo 0.035, 0.04, 0.055, which
+is properly dark, but `globalLightProbeDimmer` is **1** and `meanFreePath` is 110m. At 0m the camera
+is inside dense forest with geometry a few metres away, so almost no fog accumulates and the frame is
+night. At 330m the view is an open street running hundreds of metres, so the fog integrates over that
+whole depth and the ambient term takes the frame.
+
+If that is right it also explains the older puzzles in this document: why brackets shot from different
+vantages never agreed, and why "the distant rocky hill lifts to a pale grey and takes the depth with
+it" above EV -1.5. It has NOT been tested. Nobody has changed the dimmer and re-measured.
+
+It also inverts the assumed next lever. The previous handoff said the remaining unevenness was dark
+stretches with no lamp in them, wanting ambient FILL. The measured spread is a factor of 23 and its
+loud end is open ground going pale, so the ambient path is already dominating rather than missing.
+
 ## Verified, and not
 
 Verified by running it this session and reading the real output: the four materials and five prototype
@@ -406,17 +455,27 @@ genuine reload**, which is what proves the walls, the catch height and the singl
 serialized into the scene file rather than living in memory. The 29 disabled listeners, the 4 walls, the
 -102 catch height and the 67279m^2 bake are all numbers that build printed.
 
+Verified by the walk itself, in the built player: 379m of 580m over 26 milestone frames, 2 stalls,
+7 of 11 waypoints pathed on the NavMesh, zero catch-plane fires and zero runtime errors, and the luma
+spread and the two frames described above.
+
+First frame-time numbers for this scene, from `walk-performance.json`, 5185 sampled frames over 379m
+at 1600x900: **mean 32.20ms, p50 32.80ms, p95 50.54ms, p99 59.60ms, max 91.79ms**. Read that with the
+caveat that matters: **vSyncCount is 1**, so these are delivered cadence quantised to the display's
+interval, not raw frame cost. A 32.8ms median is two intervals, which is the 30fps step, so the scene
+is missing the 60Hz deadline essentially all the time and dropping to a third of it by p95. Getting
+true GPU cost needs a run with vSync off, which has not been done.
+
 Not verified, and this list matters more than the one above:
 
-- **Whether the NavMesh actually improves the walk.** The bake covers 67279m^2 and the probe compiles
-  against it, but no walk has been run since. The 188m of 580m number is UNCHANGED until someone builds
-  the player and walks it. Pathing that bakes and never gets walked is a plausible fix, not a fix.
-- **Whether the walls hold.** They exist in the saved scene by value. Nobody has walked into one.
-- **Anything about frame time.** The walk probe now samples traversal pacing and writes
-  `walk-performance.json`, but it has not been run, so there are no numbers. The perf harness exists;
-  the perf pass does not.
+- **Why 4 of 11 waypoints cannot be pathed**, and whether the corridor bake simply does not reach
+  them. Stall 2 was 134m short of waypoint 10, so the far third of the route is still unwalked.
+- **The fog hypothesis above.** The dimmer has not been changed and nothing has been re-measured.
+- **Whether the walls hold.** Nothing fell, but nothing walked into a wall either. Zero catch-plane
+  fires over a route that never reached the map edge is weak evidence, not a test.
 - **Anything by ear.** Check 9 fixes WHICH listener is live. It says nothing about whether the scene
   makes a sound.
+- **Memory and culling.** Frame pacing is measured now; neither of those is.
 - Whether transmission through a neutral diffusion profile makes backlit leaves too bright is still
   open, since the leaf highlights do still clip at EV -2, and that can only be judged at whichever
   exposure gets chosen.
