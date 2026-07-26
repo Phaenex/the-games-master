@@ -605,6 +605,31 @@ Not verified, and this list matters more than the one above:
   open, since the leaf highlights do still clip at EV -2, and that can only be judged at whichever
   exposure gets chosen.
 
+## The starfield sky is a three-part recipe, not a sky swap
+
+Not done, and this is the reason rather than an excuse.
+
+`GmVillageSky` bakes a seeded starfield and drives an HDRISky with it, and porting that to the prologue
+looks like a one-line asset swap. It is not, because the HDRI sky is this scene's ONLY ambient source.
+The prologue lights its surfaces from the pack's daytime HDRI taken down 5.5 stops; a starfield is
+darker than that by a wide margin.
+
+The village makes it work by paying for it in two places the prologue does not have:
+
+| | village, with starfield | prologue, now |
+|---|---|---|
+| sky | starfield, exposure 0 | pack HDRI at -5.5 stops |
+| moon | 4.6 lux | 1.0 lux |
+| fill light | 0.35 lux, dedicated | none |
+
+That is a lighting recipe, not a texture. And the cost of getting it wrong is already measured on this
+scene rather than guessed: the sky bracket at -8.5 stops put 19 of 35 walk frames under 0.01, and a
+starfield sits below that. Dropping it in without also porting the brighter moon and the fill would
+predictably black out the night that four rungs just settled.
+
+So it needs its own bracket, run the same way, and it should happen when the light DISTRIBUTION work
+happens, because the fill light is the same lever that problem needs.
+
 ## Still open
 
 Rewritten after the walk ran. The previous version of this list had gone stale in the worst way: it
