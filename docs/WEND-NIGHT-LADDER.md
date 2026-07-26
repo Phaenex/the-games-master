@@ -853,11 +853,18 @@ still said the walk had not been re-run and the sources were not committed, both
 done further up the same document. A list of open items that contradicts the record above it is worse
 than no list, because it is the part people read first.
 
-**Needs a decision, not work**
+**Decided: saves stay deferred, on purpose, not by omission**
 
-- **Saves are not wired into this scene.** `GmVillageSave` is added only by `GmVillageBuilder`, the
-  retired village builder. Its restore decision is pure and tested, both silent refusals included.
-  Whether the prologue should have saves yet is a design call.
+`GmVillageSave` would wire into this scene without error -- it null-checks `GmBellSummons` and
+`GmGateLeaves` before touching them, so adding the component here would just degrade to saving and
+restoring player position and rotation. That is exactly why it should not be added yet. Its own header
+says what it is FOR: resuming a horror prologue's beats without silently skipping ones the player never
+saw. This scene has no beats, no gate, no bell -- "the prologue's systems are not in this scene," per
+the housekeeping note below -- so a save here would remember only a standing position and nothing about
+the experience, which is worse than no save: it would tell a player their progress is preserved when
+none of the progress that would matter exists yet to preserve. Revisit when the beats/gate/bell systems
+are ported in; the component is already written, tested, and scene-agnostic, so reusing it then is a
+one-line `AddComponent`, not new work.
 
 **The real remaining lighting work, and it is not a dial**
 
@@ -897,7 +904,14 @@ than no list, because it is the part people read first.
 
 **Cannot be tested here**
 
-- **Anything by ear.** Check 9 fixes WHICH listener is live. Nobody has listened to this scene.
+- **Anything by ear.** Checked what there actually is to hear, since this environment has no speakers or
+  ears to judge it with regardless: zero. `FindObjectsByType<AudioSource>` over the built scene returns
+  **0**, including inactive ones. Check 9 fixes which of the 30 `AudioListener`s is live, but there is
+  nothing playing into it. This is not "nobody has listened yet" so much as "there is no sound design in
+  this scene yet" -- no ambient bed, no footsteps, no lamp hum, nothing. The pack's own ambient loops
+  from `assets/sfx/` (crickets, owl, wind, gravel and leaf steps -- already in the repo, unused here) are
+  the obvious next step, but adding them and judging the result both need a human ear this session does
+  not have.
 
 **Housekeeping**
 
