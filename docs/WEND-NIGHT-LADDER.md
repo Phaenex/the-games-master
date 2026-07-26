@@ -771,6 +771,62 @@ with NO CLI overrides reproduces sky-drop 4/EV 0.3 and passes 9/9 contract check
 tests pass; the standalone app built from that scene walks the full route to the water and reproduces
 the table above within noise (mean 0.048, p95 0.108, 3/30 band fails, worst blowout 0.06%).
 
+## The two hardest remaining frames were never lighting defects
+
+Chased one more lever before accepting the 3/30 fails as the floor: `GmWendLamps.Gaps()` only ever
+checked the route's 11 sparse waypoints (~58m apart on average) for coverage, never anything between
+them. Waypoint 9 to waypoint 10 is a single ~152m leg with no NavMesh bake reaching it, and every one of
+`walk-0360m.png` through `walk-0435m.png` sits somewhere on it -- both endpoints individually read
+"covered" by the 30m reach check, so the whole dark middle was invisible to it.
+
+Fixed properly: `GmWendRoute.Densify(route, 15f)` interpolates the route to the SAME 15m resolution the
+walk probe photographs it at, matching `GmWendWalkProbe.CaptureEveryMeters`, before `Gaps()` ever runs.
+Tested (a regression test reproduces the exact bug: two waypoints 150m apart, each individually within
+reach of a light, densifying is what makes `Gaps()` find the 82m gap in the middle). Built: 3 gap lamps
+now, up from 2, the new ones correctly sitting on the intended waypoint-9-to-10 line.
+
+**It did not move the numbers at all.** Same walk, same script, only the gap lamps changed:
+
+|                    | before densify | after densify |
+|--------------------|----------------|----------------|
+| band fails         | 3/30           | 3/30           |
+| walk-0315m mean    | 0.007          | 0.007          |
+| walk-0360m mean / green% | 0.243 / 41.99% | 0.244 / 40.48% |
+| walk-0405m mean    | 0.010          | 0.009          |
+
+Looked at why, by eye, at the actual walked coordinates rather than the route's intended ones, and the
+diagnosis these three frames have carried all session turns out to be wrong for two of the three:
+
+- **`walk-0360m.png` is not a lighting defect.** It is the camera jammed directly against a wall's
+  collision mesh -- motion-blurred, filling the entire frame with one texture at point-blank range,
+  reading green because that is the wall material's base colour under ambient light with no direct
+  source reaching a surface the camera is embedded in. No lamp, no colour temperature, no intensity
+  changes what a camera stuck inside geometry renders. This is what the character does after the
+  approach to waypoint 9 stalls and sidesteps twice (see the NavMesh section below) -- a collision
+  outcome, not a light placement.
+- **`walk-0315m.png` is arguably not failing at all.** Looked at rather than only measured: it shows a
+  village street receding into darkness with TWO lamps visibly lit in frame, one near, one at distance,
+  and a building silhouette -- a genuinely composed, atmospheric night shot. It fails the 0.01 floor
+  because the frame is mostly dark road and sky BY DESIGN, and a single mean-luma number cannot tell
+  "atmospheric with real light sources in it" from "nothing lit." This is closer to a metric limitation
+  than a scene defect.
+- **`walk-0405m.png` is the one genuine dark gap left**, and the gap lamps placed on the waypoint-9-to-10
+  line did not reach it because the character never reliably travels that line to begin with: the walk
+  log shows it BLOCKED 152.5m short of waypoint 10, twice, meaning most of the "route" the lamps were
+  placed along is never actually walked. A lamp placed where the route says the player should be does
+  nothing for where the player actually ends up when navigation fails first.
+
+**Conclusion:** the lighting recipe itself -- sky, exposure, fog, moon, practicals, gap coverage on the
+route the character can actually reach -- is not leaving anything on the table. 27 of 30 walk-probe
+frames pass a strict written standard, and of the 3 that do not, one is a metric artefact, one is a
+collision/camera bug, and only one is a genuine coverage gap sitting on a stretch the NavMesh does not
+reach. None of the three is fixable by another lighting lever; they are pathing and metric problems
+wearing a lighting costume, and pathing is explicitly out of scope for this pass. The gap-lamp densify
+fix is kept regardless -- it is a real, tested correction to a real bug in the coverage check, verified
+not to regress anything (155 -> 164 EditMode tests, 9/9 contract, full walk still completes to the
+water) -- it is just not the fix for these three frames, because these three frames were never what it
+diagnosed them as.
+
 ## Three more attempts at the water cut, and why none of them are wired in
 
 `TruncateAtWater` and `RaycastGroundY` already existed; this section is attempts five and six trying to
@@ -866,12 +922,16 @@ none of the progress that would matter exists yet to preserve. Revisit when the 
 are ported in; the component is already written, tested, and scene-agnostic, so reusing it then is a
 one-line `AddComponent`, not new work.
 
-**The real remaining lighting work, and it is not a dial**
+**Lighting itself: closed out for this pass**
 
-- **Light distribution.** After the fog fix the spread is still 14x max to min. Every further global
-  dimming rung made that worse, up to 149x, because lamp-lit ground has a floor that ambient does not
-  scale. What is left is too little light BETWEEN the lamps, which is placement work.
-- **The lamp line** may still want its own rung. It is the loudest feature in every bracket frame.
+- **Light distribution / placement.** Done to the extent lighting alone can do it. `GmWendLamps` now
+  checks coverage at walk-probe resolution (`GmWendRoute.Densify`, 15m) instead of at the 11 sparse
+  route waypoints, closing a real 152m blind spot in the coverage check. It does not move the walk's
+  three failing frames, and by design: those three turned out to be a camera/collision artefact, a
+  metric limitation, and a gap the character never reliably reaches (see "The two hardest remaining
+  frames were never lighting defects" above), not lamp placement. 27 of 30 frames pass the written
+  standard and nothing found this session says another lighting lever would raise that further.
+- **The lamp line** may still want its own rung if picked up again, but is no longer blocking anything.
 - **The forward-view review anomaly** is still unexplained: the review rig reads 0.026 where the ladder
   reads 0.059 from the same position and rotation, while the rear look agrees to about 1%. One
   hypothesis, accumulated render history, was tested and disproven.

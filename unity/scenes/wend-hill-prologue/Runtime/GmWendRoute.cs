@@ -363,6 +363,37 @@ public static class GmWendRoute
         return route;
     }
 
+    /// Interpolates extra points along the route so nothing checking coverage against it is blind to
+    /// what happens BETWEEN waypoints.
+    ///
+    /// Found by `GmWendLamps`' gap check reporting the route "covered" while the walk photographed
+    /// three near-black frames and a mint-green wall along one stretch of it. The reason: `Gaps()` only
+    /// ever tested the route's own waypoints, an average of ~58m apart on an 11-waypoint, 580m route,
+    /// while `GmWendWalkProbe` photographs the ACTUAL walked path every 15m. Waypoint 9 to waypoint 10
+    /// is a single ~152m leg -- both ends individually within lamp reach, so `Gaps()` never flagged it,
+    /// while the walk probe's 15m-spaced captures sat in the middle of it and read near-black. A gap
+    /// check that never samples the middle of a long leg cannot see a gap in the middle of a long leg.
+    ///
+    /// Every original waypoint survives exactly, so anything keyed to "the 11 route waypoints" upstream
+    /// of this (spawn placement, the walk probe's own steering) is unaffected; this only adds points a
+    /// caller opts into consuming, such as `GmWendLamps.Apply`.
+    public static List<Vector3> Densify(List<Vector3> route, float spacing)
+    {
+        var dense = new List<Vector3>();
+        if (route == null || route.Count == 0 || spacing <= 0f) return route ?? dense;
+
+        dense.Add(route[0]);
+        for (int i = 1; i < route.Count; i++)
+        {
+            Vector3 a = route[i - 1], b = route[i];
+            float legLength = Vector2.Distance(new Vector2(a.x, a.z), new Vector2(b.x, b.z));
+            int steps = Mathf.Max(1, Mathf.CeilToInt(legLength / spacing));
+            for (int s = 1; s <= steps; s++)
+                dense.Add(Vector3.Lerp(a, b, (float)s / steps));
+        }
+        return dense;
+    }
+
     /// Single-linkage clustering on the gap between meshes. Two road pieces whose bounding boxes are
     /// within LinkDistance of each other are the same road; a 177m gap is not a road with a gap in it,
     /// it is two roads.

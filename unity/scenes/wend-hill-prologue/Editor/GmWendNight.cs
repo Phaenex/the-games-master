@@ -164,7 +164,7 @@ public static class GmWendNight
     ///
     ///   -gmPracticalScale <f>   multiplier on every practical light, default 0.06
     ///   -gmFogDimmer <f>        volumetric fog's ambient probe dimmer, default 0
-    ///   -gmSkyExposureDrop <f>  stops taken off the pack's HDRI sky, default 5.5
+    ///   -gmSkyExposureDrop <f>  stops taken off the pack's HDRI sky, default 4.0
     ///   -gmMoonLux <f>          the moon, in lux, default 1.0
     ///   -gmIndirectDiffuse <f>  ambient bounce multiplier, default 1.0
     ///   -gmFogMeanFreePath <f>  fog density, metres, default 62
@@ -172,7 +172,7 @@ public static class GmWendNight
     ///   -gmMoonElevation <f>    moon elevation in degrees, default 24
     ///   -gmLampEmissive <f>     lamp glass emissive target, default 1.5
     ///   -gmGapLamps <f>         fill unlit route gaps with lamps, 0 off / 1 on, default 1
-    ///   -gmExposureEV <f>       fixed exposure EV, default -1.35. HIGHER is DARKER
+    ///   -gmExposureEV <f>       fixed exposure EV, default 0.30. HIGHER is DARKER
     public const float DefaultPracticalScale = 0.06f;
 
     /// COMMITTED at 0 on 2026-07-25, off a four-rung bracket measured along the walk rather than at a

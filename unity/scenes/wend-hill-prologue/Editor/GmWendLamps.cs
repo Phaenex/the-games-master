@@ -46,6 +46,12 @@ public static class GmWendLamps
     /// Lamp height above the ground, roughly a lamp bracket on a wall or a post.
     public const float Height = 3.2f;
 
+    /// How finely the route is sampled before checking for gaps, in metres. Matches
+    /// `GmWendWalkProbe.CaptureEveryMeters`, which is not a coincidence: checking gaps at any coarser
+    /// resolution than the walk itself photographs the route is how a real 152m dark stretch between
+    /// two individually-covered waypoints went unnoticed. See `GmWendRoute.Densify`.
+    public const float GapSampleSpacing = 15f;
+
     /// Route points needing a lamp: those further than `reach` from every existing light.
     ///
     /// Pure, so the placement rule can be tested without a scene. Greedy and order dependent on
@@ -81,17 +87,22 @@ public static class GmWendLamps
             return 0;
         }
 
+        // Checked at walk-probe resolution, not at the 11 sparse waypoints. A gap check against the raw
+        // route missed a real 152m dark stretch between two waypoints that individually read "covered";
+        // see GmWendRoute.Densify for the measured reason.
+        List<Vector3> dense = GmWendRoute.Densify(route, GapSampleSpacing);
+
         // Every light the pack shipped, which is what defines a gap.
         List<Vector3> existing = Object.FindObjectsByType<Light>(FindObjectsInactive.Exclude)
             .Where(l => l.type != LightType.Directional && l.gameObject.activeInHierarchy)
             .Select(l => l.transform.position)
             .ToList();
 
-        List<Vector3> gaps = Gaps(route, existing, LampReach);
+        List<Vector3> gaps = Gaps(dense, existing, LampReach);
         if (gaps.Count == 0)
         {
-            Debug.Log($"[{LogTag}] no gaps: every route point is within {LampReach}m of one of " +
-                      $"{existing.Count} existing light(s)");
+            Debug.Log($"[{LogTag}] no gaps: every point sampled every {GapSampleSpacing}m along the " +
+                      $"route is within {LampReach}m of one of {existing.Count} existing light(s)");
             return 0;
         }
 
@@ -126,8 +137,8 @@ public static class GmWendLamps
         }
 
         Debug.Log($"[{LogTag}] added {gaps.Count} gap lamp(s) at {Lumens} lumens {Kelvin}K, " +
-                  $"filling route points further than {LampReach}m from any of the pack's " +
-                  $"{existing.Count} light(s)");
+                  $"filling {dense.Count} sampled point(s) (every {GapSampleSpacing}m) further than " +
+                  $"{LampReach}m from any of the pack's {existing.Count} light(s)");
         return gaps.Count;
     }
 }

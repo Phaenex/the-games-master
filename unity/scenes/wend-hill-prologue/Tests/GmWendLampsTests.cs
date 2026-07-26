@@ -89,4 +89,23 @@ public sealed class GmWendLampsTests
         CollectionAssert.IsEmpty(GmWendLamps.Gaps(null, new List<Vector3>(), 30f));
         CollectionAssert.IsEmpty(GmWendLamps.Gaps(new List<Vector3>(), null, 30f));
     }
+
+    [Test]
+    public void CheckingOnlySparseWaypointsMissesA152mDarkMiddle()
+    {
+        // The actual bug, reproduced. Two waypoints 152m apart, each individually within 30m of a
+        // light, so a gap check run against the raw waypoints alone reports the whole leg "covered".
+        var sparseRoute = new List<Vector3> { new Vector3(0f, 0f, 0f), new Vector3(0f, 0f, 152f) };
+        var existing = new List<Vector3> { new Vector3(0f, 0f, 5f), new Vector3(0f, 0f, 147f) };
+        CollectionAssert.IsEmpty(GmWendLamps.Gaps(sparseRoute, existing, 30f),
+            "reproduces the bug: the sparse waypoints alone report no gap");
+
+        // Densified to walk-probe resolution, the same lights and the same route DO find the gap in the
+        // middle -- this is the fix, proven with the exact same Gaps() function, unchanged.
+        List<Vector3> dense = GmWendRoute.Densify(sparseRoute, GmWendLamps.GapSampleSpacing);
+        List<Vector3> found = GmWendLamps.Gaps(dense, existing, 30f);
+        Assert.IsNotEmpty(found, "densified sampling must find the gap the sparse check missed");
+        Assert.IsTrue(found.Exists(p => p.z > 35f && p.z < 117f),
+            "the placed lamp(s) should fall in the unlit middle of the leg, not near either end");
+    }
 }
