@@ -15,6 +15,7 @@
 // the gate and 189 scattered props, and every one of those frames looks correct.
 //
 // Opt-in via -gmWendWalk <outputDirectory>; inert on a normal launch, including Nick's.
+// -gmWendWalkMaxMetres <n> stops the walk early, for fast tuning iteration -- see Start().
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -98,6 +99,22 @@ public sealed class GmWendWalkProbe : MonoBehaviour
             Debug.Log("[GmWendWalkProbe] vSync OFF: this run measures frame cost, not delivered cadence");
         }
 
+        // Opt-in short walk, for tuning. A full walk to the water is ~8 minutes; testing one lever
+        // against the first few captures does not need the other 400m paid for every single time.
+        // Unlimited (float.MaxValue) on a normal launch, so the full walk stays the default and this
+        // can never silently shorten what a verification run measures.
+        float maxMetres = float.MaxValue;
+        string[] args = System.Environment.GetCommandLineArgs();
+        int metresFlag = System.Array.IndexOf(args, "-gmWendWalkMaxMetres");
+        if (metresFlag >= 0 && metresFlag + 1 < args.Length &&
+            float.TryParse(args[metresFlag + 1], System.Globalization.NumberStyles.Float,
+                            System.Globalization.CultureInfo.InvariantCulture, out float parsed))
+        {
+            maxMetres = parsed;
+            Debug.Log($"[GmWendWalkProbe] SHORT WALK: stopping after {maxMetres:0}m for fast iteration; " +
+                      "this run is not a full-route measurement");
+        }
+
         yield return null;
 
         GameObject playerGo = GameObject.Find("Player");
@@ -151,7 +168,7 @@ public sealed class GmWendWalkProbe : MonoBehaviour
         bool submerged = false;
         float spawnY = playerGo.transform.position.y;
 
-        for (int i = 0; i < route.Count && captures < MaxCaptures && !submerged; i++)
+        for (int i = 0; i < route.Count && captures < MaxCaptures && !submerged && walked < maxMetres; i++)
         {
             // Route to the waypoint through the NavMesh, so a building in the way becomes a path
             // around it instead of five seconds spent walking into it. With no baked mesh this
@@ -161,13 +178,14 @@ public sealed class GmWendWalkProbe : MonoBehaviour
 
             foreach (Vector3 target in corners)
             {
-                if (abandonWaypoint || submerged || captures >= MaxCaptures) break;
+                if (abandonWaypoint || submerged || captures >= MaxCaptures || walked >= maxMetres) break;
 
                 float stallTimer = 0f;
                 float bestDistance = float.MaxValue;
                 int sidesteps = 0;
 
-                while (Time.realtimeSinceStartup - began < MaxSeconds && captures < MaxCaptures)
+                while (Time.realtimeSinceStartup - began < MaxSeconds && captures < MaxCaptures &&
+                       walked < maxMetres)
                 {
                     SampleFrameInterval();
 
@@ -288,6 +306,9 @@ public sealed class GmWendWalkProbe : MonoBehaviour
         string why = "";
         if (submerged)
             why = $"; STOPPED AT THE WATER, the route past {walked:0}m runs into the lake and is unmeasured";
+        else if (walked >= maxMetres)
+            why = $"; STOPPED AT THE {maxMetres:0}m SHORT-WALK CAP (-gmWendWalkMaxMetres), " +
+                  "this is NOT a full-route measurement";
         else if (captures >= MaxCaptures)
             why = $"; STOPPED AT THE {MaxCaptures}-FRAME CAP, the route past {walked:0}m is unmeasured";
         else if (Time.realtimeSinceStartup - began >= MaxSeconds)
