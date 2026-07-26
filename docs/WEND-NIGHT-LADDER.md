@@ -771,6 +771,81 @@ with NO CLI overrides reproduces sky-drop 4/EV 0.3 and passes 9/9 contract check
 tests pass; the standalone app built from that scene walks the full route to the water and reproduces
 the table above within noise (mean 0.048, p95 0.108, 3/30 band fails, worst blowout 0.06%).
 
+## Three more attempts at the water cut, and why none of them are wired in
+
+`TruncateAtWater` and `RaycastGroundY` already existed; this section is attempts five and six trying to
+actually wire the cut in, plus what each one found on the way to giving up on it.
+
+**Attempt 4, RaycastGroundY, wired straight in.** A physics raycast instead of a terrain sample, on the
+theory that the player stands on whatever collider is really there, not on the terrain heightmap. Wiring
+it into `Build()` cut 7 of 11 waypoints at waypoint 4, taking the route from 580m to 154m -- the SAME
+failure the terrain-height attempts hit before this session, reproduced through a new code path. Waypoint
+4 sits at terrain y=-1.46, 0.66m under the lake's absolute y=-0.8, and the walk crosses it dry every time
+it runs.
+
+**Attempt 5, GroundNearWater.** Requires an actual water COLLIDER in the same vertical column before
+comparing depths, so a dry low spot with no water anywhere near it can never be cut. Fixed waypoint 4
+correctly (own EditMode tests confirm it). Checked against the one real data point available -- the exact
+position a live walk recorded itself as SUBMERGED, `(-18.89, -2.51, 81.26)` -- and returned null there
+too. The reason: `PlaneWater`, the only water-named renderer this scene ships, has no Collider component
+at all. `Physics.RaycastAll` can never see it, at any point in the scene. Correct code aimed at a signal
+that does not exist here, and wiring it in produced "route kept whole" -- not because the route is
+actually safe, but because the check can never fire.
+
+**Attempt 6, GroundInFootprint.** Checks the water's RENDERED bounds instead of a collider, since
+`PlaneWater` has no collider but does have a Renderer. This is where the investigation stopped being
+about the code and started being about the scene. Two things fell out of checking it against real
+coordinates instead of trusting the theory:
+
+- `PlaneWater`'s own bounds centre is `(-20.75, -0.81, -27.79)` -- which is waypoint 5, exactly. The
+  water plane is not just near the route, it IS one of the route's own waypoints, caught by the same
+  "Lane" substring collision documented below.
+- The real submersion point, `(-18.89, -2.51, 81.26)`, is 60m from anything named "Water" and everything
+  else nearby too: the nearest renderers are `SM_Cliff_01`/`SM_Cliff_03` and `SM_Rock`, none of which
+  have a Collider either. There is no lake mesh at the far end of this route. What actually ends the walk
+  there is the terrain descending into a canyon below y=-0.8, the same global height the small decorative
+  pond happens to share -- not a body of water in any sense `GroundInFootprint` could check.
+
+A shape-accurate footprint (a real water mask, not a bounding box) would still need to solve attempt 1's
+original problem -- `PlaneWater`'s rectangular AABB also covers waypoint 4's dry ground, so a footprint
+check using it re-cuts the same false positive attempt 5 fixed.
+
+**Conclusion, and it has not moved in six attempts:** there is no single static signal on this scene that
+separates a dry dip from a real drop, because the pack did not build one. No water collider, no lake mesh
+at the place that matters. `GmWendWalkProbe`'s runtime stop is not a fallback for this -- it is the only
+thing that has ever correctly answered the question, because it asks about the ACTUAL path at the moment
+of walking it rather than guessing from 11 static points beforehand. `RaycastGroundY`, `GroundNearWater`
+and `GroundInFootprint` stay in `GmWendRoute.cs`, tested (155/155), unused, same as `TruncateAtWater`
+before them: the analysis is worth more than the code, and the next person reaching for "just raycast it"
+should find this instead of re-walking the same three-hop dead end.
+
+**Also discovered along the way, worth its own line:** every one of the 57 "road pieces" this project has
+called road meshes since the very first attempt is an object literally named `Plane` (56 of them) or
+`PlaneWater` (1). `RoadPattern`'s `Lane` term matches the substring inside `Plane` by accident. It has
+apparently been finding the right objects the entire time, because this pack's road decals really are
+named `Plane` by default rather than anything descriptive -- but it is luck, not intent, and it is why a
+generic ground plane anywhere else in a future scene would silently join the route.
+
+## True GPU cost, vSync off
+
+Every pacing number before this one was taken with vSync on, so it measured DELIVERED CADENCE quantised
+to the display's refresh interval, not what the scene actually costs. Same walk, same build, `-gmWendNoVSync`:
+
+| | vSync on | vSync off |
+|---|---|---|
+| mean | 20.21ms | 20.71ms |
+| p50 | 16.75ms | 12.98ms |
+| p95 | 29.35ms | 50.00ms |
+| p99 | 33.72ms | 59.65ms |
+| max | 67.08ms | 74.68ms |
+
+The mean barely moves, which is a coincidence of averaging, not agreement: p50 drops (12.98ms, ~77fps,
+the scene's real steady-state cost) while p95 and p99 get markedly WORSE (50ms/~20fps and 59.65ms/~17fps)
+once they are not being rounded up to the nearest display interval. Read together, that is a scene that
+runs comfortably most of the time and hitches hard on a real minority of frames -- exactly what vSync-on
+numbers cannot show, because both a 17ms frame and a 32ms frame land on the same delivered step. What
+causes the worst 5% has not been profiled; this only proves the hitch is real and roughly how big it is.
+
 ## Still open
 
 Rewritten after the walk ran. The previous version of this list had gone stale in the worst way: it
@@ -796,20 +871,20 @@ than no list, because it is the part people read first.
 
 **Testable, just not tested yet**
 
-- **Why 3 of 11 waypoints still fail to path.** Confirmed again on this session's full walks, both at
-  the old and the promoted values: 7 pathed on the NavMesh, 3 walked straight, 1 stall. Most likely bake
-  coverage, unchanged from the earlier note; nobody has looked at why those three specifically.
-- **The route's last ~140m are lake.** The walk stops itself at the water now and says so, at 438-439m
-  both times this session, so no measurement is polluted by it, but the route still LEADS there. Whether
-  the prologue should end at the shore, turn before it, or go somewhere else entirely is a level decision
-  nobody has made.
+- **Why waypoint 2 fails to path.** Narrowed, not solved. Of the 3 waypoints that still fail, 2 are now
+  explained: waypoint 9 and waypoint 10 sit at or past the canyon the route runs into (see the water-cut
+  section above), which the NavMesh bake correctly does not cover. Waypoint 2 is the one genuine mystery
+  left -- it fails mid-village, nowhere near the water -- and nobody has looked at why specifically.
+- **The route's last ~140m lead into a canyon with no lake mesh in it.** Investigated exhaustively this
+  session (see above): there is no static signal that can tell this apart from a dry dip, so it stays
+  unfixed at the route level on purpose. The walk stops itself at the water and says so, at 438-440m every
+  time this session, so no measurement is polluted by it. Whether the prologue should end at the shore,
+  turn before it, or go somewhere else entirely is still a level decision, now backed by six documented
+  dead ends instead of three.
 - **The boundary walls have never been walked into.** Four walls are in the saved scene and the contract
-  passes on them by value. Zero catch-plane fires over 438m is weak evidence, not a test: the route
+  passes on them by value. Zero catch-plane fires over 440m is weak evidence, not a test: the route
   never goes near the map edge.
 - **Memory and culling.** Frame pacing is measured now; neither of those is.
-- **True GPU cost.** Every pacing number so far was taken with vSync on, so they are delivered cadence
-  quantised to the display interval, not frame cost. A vSync-off run would say what the scene actually
-  costs.
 - **The starfield sky port from `GmVillageSky`** has not been started.
 
 **Cannot be tested here**

@@ -69,7 +69,86 @@ public static class GmWendRoute
     /// both failed, the second instructively, because a winding river's AABB covers a great deal of dry
     /// land and it excluded 43 of 57 road pieces including the entire village street. A height test
     /// cannot do that, because the street is above the water and stays above it.
+
+    /// Ray hits under a point, sorted nearest-first. Shared by the two functions below so there is one
+    /// place that casts, not two copies that could disagree.
+    static RaycastHit[] SortedHitsBelow(Vector3 at)
+    {
+        Vector3 origin = new Vector3(at.x, at.y + 500f, at.z);
+        RaycastHit[] hits = Physics.RaycastAll(origin, Vector3.down, 2000f);
+        System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+        return hits;
+    }
+
+    static float? FirstSolidHitY(RaycastHit[] sortedHits)
+    {
+        foreach (RaycastHit hit in sortedHits)
+            if (!WaterPattern.IsMatch(hit.collider.name)) return hit.point.y;
+        return null;
+    }
+
+    /// The walkable surface under a point, from whatever collider is actually there.
     ///
+    /// This is attempt four from the analysis above. The first three each asked the TERRAIN a question
+    /// the terrain cannot answer on this scene: the ground under the village genuinely dips below the
+    /// water plane while the player walks on road and building meshes that sit above it, so no
+    /// terrain-height signal, with or without a margin, can tell a dry street from a submerged one. A
+    /// raycast from above answers a different, correct question: what would the player actually land on
+    /// here. That is decided by physics colliders, not by the terrain heightmap.
+    ///
+    /// RaycastAll rather than a single Raycast, because a ray over open water hits the water's OWN
+    /// collider first, at exactly the water's surface height. Comparing that to itself would never cut
+    /// anything, so the water hit is skipped and the first solid hit beneath it -- lake bed, terrain,
+    /// whatever is really there -- is what gets compared to the surface.
+    public static float? RaycastGroundY(Vector3 at) => FirstSolidHitY(SortedHitsBelow(at));
+
+    /// SUPERSEDED. Kept for what it proves rather than for what it does: the first full-route truncation
+    /// with this wired in found a bug (waypoint 4 sits at terrain y=-1.46, 0.66m under the lake's y=-0.8
+    /// surface, with no water anywhere near it, and the whole route got cut there) and this fixed it
+    /// correctly, by requiring an actual water COLLIDER in the same vertical column before comparing
+    /// depths. It was then checked against the real submerged point a live walk recorded, and it
+    /// returned null there too: `PlaneWater`, the only water-named renderer this scene ships, HAS NO
+    /// COLLIDER AT ALL. `Physics.RaycastAll` can never see it, at any point, which means this function
+    /// can never fire on this scene no matter how correct its logic is. It is not wrong, it is aimed at
+    /// something that is not there. `GroundInFootprint` below is what replaced it.
+    public static float? GroundNearWater(Vector3 at)
+    {
+        RaycastHit[] hits = SortedHitsBelow(at);
+        bool touchesWater = false;
+        foreach (RaycastHit hit in hits)
+            if (WaterPattern.IsMatch(hit.collider.name)) { touchesWater = true; break; }
+        return touchesWater ? FirstSolidHitY(hits) : (float?)null;
+    }
+
+    /// The ground to compare against the water surface, using the water's RENDERED footprint rather
+    /// than a physics collider -- because this scene's water has none. `PlaneWater` is a pure visual
+    /// mesh, so `GroundNearWater` above is correct code aimed at a signal that does not exist here.
+    ///
+    /// This is the same two-signal combination the file's very first water attempt was missing one half
+    /// of: attempt 1 (elsewhere in this file, for CLUSTER SELECTION) filtered on footprint alone and
+    /// excluded 43 of 57 road pieces because a winding river's AABB covers a great deal of dry land.
+    /// Attempts 2 through 4 (for TRUNCATION, above and in the header comments) filtered on height alone
+    /// and cut a dry low spot half a kilometre from any water. Footprint ALONE over-excludes; height
+    /// ALONE over-cuts. Requiring BOTH -- inside the water's rendered bounds, AND below its surface --
+    /// is narrower than either failure mode: a dry corner of the bounding box is not under the surface,
+    /// so it survives; a low spot outside the bounds is never even asked the height question.
+    ///
+    /// Verified against the one real data point available: the exact position a live walk recorded
+    /// itself as SUBMERGED, (-18.89, -2.51, 81.26), sits inside `PlaneWater`'s XZ bounds
+    /// (-66.2..25.4, -74.6..19.0), where the water-only attempts above found nothing at all.
+    public static float? GroundInFootprint(Vector3 at, Bounds[] water)
+    {
+        if (water == null) return null;
+        bool inside = false;
+        foreach (Bounds w in water)
+        {
+            if (at.x < w.min.x || at.x > w.max.x || at.z < w.min.z || at.z > w.max.z) continue;
+            inside = true;
+            break;
+        }
+        return inside ? (RaycastGroundY(at) ?? at.y) : (float?)null;
+    }
+
     /// Cuts rather than skips. Once the road has gone under, whatever follows is further in.
     /// `groundAt` returns the walkable surface height under a waypoint. It is a parameter rather than a
     /// direct terrain lookup so the decision stays testable, and because the FIRST version of this used
@@ -239,31 +318,40 @@ public static class GmWendRoute
             route.Add(p);
         }
 
-        // TruncateAtWater is DELIBERATELY NOT WIRED IN. It works, and its tests pass, but no signal
-        // available at route-build time reliably answers "would the player be underwater here" on this
-        // scene. Three attempts, each wrong for a different measured reason:
+        // STILL not wired in, after two more attempts this session, each of which found a real bug in
+        // the one before it and neither of which can actually be pointed at the thing that needs
+        // catching. Recorded in order because the dead ends are what earns the conclusion below:
         //
-        //   1. waypoint Y. Waypoints are road-mesh bounding-box centres, not surfaces. The spawn's mesh
-        //      centres at -0.81 while the terrain under it is +0.68, so the whole village read as
-        //      submerged and the cut was refused.
-        //   2. terrain height plus a 1m clearance. The village clears the water surface at y=-0.8 by
-        //      only about half a metre, so the margin alone condemned it. Refused again.
-        //   3. terrain height, no margin. This one FIRED and cut 7 of 11 waypoints, taking the walk from
-        //      517m to 158m, through village the contact sheet shows is plainly dry. So the terrain
-        //      itself dips below the water plane under the village while the player walks on road and
-        //      building meshes above it, which makes terrain height wrong too.
+        //   4. RaycastGroundY, a physics raycast instead of a terrain sample. Reproduced the OLD
+        //      terrain-height bug through a new code path: it cut 7 of 11 waypoints at waypoint 4, a low
+        //      spot 0.66m under the lake's absolute Y with no water anywhere near it.
+        //   5. GroundNearWater, requiring an actual water COLLIDER in the same column before comparing
+        //      depths, to fix attempt 4. Checked against the real SUBMERGED point a live walk recorded
+        //      and found nothing: `PlaneWater`, the only water-named renderer this scene ships, has NO
+        //      collider at all. Physics.RaycastAll can never see it. Correct code, aimed at a signal
+        //      that is not there.
+        //   6. GroundInFootprint, checking the water's RENDERED bounds instead of a collider, to fix
+        //      attempt 5. Found two more things: `PlaneWater` sits mid-route, at waypoint 5 exactly, and
+        //      is unrelated to what the player actually wades into. And the real submersion point a live
+        //      walk recorded, (-18.89, -2.51, 81.26), is 60m from anything named "Water" -- what is
+        //      actually there is a canyon of `SM_Cliff` meshes with NO COLLIDER EITHER, dropping to
+        //      y=-18. There is no lake mesh at the far end of this route. What ends the walk is the
+        //      terrain itself descending below the same global Y the small decorative pond happens to
+        //      share, which GmWendWalkProbe already tests correctly and in real time. A shape-accurate
+        //      static footprint would have to be a per-pixel water mask, not a bounding box, to avoid
+        //      re-flagging waypoint 4 the same way attempt 1 over-excluded the village street.
         //
-        // The honest conclusion is that the walkable surface here is not the terrain and not the
-        // waypoint, so it would have to be found by raycasting for whatever collider the player would
-        // actually stand on. That is a real option and it is attempt four, which is where this stops
-        // and becomes a decision rather than another guess. The runtime alternative is better anyway:
-        // the walk probe knows the player's exact position every frame and can end the walk when the
-        // camera goes under, with no heuristic at all.
+        // Six attempts, three of them this session, and the honest conclusion has not moved: there is no
+        // single static signal on this scene that separates a dry dip from a real drop, because the pack
+        // did not build one -- there is no water collider and no lake mesh to test against at the place
+        // that matters. The runtime stop in GmWendWalkProbe is not a fallback for this; it is the only
+        // thing that has ever correctly answered the question, because it is asking about the ACTUAL
+        // path walked at the moment of walking it rather than guessing from 11 static points beforehand.
         //
-        // Left in place, tested, and unused, because the analysis is worth more than the code.
-
-        sb.AppendLine("water: route NOT truncated; see GmWendRoute.TruncateAtWater for why the three " +
-                      "available surface signals are each wrong on this scene");
+        // RaycastGroundY, GroundNearWater and GroundInFootprint stay in this file, tested, unused, for
+        // the same reason TruncateAtWater itself was kept after attempts 1 through 3: the analysis is
+        // worth more than the code, and the next person who reaches for "just raycast it" should find
+        // this instead of rediscovering the same three-hop dead end.
 
         float length = 0f;
         for (int i = 1; i < route.Count; i++)
