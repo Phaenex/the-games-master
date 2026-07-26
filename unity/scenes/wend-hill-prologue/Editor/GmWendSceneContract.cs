@@ -62,6 +62,15 @@ public static class GmWendSceneContract
     /// Audits the currently open scene. Returns an empty list when it is the committed night.
     public static List<string> Audit()
     {
+        // Pick up any bracket overrides FIRST, so the audit compares the scene against the recipe this
+        // run actually used rather than against the defaults.
+        //
+        // Without this a bracket is unbuildable: the night build and the app build are separate Unity
+        // processes, the statics reset in between, and the contract correctly reports a 4 lux moon
+        // against a 1 lux recipe and refuses to build. That is the guard doing its job, so the fix
+        // belongs here rather than in the guard's strictness.
+        GmWendNight.ReadBisectOverrides();
+
         var failures = new List<string>();
 
         // 1. Player.

@@ -118,7 +118,7 @@ public static class GmWendNight
 
         // Low and raking from the north-west. A high sun angle is what makes a dimmed daylight rig
         // still read as daytime: the giveaway is short shadows, not brightness.
-        sun.transform.rotation = Quaternion.Euler(24f, -132f, 0f);
+        sun.transform.rotation = Quaternion.Euler(MoonElevation, -132f, 0f);
         sun.color = new Color(0.62f, 0.70f, 0.92f);
         if (hd != null)
         {
@@ -163,8 +163,14 @@ public static class GmWendNight
     /// reproduce the committed night byte for byte, so a run with no flags is the control.
     ///
     ///   -gmPracticalScale <f>   multiplier on every practical light, default 0.06
-    ///   -gmFogDimmer <f>        volumetric fog's ambient probe dimmer, default 1.0
+    ///   -gmFogDimmer <f>        volumetric fog's ambient probe dimmer, default 0
     ///   -gmSkyExposureDrop <f>  stops taken off the pack's HDRI sky, default 5.5
+    ///   -gmMoonLux <f>          the moon, in lux, default 1.0
+    ///   -gmIndirectDiffuse <f>  ambient bounce multiplier, default 1.0
+    ///   -gmFogMeanFreePath <f>  fog density, metres, default 62
+    ///   -gmSSR <f>              screen space reflections, 0 off / 1 on, default 0
+    ///   -gmMoonElevation <f>    moon elevation in degrees, default 24
+    ///   -gmLampEmissive <f>     lamp glass emissive target, default 1.5
     public const float DefaultPracticalScale = 0.06f;
 
     /// COMMITTED at 0 on 2026-07-25, off a four-rung bracket measured along the walk rather than at a
@@ -187,9 +193,42 @@ public static class GmWendNight
     /// the starting point and is not ours to assume.
     public const float DefaultSkyExposureDrop = 5.5f;
 
+    /// The ambient lift for the ground BETWEEN the lamps, which is the problem left after the fog fix.
+    ///
+    /// This is HDRP's indirect diffuse multiplier and NOT a fill light, deliberately. The village
+    /// recipe uses a 0.35 lux fill directional, but adding a second directional here would change the
+    /// lighting census that the builder and the contract both assert on, and that census is what
+    /// catches a builder deleting the pack's own lights. A volume override lifts the same bounce
+    /// without adding a light to count.
+    public const float DefaultIndirectDiffuse = 1.0f;
+
+    /// Fog density as a mean free path in metres. Lower is thicker.
+    public const float DefaultFogMeanFreePath = 62f;
+
+    /// Screen space reflections, off by default because the scene ships without them at all.
+    public const float DefaultSSR = 0f;
+
+    /// Moon elevation. 24 degrees is a deliberate low rake, chosen because a high angle is what makes a
+    /// dimmed daylight rig still read as daytime: the giveaway is short shadows. The cost of a low one
+    /// is occlusion, and this is the lever for finding out whether the moon reaches the ground at all
+    /// through a forest canopy and 38 buildings.
+    public const float DefaultMoonElevation = 24f;
+
+    /// Lamp glass emissive. This is the LOCAL lever, and it exists because the colour pass found
+    /// something the luma standard was passing: 4 to 6 percent of the 285m and 300m frames sits above
+    /// 0.80 luma, blown, while nothing reaches the 254 clip point a whole-frame check looks for. Those
+    /// frames are lit cottage windows. Every global dial has been ruled out, so what is left is the
+    /// surfaces themselves.
+    public const float DefaultLampEmissive = 1.5f;
+
     static float PracticalScale = DefaultPracticalScale;
     static float FogProbeDimmer = DefaultFogProbeDimmer;
     static float SkyExposureDrop = DefaultSkyExposureDrop;
+    static float IndirectDiffuse = DefaultIndirectDiffuse;
+    static float FogMeanFreePath = DefaultFogMeanFreePath;
+    static float SSR = DefaultSSR;
+    static float MoonElevation = DefaultMoonElevation;
+    static float LampEmissive = DefaultLampEmissive;
 
     /// Parses the overrides and SAYS what it read, including when it read nothing. A bisect that
     /// silently ignored its flag would produce a frame identical to the control and get recorded as
@@ -199,9 +238,18 @@ public static class GmWendNight
         PracticalScale = ReadFlag("-gmPracticalScale", DefaultPracticalScale);
         FogProbeDimmer = ReadFlag("-gmFogDimmer", DefaultFogProbeDimmer);
         SkyExposureDrop = ReadFlag("-gmSkyExposureDrop", DefaultSkyExposureDrop);
-        Debug.Log($"[{LogTag}] bisect: PracticalScale={PracticalScale} (default {DefaultPracticalScale}), " +
-                  $"FogProbeDimmer={FogProbeDimmer} (default {DefaultFogProbeDimmer}), " +
-                  $"SkyExposureDrop={SkyExposureDrop} (default {DefaultSkyExposureDrop})");
+        MoonLux = ReadFlag("-gmMoonLux", DefaultMoonLux);
+        IndirectDiffuse = ReadFlag("-gmIndirectDiffuse", DefaultIndirectDiffuse);
+        FogMeanFreePath = ReadFlag("-gmFogMeanFreePath", DefaultFogMeanFreePath);
+        SSR = ReadFlag("-gmSSR", DefaultSSR);
+        MoonElevation = ReadFlag("-gmMoonElevation", DefaultMoonElevation);
+        LampEmissive = ReadFlag("-gmLampEmissive", DefaultLampEmissive);
+
+        Debug.Log($"[{LogTag}] bisect: PracticalScale={PracticalScale} FogProbeDimmer={FogProbeDimmer} " +
+                  $"SkyExposureDrop={SkyExposureDrop} MoonLux={MoonLux} IndirectDiffuse={IndirectDiffuse} " +
+                  $"FogMeanFreePath={FogMeanFreePath} SSR={SSR} MoonElevation={MoonElevation} " +
+                  $"(defaults {DefaultPracticalScale}/{DefaultFogProbeDimmer}/{DefaultSkyExposureDrop}/" +
+                  $"{DefaultMoonLux}/{DefaultIndirectDiffuse}/{DefaultFogMeanFreePath}/{DefaultSSR})");
     }
 
     static float ReadFlag(string flag, float fallback)
@@ -264,11 +312,11 @@ public static class GmWendNight
             scaled++;
         }
 
-        int lampSlots = GmWendFoliage.DimLamps(LampEmissiveTarget);
+        int lampSlots = GmWendFoliage.DimLamps(LampEmissive);
 
         Debug.Log($"[{LogTag}] practicals to night: {scaled} light(s) scaled by {PracticalScale} " +
                   $"({clamped} clamped to {PracticalCeilingLumens}), total {was:0} -> {now:0} lumens; " +
-                  $"{lampSlots} lamp material slot(s) dimmed to {LampEmissiveTarget}");
+                  $"{lampSlots} lamp material slot(s) dimmed to {LampEmissive}");
     }
 
     /// Takes a project-owned copy of the pack's volume profile and points the scene's volume at it.
@@ -332,7 +380,7 @@ public static class GmWendNight
                 // as a grey filter. depthExtent matters even more here: the default 64m stops volumetric
                 // fog well short of a 580m street, leaving everything beyond it on flat distance fog, so
                 // the far half of the walk had no atmosphere in it at all.
-                fog.meanFreePath.Override(62f);
+                fog.meanFreePath.Override(FogMeanFreePath);
                 fog.anisotropy.Override(0.62f);
                 fog.depthExtent.Override(110f);
                 fog.sliceDistributionUniformity.Override(0.6f);
@@ -379,6 +427,23 @@ public static class GmWendNight
                 skyEdited++;
                 EditorUtility.SetDirty(p);
             }
+
+            // Ambient bounce. The lever for ground between the lamps, which is what is left after the
+            // fog fix: the practicals light their own pools and nothing lights the gaps. Added to the
+            // profile rather than as a fill light so the lighting census stays exactly as the pack
+            // shipped it, which is what the contract asserts on.
+            if (!p.TryGet(out IndirectLightingController indirect))
+                indirect = p.Add<IndirectLightingController>(true);
+            indirect.indirectDiffuseLightingMultiplier.Override(IndirectDiffuse);
+            EditorUtility.SetDirty(p);
+
+            // Reflections. The scene ships with none configured at all, which on wet cobbles and
+            // window glass at night is a real absence rather than a stylistic choice. Off by default
+            // so it is a measured decision rather than something that arrived with a refactor.
+            if (!p.TryGet(out ScreenSpaceReflection ssr))
+                ssr = p.Add<ScreenSpaceReflection>(true);
+            ssr.enabled.Override(SSR > 0.5f);
+            EditorUtility.SetDirty(p);
 
             if (p.TryGet(out Exposure _)) exposureFound++;
         }
@@ -508,7 +573,12 @@ public static class GmWendNight
     /// walk showed the cost, with the treeline and the hillside reading as flat near-black away from any
     /// lamp and no moonlight rake anywhere in frame. A night scene needs the moon to model the shapes the
     /// lamps do not reach.
-    public const float MoonLux = 1.0f;
+    public const float DefaultMoonLux = 1.0f;
+
+    /// Static rather than const so the moon can be bracketed like every other lever. The contract reads
+    /// this same value, so a bracket run audits against what it actually built rather than failing on
+    /// the default it did not use.
+    public static float MoonLux = DefaultMoonLux;
 
     /// The whole night, at the committed exposure, applied to the currently open scene. This is the
     /// shipping path; the ladder is the review path.

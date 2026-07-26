@@ -652,6 +652,82 @@ lake, which is a level decision rather than a pathing failure.
 The frame captured at the stop is a good one: a dark vista with the lamp line curving away below and
 trees against the sky. Worth knowing, because it means the walk ends somewhere that looks deliberate.
 
+## Eight levers, seven negligible: the lighting cannot be finished with dials
+
+Run as one-variable rungs against the walk, scored on a written standard rather than on a single
+number. Every rung is a full night build, app build and walk.
+
+| lever | tested | effect on the walk |
+|---|---|---|
+| fog ambient dimmer | 1 / 0.5 / 0 | THE fix. 330m 0.556 -> 0.030. Committed at 0 |
+| practicals | 0.5x and 5x | none. p5 unmoved at 0.012 in BOTH directions |
+| moon intensity | 1 / 4 / 8 lux | none |
+| moon elevation | 24 / 55 deg | best spread, 28x -> 21x. Still no visible moonlight |
+| indirect diffuse | 1 / 3 | none. There is no GI in this scene to multiply |
+| lamp glass emissive | 1.5 / 0.5 | none |
+| sky exposure | -5.5 / -7 / -8.5 | scales everything uniformly. -8.5 blacks out 19 of 35 frames |
+| SSR | not judged | no metric measures specular; see below |
+
+**The number that settles it is p5**, the darkest frames. It sits at 0.012 through every rung,
+including a FIVE TIMES increase in practical intensity. Light you turn up does not reach places that
+have no light in them. The dark stretches do not have a weak lamp, they have no lamp, and that is the
+measured version of what an earlier handoff guessed at.
+
+It also means the premise this whole approach rests on is only half true. "Abandoned Village was
+already lit by its artist" is right about the daytime scene; at night-scaled values those 24 practicals
+light their own pools and nothing else, and what actually lights the walk is a dimmed daytime HDRI.
+That is why every frame is warm and none is moonlit.
+
+## The moon is decorative, measured at pixel level
+
+Zero of 30 frames read as moonlit at any tested value. That was first measured on frame MEANS, which
+cannot distinguish "no moonlight" from "moonlight next to brighter lamplight", so it was re-measured as
+the fraction of VISIBLE pixels that are blue dominant:
+
+| | blue fraction of visible pixels | best single frame |
+|---|---|---|
+| moon 24 deg, 1 lux (committed) | 0.2% | 4.6% |
+| moon 55 deg, 4 lux | 0.4% | 8.3% |
+| moon 8 lux, sky -7 | 0.0% | 0.0% |
+
+The last row is the instructive one: dropping ambient to make room for the moon produced BLACK, not
+moonlight. The sky is what makes surfaces visible at all and the moon cannot substitute for it.
+
+## What whole-frame luma was missing
+
+The first standard scored mean luma and fully-clipped pixels, and it passed frames it should not have.
+Nick asked whether it was catching oversaturation, overbrightness and wrong colour. It was catching
+none of them.
+
+- **Local blowout.** 285m and 300m have 3 to 6 percent of their pixels above 0.80 luma, visibly blown,
+  while the standard reported no clipping because nothing reached 254. A whole-frame mean cannot see a
+  blown wall beside a lamp.
+- **Colour.** The standard discarded colour entirely, which is indefensible in a document whose central
+  bug was diagnosed BY colour ratio. Added: a green-cast check, since the scene's only sources are 2000K
+  lamps and a blue moon and nothing in it can legitimately be green dominant.
+- **Saturation, with a caveat that matters.** p95 saturation reads 1.0 on the darkest frames, and that
+  is an artefact rather than a finding: a pixel like (3,1,0) is fully saturated by definition. It needs
+  weighting by luma before it means anything, and it is not currently trusted.
+
+SSR is left undone for the same reason rather than a different one: it changes specular response, and
+none of the three metrics measures specular. Adding it would be shipping a feature with no instrument
+pointed at it.
+
+## Where the lighting actually stands
+
+Scored 2 of 4 on the standard. Passing: nothing is unreadable black, nothing clips to 254. Failing:
+two frames above the daylight threshold, and the body of the walk runs p5 0.012 to p95 0.213 against a
+0.01 to 0.15 band.
+
+Looked at rather than only measured, across all 30 frames: 105m to 225m is a genuine horror village at
+night, and 270m to 300m reads well. Four defects are visible in the sheet: the 285m cottage windows
+blowing, 315m and 405m near black, several motion blurred close ups where the walk brushes a trunk, and
+360m, which is the brightest frame in the walk AND a colour outlier, a mint green wall in an otherwise
+entirely warm scene, lit by a practical at about a metre.
+
+None of that is reachable from a dial. It is lamp placement, and it needs someone to decide where the
+light in this village comes from.
+
 ## Still open
 
 Rewritten after the walk ran. The previous version of this list had gone stale in the worst way: it
