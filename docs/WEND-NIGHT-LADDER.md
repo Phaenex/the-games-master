@@ -827,6 +827,32 @@ not to regress anything (155 -> 164 EditMode tests, 9/9 contract, full walk stil
 water) -- it is just not the fix for these three frames, because these three frames were never what it
 diagnosed them as.
 
+**Half right, corrected the same session.** "reading green because that is the wall material's base
+colour under ambient light" above was too quick. Re-walked and looked at `walk-0330m.png` and
+`walk-0345m.png` -- normal viewing distance, no collision, no motion blur -- and the same building's
+wall reads green there too. Not just a camera-in-geometry artefact; a real material defect. Traced it:
+`M_Wall_02`, the single most used wall material in the village at 153 renderers, carries
+`_BaseTint = (0.596, 0.635, 0.525, 0)`, green channel highest, a bias small enough (~6%) to vanish under
+the pack's 2000 lux daylight and large enough to read as coloured stone at this scene's night exposure --
+the same mechanism as the emissive-foliage bug, on a different property. `GmWendWallTint.cs` surveys
+every material with a `_BaseTint` and neutralises any with a measurable green skew to a luma-preserving
+grey, DERIVED from the colour rather than naming `M_Wall_02`: it caught 5 materials, not 1
+(`M_Bottom_Cover_01`, `M_Wall_02`, `M_Wall_02 1`, `M_Wall_02b`, `M_Wall_04`), 263 renderer slots total,
+none of them hand-picked. Verified full-walk, same route, only this changed:
+
+|                        | before | after |
+|------------------------|--------|-------|
+| band fails             | 3/30   | 2/30  |
+| worst green cast       | 41.99% | 0.01% |
+| walk-0360m green%      | 40-42% | 0.00% |
+| walk-0405m mean         | 0.009-0.010 (fail) | 0.010 (pass) |
+
+`walk-0360m.png` still fails, now correctly for the reason first suspected: it is still a camera jammed
+against a wall, still bright and motion-blurred, but the wall is neutral grey now (saturation 0.234 ->
+0.078), not coloured. That residual is the collision bug, unchanged, and still out of scope. Confirmed
+by eye: `walk-0330m.png` and `walk-0345m.png` now show a normal aged white-plaster wall with visible
+brick weathering, and `walk-0360m.png`'s close pass is a neutral grey blur instead of a mint-green one.
+
 ## Three more attempts at the water cut, and why none of them are wired in
 
 `TruncateAtWater` and `RaycastGroundY` already existed; this section is attempts five and six trying to

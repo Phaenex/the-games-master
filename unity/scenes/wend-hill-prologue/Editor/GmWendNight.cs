@@ -634,6 +634,12 @@ public static class GmWendNight
                 "the committed night repointed no foliage. The pack's ungated emissive materials were " +
                 "not found, so the scene would ship with self-lit grass setting its own exposure.");
 
+        // Neutralises the green-biased wall tints the walk found (walk-0330m through walk-0360m).
+        // Cosmetic rather than build-breaking, so unlike the foliage check above this does not throw on
+        // finding none -- a future pack revision with no green-biased material is a fine outcome, not a
+        // broken build.
+        int wallsFixed = GmWendWallTint.Apply();
+
         PracticalsToNight();
         SetExposure(CommittedExposureEV);
 
@@ -653,7 +659,7 @@ public static class GmWendNight
                 $"the committed night changed the lighting census: {before} -> {after}");
 
         Debug.Log($"[{LogTag}] committed night applied at EV {CommittedExposureEV} (census {after}), " +
-                  $"NavMesh {navArea:0}m^2, {gapLamps} gap lamp(s)");
+                  $"NavMesh {navArea:0}m^2, {gapLamps} gap lamp(s), {wallsFixed} wall slot(s) de-tinted");
     }
 
     /// STEP 3. Builds the scene and SAVES it, then reopens it from disk and audits it.
