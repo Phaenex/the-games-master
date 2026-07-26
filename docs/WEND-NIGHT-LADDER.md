@@ -728,6 +728,49 @@ entirely warm scene, lit by a practical at about a metre.
 None of that is reachable from a dial. It is lamp placement, and it needs someone to decide where the
 light in this village comes from.
 
+## Sky up 1.5 stops, EV +0.30: promoted, off a full walk this time
+
+The previous section's "ambient UP" finding was voided as a promotion candidate the moment it was
+checked: it was measured over 0-210m because that run was interrupted, and the interruption turned out
+to be self-inflicted rather than external. Three walk attempts in a row died at exactly 15 frames /
+210m, consistently enough to suspect something was killing them on purpose. It was not. The walk's own
+internal cap is 480 seconds; the shell command running the built app had no timeout override and was
+hitting a 2-minute default, killing the player mid-route before it ever reached `Finish()` or wrote
+`walk-performance.json`. Once the app was launched with a 10-minute timeout instead, it completed to
+the water at 438-439m on every attempt, the same place every full walk before it stopped.
+
+With that fixed, the pair was measured full-route, twice: once at sky-drop 4.0 / EV +0.30 against a
+freshly rebuilt control at the old sky-drop 5.5 / EV -1.35, both walked start to water, both scored by
+the same script over the same 30 `walk-*.png` frames (stall and submerged tags excluded, as before).
+
+|                     | mean  | p5    | p50   | p95   | p99   | spread | band fails | worst blowout | worst green cast |
+|---------------------|-------|-------|-------|-------|-------|--------|------------|----------------|-------------------|
+| control (5.5/-1.35) | 0.080 | 0.016 | 0.070 | 0.221 | 0.297 | 26.0x  | 4/30       | 3.68%          | 51.09%            |
+| sky 4.0 / EV +0.30   | 0.048 | 0.012 | 0.043 | 0.108 | 0.243 | 33.3x  | 3/30       | 0.06%          | 41.99%            |
+
+This is not the 4/4 the interrupted half-walk predicted. p5 does not move (0.016 -> 0.012, both already
+failing dark, within run-to-run flicker noise) and the spread figure gets nominally worse, because that
+ratio is dominated by whichever single frame is darkest and the darkest frame barely moved. What the
+full walk shows is narrower and real: the three frames that were reading as daylight leaking through
+(150m at 0.221, 285m at 3.68% local blowout, 300m at 1.90%) all resolve, and worst-case local blowout
+across the whole route drops by two orders of magnitude. Confirmed by eye, not just by number: 150m and
+300m read as a proper dark village street in both builds, and the difference the numbers describe (a
+cottage window going from visibly blown to merely bright) is there on screen, not just in the histogram.
+
+The two remaining defects are the same two the previous section already named, and they moved the way a
+non-dial problem should: 315m stayed near black (0.011 -> 0.007, i.e. it did not get better and may be
+marginally worse) and 360m's mint-green wall improved but did not resolve (51.09% -> 41.99% green-cast
+pixels, still visibly green up close). Both are confirmed by eye in this session, at the promoted
+values: 315m is a genuinely underlit stretch with one faint lamp in the far distance, and 360m is a
+motion-blurred close pass on a wall lit by a single practical from about a metre, which is a colour and
+placement problem the sky cannot reach no matter which way it is dialed.
+
+**Promoted.** `DefaultSkyExposureDrop` is now 4.0 (was 5.5) and `DefaultExposureEV` is now 0.30 (was
+-1.35), in `GmWendNight.cs`. Verified after promotion, not just before it: a `BuildCommittedNight` run
+with NO CLI overrides reproduces sky-drop 4/EV 0.3 and passes 9/9 contract checks; 147/147 EditMode
+tests pass; the standalone app built from that scene walks the full route to the water and reproduces
+the table above within noise (mean 0.048, p95 0.108, 3/30 band fails, worst blowout 0.06%).
+
 ## Still open
 
 Rewritten after the walk ran. The previous version of this list had gone stale in the worst way: it
@@ -737,9 +780,6 @@ than no list, because it is the part people read first.
 
 **Needs a decision, not work**
 
-- **No value has been promoted.** `globalLightProbeDimmer = 0` is the recommendation and the evidence
-  for it is above, but the code default is still 1.0 and nobody has picked it. In this project
-  committed values get chosen deliberately; that has not happened here.
 - **Saves are not wired into this scene.** `GmVillageSave` is added only by `GmVillageBuilder`, the
   retired village builder. Its restore decision is pure and tested, both silent refusals included.
   Whether the prologue should have saves yet is a design call.
@@ -756,13 +796,15 @@ than no list, because it is the part people read first.
 
 **Testable, just not tested yet**
 
-- **63m of the route.** The walk reaches 517m of 580m with 1 stall, and 4 of 11 waypoints still fail to
-  path and get walked straight. Why those four fail is the open question, most likely bake coverage.
-- **The route's last 141m are lake.** The walk stops itself at the water now and says so, so no
-  measurement is polluted by it, but the route still LEADS there. Whether the prologue should end at
-  the shore, turn before it, or go somewhere else entirely is a level decision nobody has made.
+- **Why 3 of 11 waypoints still fail to path.** Confirmed again on this session's full walks, both at
+  the old and the promoted values: 7 pathed on the NavMesh, 3 walked straight, 1 stall. Most likely bake
+  coverage, unchanged from the earlier note; nobody has looked at why those three specifically.
+- **The route's last ~140m are lake.** The walk stops itself at the water now and says so, at 438-439m
+  both times this session, so no measurement is polluted by it, but the route still LEADS there. Whether
+  the prologue should end at the shore, turn before it, or go somewhere else entirely is a level decision
+  nobody has made.
 - **The boundary walls have never been walked into.** Four walls are in the saved scene and the contract
-  passes on them by value. Zero catch-plane fires over 517m is weak evidence, not a test: the route
+  passes on them by value. Zero catch-plane fires over 438m is weak evidence, not a test: the route
   never goes near the map edge.
 - **Memory and culling.** Frame pacing is measured now; neither of those is.
 - **True GPU cost.** Every pacing number so far was taken with vSync on, so they are delivered cadence
@@ -786,3 +828,8 @@ than no list, because it is the part people read first.
   flagless `BuildCommittedNight` restores the documented control.
 - **The prologue's systems are not in this scene.** It is the purchased village plus a player plus the
   night. The rare events, the estate and the beats still live in the retired builder's scene.
+- **Running the walk needs a shell timeout longer than 2 minutes.** Three attempts in a row died at
+  exactly 15 frames / 210m before this was diagnosed: the walk's own cap is 480s and the pipeline
+  (settle + traversal + 30-some screenshot readbacks) routinely runs past a 2-minute default, so the
+  shell kills the player mid-route rather than the walk finishing on its own. Both full walks this
+  session used a 600s timeout on the direct binary launch and completed cleanly to the water every time.

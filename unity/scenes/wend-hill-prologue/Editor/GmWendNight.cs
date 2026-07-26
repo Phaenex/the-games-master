@@ -193,7 +193,20 @@ public static class GmWendNight
     /// The HDRI sky is the scene's ambient source, so this is the dial that lights SURFACES rather
     /// than the fog. It is a relative drop, not an absolute value, because the pack's own exposure is
     /// the starting point and is not ours to assume.
-    public const float DefaultSkyExposureDrop = 5.5f;
+    ///
+    /// COMMITTED at 4.0 on 2026-07-26, 1.5 stops brighter than the old 5.5. Eight other levers were
+    /// bracketed downward chasing over-brightness and every one made the spread worse or did nothing;
+    /// this is the first that ever moved p5 at all, because it ADDS a constant instead of multiplying
+    /// a ratio. Paired with the exposure bump below so the mean does not just rise with it.
+    ///
+    /// Measured over the FULL 0-438m walk, not the 0-210m half a first attempt was voided for
+    /// promoting from: against the old 5.5/-1.35 pair, this drops the daylight-band failures from
+    /// 4/30 frames to 2/30, and very nearly eliminates local blowout (worst frame 3.68% -> 0.08% of
+    /// pixels above 0.80 luma). p5 does not improve (0.016 -> 0.012, both already failing) and the
+    /// mint-green wall at 360m is still a defect (51.09% -> 41.20% green-dominant pixels, better but
+    /// not fixed). Both are geometry the sky cannot reach: a wall a metre from one practical, and a
+    /// stretch nowhere near a lamp. That is placement work, not a dial, and stays open below.
+    public const float DefaultSkyExposureDrop = 4.0f;
 
     /// The ambient lift for the ground BETWEEN the lamps, which is the problem left after the fog fix.
     ///
@@ -563,7 +576,13 @@ public static class GmWendNight
     /// A third of a stop is deliberately small. The frames that need help are the dark ones and the ones
     /// that do not are already near the top of the band, so the correction has to be smaller than the
     /// spread it is fixing.
-    public const float DefaultExposureEV = -1.35f;
+    ///
+    /// SUPERSEDED. Committed at +0.30 on 2026-07-26, alongside the sky drop above dropping to 4.0.
+    /// +0.45 was tried first, against a predicted mean of 0.078; it measured 0.040 over a matched
+    /// section and over-darkened, so +0.30 is the value actually built and walked full-route. See the
+    /// sky drop constant above for the measured before/after; the two are bracketed as a pair because
+    /// raising ambient without darkening exposure to match just makes the whole frame brighter.
+    public const float DefaultExposureEV = 0.30f;
 
     /// Static so exposure can be bracketed WITH ambient. Those two are the pair that matters: ambient
     /// adds a constant and compresses the spread, exposure multiplies and moves the whole frame, so
