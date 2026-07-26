@@ -35,6 +35,28 @@ public static class GmWendRoute
     const float MinSpacing = 12f;        // thin dense tiles so the walk advances instead of shuffling
     public const float WaterClearance = 1.0f;   // never route to a point at or below the water surface
 
+    /// The highest water surface in the scene, or null when it ships none.
+    ///
+    /// Lives here rather than in the walk probe so there is still exactly one definition of where the
+    /// water is, which is the same reason the route itself lives here. Scans once; callers are expected
+    /// to hold the result rather than ask per frame.
+    public static float? WaterSurfaceY()
+    {
+        float surface = float.MinValue;
+        bool found = false;
+
+        foreach (Renderer r in Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None))
+        {
+            if (!r.gameObject.activeInHierarchy) continue;
+            if (!WaterPattern.IsMatch(r.name)) continue;
+            if (r.bounds.size.y >= 5f) continue;   // a tall box is a volume, not a surface
+            surface = Mathf.Max(surface, r.bounds.max.y);
+            found = true;
+        }
+
+        return found ? surface : (float?)null;
+    }
+
     /// Cuts the route where it descends into the lake.
     ///
     /// A walk found this by going in: the last ~45m of the route were spent SUBMERGED, looking up at

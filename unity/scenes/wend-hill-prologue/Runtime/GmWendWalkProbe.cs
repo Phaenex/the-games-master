@@ -131,14 +131,27 @@ public sealed class GmWendWalkProbe : MonoBehaviour
             Debug.LogWarning("[GmWendWalkProbe] no GmWendCatchPlane in the scene; falling back to a " +
                              "spawn-relative floor test, which a descending route can trip on its own");
 
+        // Where the water is, and what the player sees with. Submersion is judged at the EYE, not at
+        // the feet: wading is not drowning, and the player root sits on the ground. Held rather than
+        // re-scanned, because finding the water means walking every renderer in a 4997-renderer scene.
+        float? waterSurface = GmWendRoute.WaterSurfaceY();
+        Transform eye = playerGo.transform.Find("PlayerCamera");
+        if (waterSurface.HasValue)
+            Debug.Log($"[GmWendWalkProbe] water surface at y={waterSurface.Value:0.00}; the walk stops " +
+                      "if the eye goes under it");
+        if (eye == null)
+            Debug.LogWarning("[GmWendWalkProbe] no PlayerCamera to measure submersion at; the walk " +
+                             "cannot tell whether it ends underwater");
+
         float began = Time.realtimeSinceStartup;
         lastFrameAt = Time.realtimeSinceStartupAsDouble;
         float nextCaptureAt = CaptureEveryMeters;
         float vertical = 0f;
         float walked = 0f;
+        bool submerged = false;
         float spawnY = playerGo.transform.position.y;
 
-        for (int i = 0; i < route.Count && captures < MaxCaptures; i++)
+        for (int i = 0; i < route.Count && captures < MaxCaptures && !submerged; i++)
         {
             // Route to the waypoint through the NavMesh, so a building in the way becomes a path
             // around it instead of five seconds spent walking into it. With no baked mesh this
@@ -148,7 +161,7 @@ public sealed class GmWendWalkProbe : MonoBehaviour
 
             foreach (Vector3 target in corners)
             {
-                if (abandonWaypoint || captures >= MaxCaptures) break;
+                if (abandonWaypoint || submerged || captures >= MaxCaptures) break;
 
                 float stallTimer = 0f;
                 float bestDistance = float.MaxValue;
@@ -175,6 +188,27 @@ public sealed class GmWendWalkProbe : MonoBehaviour
                         yield return Capture(here, walked, "fell");
                         Finish($"walked {walked:0}m before falling out of the world", 1);
                         yield break;
+                    }
+
+                    // Underwater ends the walk. This replaces three attempts at predicting it from the
+                    // route at build time, all of which picked a surface signal that was wrong on this
+                    // scene: waypoints are mesh bounding-box centres, and the terrain dips below the
+                    // water plane while the player walks on meshes above it. At runtime there is
+                    // nothing to predict. The eye is either under the surface or it is not.
+                    //
+                    // It matters for the NUMBERS as much as for the walk. The previous run captured its
+                    // last four frames submerged, and those frames are a golden band of refracted light
+                    // that went straight into the luma statistics as if they were views of a village.
+                    if (waterSurface.HasValue && eye != null && eye.position.y < waterSurface.Value)
+                    {
+                        submerged = true;
+                        Debug.LogWarning($"[GmWendWalkProbe] SUBMERGED at {here} after {walked:0}m: the " +
+                                         $"eye is {waterSurface.Value - eye.position.y:0.0}m below the " +
+                                         $"water surface at y={waterSurface.Value:0.00}. Stopping here. " +
+                                         "The route runs into the lake, which is a route problem and not " +
+                                         "a lighting one; frames past this point measure water.");
+                        yield return Capture(here, walked, "submerged");
+                        break;
                     }
 
                     Vector3 flat = new Vector3(target.x - here.x, 0f, target.z - here.z);
@@ -252,7 +286,9 @@ public sealed class GmWendWalkProbe : MonoBehaviour
         // cheerful summary otherwise, and "walked 465m, 48 frames" reads as coverage rather than as
         // truncation. Whatever bounded the walk gets said out loud.
         string why = "";
-        if (captures >= MaxCaptures)
+        if (submerged)
+            why = $"; STOPPED AT THE WATER, the route past {walked:0}m runs into the lake and is unmeasured";
+        else if (captures >= MaxCaptures)
             why = $"; STOPPED AT THE {MaxCaptures}-FRAME CAP, the route past {walked:0}m is unmeasured";
         else if (Time.realtimeSinceStartup - began >= MaxSeconds)
             why = $"; STOPPED AT THE {MaxSeconds:0}s LIMIT, the route past {walked:0}m is unmeasured";

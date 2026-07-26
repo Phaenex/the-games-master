@@ -630,6 +630,28 @@ predictably black out the night that four rungs just settled.
 So it needs its own bracket, run the same way, and it should happen when the light DISTRIBUTION work
 happens, because the fill light is the same lever that problem needs.
 
+## Submersion is decided at runtime, because at runtime there is nothing to predict
+
+Three attempts to truncate the route at the water failed at BUILD time, each on a different surface
+signal, and all three are recorded in `GmWendRoute.TruncateAtWater`, which is kept tested and unwired
+because the analysis outlived the code. The short version: waypoints are road-mesh bounding-box
+centres, the village clears the water by about half a metre so any margin swallows it, and the terrain
+itself dips under the water plane while the player walks on meshes above it. There is no reliable
+"walkable surface height" to consult before the walk starts.
+
+At runtime the question answers itself. `GmWendWalkProbe` looks up the water surface once, through
+`GmWendRoute.WaterSurfaceY` so water stays defined in one place, and stops the walk the frame the EYE
+goes under it. Not the player root: the root is at the feet, and wading is not drowning.
+
+Measured: the walk now stops at **439m** rather than 515m, and reports STOPPED AT THE WATER. That is
+better data, not worse. From about 450m the previous run was already at the water's edge and then in
+it, and those frames are a golden band of refracted light that went into the luma statistics as though
+they were views of a village. So the dry prologue is about 439m of a 580m route and the missing 141m is
+lake, which is a level decision rather than a pathing failure.
+
+The frame captured at the stop is a good one: a dark vista with the lamp line curving away below and
+trees against the sky. Worth knowing, because it means the walk ends somewhere that looks deliberate.
+
 ## Still open
 
 Rewritten after the walk ran. The previous version of this list had gone stale in the worst way: it
@@ -660,9 +682,9 @@ than no list, because it is the part people read first.
 
 - **63m of the route.** The walk reaches 517m of 580m with 1 stall, and 4 of 11 waypoints still fail to
   path and get walked straight. Why those four fail is the open question, most likely bake coverage.
-- **The route ends in a lake.** `GmWendRoute` reports its chosen cluster `overlaps water` and the final
-  waypoint is at y=-22.80. The walk survives it now that the floor test is terrain relative, but the
-  prologue walking into a lake is a route quality problem nobody has decided about.
+- **The route's last 141m are lake.** The walk stops itself at the water now and says so, so no
+  measurement is polluted by it, but the route still LEADS there. Whether the prologue should end at
+  the shore, turn before it, or go somewhere else entirely is a level decision nobody has made.
 - **The boundary walls have never been walked into.** Four walls are in the saved scene and the contract
   passes on them by value. Zero catch-plane fires over 517m is weak evidence, not a test: the route
   never goes near the map edge.
