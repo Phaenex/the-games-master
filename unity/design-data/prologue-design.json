@@ -1,0 +1,411 @@
+{
+ "walkRects": [
+  [
+   -3.0,
+   3.0,
+   -36.5,
+   103.0
+  ],
+  [
+   3.0,
+   13.2,
+   26.3,
+   30.7
+  ],
+  [
+   8.6,
+   24.6,
+   12.6,
+   40.6
+  ],
+  [
+   -13.2,
+   -3.0,
+   19.8,
+   24.2
+  ],
+  [
+   -23.6,
+   -8.6,
+   15.6,
+   34.6
+  ],
+  [
+   24.6,
+   38.5,
+   26.0,
+   34.0
+  ],
+  [
+   -26.0,
+   -21.0,
+   34.0,
+   41.0
+  ],
+  [
+   -33.5,
+   -23.0,
+   40.0,
+   56.0
+  ]
+ ],
+ "pois": [
+  {
+   "id": "arrival-car",
+   "verb": "Examine",
+   "x": -4.8,
+   "z": 76.5,
+   "radius": 3.2,
+   "text": "The keys are still in it. Nobody took them. Nobody needed to.",
+   "text2": "In the glovebox: Nora\u2019s drawing. A house with too many windows. I never showed her this place."
+  },
+  {
+   "id": "gate-plaque",
+   "verb": "Read",
+   "x": 2.9,
+   "z": 66.3,
+   "radius": 2.6,
+   "text": "WEND HILL \u2014 the letters cut deep. The stone around them has gone soft with moss.",
+   "text2": "Below the name, half polished away: tally strokes. Grouped in sevens. A lot of sevens."
+  },
+  {
+   "id": "open-grave",
+   "verb": "Examine",
+   "x": 19.5,
+   "z": 23.0,
+   "radius": 2.8,
+   "text": "Fresh-dug. No stone, no name. Waiting.",
+   "text2": "Dry on top, damp an arm down. Dug slowly. Or kept ready."
+  },
+  {
+   "id": "stag-plinth",
+   "verb": "Examine",
+   "x": 18.0,
+   "z": 20.0,
+   "radius": 3.9,
+   "text": "A stag \u2014 the crest from the invitation\u2019s wax. One antler snapped clean off. Deliberate, by the cut.",
+   "text2": "The plinth names no family. Just: FOR THE HOUSE, FROM ITS WINNERS."
+  },
+  {
+   "id": "weathered-marker",
+   "verb": "Read",
+   "x": 14.0,
+   "z": 30.0,
+   "radius": 2.8,
+   "text": "Most of the names are weather-eaten. One date reads clear \u2014 older than this house admits to being.",
+   "text2": "Same mason\u2019s hand on every legible stone. A century apart. The same hand."
+  },
+  {
+   "id": "chapel-door",
+   "verb": "Examine",
+   "x": 28.9,
+   "z": 30.0,
+   "radius": 3.0,
+   "text": "A chapel, locked long before I was born. The hinges say it intends to stay that way.",
+   "text2": "Scratches around the lock. Not from picking it. From under the door."
+  },
+  {
+   "id": "garden-scarecrow",
+   "verb": "Examine",
+   "x": -18.4,
+   "z": 27.5,
+   "radius": 2.8,
+   "text": "Someone dressed the scarecrow in a dinner coat. The tailoring is better than mine.",
+   "text2": "There\u2019s a watch chain under the coat. Gold. The watch is gone."
+  },
+  {
+   "id": "garden-basin",
+   "verb": "Examine",
+   "x": -16.0,
+   "z": 26.0,
+   "radius": 3.5,
+   "text": "Dry for years. Coins fused to the basin \u2014 wishes nobody ever collected.",
+   "text2": "All the coins are heads-down. Every one."
+  },
+  {
+   "id": "garden-shed",
+   "verb": "Examine",
+   "x": -19.2,
+   "z": 19.8,
+   "radius": 3.4,
+   "text": "Groundskeeper\u2019s shed. The padlock is new. That bothers me more than the graves do.",
+   "text2": "Boot prints to the door. None coming back. Small boots."
+  },
+  {
+   "id": "coach-doors",
+   "verb": "Examine",
+   "x": -27.6,
+   "z": 48.0,
+   "radius": 3.6,
+   "text": "Coach doors. Wheel ruts under the moss \u2014 decades old and deep as trenches.",
+   "text2": "Chalked inside the frame, old as the moss: 41. 9. A third number, scratched out hard."
+  },
+  {
+   "id": "garden-well",
+   "verb": "Examine",
+   "x": -21.5,
+   "z": 22.5,
+   "radius": 2.6,
+   "text": "The rope is gone. The bucket too. The dark down there has a smell.",
+   "text2": "I dropped a pebble. I waited. I\u2019m choosing to believe it landed."
+  },
+  {
+   "id": "fallen-marker",
+   "verb": "Read",
+   "x": 21.5,
+   "z": 35.0,
+   "radius": 2.6,
+   "text": "This one fell face-down, and nobody turned it back over. Kinder not to read it, maybe.",
+   "text2": "Fine. I read it. The surname was mine. It\u2019s a common name. It\u2019s a common name."
+  },
+  {
+   "id": "child-marker",
+   "verb": "Read",
+   "x": 10.5,
+   "z": 17.0,
+   "radius": 2.6,
+   "text": "A child\u2019s marker \u2014 smaller, whiter, newer than the rest. I stopped doing the arithmetic.",
+   "text2": "No dates. An epitaph, two words: COUNTED OUT."
+  }
+ ],
+ "beats": [
+  {
+   "z": 64.0,
+   "main": "The gate was open. It shouldn\\u2019t have been.",
+   "sub": "No lights on the road in. No cars. A house this size lit up like a birthday, and not one sound coming off it. I kept walking. I\\u2019ve always been good at walking toward the wrong thing."
+  },
+  {
+   "z": 38.0,
+   "main": "Forty-one thousand, to men who don\\u2019t take excuses.",
+   "sub": "Nine thousand more to the bank. There was a version of me that paid on time \\u2014 Mara married that one. Now there\\u2019s a stack of envelopes by the door I stopped opening in March."
+  },
+  {
+   "z": 12.0,
+   "main": "The rest \\u2014 all of it \\u2014 is for Nora.",
+   "sub": "Eight years old. A heart that skips a beat, then forgets to catch up. A man in Z\\u00fcrich can fix it, for a number on his letterhead I can\\u2019t say out loud without laughing. Or worse."
+  },
+  {
+   "z": -12.0,
+   "main": "It wasn\\u2019t always me against the odds.",
+   "sub": "Mara kept the books. Kept me honest. Kept me. Four months from the word \\u201cmalignant\\u201d to the quiet \\u2014 and in the quiet I found a table where the noise finally stopped. I called that peace. I was wrong about a lot that year."
+  },
+  {
+   "z": -28.0,
+   "main": "Two years, chasing one good night.",
+   "sub": "I lied to my brother. Lied to Nora\\u2019s doctors about money that was always almost here. Tonight the lying stops. I leave with everything, or I don\\u2019t leave. Either way it ends."
+  }
+ ],
+ "coldOpen": [
+  "Three calls before sunrise. Men like that don\\u2019t leave messages.",
+  "The hospital wants an answer by Friday. The only answer is money \\u2014 the one thing I\\u2019ve never learned how to keep.",
+  "Her side of the bed is still made. Two years, and I still sleep on top of the covers, like a guest.",
+  "Then it was there \\u2014 slid under the door sometime before dawn. No stamp, no sender. Only a crest in red wax: a stag, one antler snapped.",
+  "THE HOUSE ON WEND HILL\n\nNine o'clock.\n\nTake the old road. It will turn you.\nCome as you are. Bring nothing.\n\n— a friend"
+ ],
+ "branchBeats": [
+  { "rect": [3, 13.2, 26.3, 30.7],    "main": "A gravel path, going right.",
+    "sub": "Toward the stones. I told myself I was being thorough. I was being slow." },
+  { "rect": [8.6, 24.6, 12.6, 40.6],  "main": "They buried people here. They still are.",
+    "sub": "One hole open and waiting, and no name cut for it yet. I did the arithmetic I always do: how much, and who for." },
+  { "rect": [24.6, 38.5, 26, 34],     "main": "The bell is right above me.",
+    "sub": "Close enough to touch the door it hangs behind. It rang anyway. It did not care that I was here to hear it." },
+  { "rect": [-13.2, -3, 19.8, 24.2],  "main": "A path left, into the dark of the garden.",
+    "sub": "Mara would have known what half of it used to be. She knew the names of things. I only ever learned the odds." },
+  { "rect": [-23.6, -8.6, 15.6, 34.6],"main": "Someone kept this garden once.",
+    "sub": "Then stopped, and nobody came after. There is a version of my house that looks like this in about a year." },
+  { "rect": [-26, -21, 34, 41],       "main": "The long way round the flank.",
+    "sub": "Every step out here is a step I am not taking toward that door. I noticed. I kept doing it." },
+  { "rect": [-33.5, -23, 40, 56],     "main": "Coach doors, and chalk under the moss.",
+    "sub": "Numbers. Forty-one. Nine. A third one scratched out so hard it tore the wood. Somebody else's arithmetic, or mine, written before I got here." }
+ ],
+ "placements": [
+  {
+   "asset": "SM_Church",
+   "x": 33.0,
+   "z": 30.0,
+   "targetHeight": 11.5,
+   "rotationY": -1.5708,
+   "y": 0,
+   "leanZ": 0,
+   "kind": "estateChapel"
+  },
+  {
+   "asset": "SM_House_02",
+   "x": -33.5,
+   "z": 50.0,
+   "targetHeight": 6.2,
+   "rotationY": 0.35,
+   "y": 0,
+   "leanZ": 0,
+   "kind": "estateCoachHouse"
+  },
+  {
+   "asset": "SM_House_06",
+   "x": -20.5,
+   "z": 17.5,
+   "targetHeight": 4.4,
+   "rotationY": 2.6,
+   "y": 0,
+   "leanZ": 0,
+   "kind": "estateShed"
+  },
+  {
+   "asset": "SM_Cart",
+   "x": -30.0,
+   "z": 39.0,
+   "targetHeight": 1.5,
+   "rotationY": 0.5,
+   "y": 0,
+   "leanZ": 0,
+   "kind": "estateCart"
+  },
+  {
+   "asset": "SM_Pugalo",
+   "x": -18.4,
+   "z": 29.8,
+   "targetHeight": 2.35,
+   "rotationY": 2.3,
+   "y": 0,
+   "leanZ": 0,
+   "kind": "estateScarecrow"
+  },
+  {
+   "asset": "SM_Bench",
+   "x": 16.2,
+   "z": 38.0,
+   "targetHeight": 0.72,
+   "rotationY": 3.1416,
+   "y": 0,
+   "leanZ": 0,
+   "kind": "estateBench"
+  },
+  {
+   "asset": "SM_Pit",
+   "x": 19.5,
+   "z": 23.0,
+   "targetHeight": 0.75,
+   "rotationY": 0.2,
+   "y": 0,
+   "leanZ": 0,
+   "kind": "estateGravePit"
+  },
+  {
+   "asset": "SM_Shovel",
+   "x": 20.4,
+   "z": 24.1,
+   "targetHeight": 1.15,
+   "rotationY": 0.4,
+   "y": 0,
+   "leanZ": -0.24,
+   "kind": "estateShovel"
+  },
+  {
+   "asset": "SM_Bucket",
+   "x": -20.9,
+   "z": 19.2,
+   "targetHeight": 0.4,
+   "rotationY": 1.2,
+   "y": 0,
+   "leanZ": 0,
+   "kind": "estateBucket"
+  },
+  {
+   "asset": "SM_Door_01",
+   "x": 29.1,
+   "z": 30.0,
+   "targetHeight": 2.1,
+   "rotationY": -1.5708,
+   "y": 0,
+   "leanZ": 0,
+   "kind": "estateChapelDoor"
+  },
+  {
+   "asset": "SM_Well_01",
+   "x": -21.5,
+   "z": 22.5,
+   "targetHeight": 0.95,
+   "rotationY": 0.3,
+   "y": 0,
+   "leanZ": 0,
+   "kind": "estateWell"
+  },
+  {
+   "asset": "SM_brasier",
+   "x": 4.6,
+   "z": 26.6,
+   "targetHeight": 1.55,
+   "rotationY": 0.2,
+   "y": 0,
+   "leanZ": 0,
+   "kind": "estateBrasier"
+  },
+  {
+   "asset": "SM_brasier",
+   "x": -4.6,
+   "z": 20.3,
+   "targetHeight": 1.55,
+   "rotationY": 1.4,
+   "y": 0,
+   "leanZ": 0,
+   "kind": "estateBrasier"
+  },
+  {
+   "asset": "SM_FeedingTrough",
+   "x": -26.0,
+   "z": 51.5,
+   "targetHeight": 0.5,
+   "rotationY": 0.42,
+   "y": 0,
+   "leanZ": 0,
+   "kind": "estateTrough"
+  },
+  {
+   "asset": "SM_Lantern",
+   "x": 16.2,
+   "z": 38.0,
+   "targetHeight": 0.30,
+   "rotationY": 0.9,
+   "y": 0.67,
+   "leanZ": 0,
+   "kind": "estateHandLantern"
+  },
+  {
+   "asset": "graveyard_gate",
+   "x": 0,
+   "z": 65,
+   "targetHeight": 3.6,
+   "rotationY": 0,
+   "y": 0,
+   "leanZ": 0,
+   "kind": "estateGate"
+  },
+  {
+   "asset": "RealisticCar03_HD_Exterior_LOD0",
+   "x": -4.8,
+   "z": 76.5,
+   "targetHeight": 1.45,
+   "rotationY": 2.618,
+   "y": 0,
+   "leanZ": 0,
+   "kind": "estateCar"
+  }
+ ],
+ "world": {
+  "spawnZ": 72,
+  "gateZ": 65,
+  "carZ": 78,
+  "arrivalZ": -36,
+  "mansionZ": -58,
+  "doorWallZ": -52.1,
+  "eyeHeight": 1.7,
+  "beatHoldMs": 4200,
+  "thresholdBeats": {
+   "glimpse": 0.15,
+   "porchDark": 3.2,
+   "knock": 6.4
+  },
+  "fenceLine": 3.9,
+  "sidePathEastZ": 28.5,
+  "sidePathWestZ": 22.0
+ }
+}

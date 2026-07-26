@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://the-games-master.local/schemas/review-session-v2.json",
+  "additionalProperties": false,
+  "properties": {
+    "createdAt": { "format": "date-time", "type": "string" },
+    "evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "buildFingerprint": { "minLength": 1, "type": "string" },
+        "captureSet": { "minLength": 1, "type": "string" },
+        "notes": { "minLength": 1, "type": "string" }
+      },
+      "type": "object"
+    },
+    "objectiveFindings": { "items": { "$ref": "#/$defs/finding" }, "type": "array" },
+    "reviewer": {
+      "additionalProperties": false,
+      "properties": {
+        "displayName": { "minLength": 1, "type": "string" },
+        "id": { "minLength": 1, "type": "string" },
+        "kind": { "enum": ["nick", "agent", "automation"] }
+      },
+      "required": ["kind", "id"],
+      "type": "object"
+    },
+    "sceneId": { "minLength": 2, "type": "string" },
+    "schemaVersion": { "enum": [1, 2] },
+    "sessionId": { "minLength": 4, "type": "string" },
+    "verdicts": { "items": { "$ref": "#/$defs/verdict" }, "type": "array" }
+  },
+  "required": ["schemaVersion", "sessionId", "sceneId", "createdAt", "reviewer", "verdicts"],
+  "type": "object",
+  "$defs": {
+    "context": {
+      "additionalProperties": false,
+      "properties": {
+        "assetFamily": { "minLength": 1, "type": "string" },
+        "assetGuid": { "minLength": 1, "type": "string" },
+        "assetRole": { "minLength": 1, "type": "string" },
+        "candidateProfileId": { "minLength": 1, "type": "string" },
+        "clusterId": { "minLength": 1, "type": "string" },
+        "elementId": { "minLength": 1, "type": "string" },
+        "intentId": { "minLength": 1, "type": "string" },
+        "shotName": { "minLength": 1, "type": "string" },
+        "zoneId": { "minLength": 1, "type": "string" }
+      },
+      "type": "object"
+    },
+    "finding": {
+      "additionalProperties": false,
+      "properties": {
+        "actual": { "type": ["boolean", "number", "string"] },
+        "category": { "minLength": 1, "type": "string" },
+        "context": { "$ref": "#/$defs/context" },
+        "evidencePath": { "minLength": 1, "type": "string" },
+        "expected": { "type": ["boolean", "number", "string"] },
+        "id": { "minLength": 1, "type": "string" },
+        "metric": { "minLength": 1, "type": "string" },
+        "note": { "minLength": 1, "type": "string" },
+        "severity": { "enum": ["info", "warning", "error"] },
+        "status": { "enum": ["pass", "warn", "fail"] },
+        "subjectId": { "minLength": 1, "type": "string" }
+      },
+      "required": ["id", "metric", "status", "actual", "expected"],
+      "type": "object"
+    },
+    "verdict": {
+      "additionalProperties": false,
+      "properties": {
+        "category": { "enum": ["visual", "asset", "lighting", "audio", "navigation", "ui", "performance", "pacing"] },
+        "context": { "$ref": "#/$defs/context" },
+        "id": { "minLength": 1, "type": "string" },
+        "note": { "minLength": 1, "type": "string" },
+        "tags": { "items": { "minLength": 1, "type": "string" }, "type": "array", "uniqueItems": true },
+        "verdict": { "enum": ["keep", "change", "reject"] }
+      },
+      "required": ["id", "category", "verdict", "context", "tags"],
+      "type": "object"
+    }
+  }
+}

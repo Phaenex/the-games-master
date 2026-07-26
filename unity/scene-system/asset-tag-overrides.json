@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "items": [
+    {
+      "pathContains": "RealisticCar03_HD_Exterior_LOD0",
+      "era": "contemporary",
+      "condition": "pristine-source-requires-weathering",
+      "addTags": ["anchor", "contemporary", "vehicle"]
+    },
+    {
+      "pathContains": "SM_GraveCross_",
+      "era": "victorian",
+      "condition": "weathered",
+      "addTags": ["cemetery", "grave-marker", "story-trace"]
+    },
+    {
+      "pathContains": "SM_DeadBush_",
+      "era": "timeless-natural",
+      "condition": "dead-growth",
+      "addTags": ["dead-growth", "natural", "support"]
+    },
+    {
+      "pathContains": "SM_Wheat_Grass",
+      "era": "timeless-natural",
+      "condition": "dry-growth",
+      "addTags": ["crop", "dry-growth", "natural"]
+    },
+    {
+      "pathContains": "SM_Pumpkin",
+      "era": "timeless-natural",
+      "condition": "fresh-source-requires-desaturation",
+      "addTags": ["garden-produce", "story-trace"]
+    }
+  ]
+}

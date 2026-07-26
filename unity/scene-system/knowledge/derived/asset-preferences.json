@@ -1,0 +1,107 @@
+{
+  "items": [
+    {
+      "affinity": -0.25,
+      "category": "asset",
+      "context": {
+        "assetFamily": "modern-suv",
+        "assetRole": "Anchor",
+        "zoneId": "arrival"
+      },
+      "contextualExclusion": false,
+      "evidence": [
+        "historical-wend-hill-review-synthesis-v1:arrival-suv-mismatch"
+      ],
+      "key": "wend-hill|asset|arrival|modern-suv|Anchor",
+      "sceneId": "wend-hill"
+    },
+    {
+      "affinity": -0.25,
+      "category": "audio",
+      "context": {
+        "assetFamily": "continuous-drone",
+        "assetRole": "Support",
+        "zoneId": "background"
+      },
+      "contextualExclusion": false,
+      "evidence": [
+        "historical-wend-hill-review-synthesis-v1:continuous-drone-spaceship"
+      ],
+      "key": "wend-hill|audio|background|continuous-drone|Support",
+      "sceneId": "wend-hill"
+    },
+    {
+      "affinity": -0.25,
+      "category": "lighting",
+      "context": {
+        "zoneId": "background"
+      },
+      "contextualExclusion": false,
+      "evidence": [
+        "historical-wend-hill-review-synthesis-v1:pale-flat-lighting"
+      ],
+      "key": "wend-hill|lighting|background|*|*",
+      "sceneId": "wend-hill"
+    },
+    {
+      "affinity": -0.25,
+      "category": "visual",
+      "context": {
+        "assetFamily": "grave-marker",
+        "assetRole": "Detail",
+        "zoneId": "cemetery"
+      },
+      "contextualExclusion": false,
+      "evidence": [
+        "historical-wend-hill-review-synthesis-v1:cemetery-repetition"
+      ],
+      "key": "wend-hill|visual|cemetery|grave-marker|Detail",
+      "sceneId": "wend-hill"
+    },
+    {
+      "affinity": 0.25,
+      "category": "visual",
+      "context": {
+        "assetFamily": "chapel",
+        "assetRole": "Anchor",
+        "zoneId": "chapel"
+      },
+      "contextualExclusion": false,
+      "evidence": [
+        "historical-wend-hill-review-synthesis-v1:chapel-reframe"
+      ],
+      "key": "wend-hill|visual|chapel|chapel|Anchor",
+      "sceneId": "wend-hill"
+    },
+    {
+      "affinity": 0.25,
+      "category": "visual",
+      "context": {
+        "assetFamily": "coach-yard",
+        "assetRole": "Anchor",
+        "zoneId": "coach-yard"
+      },
+      "contextualExclusion": false,
+      "evidence": [
+        "historical-wend-hill-review-synthesis-v1:coach-yard-story"
+      ],
+      "key": "wend-hill|visual|coach-yard|coach-yard|Anchor",
+      "sceneId": "wend-hill"
+    },
+    {
+      "affinity": -0.25,
+      "category": "visual",
+      "context": {
+        "assetRole": "Detail",
+        "zoneId": "garden"
+      },
+      "contextualExclusion": false,
+      "evidence": [
+        "historical-wend-hill-review-synthesis-v1:garden-readability"
+      ],
+      "key": "wend-hill|visual|garden|*|Detail",
+      "sceneId": "wend-hill"
+    }
+  ],
+  "schemaVersion": 1
+}

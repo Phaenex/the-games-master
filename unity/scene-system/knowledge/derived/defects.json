@@ -1,0 +1,94 @@
+{
+  "items": [
+    {
+      "category": "visual",
+      "context": {
+        "assetFamily": "grave-marker",
+        "assetRole": "Detail",
+        "zoneId": "cemetery"
+      },
+      "defectId": "defect-432d8d57bc503904",
+      "eventKey": "historical-wend-hill-review-synthesis-v1:cemetery-repetition",
+      "note": "Repeated markers still read as placed instances rather than a naturally accumulated graveyard.",
+      "reviewerKind": "agent",
+      "sceneId": "wend-hill",
+      "severity": "medium",
+      "status": "open",
+      "tags": [
+        "repetition"
+      ]
+    },
+    {
+      "category": "audio",
+      "context": {
+        "assetFamily": "continuous-drone",
+        "assetRole": "Support",
+        "zoneId": "background"
+      },
+      "defectId": "defect-9e1a690a742e7b90",
+      "eventKey": "historical-wend-hill-review-synthesis-v1:continuous-drone-spaceship",
+      "note": "A continuous synthetic drone read as a spaceship instead of rural night ambience.",
+      "reviewerKind": "agent",
+      "sceneId": "wend-hill",
+      "severity": "high",
+      "status": "open",
+      "tags": [
+        "synthetic-drone",
+        "tonal-mismatch"
+      ]
+    },
+    {
+      "category": "visual",
+      "context": {
+        "assetRole": "Detail",
+        "zoneId": "garden"
+      },
+      "defectId": "defect-a7147543dee8a314",
+      "eventKey": "historical-wend-hill-review-synthesis-v1:garden-readability",
+      "note": "The garden's work story is present but does not read quickly enough from the route.",
+      "reviewerKind": "agent",
+      "sceneId": "wend-hill",
+      "severity": "medium",
+      "status": "open",
+      "tags": [
+        "readability"
+      ]
+    },
+    {
+      "category": "asset",
+      "context": {
+        "assetFamily": "modern-suv",
+        "assetRole": "Anchor",
+        "zoneId": "arrival"
+      },
+      "defectId": "defect-a9a6c6b6764d8a8e",
+      "eventKey": "historical-wend-hill-review-synthesis-v1:arrival-suv-mismatch",
+      "note": "The vehicle silhouette does not fully support the intended period-neutral arrival tone.",
+      "reviewerKind": "agent",
+      "sceneId": "wend-hill",
+      "severity": "high",
+      "status": "open",
+      "tags": [
+        "style-mismatch"
+      ]
+    },
+    {
+      "category": "lighting",
+      "context": {
+        "zoneId": "background"
+      },
+      "defectId": "defect-e6d8f938164c295a",
+      "eventKey": "historical-wend-hill-review-synthesis-v1:pale-flat-lighting",
+      "note": "Earlier fixed-exposure passes looked pale and flattened depth.",
+      "reviewerKind": "agent",
+      "sceneId": "wend-hill",
+      "severity": "high",
+      "status": "open",
+      "tags": [
+        "flat-depth",
+        "pale-exposure"
+      ]
+    }
+  ],
+  "schemaVersion": 1
+}

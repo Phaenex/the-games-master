@@ -1,0 +1,11 @@
+{
+  "$comment": "Unity packages this repo's synced sources need in order to COMPILE. The Unity project is not a git repository, so its Packages/manifest.json is not version controlled and a rebuilt or restored project silently loses these. checked by scripts/check-unity-packages.mjs.",
+  "packages": {
+    "com.unity.ai.navigation": {
+      "version": "2.0.13",
+      "neededBy": "unity/scenes/wend-hill-prologue/Editor/GmWendNavMesh.cs",
+      "why": "NavMeshSurface, for baking the prologue's walk corridor. The runtime query API is in com.unity.modules.ai and was always present; only baking needs this package.",
+      "note": "2.0.13 is the version Unity 6000.5.3f1 pins in its own package manifest. 2.0.8 fails to compile against this editor, calling the now obsolete-as-error Object.GetInstanceID()."
+    }
+  }
+}

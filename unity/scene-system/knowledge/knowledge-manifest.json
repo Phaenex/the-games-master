@@ -1,0 +1,16 @@
+{
+  "description": "Human-supervised scene quality memory. Derived files may be rebuilt; review sessions are immutable.",
+  "files": {
+    "adaptiveOverrides": "adaptive-overrides.json",
+    "approvedRules": "approved-rules.json",
+    "assetPreferences": "derived/asset-preferences.json",
+    "baselines": "baselines.json",
+    "defectResolutions": "defect-resolutions.json",
+    "defects": "derived/defects.json",
+    "historicalObservations": "historical-observations.json",
+    "reviewSessions": "review-sessions",
+    "ruleCandidates": "derived/rule-candidates.json"
+  },
+  "name": "The Games Master scene intelligence",
+  "schemaVersion": 1
+}

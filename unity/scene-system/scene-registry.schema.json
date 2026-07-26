@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://the-games-master.local/schemas/scene-registry.schema.json",
+  "title": "The Games Master Unity scene registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "defaultScene", "scenes"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "const": 1 },
+    "defaultScene": { "$ref": "#/$defs/sceneId" },
+    "scenes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/scene" }
+    }
+  },
+  "$defs": {
+    "sceneId": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "success"],
+      "properties": {
+        "method": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+$"
+        },
+        "success": { "type": "string", "minLength": 4 }
+      }
+    },
+    "tour": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "success", "logTag", "shots"],
+      "properties": {
+        "method": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+$"
+        },
+        "success": { "type": "string", "minLength": 4 },
+        "logTag": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+        "shots": { "type": "integer", "minimum": 1, "maximum": 99 }
+      }
+    },
+    "scene": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "displayName", "phase", "status", "sceneName", "scenePath",
+        "build", "audit", "tour"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/sceneId" },
+        "displayName": { "type": "string", "minLength": 2 },
+        "phase": { "type": "integer", "minimum": 0, "maximum": 10 },
+        "status": {
+          "enum": ["scaffold", "blockout", "in-progress", "review", "approved"]
+        },
+        "sceneName": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$" },
+        "scenePath": { "type": "string", "pattern": "^Assets/Scenes/.+\\.unity$" },
+        "sourceDir": { "type": "string", "pattern": "^unity/scenes/[a-z0-9-]+$" },
+        "build": { "$ref": "#/$defs/command" },
+        "audit": { "$ref": "#/$defs/command" },
+        "tour": { "$ref": "#/$defs/tour" }
+      }
+    }
+  }
+}

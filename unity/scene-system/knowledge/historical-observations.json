@@ -1,0 +1,105 @@
+{
+  "items": [
+    {
+      "createdAt": "2026-07-19T12:00:00.000Z",
+      "evidence": {
+        "buildFingerprint": "cb198edc4905ac2e",
+        "captureSet": "docs/playtest",
+        "notes": "Low-weight summary of prior agent reviews. These are leads, not Nick approvals."
+      },
+      "objectiveFindings": [],
+      "reviewer": {
+        "displayName": "Prior review synthesis",
+        "id": "historical-review-synthesis",
+        "kind": "agent"
+      },
+      "sceneId": "wend-hill",
+      "schemaVersion": 1,
+      "sessionId": "historical-wend-hill-review-synthesis-v1",
+      "verdicts": [
+        {
+          "category": "visual",
+          "context": {
+            "assetFamily": "grave-marker",
+            "assetRole": "Detail",
+            "zoneId": "cemetery"
+          },
+          "id": "cemetery-repetition",
+          "note": "Repeated markers still read as placed instances rather than a naturally accumulated graveyard.",
+          "tags": ["repetition"],
+          "verdict": "change"
+        },
+        {
+          "category": "visual",
+          "context": {
+            "assetRole": "Detail",
+            "zoneId": "garden"
+          },
+          "id": "garden-readability",
+          "note": "The garden's work story is present but does not read quickly enough from the route.",
+          "tags": ["readability"],
+          "verdict": "change"
+        },
+        {
+          "category": "asset",
+          "context": {
+            "assetFamily": "modern-suv",
+            "assetRole": "Anchor",
+            "zoneId": "arrival"
+          },
+          "id": "arrival-suv-mismatch",
+          "note": "The vehicle silhouette does not fully support the intended period-neutral arrival tone.",
+          "tags": ["style-mismatch"],
+          "verdict": "reject"
+        },
+        {
+          "category": "lighting",
+          "context": {
+            "zoneId": "background"
+          },
+          "id": "pale-flat-lighting",
+          "note": "Earlier fixed-exposure passes looked pale and flattened depth.",
+          "tags": ["flat-depth", "pale-exposure"],
+          "verdict": "reject"
+        },
+        {
+          "category": "audio",
+          "context": {
+            "assetFamily": "continuous-drone",
+            "assetRole": "Support",
+            "zoneId": "background"
+          },
+          "id": "continuous-drone-spaceship",
+          "note": "A continuous synthetic drone read as a spaceship instead of rural night ambience.",
+          "tags": ["synthetic-drone", "tonal-mismatch"],
+          "verdict": "reject"
+        },
+        {
+          "category": "visual",
+          "context": {
+            "assetFamily": "chapel",
+            "assetRole": "Anchor",
+            "zoneId": "chapel"
+          },
+          "id": "chapel-reframe",
+          "note": "The reframed chapel view now establishes its silhouette and route relationship.",
+          "tags": [],
+          "verdict": "keep"
+        },
+        {
+          "category": "visual",
+          "context": {
+            "assetFamily": "coach-yard",
+            "assetRole": "Anchor",
+            "zoneId": "coach-yard"
+          },
+          "id": "coach-yard-story",
+          "note": "Loading, feed, and repair groupings communicate distinct work activity.",
+          "tags": [],
+          "verdict": "keep"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 1
+}
