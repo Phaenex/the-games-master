@@ -873,8 +873,16 @@ than no list, because it is the part people read first.
 
 - **Why waypoint 2 fails to path.** Narrowed, not solved. Of the 3 waypoints that still fail, 2 are now
   explained: waypoint 9 and waypoint 10 sit at or past the canyon the route runs into (see the water-cut
-  section above), which the NavMesh bake correctly does not cover. Waypoint 2 is the one genuine mystery
-  left -- it fails mid-village, nowhere near the water -- and nobody has looked at why specifically.
+  section above), which the NavMesh bake correctly does not cover. Waypoint 2 sits in a tight walled
+  courtyard corner -- `SM_Wall_Corner_300x100`, a wood fence, and pipe props all within a couple of
+  metres -- and the path calculated toward it is `PathPartial`, stopping 1.6m short in Z with both ends
+  confirmed on the mesh. Checked whether any of that geometry is a real physical obstacle: NONE of it has
+  a Collider, wall, fence or pipe alike, which the CharacterController could not be blocked by even
+  though the real walk stalls 18m short of the same waypoint. That gap between "nothing here can block a
+  body" and "something here blocks the body" is the actual open question, and it points at the terrain
+  mesh or a NavMesh bake seam at that corner rather than at any prop. Not followed further: fixing a bake
+  seam by tuning agent parameters risks the 7 waypoints that already path correctly, and this is one
+  stall the walk already handles gracefully (sidesteps, then moves on).
 - **The route's last ~140m lead into a canyon with no lake mesh in it.** Investigated exhaustively this
   session (see above): there is no static signal that can tell this apart from a dry dip, so it stays
   unfixed at the route level on purpose. The walk stops itself at the water and says so, at 438-440m every
