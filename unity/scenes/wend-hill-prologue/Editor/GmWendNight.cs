@@ -166,7 +166,21 @@ public static class GmWendNight
     ///   -gmFogDimmer <f>        volumetric fog's ambient probe dimmer, default 1.0
     ///   -gmSkyExposureDrop <f>  stops taken off the pack's HDRI sky, default 5.5
     public const float DefaultPracticalScale = 0.06f;
-    public const float DefaultFogProbeDimmer = 1.0f;
+
+    /// COMMITTED at 0 on 2026-07-25, off a four-rung bracket measured along the walk rather than at a
+    /// single vantage, which is the mistake that voided two earlier values in this document.
+    ///
+    /// At the pack's default of 1 the volumetric fog takes full ambient, and because fog integrates
+    /// along the view ray that term dominates any open view while barely touching an enclosed one. The
+    /// street at 330m measured 0.556 against a 0.03 to 0.06 target and read on screen as pale blue
+    /// foggy DAYLIGHT, not as a bright night. At 0 the same frame measures 0.030 and reads as a
+    /// village night, with the enclosed forest unmoved. The fog still scatters DIRECT lamp light, so
+    /// the halo the fog quality pass was ported for survives.
+    ///
+    /// Bracket, whole-frame luma at matched distances: dimmer 1 / 0.5 / 0 gives 0.556 / 0.326 / 0.030
+    /// at 330m, and 0.024 / 0.019 / 0.016 at the enclosed spawn. Frames inside target went 2/26 to
+    /// 7/35, near-black frames stayed at zero, and max-to-min spread improved from 23x to 14x.
+    public const float DefaultFogProbeDimmer = 0.0f;
 
     /// The HDRI sky is the scene's ambient source, so this is the dial that lights SURFACES rather
     /// than the fog. It is a relative drop, not an absolute value, because the pack's own exposure is

@@ -65,6 +65,11 @@ public sealed class GmWendWalkProbe : MonoBehaviour
     double lastFrameAt;
     bool discardNextInterval;
 
+    /// Active renderers in the scene, sampled at each capture. This is a SCENE SIZE figure, not a
+    /// culling figure: it counts what exists and is enabled, not what the engine drew. Reported so the
+    /// memory numbers have something to be read against.
+    int peakRenderers;
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void Install()
     {
@@ -81,6 +86,18 @@ public sealed class GmWendWalkProbe : MonoBehaviour
     {
         Application.runInBackground = true;
         Directory.CreateDirectory(outputDirectory);
+
+        // vSync clamps every interval to a multiple of the display's refresh, so a pacing run with it
+        // on reports DELIVERED CADENCE and cannot see the difference between a frame that cost 17ms and
+        // one that cost 32ms. Both land on the same step. Opt in to turning it off when the question is
+        // what the scene actually costs rather than what the player actually saw.
+        if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-gmWendNoVSync") >= 0)
+        {
+            QualitySettings.vSyncCount = 0;
+            Application.targetFrameRate = -1;
+            Debug.Log("[GmWendWalkProbe] vSync OFF: this run measures frame cost, not delivered cadence");
+        }
+
         yield return null;
 
         GameObject playerGo = GameObject.Find("Player");
@@ -304,6 +321,11 @@ public sealed class GmWendWalkProbe : MonoBehaviour
         public float maximumMilliseconds;
         public int vSyncCount;
         public int targetFrameRate;
+        public long managedHeapBytes;
+        public long totalAllocatedBytes;
+        public long totalReservedBytes;
+        public long graphicsDriverBytes;
+        public int peakRendererCount;
     }
 
     /// Writes the traversal pacing next to the frames. Evidence, not a verdict: this is one Mac, and
@@ -341,6 +363,21 @@ public sealed class GmWendWalkProbe : MonoBehaviour
             maximumMilliseconds = sorted[sorted.Length - 1],
             vSyncCount = QualitySettings.vSyncCount,
             targetFrameRate = Application.targetFrameRate,
+
+            // Memory, sampled at the end of the walk rather than at the start, so it reflects a scene
+            // that has actually streamed 500m of village rather than one that just loaded.
+            //
+            // These are Unity's own runtime counters and they are honest about what they are: reserved
+            // is what Unity has taken from the OS, allocated is what is in use inside that. Neither is
+            // the process RSS, and neither includes what the graphics driver holds beyond the figure it
+            // reports. Culling is deliberately NOT reported: a shipped player exposes no visible-object
+            // count without a profiler connection, and a renderer count I computed by hand here would be
+            // my own frustum test rather than the one the engine actually ran.
+            managedHeapBytes = System.GC.GetTotalMemory(false),
+            totalAllocatedBytes = UnityEngine.Profiling.Profiler.GetTotalAllocatedMemoryLong(),
+            totalReservedBytes = UnityEngine.Profiling.Profiler.GetTotalReservedMemoryLong(),
+            graphicsDriverBytes = UnityEngine.Profiling.Profiler.GetAllocatedMemoryForGraphicsDriver(),
+            peakRendererCount = peakRenderers,
         };
 
         File.WriteAllText(Path.Combine(outputDirectory, "walk-performance.json"),
@@ -349,7 +386,13 @@ public sealed class GmWendWalkProbe : MonoBehaviour
         Debug.Log($"[GmWendWalkProbe] PERF over {walked:0}m: {document.width}x{document.height} " +
                   $"frames={document.sampleFrames} mean={document.meanMilliseconds:F2}ms " +
                   $"p50={document.p50Milliseconds:F2}ms p95={document.p95Milliseconds:F2}ms " +
-                  $"p99={document.p99Milliseconds:F2}ms max={document.maximumMilliseconds:F2}ms");
+                  $"p99={document.p99Milliseconds:F2}ms max={document.maximumMilliseconds:F2}ms " +
+                  $"vSync={document.vSyncCount}");
+        Debug.Log($"[GmWendWalkProbe] MEMORY: reserved={document.totalReservedBytes / (1024 * 1024)}MB " +
+                  $"allocated={document.totalAllocatedBytes / (1024 * 1024)}MB " +
+                  $"managed={document.managedHeapBytes / (1024 * 1024)}MB " +
+                  $"gfxDriver={document.graphicsDriverBytes / (1024 * 1024)}MB " +
+                  $"over {document.peakRendererCount} active renderer(s)");
     }
 
     /// The corners to steer through to reach `to`, from the baked NavMesh when there is one.
@@ -366,25 +409,55 @@ public sealed class GmWendWalkProbe : MonoBehaviour
     {
         var corners = new List<Vector3>();
 
-        if (NavMesh.SamplePosition(from, out NavMeshHit fromHit, NavSampleRadius, NavMesh.AllAreas) &&
-            NavMesh.SamplePosition(to, out NavMeshHit toHit, NavSampleRadius, NavMesh.AllAreas))
-        {
-            var path = new NavMeshPath();
-            if (NavMesh.CalculatePath(fromHit.position, toHit.position, NavMesh.AllAreas, path) &&
-                path.status != NavMeshPathStatus.PathInvalid &&
-                path.corners.Length > 1)
-            {
-                // corners[0] is where the player already stands, so steering at it does nothing.
-                for (int i = 1; i < path.corners.Length; i++) corners.Add(path.corners[i]);
+        // Already there. The player spawns AT route[0], so the first leg is zero length and the
+        // NavMesh correctly returns a single corner: where you are. Counting that as "walked straight"
+        // reported a pathfinding failure for standing still, and inflated the straight-line count by
+        // one in every run. Nothing to steer at, nothing to count.
+        if (Vector2.Distance(new Vector2(from.x, from.z), new Vector2(to.x, to.z)) <= ArriveRadius)
+            return corners;
 
-                if (path.status == NavMeshPathStatus.PathComplete) pathed++;
-                else straightLined++;
-                return corners;
-            }
+        // Each failure is named rather than lumped into one counter. "4 of 11 walked straight" does not
+        // say whether the mesh failed to reach the waypoint, failed to reach the PLAYER, or reached
+        // both and could not connect them, and those are three different fixes.
+        bool fromOn = NavMesh.SamplePosition(from, out NavMeshHit fromHit, NavSampleRadius, NavMesh.AllAreas);
+        bool toOn = NavMesh.SamplePosition(to, out NavMeshHit toHit, NavSampleRadius, NavMesh.AllAreas);
+
+        if (!fromOn || !toOn)
+        {
+            straightLined++;
+            Debug.LogWarning($"[GmWendWalkProbe] NAVMESH MISS: " +
+                             (!fromOn ? $"the player at {from} is not within {NavSampleRadius}m of the mesh. " : "") +
+                             (!toOn ? $"the waypoint at {to} is not within {NavSampleRadius}m of the mesh. " : "") +
+                             "The bake did not cover this, so this leg is walked in a straight line.");
+            corners.Add(to);
+            return corners;
         }
 
-        straightLined++;
-        corners.Add(to);
+        var path = new NavMeshPath();
+        bool built = NavMesh.CalculatePath(fromHit.position, toHit.position, NavMesh.AllAreas, path);
+
+        if (!built || path.status == NavMeshPathStatus.PathInvalid || path.corners.Length <= 1)
+        {
+            straightLined++;
+            Debug.LogWarning($"[GmWendWalkProbe] NAVMESH DISCONNECTED: both ends are on the mesh " +
+                             $"({fromHit.position} -> {toHit.position}) but no path connects them " +
+                             $"(built={built}, status={path.status}, corners={path.corners.Length}). " +
+                             "That means two separate mesh islands, not missing coverage.");
+            corners.Add(to);
+            return corners;
+        }
+
+        // corners[0] is where the player already stands, so steering at it does nothing.
+        for (int i = 1; i < path.corners.Length; i++) corners.Add(path.corners[i]);
+
+        if (path.status == NavMeshPathStatus.PathComplete) pathed++;
+        else
+        {
+            straightLined++;
+            Debug.LogWarning($"[GmWendWalkProbe] NAVMESH PARTIAL: the path to {to} stops short at " +
+                             $"{path.corners[path.corners.Length - 1]}, {path.corners.Length} corner(s). " +
+                             "Walking it anyway gets nearer than refusing to move.");
+        }
         return corners;
     }
 
@@ -433,6 +506,10 @@ public sealed class GmWendWalkProbe : MonoBehaviour
         if (File.Exists(path))
         {
             captures++;
+            int active = 0;
+            foreach (Renderer r in FindObjectsByType<Renderer>(FindObjectsSortMode.None))
+                if (r.enabled && r.gameObject.activeInHierarchy) active++;
+            if (active > peakRenderers) peakRenderers = active;
             Debug.Log($"[GmWendWalkProbe] shot {Path.GetFileName(path)} at {at} after {metreMark:0}m " +
                       $"bytes={new FileInfo(path).Length}");
         }

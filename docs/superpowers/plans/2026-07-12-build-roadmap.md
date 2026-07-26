@@ -2,16 +2,43 @@
 
 ## What's actually shipped today (verified against the repo, not assumed)
 
-- **Prologue, Entry Hall, Parlor** — playable, Test Harness passing. Entry Hall has 9 portrait POIs + ledger; Parlor has Corruption/Sanity/`cheatsCaught`/Read, all local session state.
-- **The invitation letter** is currently a static intro card in Prologue ("An Invitation," open it, walk on) — not the three-stage doubt-tracking reveal the story bible describes. That mechanic doesn't exist yet.
-- **No persistence system exists at all.** The only `localStorage` use anywhere in the codebase is a camera-bob toggle in Prologue. `cheatsCaught`, the ledger, corruption — none of it survives a page reload or carries between scenes.
-- **Court, Shut the Box, Labyrinth, and the hidden room don't exist as scenes.** Everything about them so far is design documents, not code.
+- **Prologue, Entry Hall, Parlor** — playable, Test Harness passing. Entry Hall has 9 portrait POIs + ledger; Parlor has Corruption/Sanity/`cheatsCaught`/Read.
+- **Shared modules** — `gm-doubt.js`, `gm-settings.js`, `gm-progress.js` exist; doubt letter stages and Options are wired; cross-scene `cheatsCaught` persistence has started.
+- **Car / gate / secret ending** — coded in Prologue; Phase 0 is fixing the opening’s visual truth (tiny car, doubled gate, empty final approach, unlit facade).
+- **Court, Shut the Box, Labyrinth, and the hidden room** still don’t exist as scenes.
+- **Local git** — `main` may be dozens of commits ahead of `origin/main`. Do **not** push without explicit approval.
 
-That's the real starting line. The roadmap below is ordered so each phase produces something playable and testable before the next one starts, following the build-order logic Art Direction already committed to (cheapest and lowest-risk first, Labyrinth last since it's the biggest and can slip to a later update without blocking anything else).
+That's the real starting line. Phase 0 is mandatory before Court. After that, keep the cheapest-first room order. Endings stay last: they need real Corruption, Sanity, `cheatsCaught`, shards, and hidden-room-found.
+
+## Playtest & panel gates (non-optional)
+
+| Checkpoint | What |
+|------------|------|
+| After Phase 0 | **Nick plays** the first 5 minutes before Court starts |
+| After Phase 2 | **Nick plays** + 9-persona AI panel (cross-room state first matters) |
+| After Phase 7 | **Nick plays** + AI panel (endings integration) |
+| Phase 9 | Final Nick play + AI panel + screenshot pass |
+
+Do **not** re-run the full AI panel after every phase. Do **not** treat AI-only reviews as human playtesting.
+
+## Phase 0 — Opening Rescue (FIRST)
+
+**Why first:** the shipping first minutes are wrong — toy-scale car, doubled gate monument, dressing that dies ~18 units before the house, facade that contradicts “lit up like a birthday.” Building Court on top of that wastes the only free marketing / retention window the browser build gets.
+
+**Plan:** `docs/superpowers/plans/2026-07-13-opening-rescue.md`
+
+- Measure-and-fix car scale (~4.4–4.8 length, ~1.55 height) + matching fallback
+- One coherent gate (sourced mesh + short closing leaves; no 12-unit arch)
+- Extend trees / lamps / urns / fence into the final approach
+- Warm facade glow from gate and mid-drive
+- Harness: `secretEnding`, gate-lock latch, car size sanity
+- Visual gate under `docs/playtest/screenshots/` — PASS/BORDERLINE/FAIL in `docs/PROGRESS.md`
+- Catalog `old_car` / `graveyard_gate` with honest LICENSE UNKNOWN until attribution is proven
+- **Gate out:** Nick playtest notes, then Phase 1
 
 ## Phase 1 — The Court
 
-**Why first:** cheapest of the three new rooms by design — Art Direction is explicit it should reuse the existing dining hall geometry re-dressed as a tribunal, not new hero geometry. It also has the most fully-specified mechanic of the three already (evidence cards, gavel tarnish).
+**Why after Phase 0:** cheapest of the three new rooms — re-dress dining hall as tribunal. Most fully-specified mechanic (evidence cards, gavel tarnish).
 
 - Re-dress an existing manor room: candelabra → bench, chairs → jury box, table → bar.
 - Jury dressing references the Entry Hall's 9 existing portraits — no new portrait assets needed.
@@ -30,6 +57,7 @@ That's the real starting line. The roadmap below is ordered so each phase produc
 - Three cheat types: palming, false calls, board tampering — plus the Hold catch action and its live on-screen tally.
 - The hidden-room door trigger: a correct Hold catching board-tampering specifically on tile 9.
 - Test Harness coverage: both boxes resolve correctly, Hold correctly flags real cheats and correctly penalizes false calls, tile-9 gate fires under the right condition and only that condition.
+- **Gate out:** Nick playtest + AI panel.
 
 **Known open item carried into this phase:** Gallery's secret young-Aldric portrait has no home in this design. Decide during this phase whether it gets folded in somewhere (an examine point in the old Gallery hall, now repurposed) or is formally dropped.
 
@@ -62,7 +90,7 @@ That's the real starting line. The roadmap below is ordered so each phase produc
 
 ## Phase 6 — The Labyrinth
 
-**Why last:** Art Direction says this explicitly — biggest, highest-risk, least like the other rooms, can ship in a later update without blocking the rest of the game. Grey-box the corridor kit and the stalking AI long before dressing it, per Art Direction's own recommendation.
+**Why last among rooms:** Art Direction says this explicitly — biggest, highest-risk, least like the other rooms, can ship in a later update without blocking the rest of the game. Grey-box the corridor kit and the stalking AI long before dressing it, per Art Direction's own recommendation.
 
 - 7×7 modular sliding-tile maze, grey-boxed first.
 - Real-time Huntsman AI: 30-turn fuse, proximity-based catch.
@@ -74,18 +102,19 @@ That's the real starting line. The roadmap below is ordered so each phase produc
 
 ## Phase 7 — The six endings
 
-**Why here:** this is the phase that actually reads everything the previous six phases built — Corruption, Sanity, `cheatsCaught` (needs Phase 5's shared state to count across rooms), 3+ shards (Phase 3), hidden room found (Phase 4). Building this earlier would mean building against state that doesn't exist yet.
+**Why here:** this is the phase that actually reads everything the previous phases built — Corruption, Sanity, `cheatsCaught` (needs Phase 5's shared state to count across rooms), 3+ shards (Phase 3), hidden room found (Phase 4). Building this earlier would mean building against state that doesn't exist yet. **Do not pull this forward.**
 
 - Wire the six conditions (Escape, Replacement, Pact, Collection, Cheat/true, Hollow) to real end-of-game triggers instead of design intent.
 - Build each ending's actual sequence/scripted moment.
 - Build the player's own invitation letter as a real stateful object with its three-stage reveal, replacing the current static intro card — this is a bigger lift than it sounds, since right now that letter is decorative.
 - Verify the 8+ cheats-caught threshold is actually reachable in a real playthrough — this has been a stated assumption since the design docs, never a playtested fact. This phase is where that either gets confirmed or the threshold gets adjusted.
+- **Gate out:** Nick playtest + AI panel.
 
 ## Phase 8 — Manor puzzles
 
 **Why last and independent:** these are Art Direction's own already-designed puzzles (tune the Study's viola, set the dice to a date, arrange the chess pieces as a lock, anagram a Court evidence word, a cross-game lock needing input from multiple rooms). They don't block anything above and nothing above blocks them — they can slot in whenever there's spare capacity, including in parallel with earlier phases if that's more efficient in practice.
 
-**Explicitly out of scope for this roadmap:** Bones, Study, and Wager are mentioned in Art Direction as part of the game's fuller 8-game roster, but they were never part of this design pass (which scoped to Parlor + "the legacy three" — Court, Gallery/Shut the Box, Labyrinth). Building them is a future expansion, not part of getting the current story to a complete, playable state.
+**Explicitly out of scope for this roadmap:** Bones, Study, and Wager are mentioned in Art Direction as part of the game's fuller 8-game roster, but they were never part of this design pass (which scoped to Parlor + "the legacy three" — Court, Gallery/Shut the Box, Labyrinth). Building them is a future expansion, not part of getting the current story to a complete, playable state. The Downloads/asset-dump Godot brief (8 games / 4 floors) is also out of scope.
 
 ## Phase 9 — Full testing & polish pass
 
@@ -93,11 +122,14 @@ That's the real starting line. The roadmap below is ordered so each phase produc
 - A real playtest for the 8+ cheats-caught arithmetic (flagged as unverified since the very first design draft).
 - Screenshot-and-fix pass across every new scene, every state (default, in-progress, success, error/edge-case), matching how the mansion-intro-polish work was verified — not just trusting the Test Harness's automated assertions.
 - Cross-scene persistence stress test: play through all six endings at least once each, confirm each resolves on real accumulated state, not a scripted shortcut like Parlor's current dev-menu `winGame` handler uses.
+- Final Nick play + AI panel.
 
 ---
 
 ## Sizing, roughly, relative to each other
 
-Court and the hidden room are the two smallest phases. Shut the Box and the persistence phase are medium — real new systems, but scoped and bounded. The endings phase and Labyrinth are the two big ones — Labyrinth because it's genuinely the hardest engineering (real-time AI, a maze, a deliberate art-direction break), the endings phase because it's the integration point where everything else has to actually work together for the first time. Manor puzzles are the most deferrable — real content, but nothing else depends on them.
+Phase 0 and Court/hidden room are the smaller finishes; Phase 0 is small in *code* but mandatory in *feel*. Shut the Box and persistence are medium. Labyrinth and endings are the two big ones. Manor puzzles stay deferrable.
 
-None of this is broken into TDD-level tasks yet — that's deliberate. Each phase above is sized to become its own spec-and-plan cycle (brainstorming → writing-plans → subagent-driven-development, the same process used for the mansion-intro-polish work) when it's time to actually start it, rather than front-loading a fully detailed task list for nine phases before the first one has even begun.
+Hall `.glb` props stay on disk for Entry Hall / Court upgrades — don’t mass-delete. Only drop proven duplicates after a side-by-side (e.g. `desk_google.glb` vs `desk_quaternius.glb`).
+
+None of the later phases are broken into TDD-level tasks here — each still gets its own spec-and-plan cycle when started. Phase 0’s detailed tasks live in `2026-07-13-opening-rescue.md`.

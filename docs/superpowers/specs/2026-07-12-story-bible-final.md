@@ -131,3 +131,4 @@ Only the first of these is a twist a player actually experiences. The rest are c
 - **Whether 8+ cheats-caught is actually reachable across a real playthrough** — reasoned as plausible (§3, Labyrinth section) but unverified without an actual playtest.
 - **Six endings as coded outcomes** — currently design intent. Corruption, Sanity, and a cheat counter exist in the Parlor prototype; none of the six endings are wired up yet.
 - **Whether a fourth, optional shard belongs inside the hidden room** — a nice-to-have, not committed to.
+- **House site history** — now locked in `2026-07-14-house-history.md` (coaching inn → club → failed manor → frozen invitation house). Wild West saloon brainstorm retired; does not change Aldric’s guest→host trap.

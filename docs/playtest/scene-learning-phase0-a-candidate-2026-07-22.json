@@ -1,0 +1,96 @@
+{
+  "createdAt": "2026-07-23T01:05:00.000Z",
+  "evidence": {
+    "buildFingerprint": "2c9c97b0db8dc80b",
+    "captureSet": "/Users/damato/GamesMaster-Unity/Screens/WendHill and Library/GmSceneIntelligence/standalone-proof",
+    "notes": "Objective Codex evidence only. This session records reusable integrity and display-readability outcomes; it does not approve taste or resolve Nick-gated defects."
+  },
+  "objectiveFindings": [
+    {
+      "actual": 6,
+      "category": "render-integrity",
+      "context": {
+        "assetFamily": "terrain-foliage",
+        "zoneId": "estate"
+      },
+      "evidencePath": "/Users/damato/GamesMaster-Unity/Logs/cli-audit-saved.log",
+      "expected": 6,
+      "id": "terrain-prototype-player-roots",
+      "metric": "player-instancable populated terrain prototypes",
+      "note": "All populated Terrain prototypes now satisfy the shared root renderer or root LODGroup contract.",
+      "severity": "error",
+      "status": "pass",
+      "subjectId": "wend-hill-estate-terrain"
+    },
+    {
+      "actual": 0,
+      "category": "render-integrity",
+      "context": {
+        "zoneId": "estate"
+      },
+      "evidencePath": "/Users/damato/GamesMaster-Unity/Library/GmSceneIntelligence/standalone-proof/player.log",
+      "expected": 0,
+      "id": "standalone-render-integrity-log",
+      "metric": "fatal render-integrity log findings",
+      "note": "The shared player and terminal policies found no Terrain-instancing or broken-shader failures.",
+      "severity": "error",
+      "status": "pass",
+      "subjectId": "macos-standalone-player"
+    },
+    {
+      "actual": 10,
+      "category": "display-readability",
+      "context": {
+        "shotName": "08-chapel",
+        "zoneId": "chapel"
+      },
+      "evidencePath": "/Users/damato/GamesMaster-Unity/Logs/cli-tour-attempt-1.log",
+      "expected": ">=9.5 mean luminance and >=24% pixels at luminance 10+",
+      "id": "chapel-display-robust-floor",
+      "metric": "canonical authored-grade readability",
+      "note": "Two earlier candidates failed this scene-specific gate; the retained candidate passes without changing global exposure.",
+      "severity": "warning",
+      "status": "pass",
+      "subjectId": "chapel-building"
+    },
+    {
+      "actual": 2,
+      "category": "input-accessibility",
+      "context": {
+        "zoneId": "ui"
+      },
+      "evidencePath": "/Users/damato/GamesMaster-Unity/Library/GmSceneIntelligence/standalone-proof/controller-02-pause-menu.png",
+      "expected": 2,
+      "id": "display-calibration-input-families",
+      "metric": "keyboard-controller calibration paths",
+      "note": "Keyboard arrows and controller D-pad adjust a persisted five-level, plus-or-minus 0.5-stop calibration around authored level zero.",
+      "severity": "info",
+      "status": "pass",
+      "subjectId": "project-display-calibration"
+    },
+    {
+      "actual": "clean",
+      "category": "capture-integrity",
+      "context": {
+        "zoneId": "estate"
+      },
+      "evidencePath": "/Users/damato/GamesMaster-Unity/Library/GmSceneIntelligence/standalone-proof",
+      "expected": "no probe interaction, story-card, controls or wind-toast residue in composition frames 02-07",
+      "id": "standalone-composition-ui-cleanliness",
+      "metric": "native composition capture contamination",
+      "note": "Controller UI remains proven in its two dedicated frames; scene composition frames are clean.",
+      "severity": "warning",
+      "status": "pass",
+      "subjectId": "standalone-proof-capture-set"
+    }
+  ],
+  "reviewer": {
+    "displayName": "Codex automated evidence",
+    "id": "codex-automation",
+    "kind": "automation"
+  },
+  "sceneId": "wend-hill",
+  "schemaVersion": 2,
+  "sessionId": "automation-wend-hill-a-candidate-integrity-2026-07-22",
+  "verdicts": []
+}

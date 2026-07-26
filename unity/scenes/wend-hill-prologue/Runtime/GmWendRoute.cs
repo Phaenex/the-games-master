@@ -33,7 +33,71 @@ public static class GmWendRoute
     const float SettlementRadius = 50f;  // how near a prop has to be to count as "the village is here"
     const int MinSettlementProps = 40;   // below this a road piece is countryside, not street
     const float MinSpacing = 12f;        // thin dense tiles so the walk advances instead of shuffling
-    const float WaterClearance = 1.0f;   // never route to a point at or below the water surface
+    public const float WaterClearance = 1.0f;   // never route to a point at or below the water surface
+
+    /// Cuts the route where it descends into the lake.
+    ///
+    /// A walk found this by going in: the last ~45m of the route were spent SUBMERGED, looking up at
+    /// the underside of the water surface, and the final waypoint sits at y=-22.80 against a spawn at
+    /// -0.81. The frames are a golden band of refracted light and nothing else, and no lighting work
+    /// can fix a prologue that ends underwater.
+    ///
+    /// Truncates on the water's HEIGHT ONLY, never on its footprint. That distinction is the whole
+    /// reason this is safe: two earlier attempts filtered on the water's axis-aligned bounding box and
+    /// both failed, the second instructively, because a winding river's AABB covers a great deal of dry
+    /// land and it excluded 43 of 57 road pieces including the entire village street. A height test
+    /// cannot do that, because the street is above the water and stays above it.
+    ///
+    /// Cuts rather than skips. Once the road has gone under, whatever follows is further in.
+    /// `groundAt` returns the walkable surface height under a waypoint. It is a parameter rather than a
+    /// direct terrain lookup so the decision stays testable, and because the FIRST version of this used
+    /// the waypoint's own Y and was wrong in a way worth recording: route waypoints are road-mesh
+    /// bounding-box CENTRES, not surface heights. The spawn's road mesh centres at y=-0.81 while the
+    /// terrain under it is at +0.68, and the lake surface is -0.8, so comparing waypoint Y to the water
+    /// excluded the entire village on the first run. The guard below caught it and reported rather than
+    /// returning an empty route, which is the only reason it was a log line instead of a broken walk.
+    public static List<Vector3> TruncateAtWater(
+        List<Vector3> route, Bounds[] water, System.Func<Vector3, float> groundAt, StringBuilder sb)
+    {
+        if (route.Count == 0 || water == null || water.Length == 0 || groundAt == null) return route;
+
+        float surface = float.MinValue;
+        foreach (Bounds w in water) surface = Mathf.Max(surface, w.max.y);
+
+        // SUBMERGED means the ground is under the water, with no safety margin added on top. That is not
+        // laziness, it is what the scene measured: the water surface sits at y=-0.8 and the village
+        // ground runs a little over half a metre above it, so a 1m margin, which is what this tried
+        // first, condemns the entire village as underwater and the guard below has to refuse the cut.
+        // There is no headroom here to spend on a margin.
+        float floor = surface;
+        int keep = route.Count;
+        for (int i = 0; i < route.Count; i++)
+        {
+            if (groundAt(route[i]) >= floor) continue;
+            keep = i;
+            break;
+        }
+
+        if (keep == route.Count)
+        {
+            sb?.AppendLine($"water: surface at y={surface:0.0}, no waypoint falls below " +
+                           $"{floor:0.0}, route kept whole");
+            return route;
+        }
+
+        // Never truncate to nothing. A route of one point is not a walk, and a water surface that
+        // somehow sits above the whole road is a scene problem to report rather than to obey.
+        if (keep < 2)
+        {
+            sb?.AppendLine($"water: surface at y={surface:0.0} would cut the route to {keep} " +
+                           "waypoint(s), which cannot be right; keeping it whole and reporting instead");
+            return route;
+        }
+
+        sb?.AppendLine($"water: surface at y={surface:0.0}, cutting {route.Count - keep} waypoint(s) " +
+                       $"that descend below {floor:0.0}. The route ended underwater before this.");
+        return route.GetRange(0, keep);
+    }
 
     /// Ordered walk, outside the village to the far end of its road. Empty if the scene has no road.
     public static List<Vector3> Build(out string report)
@@ -152,6 +216,32 @@ public static class GmWendRoute
                 continue;
             route.Add(p);
         }
+
+        // TruncateAtWater is DELIBERATELY NOT WIRED IN. It works, and its tests pass, but no signal
+        // available at route-build time reliably answers "would the player be underwater here" on this
+        // scene. Three attempts, each wrong for a different measured reason:
+        //
+        //   1. waypoint Y. Waypoints are road-mesh bounding-box centres, not surfaces. The spawn's mesh
+        //      centres at -0.81 while the terrain under it is +0.68, so the whole village read as
+        //      submerged and the cut was refused.
+        //   2. terrain height plus a 1m clearance. The village clears the water surface at y=-0.8 by
+        //      only about half a metre, so the margin alone condemned it. Refused again.
+        //   3. terrain height, no margin. This one FIRED and cut 7 of 11 waypoints, taking the walk from
+        //      517m to 158m, through village the contact sheet shows is plainly dry. So the terrain
+        //      itself dips below the water plane under the village while the player walks on road and
+        //      building meshes above it, which makes terrain height wrong too.
+        //
+        // The honest conclusion is that the walkable surface here is not the terrain and not the
+        // waypoint, so it would have to be found by raycasting for whatever collider the player would
+        // actually stand on. That is a real option and it is attempt four, which is where this stops
+        // and becomes a decision rather than another guess. The runtime alternative is better anyway:
+        // the walk probe knows the player's exact position every frame and can end the walk when the
+        // camera goes under, with no heuristic at all.
+        //
+        // Left in place, tested, and unused, because the analysis is worth more than the code.
+
+        sb.AppendLine("water: route NOT truncated; see GmWendRoute.TruncateAtWater for why the three " +
+                      "available surface signals are each wrong on this scene");
 
         float length = 0f;
         for (int i = 1; i < route.Count; i++)

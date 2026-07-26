@@ -1,0 +1,132 @@
+{
+  "when": "2026-07-23T01:13:31.368Z",
+  "sections": {
+    "perf": {
+      "calls": 3774,
+      "tris": 1041644,
+      "textures": 21
+    },
+    "geometry": {
+      "objectCount": 1489,
+      "kinds": {
+        "outerPier": 8,
+        "outerGate": 1,
+        "sidePath": 4,
+        "gatePlaque": 1,
+        "tuft": 548,
+        "rock": 161,
+        "log": 24,
+        "mound": 14,
+        "litter": 544,
+        "porchSideDark": 4,
+        "envOuterFence": 28,
+        "sidePathFence": 12,
+        "estateShed": 1,
+        "estateScarecrow": 1,
+        "estateBench": 1,
+        "estateGravePit": 1,
+        "estateShovel": 1,
+        "estateBucket": 1,
+        "estateChapelDoor": 1,
+        "estateWell": 1,
+        "estateBrasier": 2,
+        "estateTrough": 1,
+        "estateHandLantern": 1,
+        "chapelBaseWall": 3,
+        "estateCart": 1,
+        "carDress": 5,
+        "estateCoachHouse": 1,
+        "estateChapel": 1,
+        "tree": 18,
+        "arch": 1,
+        "ivy": 14,
+        "headstone": 26,
+        "statue": 1,
+        "ownedDeadTree": 10,
+        "leartesDeadWillow": 20,
+        "leartesGraveCross": 12,
+        "leartesCemeteryWall": 13,
+        "envPorchLamp": 2
+      },
+      "pois": 13
+    },
+    "coverage": {
+      "samples": 925,
+      "blocked": 129,
+      "stuck": [],
+      "rects": 8,
+      "blocks": 11
+    },
+    "walkthrough": {
+      "stops": 23,
+      "shots": [
+        "apt-walk-01-spawn",
+        "apt-walk-02-car",
+        "apt-walk-03-plaque",
+        "apt-walk-04-gate-through",
+        "apt-walk-05-cem-junction",
+        "apt-walk-06-cem-grave",
+        "apt-walk-07-cem-stag",
+        "apt-walk-08-cem-childs",
+        "apt-walk-09-cem-bench",
+        "apt-walk-10-lychgate",
+        "apt-walk-11-chapel-door",
+        "apt-walk-12-gdn-junction",
+        "apt-walk-13-gdn-fountain",
+        "apt-walk-14-gdn-scarecrow",
+        "apt-walk-15-gdn-well",
+        "apt-walk-16-gdn-shed",
+        "apt-walk-17-coach-yard",
+        "apt-walk-18-porch",
+        "apt-walk-19-auto-poi-1",
+        "apt-walk-20-auto-poi-2",
+        "apt-walk-21-auto-rect-1",
+        "apt-walk-22-auto-rect-3",
+        "apt-walk-23-auto-rect-6"
+      ]
+    },
+    "scenes": [
+      {
+        "scene": "hall",
+        "booted": true,
+        "errors": 0,
+        "phasesShot": 5
+      },
+      {
+        "scene": "court",
+        "booted": true,
+        "errors": 0,
+        "phasesShot": 4
+      },
+      {
+        "scene": "stb",
+        "booted": true,
+        "errors": 0,
+        "phasesShot": 1
+      }
+    ]
+  },
+  "findings": [
+    {
+      "severity": "MED",
+      "section": "geometry",
+      "what": "floating",
+      "where": "envPorchLamp(-2.35,-51.82)",
+      "detail": "min.y=3.05 (bottom hangs in the air)",
+      "suggest": "ground it: y offset or re-seat"
+    },
+    {
+      "severity": "MED",
+      "section": "geometry",
+      "what": "floating",
+      "where": "envPorchLamp(2.35,-51.82)",
+      "detail": "min.y=3.05 (bottom hangs in the air)",
+      "suggest": "ground it: y offset or re-seat"
+    }
+  ],
+  "counts": {
+    "HIGH": 0,
+    "MED": 2,
+    "LOW": 0
+  }
+}
