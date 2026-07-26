@@ -1,8 +1,9 @@
 # Wend Hill night: the ladder restart, and the bug that was making everything else unreadable
 
 Written 2026-07-25. Everything here is in `Assets/Scenes/WendHill_Prologue.unity`, built by
-`GmWendBuilder` from the purchased Abandoned Village. Nothing is committed. Nothing is persisted to
-the scene file yet either, which is covered under Still open.
+`GmWendBuilder` from the purchased Abandoned Village. The sources are now committed, under
+`unity/scenes/wend-hill-prologue/` in the games-master repo; the scene itself is a generated artifact
+and deliberately is not.
 
 Supersedes `docs/VILLAGE-ATMOSPHERE-PASS.md` for the night look. That pass is still worth reading for
 fog albedo, `affectsVolumetric` and the EV sign, but its scene and its numbers are retired.
@@ -606,49 +607,59 @@ Not verified, and this list matters more than the one above:
 
 ## Still open
 
-- **The walk still reads 188m of a 580m route with 9 stalls, because it has not been re-run.** The
-  NavMesh is baked and the probe paths through it, so the number is expected to move, but expected is
-  not measured. THE NEXT THING TO DO IS BUILD THE PLAYER AND WALK IT. That single run also produces the
-  first frame-time numbers and the first distance-named frames, so it closes three open items at once.
-- **The boundary is untested by a player.** Four walls and a catch height are in the saved scene and the
-  contract passes on them by value. Nobody has walked into a wall or fallen through a gap.
-- **Saves are not wired into this scene.** `GmVillageSave` is added by `GmVillageBuilder` only, which is
-  the retired village builder, so no save component exists in the prologue at all. Its restore decision
-  is now pure and tested, both refusals included, because both fail silently: a save from another scene
-  drops the player at coordinates that mean something else here, and a save taken at the spawn moves
-  nobody while looking like it loaded. Whether the prologue SHOULD have saves yet is a design call and
-  has not been made.
-- **The spawn moved.** It is now the start of the route, at the sparse end, walking into the village. It
-  used to be the centroid of the road network, which is not a place. Every frame in this document that
-  predates that change was shot from the old spawn.
-- **The player is verified for ONE frame, at spawn.** Whole-frame luma 0.059 against the editor's 0.059,
-  ratio 1.01, band ratios 0.88 to 1.08. What has not been checked is the rest of the walk, anything in
-  motion, or any other vantage. One frame proves the camera and the exposure reach the player; it does
-  not prove the scene holds up for 180m.
+Rewritten after the walk ran. The previous version of this list had gone stale in the worst way: it
+still said the walk had not been re-run and the sources were not committed, both of which had been
+done further up the same document. A list of open items that contradicts the record above it is worse
+than no list, because it is the part people read first.
 
-  Capture it with the app's own probe, never with `screencapture`:
+**Needs a decision, not work**
 
-      "Builds/macOS-Wend/Wend Hill Prologue.app/Contents/MacOS/The Games Master" \
-        -gmVillageSelfProbe /tmp/shot.png
+- **No value has been promoted.** `globalLightProbeDimmer = 0` is the recommendation and the evidence
+  for it is above, but the code default is still 1.0 and nobody has picked it. In this project
+  committed values get chosen deliberately; that has not happened here.
+- **Saves are not wired into this scene.** `GmVillageSave` is added only by `GmVillageBuilder`, the
+  retired village builder. Its restore decision is pure and tested, both silent refusals included.
+  Whether the prologue should have saves yet is a design call.
 
-  `GmVillageSelfProbe` reads the app's own backbuffer and needs no screen-recording permission. Its
-  header already documented that macOS `screencapture` cannot capture third-party window content in this
-  automation environment, and that was rediscovered the hard way over three wasted attempts. The name
-  says Village because it predates this scene; it is generic and it works here unchanged.
-- **The forward-view review reading** is unexplained, per the section above.
-- **The lamp line** may want its own rung. It is the loudest feature in every bracket frame.
-- **No perf pass, but the harness is in place.** The walk probe samples traversal frame pacing and
-  writes `walk-performance.json` alongside the frames, excluding screenshot and sidestep intervals
-  because those measure the harness rather than the game. Genuine hitches are deliberately not filtered
-  by magnitude. It produces nothing until a walk runs. Still no memory or culling measurement.
-- **No audio verified by ear.** The scene now mixes from the player's ear rather than one of 30
-  listeners, which is a different claim and a smaller one.
+**The real remaining lighting work, and it is not a dial**
+
+- **Light distribution.** After the fog fix the spread is still 14x max to min. Every further global
+  dimming rung made that worse, up to 149x, because lamp-lit ground has a floor that ambient does not
+  scale. What is left is too little light BETWEEN the lamps, which is placement work.
+- **The lamp line** may still want its own rung. It is the loudest feature in every bracket frame.
+- **The forward-view review anomaly** is still unexplained: the review rig reads 0.026 where the ladder
+  reads 0.059 from the same position and rotation, while the rear look agrees to about 1%. One
+  hypothesis, accumulated render history, was tested and disproven.
+
+**Testable, just not tested yet**
+
+- **63m of the route.** The walk reaches 517m of 580m with 1 stall, and 4 of 11 waypoints still fail to
+  path and get walked straight. Why those four fail is the open question, most likely bake coverage.
+- **The route ends in a lake.** `GmWendRoute` reports its chosen cluster `overlaps water` and the final
+  waypoint is at y=-22.80. The walk survives it now that the floor test is terrain relative, but the
+  prologue walking into a lake is a route quality problem nobody has decided about.
+- **The boundary walls have never been walked into.** Four walls are in the saved scene and the contract
+  passes on them by value. Zero catch-plane fires over 517m is weak evidence, not a test: the route
+  never goes near the map edge.
+- **Memory and culling.** Frame pacing is measured now; neither of those is.
+- **True GPU cost.** Every pacing number so far was taken with vSync on, so they are delivered cadence
+  quantised to the display interval, not frame cost. A vSync-off run would say what the scene actually
+  costs.
+- **The starfield sky port from `GmVillageSky`** has not been started.
+
+**Cannot be tested here**
+
+- **Anything by ear.** Check 9 fixes WHICH listener is live. Nobody has listened to this scene.
+
+**Housekeeping**
+
+- **`Packages/manifest.json` and `Assets/Scripts/GmVillageSave.cs` are unversioned.** The navigation
+  package addition and the restore-decision extraction both live only in the Unity project, which is
+  not a git repository and is not part of the synced source set.
+- **The rest of `unity/` is untracked.** Only `unity/scenes/wend-hill-prologue/` and the registry were
+  committed. The 44 shared scene-system sources the registry depends on are still untracked from
+  before, so a fresh clone would fail `unity:scene:sync`.
+- **The scene and app on disk are an experimental variant**, whatever the last bisect rung built. A
+  flagless `BuildCommittedNight` restores the documented control.
 - **The prologue's systems are not in this scene.** It is the purchased village plus a player plus the
   night. The rare events, the estate and the beats still live in the retired builder's scene.
-- **The Wend sources are in the repository but not committed.** They are tracked files under
-  `unity/scenes/wend-hill-prologue/` now rather than loose on disk, and `npm run unity:scene:check`
-  passes on 61 files. The repo working tree also carries a large amount of unrelated uncommitted work,
-  so nothing was swept into a commit.
-- **`GmVillageSave.cs` is still outside version control.** It lives in `Assets/Scripts/` in the Unity
-  project, which is not part of the synced source set, so the restore-decision extraction made to it
-  this session is unversioned even though its tests are not.
