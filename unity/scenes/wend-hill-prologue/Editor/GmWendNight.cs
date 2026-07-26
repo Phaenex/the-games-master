@@ -640,6 +640,12 @@ public static class GmWendNight
         // broken build.
         int wallsFixed = GmWendWallTint.Apply();
 
+        // Neutralises the grass albedo tint -- a second, independent bug on the same materials
+        // GmWendFoliage already owns for their emission, found by looking harder at frames that already
+        // passed the written standard. Must run after GmWendFoliage.Apply() above so the owned grass
+        // copies already exist to be found rather than re-copied.
+        int grassFixed = GmWendGrassTone.Apply();
+
         PracticalsToNight();
         SetExposure(CommittedExposureEV);
 
@@ -659,7 +665,8 @@ public static class GmWendNight
                 $"the committed night changed the lighting census: {before} -> {after}");
 
         Debug.Log($"[{LogTag}] committed night applied at EV {CommittedExposureEV} (census {after}), " +
-                  $"NavMesh {navArea:0}m^2, {gapLamps} gap lamp(s), {wallsFixed} wall slot(s) de-tinted");
+                  $"NavMesh {navArea:0}m^2, {gapLamps} gap lamp(s), {wallsFixed} wall slot(s) de-tinted, " +
+                  $"{grassFixed} grass slot(s) de-tinted");
     }
 
     /// STEP 3. Builds the scene and SAVES it, then reopens it from disk and audits it.

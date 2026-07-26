@@ -853,6 +853,57 @@ against a wall, still bright and motion-blurred, but the wall is neutral grey no
 by eye: `walk-0330m.png` and `walk-0345m.png` now show a normal aged white-plaster wall with visible
 brick weathering, and `walk-0360m.png`'s close pass is a neutral grey blur instead of a mint-green one.
 
+## "It still doesn't feel right": the grass was the bigger problem
+
+Every number above was passing. Told to keep looking anyway rather than trust the written standard, and
+a plain re-read of frames the standard had already cleared found it: `walk-0105m.png`, `walk-0135m.png`,
+`walk-0180m.png` and `walk-0210m.png` all show the SAME deeply saturated blood-red grass filling the
+lower third to half of the frame, in villages shots that have nothing to do with the 360m collision
+event. None of the written standard's numbers (luma band, green-cast, blowout) are built to catch an
+oversaturated ORANGE foreground, which is exactly why it survived every measurement while being the
+first thing a person looks at.
+
+Traced to `M_grass` and `M_grass 2` (Shader Graphs/S_Wind, the same shader `GmWendFoliage.cs` already
+owns copies of to kill their emission): both carry an `_Albedo_Tint` biased off neutral, and `M_grass`
+additionally carries `_Albedo_Intensity = 2.2`, more than doubling its albedo contribution. Same
+mechanism as every other defect in this document -- invisible against the pack's 2000 lux daylight,
+dominant at this scene's night exposure -- on a THIRD property family this time (tint was walls,
+intensity is new).
+
+**Built the short-walk tool first, because guessing wrong here would repeat the starfield mistake.**
+`-gmWendWalkMaxMetres <n>` stops the walk early (150m instead of the full ~439m, 78 seconds instead of
+several minutes) specifically so a hypothesis can be tested against the actual frames it should change
+before paying for a full walk. It earned its cost immediately:
+
+- **Round 1**, tint neutralised alone (`GmWendGrassTone`, same luma-preserving neutralise as the wall
+  fix, generalised to catch bias in ANY direction since `M_grass 2`'s bias is green while `M_grass 1`'s
+  is warm): rebuilt, short-walked to 150m, looked at walk-0105m/135m. Unchanged. Still deeply saturated
+  orange. Tint was not the driver.
+- **Round 2**, `_Albedo_Intensity` reset from 2.2 to 1.0 as well: rebuilt, short-walked the same 150m
+  segment. Confirmed by eye immediately -- the foreground grass went from an overwhelming red-orange
+  mass to a properly dark, naturalistic silhouette with warmth only where a lamp actually lights it.
+
+Full walk after both fixes together, same route, same script:
+
+|                   | before | after |
+|-------------------|--------|-------|
+| band fails        | 2/30   | 2/30 (same two: 315m metric, 360m collision) |
+| walk-0105m/135m/180m/210m grass | deeply saturated orange | dark, naturalistic |
+
+The band-fail count does not move, and should not: neither of the two failing frames was ever about
+grass. What moved is everything the written standard was never measuring -- confirmed by eye across the
+whole walk, not by a new number.
+
+**Scoped, not exhaustive.** `M_grass` and `M_grass 2` cover 728 renderer material slots, the ground
+cover in every frame. `M_grass 1` (tree-attached undergrowth) and `M_Leaf` (canopy) only reach the scene
+through terrain tree prototypes -- the more involved prefab-owning path `GmWendFoliage.OwnedPrefab`
+already implements for emission -- and were left alone rather than guessed at: `M_Leaf`'s tint is
+already neutral and its intensity sits BELOW 1, the opposite direction from every confirmed defect, with
+no measured evidence pointing at it. A faint residual warmth is still visible in some mid-depth grass
+(walk-0210m.png) that the fix's 8m-radius spot-check didn't identify a specific unfixed material for;
+given the dramatic improvement already confirmed and no further defect isolated, this is logged rather
+than chased further.
+
 ## Three more attempts at the water cut, and why none of them are wired in
 
 `TruncateAtWater` and `RaycastGroundY` already existed; this section is attempts five and six trying to
