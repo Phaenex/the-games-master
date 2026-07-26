@@ -105,9 +105,21 @@ public static class GmWendBuilder
             $"{directional} directional, {practical} practical, {volumes} volumes";
     }
 
+    /// Counts the PACK's lighting only.
+    ///
+    /// Lights we add ourselves are excluded by ancestry, because the census exists to catch a builder
+    /// deleting what the pack shipped and that question is unanswerable if our own additions are mixed
+    /// into the same number. With this, "24 practical" keeps meaning "the artist's 24 are all still
+    /// here" no matter how many lamps the gap-filling step adds.
+    static bool IsOurs(Component c) =>
+        c.transform.root.name == GmWendLamps.RootName ||
+        c.GetComponentInParent<Transform>()?.root?.name == GmWendLamps.RootName;
+
     public static LightingCensus TakeCensus()
     {
-        Light[] lights = UnityEngine.Object.FindObjectsByType<Light>(FindObjectsInactive.Include);
+        Light[] lights = UnityEngine.Object.FindObjectsByType<Light>(FindObjectsInactive.Include)
+            .Where(l => !IsOurs(l))
+            .ToArray();
         return new LightingCensus
         {
             directional = lights.Count(l => l.type == LightType.Directional),

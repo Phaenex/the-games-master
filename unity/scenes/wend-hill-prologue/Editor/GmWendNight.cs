@@ -171,6 +171,8 @@ public static class GmWendNight
     ///   -gmSSR <f>              screen space reflections, 0 off / 1 on, default 0
     ///   -gmMoonElevation <f>    moon elevation in degrees, default 24
     ///   -gmLampEmissive <f>     lamp glass emissive target, default 1.5
+    ///   -gmGapLamps <f>         fill unlit route gaps with lamps, 0 off / 1 on, default 1
+    ///   -gmExposureEV <f>       fixed exposure EV, default -1.35. HIGHER is DARKER
     public const float DefaultPracticalScale = 0.06f;
 
     /// COMMITTED at 0 on 2026-07-25, off a four-rung bracket measured along the walk rather than at a
@@ -221,6 +223,10 @@ public static class GmWendNight
     /// surfaces themselves.
     public const float DefaultLampEmissive = 1.5f;
 
+    /// Gap lamps ON by default. This is the only change measured to move p5, the darkest frames, which
+    /// stayed at 0.012 through every other lever including a five times practical increase.
+    public const float DefaultGapLamps = 1f;
+
     static float PracticalScale = DefaultPracticalScale;
     static float FogProbeDimmer = DefaultFogProbeDimmer;
     static float SkyExposureDrop = DefaultSkyExposureDrop;
@@ -229,6 +235,7 @@ public static class GmWendNight
     static float SSR = DefaultSSR;
     static float MoonElevation = DefaultMoonElevation;
     static float LampEmissive = DefaultLampEmissive;
+    static float GapLamps = DefaultGapLamps;
 
     /// Parses the overrides and SAYS what it read, including when it read nothing. A bisect that
     /// silently ignored its flag would produce a frame identical to the control and get recorded as
@@ -244,6 +251,8 @@ public static class GmWendNight
         SSR = ReadFlag("-gmSSR", DefaultSSR);
         MoonElevation = ReadFlag("-gmMoonElevation", DefaultMoonElevation);
         LampEmissive = ReadFlag("-gmLampEmissive", DefaultLampEmissive);
+        GapLamps = ReadFlag("-gmGapLamps", DefaultGapLamps);
+        CommittedExposureEV = ReadFlag("-gmExposureEV", DefaultExposureEV);
 
         Debug.Log($"[{LogTag}] bisect: PracticalScale={PracticalScale} FogProbeDimmer={FogProbeDimmer} " +
                   $"SkyExposureDrop={SkyExposureDrop} MoonLux={MoonLux} IndirectDiffuse={IndirectDiffuse} " +
@@ -554,7 +563,15 @@ public static class GmWendNight
     /// A third of a stop is deliberately small. The frames that need help are the dark ones and the ones
     /// that do not are already near the top of the band, so the correction has to be smaller than the
     /// spread it is fixing.
-    public const float CommittedExposureEV = -1.35f;
+    public const float DefaultExposureEV = -1.35f;
+
+    /// Static so exposure can be bracketed WITH ambient. Those two are the pair that matters: ambient
+    /// adds a constant and compresses the spread, exposure multiplies and moves the whole frame, so
+    /// raising ambient to close the ratio and then darkening to taste is the move. Neither alone works,
+    /// which is why every single-lever rung before this scored the same 2 of 4.
+    ///
+    /// Higher EV is DARKER. The bracket in this document reads 0.0 -> 0.016, -1.0 -> 0.059, -2.0 -> 0.198.
+    public static float CommittedExposureEV = DefaultExposureEV;
 
     /// Lux for the moon. Audited by GmWendSceneContract, so changing it here without rebuilding the
     /// scene makes the build refuse rather than ship a scene that no longer matches the recipe.
@@ -601,6 +618,11 @@ public static class GmWendNight
         PracticalsToNight();
         SetExposure(CommittedExposureEV);
 
+        // Fill the unlit stretches. After PracticalsToNight so the gap measurement sees the pack's
+        // lamps at their NIGHT values, and before the census check below so adding lamps is proven not
+        // to disturb the pack's own lighting.
+        int gapLamps = GapLamps > 0.5f ? GmWendLamps.Apply() : 0;
+
         // The NavMesh belongs here and NOT in GmWendBuilder.BuildBase, which the ladder calls once per
         // rung, ten times a run, to render stills from a rig that never walks anywhere. Baking there
         // would pay the cost ten times over for frames nobody paths through.
@@ -612,7 +634,7 @@ public static class GmWendNight
                 $"the committed night changed the lighting census: {before} -> {after}");
 
         Debug.Log($"[{LogTag}] committed night applied at EV {CommittedExposureEV} (census {after}), " +
-                  $"NavMesh {navArea:0}m^2");
+                  $"NavMesh {navArea:0}m^2, {gapLamps} gap lamp(s)");
     }
 
     /// STEP 3. Builds the scene and SAVES it, then reopens it from disk and audits it.
