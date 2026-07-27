@@ -1026,18 +1026,46 @@ one-line `AddComponent`, not new work.
 
 **Testable, just not tested yet**
 
-- **Why waypoint 2 fails to path.** Narrowed, not solved. Of the 3 waypoints that still fail, 2 are now
-  explained: waypoint 9 and waypoint 10 sit at or past the canyon the route runs into (see the water-cut
-  section above), which the NavMesh bake correctly does not cover. Waypoint 2 sits in a tight walled
-  courtyard corner -- `SM_Wall_Corner_300x100`, a wood fence, and pipe props all within a couple of
-  metres -- and the path calculated toward it is `PathPartial`, stopping 1.6m short in Z with both ends
-  confirmed on the mesh. Checked whether any of that geometry is a real physical obstacle: NONE of it has
-  a Collider, wall, fence or pipe alike, which the CharacterController could not be blocked by even
-  though the real walk stalls 18m short of the same waypoint. That gap between "nothing here can block a
-  body" and "something here blocks the body" is the actual open question, and it points at the terrain
-  mesh or a NavMesh bake seam at that corner rather than at any prop. Not followed further: fixing a bake
-  seam by tuning agent parameters risks the 7 waypoints that already path correctly, and this is one
-  stall the walk already handles gracefully (sidesteps, then moves on).
+- **CLOSED 2026-07-27.** Why the walk stalls even when the NavMesh reports a complete path. Waypoint 2's
+  own mystery (nothing physical within metres of the stall) turned out not to generalise: it was never
+  re-investigated with a real tool, just re-described by hand each time it came up. Built
+  `GmWendStallDiagnostic.cs` (menu "Diagnose a stall position", `-gmWendStallAt x,y,z`) to actually answer
+  the question instead of re-deriving it by eye -- lists every waypoint's distance from a given point,
+  every collider within a radius sorted by distance, and NavMesh coverage at that exact point. Kept as a
+  permanent tool, not a one-off script, because this was the second time the same question needed asking
+  and it will not be the last.
+
+  Run against a fresh stall this session (waypoint 6, `(-11.11, 0.22, -20.24)`, no `NAVMESH PARTIAL` or
+  `MISS` logged beforehand -- a reportedly COMPLETE path): 71 colliders within 10m, several under half a
+  metre away (`SM_Wood_10` at 0.30m, two barrels at 0.44m each) -- a real yard-clutter prop cluster
+  (barrels, wood planks, pipes, fence) the mesh's own complete path still ran the character straight
+  into. Reproduced identically at full frame rate in an unrecorded run (same position to 2 decimal
+  places), so this is a genuine route defect, not a recording-load artifact.
+
+  **First fix attempt, tried and reverted.** Made the sidestep recovery obstacle-aware: cast the
+  controller's own capsule forward and step off the actual hit normal instead of guessing a fixed
+  perpendicular to the travel direction. Sounded strictly better and measured strictly worse, twice: 4
+  stalls over 350m, then (after fixing an obvious flaw where both attempts read the same normal and tried
+  the same direction) 3 stalls over 373m -- both worse than the 2-stall, 379m baseline. The blind
+  alternating strafe's real strength turned out to be that it tries two genuinely different directions
+  without needing to reason about the obstacle's shape; an informed guess that happens to be wrong once
+  costs more than an uninformed guess that is at least reliably different the second time. Reverted
+  rather than iterated a third way with no new hypothesis for why it would work.
+
+  **Second fix attempt: just give the proven strategy more tries.** `MaxSidesteps` raised from 2 to 4,
+  no other change. Verified twice: **0 stalls over 541m and 542m**, against a 2-stall, 379-441m baseline
+  -- the walk now reaches the water on its own rather than exhausting its recovery budget first. The
+  clutter cluster needed 3 blind attempts, not 2; nothing else about the route needed touching. Video
+  confirmation of the same stretch walking cleanly: `recordings/wend-hill-stall-fix-verification-2026-07-27.mov`.
+
+  Worth being precise about scope: this fixes the WALK PROBE's reliability, not gameplay code.
+  `GmWendWalkProbe` is diagnostic-only, inert on a normal launch including Nick's (see its own header
+  comment), and `GmPlayer` -- what a human actually plays with -- was not touched. The probe walks in
+  perfectly straight lines at each NavMesh corner with no steering; a human player looking at a barrel
+  cluster would naturally route around it the way this blind probe cannot. So the practical risk to an
+  actual walkthrough was likely smaller than the "camera jammed into wood" screenshots first suggested --
+  but the fix is real regardless, because it means far more of the route is now verified end-to-end
+  instead of going dark at whichever prop cluster the probe's old 2-attempt budget couldn't clear.
 - **The route's last ~140m lead into a canyon with no lake mesh in it.** Investigated exhaustively this
   session (see above): there is no static signal that can tell this apart from a dry dip, so it stays
   unfixed at the route level on purpose. The walk stops itself at the water and says so, at 438-440m every

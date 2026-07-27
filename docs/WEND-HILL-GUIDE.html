@@ -383,6 +383,7 @@
       <tr><td class="mono">node scripts/unity-cli.mjs test</td><td>EditMode test suite (all scenes)</td></tr>
       <tr><td class="mono">node scripts/unity-cli.mjs scenes</td><td>list the scene registry, no Unity launch</td></tr>
       <tr><td class="mono">node scripts/unity-cli.mjs report</td><td class="mono">GmSceneReportWriter.WriteWendHillReport</td></tr>
+      <tr><td class="mono">-executeMethod GmWendStallDiagnostic.RunMenu -gmWendStallAt x,y,z</td><td>lists every waypoint's distance from a point, every collider within radius, and NavMesh coverage there — for diagnosing a real stall, not guessing</td></tr>
       <tr><td class="mono">node scripts/unity-cli.mjs pacing</td><td>Wend Hill cadence/perf evidence</td></tr>
     </tbody>
   </table>
@@ -598,6 +599,30 @@
     accumulation) was tested and disproven. Not settled — if you're chasing a forward-view number that
     looks too dark, check whether it's this known anomaly before trusting it.</p>
   </div>
+
+  <div class="trap">
+    <span class="tag new">found and fixed this session</span>
+    <h4>A NavMesh "complete" path doesn't mean the CharacterController can actually walk it</h4>
+    <p>The walk-probe's blind sidestep recovery used to get 2 tries and would eventually give up and
+    log a STALLED event, screenshotting the camera jammed point-blank into whatever it was stuck on.
+    <code>GmWendStallDiagnostic</code> (new tool, see the CLI reference above) found the real cause at
+    one such stall: 71 real colliders within 10m, several under half a metre away — a yard-clutter
+    prop cluster (barrels, wood, fence) that <code>NavMesh.CalculatePath</code> reported as a fully
+    connected route straight through anyway.</p>
+    <p><strong>The instructive part is the failed fix.</strong> Making the recovery "smarter" —
+    step off the actual obstacle's collision normal instead of guessing a fixed perpendicular —
+    sounded obviously better and measured worse, twice (4 stalls/350m, then 3/373m, against a
+    2-stall/379m baseline). The blind approach's real strength was trying two genuinely different
+    directions without needing to reason about the obstacle; an informed guess that's wrong once costs
+    more than an uninformed one that's at least reliably different the second time. The fix that
+    actually worked was the boring one: keep the dumb strategy, just give it more tries
+    (<code>MaxSidesteps</code> 2→4). <strong>0 stalls over 541-542m</strong>, verified twice.</p>
+    <p class="dim">Scope check: this fixed the walk PROBE, not gameplay. <code>GmPlayer</code> — what a
+    human actually plays with — was untouched. A real player looking at a barrel cluster just steers
+    around it; this blind straight-line probe couldn't. The fix matters because it means far more of
+    the route is now verified end-to-end, not because the old behavior meant a human would get stuck
+    too.</p>
+  </div>
 </section>
 
 <section id="open">
@@ -605,7 +630,7 @@
   <table>
     <thead><tr><th>item</th><th>status</th></tr></thead>
     <tbody>
-      <tr><td>Waypoint 2 fails to path (NavMesh)</td><td class="dim">stalls 18m short; nothing physical blocks it, likely a bake-seam issue at a tight courtyard corner. Walk handles it gracefully (sidesteps, moves on) so not urgent.</td></tr>
+      <tr><td>Walk-probe stalls on prop clutter</td><td class="dim"><strong>FIXED 2026-07-27.</strong> <code>MaxSidesteps</code> raised 2&rarr;4 after <code>GmWendStallDiagnostic</code> found real colliders (barrels, wood, fence) at the stall point. 0 stalls over 541-542m now, up from 2 stalls / 379-441m. See the trap below for the full story, including a smarter-sounding fix that measured worse and was reverted.</td></tr>
       <tr><td>Route's last ~140m runs into a canyon with no lake mesh</td><td class="dim">deliberately unfixed at the route level — walk stops itself at the water every time, see the water-cut trap above. Whether the prologue should end at the shore is a level design decision.</td></tr>
       <tr><td>Starfield sky port from GmVillageSky</td><td class="dim">not started — needs its own moon+fill-light recipe or it'll black out the night just tuned</td></tr>
       <tr><td>Memory and culling</td><td class="dim">frame pacing is measured now; neither of these is</td></tr>

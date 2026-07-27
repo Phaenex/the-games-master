@@ -39,7 +39,12 @@ public sealed class GmWendWalkProbe : MonoBehaviour
     const float MaxSeconds = 480f;      // sidesteps cost time; the old 300s cut the walk short
     const float StallSeconds = 5f;
     const float SidestepSeconds = 1.6f;
-    const int MaxSidesteps = 2;
+    // Raised from 2 after the waypoint-6 clutter finding: the blind alternating strafe reliably beat
+    // a smarter obstacle-aware direction (see the reverted attempt above), which means the two tries
+    // it already gets are the right STRATEGY, just possibly not enough of them for a wide prop
+    // cluster. More attempts at the same proven strategy is a distinct hypothesis from a cleverer
+    // strategy, not a repeat of the one that already failed twice.
+    const int MaxSidesteps = 4;
     const float StallDistance = 0.75f;
     const float FellOutOfWorld = 25f;   // metres below the spawn means the floor stopped existing
 
@@ -271,12 +276,26 @@ public sealed class GmWendWalkProbe : MonoBehaviour
                         // pack placed without a collider, or about the controller's own skin width. A
                         // stall AFTER a path was returned is the interesting case, because it means the
                         // mesh and the body that walks it disagree.
+                        //
+                        // TRIED AND REVERTED, recorded because it is a real dead end rather than an
+                        // untried idea: stepping off the actual CapsuleCast hit normal on the first
+                        // attempt, diagnosed against a real stall this session (GmWendStallDiagnostic
+                        // found real colliders -- barrels, wood props, a fence -- 0.3-0.4m from the
+                        // stall position at a yard clutter cluster the mesh's own COMPLETE path still
+                        // ran through). It sounded strictly better than a blind guess and measured
+                        // strictly worse, twice, on the same route: 4 stalls over 350m and then 3 over
+                        // 373m, against this blind alternating strafe's 2 over 379m. The obstacle-aware
+                        // reading is not wrong exactly, it is just no better informed than the blind
+                        // guess turns out to need to be for THIS scene's clutter -- and it cost the
+                        // direction diversity that made two blind attempts already effective at finding
+                        // an opening on whichever side actually has one. Left unrepeated rather than
+                        // retried a third way without a new hypothesis for why it would work this time.
                         if (sidesteps < MaxSidesteps)
                         {
                             sidesteps++;
                             Debug.Log($"[GmWendWalkProbe] blocked {distance:0.0}m short of waypoint {i}, " +
                                       $"sidestep {sidesteps} of {MaxSidesteps}");
-                            yield return Sidestep(cc, playerGo, flat, sidesteps % 2 == 1 ? 1f : -1f);
+                            yield return Sidestep(cc, flat, sidesteps % 2 == 1 ? 1f : -1f);
                             stallTimer = 0f;
                             bestDistance = float.MaxValue;
                             continue;
@@ -519,7 +538,7 @@ public sealed class GmWendWalkProbe : MonoBehaviour
     }
 
     /// Strafes perpendicular to the blocked direction, to get out from behind a prop.
-    IEnumerator Sidestep(CharacterController cc, GameObject go, Vector3 forward, float sign)
+    IEnumerator Sidestep(CharacterController cc, Vector3 forward, float sign)
     {
         Vector3 side = Vector3.Cross(Vector3.up, forward.normalized).normalized * sign;
         float until = Time.realtimeSinceStartup + SidestepSeconds;
