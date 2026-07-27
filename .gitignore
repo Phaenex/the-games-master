@@ -1,3 +1,9 @@
 node_modules/
 .DS_Store
 .playwright-mcp/
+
+# Unity bulk staging (~36GB). Use scripts/unity-bulk-convert.mjs to regenerate.
+assets/models/unity-import/
+
+# Screen recordings of built games -- large binaries, not source, not repeatable byte-for-byte.
+recordings/
