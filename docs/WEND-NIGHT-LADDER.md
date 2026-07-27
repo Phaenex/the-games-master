@@ -1040,9 +1040,13 @@ one-line `AddComponent`, not new work.
   time this session, so no measurement is polluted by it. Whether the prologue should end at the shore,
   turn before it, or go somewhere else entirely is still a level decision, now backed by six documented
   dead ends instead of three.
-- **The boundary walls have never been walked into.** Four walls are in the saved scene and the contract
-  passes on them by value. Zero catch-plane fires over 440m is weak evidence, not a test: the route
-  never goes near the map edge.
+- **CLOSED 2026-07-26.** The boundary walls had never been walked into -- four walls in the saved scene
+  and a contract that only passes on them by value was weak evidence, not a test, since the route never
+  goes near the map edge. `GmWendWallProbe.cs` already existed for exactly this (drive the real
+  `CharacterController` into each wall for 9s and check it cannot pass through) but had never been run.
+  Run this session, opt-in via `-gmWendWallTest <dir>`: **4 wall(s) held, 0 breached**, each stopping
+  2.4m short of its own plane after 9s of walking straight into it. Genuinely tested now, not just
+  present.
 - **Memory and culling.** Frame pacing is measured now; neither of those is.
 - **The starfield sky port from `GmVillageSky`** has not been started.
 
