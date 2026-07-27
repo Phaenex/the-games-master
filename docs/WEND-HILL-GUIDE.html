@@ -231,6 +231,32 @@
     <li>The route runs to a lake at roughly 439m and stops there on purpose — see "Still open" below,
       that ending is a level design question, not a bug.</li>
   </ul>
+
+  <h3>Controls</h3>
+  <p>Pulled directly from <code class="mono">Assets/Resources/Input/GmControls.inputactions</code>,
+  not guessed:</p>
+  <table>
+    <tbody>
+      <tr><td class="mono">WASD</td><td>move</td></tr>
+      <tr><td class="mono">Mouse</td><td>look</td></tr>
+      <tr><td class="mono">E</td><td>interact</td></tr>
+      <tr><td class="mono">Escape</td><td>pause / resume (toggles)</td></tr>
+      <tr><td class="mono">Q</td><td><strong>while paused</strong> — quits the game cleanly</td></tr>
+      <tr><td class="mono">← / →</td><td><strong>while paused</strong> — display brightness calibration, one of five levels</td></tr>
+      <tr><td class="mono">F8</td><td>a dev/review wind-profile A/B toggle — not a normal-play control, safe to ignore if pressed by accident</td></tr>
+    </tbody>
+  </table>
+  <div class="callout warn">
+    <strong>Pause shows no on-screen menu in this scene</strong>
+    <p>Checked directly in <code>GmPlayer.cs</code>: pressing Escape freezes time and frees the mouse
+    cursor (that cursor reappearing is the only visible sign anything happened) but renders no pause
+    UI here — there's no pause-menu Canvas wired into Wend Hill. This is existing behaviour of the
+    shared player controller, not something this pass changed, and building a real pause menu is out
+    of scope for a "tighten before the walkthrough" pass. If the screen looks frozen and the mouse
+    pointer is visible: that's pause, not a hang. Escape again resumes; Q while paused quits; and
+    <code>Cmd+Q</code> (or just closing the window) always works as a fallback regardless of
+    in-game state.</p>
+  </div>
   <p class="dim">Verified this session, boot-to-idle: launched with zero flags, left running
   untouched for 30 real seconds, confirmed the process was still alive and the log had zero
   exceptions/errors. (Some benign Unity warnings about negative-scale colliders on purchased-pack
