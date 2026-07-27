@@ -1048,14 +1048,12 @@ one-line `AddComponent`, not new work.
 
 **Cannot be tested here**
 
-- **Anything by ear.** Checked what there actually is to hear, since this environment has no speakers or
-  ears to judge it with regardless: zero. `FindObjectsByType<AudioSource>` over the built scene returns
-  **0**, including inactive ones. Check 9 fixes which of the 30 `AudioListener`s is live, but there is
-  nothing playing into it. This is not "nobody has listened yet" so much as "there is no sound design in
-  this scene yet" -- no ambient bed, no footsteps, no lamp hum, nothing. The pack's own ambient loops
-  from `assets/sfx/` (crickets, owl, wind, gravel and leaf steps -- already in the repo, unused here) are
-  the obvious next step, but adding them and judging the result both need a human ear this session does
-  not have.
+- **Anything by ear.** UPDATED 2026-07-26, see "Ambient audio" below: the scene now has real
+  AudioSources with real clips wired to the player, verified by value after a genuine reload and by a
+  clean 150m run with zero runtime errors. What is still true, and always will be in this environment:
+  judging whether the MIX is right -- is the wind too loud, do the footsteps feel wrong on stone, is
+  the owl too frequent -- needs a human ear this session does not have. That part of the gate is
+  Nick's, not closed by anything below.
 
 **Housekeeping**
 
@@ -1074,3 +1072,61 @@ one-line `AddComponent`, not new work.
   (settle + traversal + 30-some screenshot readbacks) routinely runs past a 2-minute default, so the
   shell kills the player mid-route rather than the walk finishing on its own. Both full walks this
   session used a 600s timeout on the direct binary launch and completed cleanly to the water every time.
+- **The walk needs a real window, not `-nographics`.** Launching the built binary with
+  `-batchmode -nographics` for a quick 150m sanity check produced 10 STALLED waypoints in the first
+  3m -- nothing like the 2-stall, 379m+ runs recorded elsewhere in this document. Re-run identically
+  except for dropping `-nographics`, the same 150m short walk completed with 0 stalls. Not diagnosed
+  further because a real window is cheap to provide and the failure mode was not the interesting part
+  of the run; recorded so the next person does not read a 10-stall log and conclude the NavMesh broke.
+
+## Ambient audio: from zero AudioSources to something wired and verified
+
+2026-07-26. Closes the loudest item on the "still open" list above: the built scene had **zero**
+`AudioSource`s, not "unjudged by ear" but nothing playing into the one live `AudioListener` at all.
+
+**Reused rather than reinvented, but only half of it.** A mature, licensed ambient system already
+exists -- `GmAmbience.cs` in `~/GamesMaster-Unity/Assets/Scripts`, with a full 144-clip library already
+imported at `Assets/Resources/Sfx` (footsteps across six surfaces, wind beds, wildlife) -- built for the
+retired village pass after Nick called an earlier version "like being on a spaceship": three continuous
+beds (wind, dark drone, crickets) stacked and never stopping. Its VALUES are exactly right and are
+reused verbatim: one quiet modulated wind bed (0.07-0.12), sparse cricket/owl one-shots on long random
+timers, distance-driven footsteps, never a second continuous bed. Its POSITIONS are not reused: its
+wind-gust and wildlife anchors are hand-placed coordinates in the retired estate's own layout, and
+planting them here would be the exact mistake this scene's lighting work spent a week correcting -- a
+value right for one place, applied unchanged to a different one.
+
+New, Wend-scoped files instead: `GmWendAmbience.cs` (Editor, derives anchor positions from
+`GmWendRoute` the same way `GmWendLamps` derives gap-lamp positions -- densify the route, sample every
+N metres, offset sideways so a source sits beside the walked line rather than on it) and
+`GmWendAmbienceSource.cs` (Runtime, plays what `Apply()` already built; it constructs nothing itself,
+so nothing here can fail to serialize the way a runtime-constructed graph could). Footsteps use one
+pooled rotation across all five surface prefixes the clip library ships rather than the retired scene's
+per-material `GmSurfaceTag` lookup, because the purchased Abandoned Village pack was never tagged --
+an honest simplification, not a hidden one.
+
+Wired into `GmWendNight.ApplyCommitted`, after the NavMesh bake and before the final census check
+(ambience is not lighting, so it needs no exemption from that check, the same reason gap lamps and the
+NavMesh are ordered there). `GmWendSceneContract` gained check 10: the player has a
+`GmWendAmbienceSource`, its wind bed carries a looping clip, its footstep pool is non-empty, its
+cricket anchors are non-empty -- checked by value after a genuine reload, the same reason check 7
+exists.
+
+**Verified, by running it this session:**
+- 189/189 EditMode tests pass, including 5 new tests pinning the anchor-placement rule (offset from
+  the route, stride controls spacing, consecutive anchors alternate sides, degenerate zero-length legs
+  are skipped rather than producing NaN).
+- A `BuildCommittedNight` run logs `wired: wind bed 'amb_wind_natural', 40 footstep clip(s), 9 cricket
+  anchor(s) (clip=True), 3 owl anchor(s) (clip=True)` and the lighting census is unchanged (1
+  directional, 24 practical, 30 volumes) -- confirms the fix touches no light.
+- A standalone `GmWendSceneContract.AuditMenu` run against the saved file, a separate process reading
+  from disk, logs `10/10 checks pass ... ambience wired (40 footstep clips, 9 cricket anchors)`.
+- A built app, launched directly with `-gmWendWalk` and `-gmWendWalkMaxMetres 150`, walked 150m with
+  0 stalls and the ambience component's `Update()` running the whole time (footsteps triggering on
+  movement, wind modulating, wildlife timers ticking); the log contains zero exceptions, zero
+  `NullReferenceException`s, zero errors of any kind.
+
+**Not verified, and cannot be from here:** whether any of it sounds right. The wind volume band
+(0.07-0.12), the footstep cadence, the wildlife timers are the retired scene's already-reviewed
+numbers, not re-guessed ones, but "already reviewed for a different scene" is not the same claim as
+"correct for this one." That judgment needs a human ear, same as it always has, and this pass does not
+close it -- it makes there something to judge for the first time.

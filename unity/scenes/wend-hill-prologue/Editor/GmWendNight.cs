@@ -659,6 +659,11 @@ public static class GmWendNight
         // would pay the cost ten times over for frames nobody paths through.
         float navArea = GmWendNavMesh.Apply();
 
+        // Ambience. Not lighting, so it sits before the census check below rather than needing its own
+        // exemption from it -- the same reason gap lamps and the NavMesh are ordered here rather than
+        // after. See GmWendAmbience for why this scene had zero AudioSources until now.
+        (int cricketAnchors, int owlAnchors, int footstepClips) ambience = GmWendAmbience.Apply();
+
         GmWendBuilder.LightingCensus after = GmWendBuilder.TakeCensus();
         if (!before.Equals(after))
             throw new InvalidOperationException(
@@ -666,7 +671,8 @@ public static class GmWendNight
 
         Debug.Log($"[{LogTag}] committed night applied at EV {CommittedExposureEV} (census {after}), " +
                   $"NavMesh {navArea:0}m^2, {gapLamps} gap lamp(s), {wallsFixed} wall slot(s) de-tinted, " +
-                  $"{grassFixed} grass slot(s) de-tinted");
+                  $"{grassFixed} grass slot(s) de-tinted, ambience {ambience.cricketAnchors} cricket / " +
+                  $"{ambience.owlAnchors} owl anchor(s), {ambience.footstepClips} footstep clip(s)");
     }
 
     /// STEP 3. Builds the scene and SAVES it, then reopens it from disk and audits it.

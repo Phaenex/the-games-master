@@ -7,7 +7,7 @@
 // repoints the pack's own materials. A crashed run leaves a scene that has every root the purchased
 // pack ships, opens fine, builds fine, and is broad daylight.
 //
-// So this audits the night itself. Nine checks, each one a thing that a stale, half-built or
+// So this audits the night itself. Ten checks, each one a thing that a stale, half-built or
 // reverted-on-reload scene fails:
 //
 //   1. the player exists and has an eye to render from
@@ -19,6 +19,7 @@
 //   7. nothing in the scene still uses an ungated emissive foliage material
 //   8. the map edge is closed, by four walls and a configured catch height
 //   9. exactly one live AudioListener, and it is the player's
+//  10. the player actually has something wired into that listener
 //
 // Check 7 is the one that catches the specific way this could silently regress. The foliage fix
 // repoints scene renderers and terrain tree prototypes in memory; if either failed to serialize, the
@@ -54,7 +55,7 @@ public static class GmWendSceneContract
         UnityEditor.SceneManagement.EditorSceneManager.OpenScene(
             GmWendBuilder.ScenePath, UnityEditor.SceneManagement.OpenSceneMode.Single);
         List<string> failures = Audit();
-        if (failures.Count == 0) Debug.Log($"[{LogTag}] PASS: all 9 checks green");
+        if (failures.Count == 0) Debug.Log($"[{LogTag}] PASS: all 10 checks green");
         else Debug.LogError($"[{LogTag}] FAIL:\n  - {string.Join("\n  - ", failures)}");
         EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
     }
@@ -189,11 +190,35 @@ public static class GmWendSceneContract
             failures.Add($"the only live AudioListener is '{ears[0].name}', which is not under " +
                          $"'{GmWendBuilder.PlayerName}'");
 
+        // 10. Ambience actually exists, wired to the player, by value after a genuine reload.
+        //
+        // The same shape of failure as check 7: a runtime-constructed audio graph that failed to
+        // serialize would still open, still build, and still pass everything above it, while the
+        // scene shipped exactly as silent as it started. GmWendAmbience builds its AudioSources and
+        // assigns their clips at EDIT time for exactly this reason -- so there is something on disk
+        // for this check to find rather than something a Start() method would have to construct.
+        GmWendAmbienceSource ambience =
+            player != null ? player.GetComponentInChildren<GmWendAmbienceSource>(true) : null;
+        if (ambience == null)
+            failures.Add($"'{GmWendBuilder.PlayerName}' has no GmWendAmbienceSource: the scene would " +
+                         "ship as silent as it started");
+        else
+        {
+            if (ambience.windBed == null || ambience.windBed.clip == null || !ambience.windBed.loop)
+                failures.Add("ambience wind bed has no looping clip assigned");
+            if (ambience.footstepPool == null || ambience.footstepPool.Length == 0)
+                failures.Add("ambience footstep pool is empty");
+            if (ambience.cricketAnchors == null || ambience.cricketAnchors.Length == 0)
+                failures.Add("ambience has no cricket anchors derived from the route");
+        }
+
         if (failures.Count == 0)
-            Debug.Log($"[{LogTag}] 9/9 checks pass: player, census ({census}), moon " +
+            Debug.Log($"[{LogTag}] 10/10 checks pass: player, census ({census}), moon " +
                       $"{GmWendNight.MoonLux} lux, owned profile, fixed EV " +
                       $"{GmWendNight.CommittedExposureEV}, one live camera, zero foliage emitters, " +
-                      "closed map edge, one live ear");
+                      "closed map edge, one live ear, ambience wired " +
+                      $"({ambience.footstepPool.Length} footstep clips, " +
+                      $"{ambience.cricketAnchors.Length} cricket anchors)");
 
         return failures;
     }
