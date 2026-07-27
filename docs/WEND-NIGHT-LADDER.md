@@ -1,5 +1,9 @@
 # Wend Hill night: the ladder restart, and the bug that was making everything else unreadable
 
+**Quick reference for opening the project, the menu-item trap, live tuning, the CLI, and the current
+committed recipe:** `docs/WEND-HILL-GUIDE.html` (open directly in a browser, no build step). This file
+is the narrative underneath that reference — every bracket, every dead end, every measurement.
+
 Written 2026-07-25. Everything here is in `Assets/Scenes/WendHill_Prologue.unity`, built by
 `GmWendBuilder` from the purchased Abandoned Village. The sources are now committed, under
 `unity/scenes/wend-hill-prologue/` in the games-master repo; the scene itself is a generated artifact

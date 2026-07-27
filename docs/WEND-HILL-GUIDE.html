@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wend Hill Prologue — Lighting &amp; Fixes Guide</title>
+<style>
+  :root{
+    --bg:#0d1016; --bg-panel:#12161f; --bg-raised:#171c27; --border:#262c3a;
+    --text:#dfe4ee; --text-dim:#8b93a7; --text-faint:#5b6478;
+    --accent:#7db8ff; --accent-dim:#3d6a9c;
+    --warn-bg:#2a1f10; --warn-border:#6b4e17; --warn-text:#e8c988;
+    --danger-bg:#2a1315; --danger-border:#7a2530; --danger-text:#f2a3ac;
+    --ok-bg:#122a1c; --ok-border:#1f6b3f; --ok-text:#8fe0b0;
+    --code-bg:#0a0c11;
+    --mono: "SF Mono", ui-monospace, Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --bg:#f5f6f8; --bg-panel:#ffffff; --bg-raised:#eef0f4; --border:#dde1e8;
+      --text:#1a1f2b; --text-dim:#565f72; --text-faint:#8a92a3;
+      --accent:#1c5fa8;
+      --warn-bg:#fdf3dd; --warn-border:#e0b555; --warn-text:#7a5713;
+      --danger-bg:#fbe6e8; --danger-border:#d9707c; --danger-text:#8f202b;
+      --ok-bg:#e4f6ec; --ok-border:#4fae7c; --ok-text:#166339;
+      --code-bg:#f0f1f4;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0d1016; --bg-panel:#12161f; --bg-raised:#171c27; --border:#262c3a;
+    --text:#dfe4ee; --text-dim:#8b93a7; --text-faint:#5b6478;
+    --accent:#7db8ff; --warn-bg:#2a1f10; --warn-border:#6b4e17; --warn-text:#e8c988;
+    --danger-bg:#2a1315; --danger-border:#7a2530; --danger-text:#f2a3ac;
+    --ok-bg:#122a1c; --ok-border:#1f6b3f; --ok-text:#8fe0b0; --code-bg:#0a0c11;
+  }
+  :root[data-theme="light"]{
+    --bg:#f5f6f8; --bg-panel:#ffffff; --bg-raised:#eef0f4; --border:#dde1e8;
+    --text:#1a1f2b; --text-dim:#565f72; --text-faint:#8a92a3; --accent:#1c5fa8;
+    --warn-bg:#fdf3dd; --warn-border:#e0b555; --warn-text:#7a5713;
+    --danger-bg:#fbe6e8; --danger-border:#d9707c; --danger-text:#8f202b;
+    --ok-bg:#e4f6ec; --ok-border:#4fae7c; --ok-text:#166339; --code-bg:#f0f1f4;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; }
+  body{
+    background:var(--bg); color:var(--text); font-family:var(--sans);
+    font-size:15px; line-height:1.55;
+  }
+  a { color:var(--accent); }
+
+  .layout{ display:flex; min-height:100vh; }
+
+  nav.toc{
+    width:260px; flex:0 0 260px; background:var(--bg-panel); border-right:1px solid var(--border);
+    padding:20px 14px 60px; position:sticky; top:0; height:100vh; overflow-y:auto;
+  }
+  nav.toc h1{ font-size:15px; margin:0 0 2px; line-height:1.3; }
+  nav.toc .sub{ font-size:12px; color:var(--text-faint); margin-bottom:14px; }
+  #searchBox{
+    width:100%; padding:7px 9px; margin-bottom:14px; background:var(--bg-raised);
+    border:1px solid var(--border); border-radius:6px; color:var(--text); font-size:13px;
+  }
+  nav.toc ul{ list-style:none; padding:0; margin:0 0 16px; }
+  nav.toc li a{
+    display:block; padding:5px 8px; border-radius:5px; color:var(--text-dim);
+    text-decoration:none; font-size:13px;
+  }
+  nav.toc li a:hover{ background:var(--bg-raised); color:var(--text); }
+  nav.toc .section-label{
+    font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-faint);
+    margin:14px 0 4px 8px;
+  }
+  #themeToggle{
+    font-size:12px; padding:5px 9px; border:1px solid var(--border); border-radius:6px;
+    background:var(--bg-raised); color:var(--text-dim); cursor:pointer; margin-bottom:6px;
+  }
+
+  main{ flex:1 1 auto; max-width:920px; padding:36px 48px 120px; }
+  header.top{ margin-bottom:36px; }
+  header.top h1{ font-size:26px; margin:0 0 6px; }
+  header.top p{ color:var(--text-dim); margin:0; max-width:70ch; }
+
+  section{ margin-bottom:52px; scroll-margin-top:18px; }
+  section h2{
+    font-size:19px; margin:0 0 6px; padding-bottom:8px; border-bottom:1px solid var(--border);
+  }
+  section h3{ font-size:15px; margin:22px 0 8px; color:var(--text); }
+  section > p.intro{ color:var(--text-dim); margin-top:8px; }
+  p { color:var(--text); }
+  p.dim, li.dim { color: var(--text-dim); }
+
+  code{
+    font-family:var(--mono); background:var(--code-bg); padding:1px 5px; border-radius:4px;
+    font-size:.9em; border:1px solid var(--border);
+  }
+  pre{
+    background:var(--code-bg); border:1px solid var(--border); border-radius:8px;
+    padding:12px 14px; overflow-x:auto; position:relative; margin:10px 0;
+  }
+  pre code{ background:none; border:none; padding:0; font-size:13px; white-space:pre; }
+  .copy-btn{
+    position:absolute; top:8px; right:8px; font-size:11px; padding:3px 8px;
+    background:var(--bg-raised); border:1px solid var(--border); border-radius:5px;
+    color:var(--text-dim); cursor:pointer;
+  }
+  .copy-btn:hover{ color:var(--text); }
+
+  table{ width:100%; border-collapse:collapse; margin:12px 0 4px; font-size:13.5px; }
+  th, td{ text-align:left; padding:7px 10px; border-bottom:1px solid var(--border); vertical-align:top; }
+  th{ color:var(--text-faint); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.03em; }
+  tr.safe td:first-child{ color:var(--ok-text); }
+  tr.quits td:first-child{ color:var(--danger-text); }
+  td.mono, th.mono { font-family:var(--mono); font-size:12.5px; }
+
+  .callout{ border-left:3px solid; border-radius:6px; padding:10px 14px; margin:14px 0; font-size:14px; }
+  .callout p{ margin:4px 0; }
+  .callout.warn{ background:var(--warn-bg); border-color:var(--warn-border); color:var(--warn-text); }
+  .callout.danger{ background:var(--danger-bg); border-color:var(--danger-border); color:var(--danger-text); }
+  .callout.ok{ background:var(--ok-bg); border-color:var(--ok-border); color:var(--ok-text); }
+  .callout strong{ display:block; margin-bottom:3px; font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+
+  details{
+    background:var(--bg-panel); border:1px solid var(--border); border-radius:8px;
+    padding:10px 14px; margin:10px 0;
+  }
+  details summary{ cursor:pointer; font-weight:600; font-size:14px; }
+  details[open] summary{ margin-bottom:8px; }
+
+  .trap{
+    border:1px solid var(--border); background:var(--bg-panel); border-radius:8px;
+    padding:14px 16px; margin:14px 0;
+  }
+  .trap h4{ margin:0 0 6px; font-size:14.5px; }
+  .trap .tag{
+    display:inline-block; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em;
+    padding:2px 7px; border-radius:4px; margin-right:8px; vertical-align:middle;
+  }
+  .tag.lesson{ background:var(--warn-bg); color:var(--warn-text); border:1px solid var(--warn-border); }
+  .tag.bug{ background:var(--danger-bg); color:var(--danger-text); border:1px solid var(--danger-border); }
+  .tag.new{ background:var(--ok-bg); color:var(--ok-text); border:1px solid var(--ok-border); }
+
+  footer{ margin-top:60px; padding-top:20px; border-top:1px solid var(--border); color:var(--text-faint); font-size:13px; }
+
+  .hidden-by-search{ display:none !important; }
+
+  @media (max-width: 860px){
+    .layout{ flex-direction:column; }
+    nav.toc{ position:static; width:100%; height:auto; border-right:none; border-bottom:1px solid var(--border); }
+    main{ padding:24px 20px 80px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="toc">
+  <h1>Wend Hill Prologue</h1>
+  <div class="sub">Lighting &amp; fixes guide — local reference</div>
+  <button id="themeToggle" type="button">Toggle theme</button>
+  <input id="searchBox" type="text" placeholder="Filter this page…">
+  <div class="section-label">Start here</div>
+  <ul>
+    <li><a href="#opening">Opening the project</a></li>
+    <li><a href="#menu-trap">The menu-item trap</a></li>
+    <li><a href="#live-preview">Live preview workflow</a></li>
+    <li><a href="#making-it-stick">Making a change stick</a></li>
+  </ul>
+  <div class="section-label">Reference</div>
+  <ul>
+    <li><a href="#cli">Terminal / CLI reference</a></li>
+    <li><a href="#flags">Bisect flags</a></li>
+    <li><a href="#recipe">Current committed recipe</a></li>
+    <li><a href="#files">File map</a></li>
+  </ul>
+  <div class="section-label">When something's wrong</div>
+  <ul>
+    <li><a href="#traps">Traps &amp; hard-won lessons</a></li>
+    <li><a href="#open">Still open / known issues</a></li>
+  </ul>
+</nav>
+
+<main>
+<header class="top">
+  <h1>Wend Hill Prologue — Lighting &amp; Fixes Guide</h1>
+  <p>Everything needed to open, preview, tune, and rebuild the night scene without losing work or
+  chasing a bug someone already chased. Generated 2026-07-26 from the actual code, not from memory —
+  every claim on this page was checked against <code>unity/scenes/wend-hill-prologue/</code> or run
+  and observed this session. The full narrative — every dead end, every measurement, every
+  postmortem — lives in <code>docs/WEND-NIGHT-LADDER.md</code>; this page is the map, that file is
+  the territory.</p>
+</header>
+
+<section id="opening">
+  <h2>Opening the project</h2>
+  <p class="intro">Unity Hub → open <code>~/GamesMaster-Unity</code>. In the Project window:</p>
+  <pre><code>Assets/Scenes/WendHill_Prologue.unity</code></pre>
+  <div class="callout danger">
+    <strong>Not this one</strong>
+    <p>Don't open <code>Assets/LeartesStudios/.../HDRP_Abandoned_Village.unity</code> — that's the
+    purchased source. <code>WendHill_Prologue.unity</code> is the already-built night version with
+    everything committed: exposure, gap lamps, wall/grass de-tint, ambient audio, the works.</p>
+  </div>
+  <p class="dim">The scene file itself is <strong>not</strong> in git and shouldn't be — it's
+  regenerated from the purchased source on every build. What <em>is</em> in git is the recipe that
+  builds it: the C# under <code>unity/scenes/wend-hill-prologue/</code>.</p>
+</section>
+
+<section id="menu-trap">
+  <h2>The menu-item trap</h2>
+  <p class="intro">This pipeline was built to run unattended from the command line, so almost every
+  <code>GamesMaster/Wend/…</code> menu item ends with <code>EditorApplication.Exit()</code> — meant
+  to close a headless batch process, not something you'd expect from a click. Verified against the
+  actual source this session, not assumed:</p>
+  <table>
+    <thead><tr><th>Menu item</th><th>Source</th><th>What clicking it does</th></tr></thead>
+    <tbody>
+      <tr class="safe">
+        <td>1. Copy scene + player only</td><td class="mono">GmWendBuilder.BuildBase</td>
+        <td><strong>Safe.</strong> Rebuilds the base scene from the purchased source. Does not quit.</td>
+      </tr>
+      <tr class="quits"><td>2. Night ladder (render every step)</td><td class="mono">GmWendLadder.Run</td><td>Quits when the ladder finishes or fails</td></tr>
+      <tr class="quits"><td>3. Build the committed night (saves the scene)</td><td class="mono">GmWendNight.BuildCommittedNight</td><td>Quits immediately after building</td></tr>
+      <tr class="quits"><td>4. Build the prologue app</td><td class="mono">GmWendStandaloneBuild.BuildPrologueApp</td><td>Quits immediately after building</td></tr>
+      <tr class="quits"><td>Inspect shipped lighting</td><td class="mono">GmWendNight.Inspect</td><td>Quits immediately after logging</td></tr>
+      <tr class="quits"><td>Audit the saved scene</td><td class="mono">GmWendSceneContract.AuditMenu</td><td>Quits immediately after auditing</td></tr>
+      <tr class="quits"><td>Survey foliage emission</td><td class="mono">GmWendFoliage.Survey</td><td>Quits immediately after logging</td></tr>
+      <tr class="quits"><td>Review current scene</td><td class="mono">GmWendReview.Run</td><td>Quits when the review tour finishes</td></tr>
+      <tr class="quits"><td>Probe cameras and volume plumbing</td><td class="mono">GmWendCameraProbe.Run</td><td>Quits immediately after logging</td></tr>
+    </tbody>
+  </table>
+  <div class="callout warn">
+    <strong>The short version</strong>
+    <p>Only menu item <strong>#1</strong> is safe to click interactively. Every other one is written
+    for the terminal — use the CLI reference below instead, which runs each of these in a separate
+    headless process and leaves your open Editor session untouched.</p>
+  </div>
+</section>
+
+<section id="live-preview">
+  <h2>Live preview workflow</h2>
+  <p class="intro">Fastest way to see a lighting change — much faster than a screenshot-and-rebuild
+  loop, since the Scene/Game view updates live as you drag a slider.</p>
+  <ol>
+    <li>With <code>WendHill_Prologue.unity</code> open, select the volume profile at
+      <code>Assets/Scenes/WendHill_NightProfile.asset</code>. This is the actual recipe — Fog, HDRISky
+      exposure, Exposure override, IndirectLightingController — everything <code>GmWendNight.cs</code>
+      sets in code.</li>
+    <li>Drag its sliders and watch the Scene view change in real time.</li>
+    <li>To see it from the player's eye height: select the <code>Player</code> object, or hit Play.
+      <code>GmPlayer</code> takes normal WASD + mouse, so you can walk it interactively instead of
+      watching the automated walk probe do it.</li>
+    <li>The moon / practicals: select the Directional Light (the moon) or any practical light directly
+      in the Hierarchy and tweak intensity/color the normal Unity way.</li>
+  </ol>
+  <div class="callout ok">
+    <strong>No consequences</strong>
+    <p>Exploring here is free — don't save the scene if you want to discard a tweak.</p>
+  </div>
+</section>
+
+<section id="making-it-stick">
+  <h2>Making a change stick</h2>
+  <div class="callout danger">
+    <strong>None of it persists on its own</strong>
+    <p>Every live tweak — the profile, the lights — gets overwritten the next time <em>anyone</em>
+    rebuilds, because <code>BuildCommittedNight</code> always starts by re-copying the scene fresh
+    from the purchased source and reapplying the recipe from code.</p>
+  </div>
+  <p>To keep a change, find the matching constant in <code>GmWendNight.cs</code> — e.g.
+  <code>DefaultSkyExposureDrop</code>, <code>DefaultExposureEV</code>, the fog albedo/tint colors in
+  <code>SkyAndFogToNight()</code> — and change it there.</p>
+  <p>That file lives at <strong>two paths that must stay in sync</strong>:</p>
+  <table>
+    <tbody>
+      <tr><td>Repo (source of truth, what's committed)</td><td class="mono">unity/scenes/wend-hill-prologue/Editor/GmWendNight.cs</td></tr>
+      <tr><td>Unity project (what the editor runs)</td><td class="mono">~/GamesMaster-Unity/Assets/Editor/Scenes/wend-hill-prologue/GmWendNight.cs</td></tr>
+    </tbody>
+  </table>
+  <p>Edit the repo copy, then push it into Unity:</p>
+  <pre><code id="c-sync">npm run unity:scene:sync</code><button class="copy-btn" data-target="c-sync">copy</button></pre>
+  <p class="dim">Editing the Unity-side copy directly works in the editor but isn't tracked by git —
+  copy it back to the repo path before it's forgotten, or just say the value out loud and have it
+  changed + synced properly. This whole directory syncs automatically (any <code>.cs</code> file
+  found under <code>unity/scenes/wend-hill-prologue/</code>), so a new file needs no registry edit,
+  just the sync command.</p>
+</section>
+
+<section id="cli">
+  <h2>Terminal / CLI reference</h2>
+  <p class="intro">Do rebuilds from the terminal, not the menu, when you want to keep your open Editor
+  session untouched — these run in a separate headless process.</p>
+
+  <h3>Rebuild without losing your open Editor session</h3>
+  <pre><code id="c-rebuild-raw">/Applications/Unity/Hub/Editor/6000.5.3f1/Unity.app/Contents/MacOS/Unity \
+  -batchmode -nographics -quit -accept-apiupdate \
+  -projectPath ~/GamesMaster-Unity \
+  -executeMethod GmWendNight.BuildCommittedNight</code><button class="copy-btn" data-target="c-rebuild-raw">copy</button></pre>
+  <p class="dim">The Unity version in that path comes from
+  <code>~/GamesMaster-Unity/ProjectSettings/ProjectVersion.txt</code> — check it hasn't moved before
+  copy-pasting blind.</p>
+
+  <h3>The project's own CLI (preferred)</h3>
+  <table>
+    <thead><tr><th class="mono">command</th><th>what it runs</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">node scripts/unity-cli.mjs rebuild wend-hill-prologue</td><td class="mono">GmWendNight.BuildCommittedNight</td></tr>
+      <tr><td class="mono">node scripts/unity-cli.mjs audit wend-hill-prologue</td><td class="mono">GmWendSceneContract.AuditMenu</td></tr>
+      <tr><td class="mono">node scripts/unity-cli.mjs tour wend-hill-prologue</td><td class="mono">GmWendReview.Run (GUI, opens a window — HDRP won't render in batchmode)</td></tr>
+      <tr><td class="mono">node scripts/unity-cli.mjs test</td><td>EditMode test suite (all scenes)</td></tr>
+      <tr><td class="mono">node scripts/unity-cli.mjs scenes</td><td>list the scene registry, no Unity launch</td></tr>
+      <tr><td class="mono">node scripts/unity-cli.mjs report</td><td class="mono">GmSceneReportWriter.WriteWendHillReport</td></tr>
+      <tr><td class="mono">node scripts/unity-cli.mjs pacing</td><td>Wend Hill cadence/perf evidence</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout danger">
+    <strong>Gotcha found this session #1 — the default scene is the WRONG one</strong>
+    <p><code>node scripts/unity-cli.mjs rebuild</code> with <strong>no scene id</strong> targets the
+    registry's <code>defaultScene</code>, which is <code>wend-hill</code> — the <em>retired</em>
+    estate scene (<code>GmEstateBuilderV2.Build</code>, <code>Assets/Scenes/WendHill.unity</code>) —
+    not <code>wend-hill-prologue</code>. Running it bare silently rebuilds the wrong game. Always pass
+    the id explicitly: <code>rebuild wend-hill-prologue</code>, <code>audit wend-hill-prologue</code>,
+    etc. (Harmless if you do it by accident — it only touches the untracked legacy scene, nothing in
+    git — but it wastes several minutes and can confuse a "why didn't my change show up" moment.)</p>
+  </div>
+
+  <h3>Standalone app build (Wend Hill specific)</h3>
+  <p>Not wired into <code>unity-cli.mjs</code>'s <code>build-mac</code> task (that one builds the
+  general game, <code>GmStandaloneBuild.BuildMacReview</code>). Build it directly:</p>
+  <pre><code id="c-build-app">/Applications/Unity/Hub/Editor/6000.5.3f1/Unity.app/Contents/MacOS/Unity \
+  -batchmode -nographics -quit -accept-apiupdate \
+  -projectPath ~/GamesMaster-Unity \
+  -executeMethod GmWendStandaloneBuild.BuildPrologueApp \
+  -logFile ~/GamesMaster-Unity/Logs/cli-wend-build-app.log</code><button class="copy-btn" data-target="c-build-app">copy</button></pre>
+  <p class="dim">Output: <code>Builds/macOS-Wend/Wend Hill Prologue.app</code> — its own path, so it
+  can never collide with the real game or the retired village walk.</p>
+
+  <h3>Driving the built app directly</h3>
+  <table>
+    <thead><tr><th class="mono">flag</th><th>what it does</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">-gmWendWalk &lt;dir&gt;</td><td>self-installs the walk probe; walks the real route, screenshots every 15m, writes <code>walk-performance.json</code></td></tr>
+      <tr><td class="mono">-gmWendWalkMaxMetres &lt;n&gt;</td><td>stops the walk early — use for fast iteration instead of paying for the full ~8min/439m route every time</td></tr>
+      <tr><td class="mono">-gmWendNoVSync</td><td>measures real frame cost instead of vSync-quantised delivered cadence</td></tr>
+      <tr><td class="mono">-gmWendWallTest &lt;dir&gt;</td><td>drives the player into all 4 boundary walls for 9s each, confirms they're solid (not just present)</td></tr>
+    </tbody>
+  </table>
+  <pre><code id="c-shortwalk">"$HOME/GamesMaster-Unity/Builds/macOS-Wend/Wend Hill Prologue.app/Contents/MacOS/The Games Master" \
+  -gmWendWalk /tmp/gm-wend-walk \
+  -gmWendWalkMaxMetres 150 \
+  -logFile /tmp/gm-wend-walk/player.log</code><button class="copy-btn" data-target="c-shortwalk">copy</button></pre>
+
+  <div class="callout danger">
+    <strong>Gotcha found this session #2 — don't run the walk with -nographics</strong>
+    <p>Launching the built binary with <code>-batchmode -nographics</code> for a "quick" walk check
+    produced <strong>10 stalled waypoints in the first 3 metres</strong> — nothing like the real
+    behaviour. Re-run identically except dropping <code>-nographics</code> (real window, still
+    launched headlessly from a script, just not graphics-less) and the same short walk completed with
+    <strong>0 stalls</strong>. The build step itself is fine with <code>-nographics</code>; the
+    <strong>walk/wall-test runs need a real window</strong> to move correctly. If a walk run looks
+    like the NavMesh suddenly broke, check this flag before touching any pathing code.</p>
+  </div>
+
+  <h3>npm scripts</h3>
+  <table>
+    <tbody>
+      <tr><td class="mono">npm run unity:scene:sync</td><td>push repo C# → Unity project</td></tr>
+      <tr><td class="mono">npm run unity:scene:check</td><td>registry + sync + package validation, no Unity launch</td></tr>
+      <tr><td class="mono">npm run test:unity</td><td>EditMode tests (== <code>unity-cli.mjs test</code>)</td></tr>
+      <tr><td class="mono">npm run unity:scene:registry</td><td>list the scene registry</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="flags">
+  <h2>Bisect flags</h2>
+  <p class="intro">Command-line overrides so a single lever can move without editing code between
+  runs — pass to the raw Unity binary invocation (build step) as extra args after
+  <code>-executeMethod GmWendNight.BuildCommittedNight</code>. A run with no flags reproduces the
+  committed night byte-for-byte, so a flagless run is always the control.</p>
+  <details open>
+    <summary>Full flag table (from GmWendNight.cs)</summary>
+    <table>
+      <thead><tr><th class="mono">flag</th><th>meaning</th><th>default</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">-gmPracticalScale &lt;f&gt;</td><td>multiplier on every practical light</td><td class="mono">0.06</td></tr>
+        <tr><td class="mono">-gmFogDimmer &lt;f&gt;</td><td>volumetric fog's ambient probe dimmer</td><td class="mono">0</td></tr>
+        <tr><td class="mono">-gmSkyExposureDrop &lt;f&gt;</td><td>stops taken off the pack's HDRI sky</td><td class="mono">4.0</td></tr>
+        <tr><td class="mono">-gmMoonLux &lt;f&gt;</td><td>the moon, in lux</td><td class="mono">1.0</td></tr>
+        <tr><td class="mono">-gmIndirectDiffuse &lt;f&gt;</td><td>ambient bounce multiplier</td><td class="mono">1.0</td></tr>
+        <tr><td class="mono">-gmFogMeanFreePath &lt;f&gt;</td><td>fog density, metres</td><td class="mono">62</td></tr>
+        <tr><td class="mono">-gmSSR &lt;f&gt;</td><td>screen space reflections, 0 off / 1 on</td><td class="mono">0</td></tr>
+        <tr><td class="mono">-gmMoonElevation &lt;f&gt;</td><td>moon elevation, degrees</td><td class="mono">24</td></tr>
+        <tr><td class="mono">-gmLampEmissive &lt;f&gt;</td><td>lamp glass emissive target</td><td class="mono">1.5</td></tr>
+        <tr><td class="mono">-gmGapLamps &lt;f&gt;</td><td>fill unlit route gaps with lamps, 0 off / 1 on</td><td class="mono">1</td></tr>
+        <tr><td class="mono">-gmExposureEV &lt;f&gt;</td><td>fixed exposure EV — <strong>HIGHER is DARKER</strong></td><td class="mono">0.30</td></tr>
+      </tbody>
+    </table>
+  </details>
+  <div class="callout warn">
+    <strong>The EV sign is the single most expensive mistake in this project's history</strong>
+    <p>It's been made twice. The applied multiplier is <code>2^(-fixedExposure)</code>, so a
+    <strong>larger</strong> EV number is <strong>darker</strong>. Don't reason about it —
+    bracket it, the way every value in the committed recipe below actually was.</p>
+  </div>
+</section>
+
+<section id="recipe">
+  <h2>Current committed recipe</h2>
+  <p class="intro">Snapshot of what's actually shipping right now. Full derivation and every
+  superseded value for each of these lives in <code>docs/WEND-NIGHT-LADDER.md</code> — this is just
+  the answer, not the working.</p>
+  <table>
+    <thead><tr><th>value</th><th>committed</th><th>one-line why</th></tr></thead>
+    <tbody>
+      <tr><td>Fixed exposure EV</td><td class="mono">+0.30</td><td>bracketed against a full walk, not a single frame</td></tr>
+      <tr><td>Sky exposure drop</td><td class="mono">4.0 stops</td><td>the only lever that ever moved p5 (the darkest frames) at all</td></tr>
+      <tr><td>Fog ambient (globalLightProbeDimmer)</td><td class="mono">0</td><td>the fix for open views reading as foggy daylight instead of night</td></tr>
+      <tr><td>Moon</td><td class="mono">1.0 lux @ 24°</td><td>models shapes the lamps don't reach; elevation kept low so shadows stay long</td></tr>
+      <tr><td>Practical lights scale</td><td class="mono">×0.06</td><td>daylight-strength lamps can't share an exposure with a night sky</td></tr>
+      <tr><td>Gap lamps</td><td class="mono">on</td><td>only lever that moves the darkest stretches — they have no light, not weak light</td></tr>
+      <tr><td>Lamp colour temp</td><td class="mono">2000K</td><td>white practicals read as "electrically lit," not oil/paraffin</td></tr>
+      <tr><td>Foliage emission</td><td class="mono">off (owned copies)</td><td>an ungated shader term was self-lighting the grass 9× brighter than the scene</td></tr>
+      <tr><td>Wall tint</td><td class="mono">neutralised, 5 materials</td><td>a ~6% green bias, invisible at daylight, dominant at night</td></tr>
+      <tr><td>Grass albedo</td><td class="mono">neutralised + intensity reset to 1.0</td><td>same mechanism as foliage emission, a different property</td></tr>
+      <tr><td>Ambient audio</td><td class="mono">wired 2026-07-26</td><td>wind bed + footsteps + crickets/owl; scene had 0 AudioSources before this</td></tr>
+      <tr><td>Boundary</td><td class="mono">4 walls + catch plane</td><td>tested this session — all 4 held under direct pressure</td></tr>
+      <tr><td>NavMesh</td><td class="mono">baked, agent radius 0.35</td><td>matches the player's CharacterController; 7/11 waypoints path cleanly</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="files">
+  <h2>File map</h2>
+  <table>
+    <tbody>
+      <tr><td class="mono">unity/scenes/wend-hill-prologue/Editor/</td><td>build/audit/review — GmWendBuilder, GmWendNight, GmWendSceneContract, GmWendLadder, GmWendFoliage, GmWendWallTint, GmWendGrassTone, GmWendLamps, GmWendNavMesh, GmWendAmbience, GmWendStandaloneBuild</td></tr>
+      <tr><td class="mono">unity/scenes/wend-hill-prologue/Runtime/</td><td>plays at play-time — GmWendRoute, GmWendWalkProbe, GmWendWallProbe, GmWendCatchPlane, GmWendAmbienceSource</td></tr>
+      <tr><td class="mono">unity/scenes/wend-hill-prologue/Tests/</td><td>EditMode tests, one file per pure-logic module</td></tr>
+      <tr><td class="mono">docs/WEND-NIGHT-LADDER.md</td><td>the full narrative — every bracket, every dead end, every measurement</td></tr>
+      <tr><td class="mono">docs/STEAM-TRACKER.md</td><td>delivery % dashboard (Unity truth, not the retired web build)</td></tr>
+      <tr><td class="mono">~/GamesMaster-Unity/</td><td>the actual Unity project — <strong>not a git repo</strong>; only the paths above are tracked, synced in via <code>npm run unity:scene:sync</code></td></tr>
+      <tr><td class="mono">~/GamesMaster-Unity/Assets/Resources/Sfx/</td><td>144-clip audio library (footsteps ×6 surfaces, wind, wildlife) — already imported, reused by GmWendAmbience</td></tr>
+      <tr><td class="mono">Builds/macOS-Wend/</td><td>the standalone Wend Hill app — own path, can't collide with the real game or the retired village build</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="traps">
+  <h2>Traps &amp; hard-won lessons</h2>
+  <p class="intro">The recurring failure shapes — read this before spending a session rediscovering
+  one of these.</p>
+
+  <div class="trap">
+    <span class="tag bug">recurring bug</span>
+    <h4>The same defect, three properties in a row</h4>
+    <p>Foliage emission, wall base-tint, grass albedo intensity — all three are the identical shape:
+    a shader property with a small bias that's a rounding error under the pack's 2000 lux daylight and
+    becomes the dominant signal at this scene's night exposure. If a night-scene material reads wrong
+    in colour rather than just brightness, check for a fourth instance of this before assuming it's a
+    lighting problem.</p>
+  </div>
+
+  <div class="trap">
+    <span class="tag lesson">lesson</span>
+    <h4>Two agreeing measurements of the wrong vantage agree perfectly and tell you nothing</h4>
+    <p>EV -1.0 was picked, confirmed by HDRP's own auto-exposure, and voided anyway — because both
+    measurements were taken at a spawn point that was the mathematical centroid of 57 scattered road
+    meshes, nowhere near the actual village street. Bracket from where the game actually happens, not
+    from wherever is convenient to measure.</p>
+  </div>
+
+  <div class="trap">
+    <span class="tag lesson">lesson</span>
+    <h4>A build that compiles and passes a guard has demonstrated nothing about what it renders</h4>
+    <p>The first prologue app built clean, passed its contract, and rendered the wrong camera (the
+    pack ships 30 cameras; one was left enabled at the same depth as the player's). No editor frame
+    could have shown it — every review rig renders a camera it creates and points by hand. The app has
+    to be launched and looked at. Same shape caught the AudioListener bug one component later.</p>
+  </div>
+
+  <div class="trap">
+    <span class="tag bug">dead end, don't retry</span>
+    <h4>The water-cut: 6 attempts, all recorded, none wired in</h4>
+    <p>Truncating the route before it reaches the lake looks like a one-line raycast. It took 6
+    attempts across two sessions and the honest conclusion is: there is no static signal on this scene
+    that separates a dry dip from a real drop, because the purchased pack ships no water collider and
+    no lake mesh at the place that matters. <code>RaycastGroundY</code>, <code>GroundNearWater</code>,
+    <code>GroundInFootprint</code> all stay in <code>GmWendRoute.cs</code>, tested and unused. The
+    runtime stop in <code>GmWendWalkProbe</code> (checks the EYE against the water surface every
+    frame) is the only thing that has ever correctly answered this. Don't re-attempt a static raycast
+    fix without reading that section of the ladder doc first.</p>
+  </div>
+
+  <div class="trap">
+    <span class="tag new">found this session</span>
+    <h4>unity-cli.mjs's default scene id is the wrong scene</h4>
+    <p>See the CLI reference above — <code>rebuild</code>/<code>audit</code> with no id targets the
+    retired <code>wend-hill</code> estate, not <code>wend-hill-prologue</code>.</p>
+  </div>
+
+  <div class="trap">
+    <span class="tag new">found this session</span>
+    <h4>-nographics silently breaks walk/wall-test runs</h4>
+    <p>See the CLI reference above — produces nonsense stalling that looks exactly like a NavMesh
+    regression but isn't one.</p>
+  </div>
+
+  <div class="trap">
+    <span class="tag bug">unexplained — still open</span>
+    <h4>The review rig's forward-view reads 0.026 where the ladder reads 0.059, same position/EV</h4>
+    <p>The rear view agrees between the two harnesses to ~1%. One hypothesis (temporal fog
+    accumulation) was tested and disproven. Not settled — if you're chasing a forward-view number that
+    looks too dark, check whether it's this known anomaly before trusting it.</p>
+  </div>
+</section>
+
+<section id="open">
+  <h2>Still open / known issues</h2>
+  <table>
+    <thead><tr><th>item</th><th>status</th></tr></thead>
+    <tbody>
+      <tr><td>Waypoint 2 fails to path (NavMesh)</td><td class="dim">stalls 18m short; nothing physical blocks it, likely a bake-seam issue at a tight courtyard corner. Walk handles it gracefully (sidesteps, moves on) so not urgent.</td></tr>
+      <tr><td>Route's last ~140m runs into a canyon with no lake mesh</td><td class="dim">deliberately unfixed at the route level — walk stops itself at the water every time, see the water-cut trap above. Whether the prologue should end at the shore is a level design decision.</td></tr>
+      <tr><td>Starfield sky port from GmVillageSky</td><td class="dim">not started — needs its own moon+fill-light recipe or it'll black out the night just tuned</td></tr>
+      <tr><td>Memory and culling</td><td class="dim">frame pacing is measured now; neither of these is</td></tr>
+      <tr><td>Ambient audio mix — does it actually sound right</td><td class="dim">technically verified (clips resolve, serialize, run with 0 errors over a full 439m walk) but never judged by ear. That's the walkthrough's job.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<footer>
+  Generated 2026-07-26. Source of truth for anything that drifts from this page:
+  <code>docs/WEND-NIGHT-LADDER.md</code> (full narrative) and the actual C# under
+  <code>unity/scenes/wend-hill-prologue/</code>. This file has no build step — edit it directly and
+  reload.
+</footer>
+</main>
+</div>
+
+<script>
+(function(){
+  var toggle = document.getElementById('themeToggle');
+  var root = document.documentElement;
+  var stored = localStorage.getItem('gmWendGuideTheme');
+  if (stored) root.setAttribute('data-theme', stored);
+  toggle.addEventListener('click', function(){
+    var current = root.getAttribute('data-theme');
+    var next = current === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('gmWendGuideTheme', next);
+  });
+
+  document.querySelectorAll('.copy-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var target = document.getElementById(btn.getAttribute('data-target'));
+      if (!target) return;
+      navigator.clipboard.writeText(target.textContent.trim()).then(function(){
+        var old = btn.textContent;
+        btn.textContent = 'copied';
+        setTimeout(function(){ btn.textContent = old; }, 1200);
+      });
+    });
+  });
+
+  var search = document.getElementById('searchBox');
+  var sections = Array.prototype.slice.call(document.querySelectorAll('main section'));
+  search.addEventListener('input', function(){
+    var q = search.value.trim().toLowerCase();
+    sections.forEach(function(sec){
+      if (!q) { sec.classList.remove('hidden-by-search'); return; }
+      var text = sec.textContent.toLowerCase();
+      sec.classList.toggle('hidden-by-search', text.indexOf(q) === -1);
+    });
+  });
+})();
+</script>
+</body>
+</html>
