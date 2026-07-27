@@ -162,6 +162,7 @@
   <input id="searchBox" type="text" placeholder="Filter this page…">
   <div class="section-label">Start here</div>
   <ul>
+    <li><a href="#playing">Playing the build (walkthrough)</a></li>
     <li><a href="#opening">Opening the project</a></li>
     <li><a href="#menu-trap">The menu-item trap</a></li>
     <li><a href="#live-preview">Live preview workflow</a></li>
@@ -191,6 +192,51 @@
   postmortem — lives in <code>docs/WEND-NIGHT-LADDER.md</code>; this page is the map, that file is
   the territory.</p>
 </header>
+
+<section id="playing">
+  <h2>Playing the build (walkthrough)</h2>
+  <p class="intro">This is for actually <em>playing</em> the finished prologue, not for editing it.
+  If you want to tune lighting instead, skip to <a href="#opening">Opening the project</a>.</p>
+
+  <div class="callout danger">
+    <strong>Don't just double-click the .app in Finder</strong>
+    <p>Verified this session with <code>spctl -a -vv</code>: the build is ad-hoc signed, not
+    notarized, and Gatekeeper <strong>rejects</strong> it outright when opened the normal way. Every
+    automated test this session launched the binary directly from a terminal instead — which does
+    <em>not</em> go through the same Gatekeeper check — so this would have been invisible until
+    someone actually tried to double-click it.</p>
+  </div>
+
+  <h3>The easy way</h3>
+  <p>Double-click <code class="mono">scripts/launch-wend-hill.command</code> in Finder. It execs the
+  binary directly, the same way every test this session did, so Gatekeeper never enters the picture.
+  Built and smoke-tested this session — it launches the real game process cleanly.</p>
+  <p class="dim">If macOS itself questions the <code>.command</code> script the first time (a
+  generic "unidentified developer" prompt some Mac configurations show for any new script,
+  unrelated to the Gatekeeper rejection above): right-click it → <em>Open</em> → confirm, once. That
+  override applies only to this tiny launcher, not to the game binary.</p>
+
+  <h3>The manual way</h3>
+  <pre><code id="c-play">"$HOME/GamesMaster-Unity/Builds/macOS-Wend/Wend Hill Prologue.app/Contents/MacOS/The Games Master"</code><button class="copy-btn" data-target="c-play">copy</button></pre>
+  <p class="dim">Paste that into Terminal and press enter. Same effect as the launcher script.</p>
+
+  <h3>What to expect</h3>
+  <ul>
+    <li>Windowed, 1600×900, resizable — not fullscreen, so it won't hijack the whole display.</li>
+    <li>Spawns at the start of the route already facing down it. WASD + mouse look, per
+      <code class="mono">GmPlayer</code>.</li>
+    <li>Ambient audio starts immediately: a quiet wind bed, footsteps as you walk, occasional
+      crickets/owl. First time this scene has had any sound at all — see the audio section of
+      <code>docs/WEND-NIGHT-LADDER.md</code> for exactly what's reused vs. new.</li>
+    <li>The route runs to a lake at roughly 439m and stops there on purpose — see "Still open" below,
+      that ending is a level design question, not a bug.</li>
+  </ul>
+  <p class="dim">Verified this session, boot-to-idle: launched with zero flags, left running
+  untouched for 30 real seconds, confirmed the process was still alive and the log had zero
+  exceptions/errors. (Some benign Unity warnings about negative-scale colliders on purchased-pack
+  geometry — <code>SM_Wood_PlankWallWindow…</code>, <code>SM_Cliff…</code> — are pre-existing pack
+  quirks, not something introduced by recent work, and don't affect play.)</p>
+</section>
 
 <section id="opening">
   <h2>Opening the project</h2>
@@ -509,6 +555,17 @@
   </div>
 
   <div class="trap">
+    <span class="tag new">found this session</span>
+    <h4>Gatekeeper rejects the built app on a normal double-click</h4>
+    <p>Every automated test this session launched the binary directly from a terminal, which bypasses
+    the LaunchServices Gatekeeper check that a Finder double-click goes through. <code>spctl -a
+    -vv</code> on the built app confirms <strong>rejected</strong> — ad-hoc signed, not notarized. This
+    would have been invisible right up until an actual human tried to open it the normal way. See
+    "Playing the build" above for the launcher script that sidesteps it. Worth checking again after
+    any future rebuild, in case a future Unity version or build setting changes the signing behaviour.</p>
+  </div>
+
+  <div class="trap">
     <span class="tag bug">unexplained — still open</span>
     <h4>The review rig's forward-view reads 0.026 where the ladder reads 0.059, same position/EV</h4>
     <p>The rear view agrees between the two harnesses to ~1%. One hypothesis (temporal fog
@@ -545,7 +602,11 @@
   var toggle = document.getElementById('themeToggle');
   var root = document.documentElement;
   var stored = localStorage.getItem('gmWendGuideTheme');
-  if (stored) root.setAttribute('data-theme', stored);
+  // Always set an explicit starting theme, even with nothing stored yet -- otherwise the first
+  // toggle click just reasserts whatever prefers-color-scheme already rendered (no visible change)
+  // and only the SECOND click does anything, which looks broken.
+  var systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  root.setAttribute('data-theme', stored || (systemPrefersDark ? 'dark' : 'light'));
   toggle.addEventListener('click', function(){
     var current = root.getAttribute('data-theme');
     var next = current === 'dark' ? 'light' : 'dark';
