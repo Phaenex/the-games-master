@@ -18,14 +18,18 @@
 // _Albedo_Intensity=2.2 -- more than doubling the albedo's contribution -- is what is actually driving
 // it, confirmed by resetting it to 1.0 and re-walking the same short segment.
 //
-// SCOPED TO RENDERERS. M_grass and M_grass 2 alone cover 728 of the scene's renderer material slots and
-// are what actually fills the frame in every walk screenshot. `M_grass 1` (tree-attached undergrowth)
-// and `M_Leaf` (canopy) only reach the scene through terrain tree prototypes, the more involved
-// prefab-owning path GmWendFoliage.OwnedPrefab already implements for emission, and M_Leaf's intensity
-// sits BELOW 1 rather than above it -- not evidence of the same bug, left alone rather than guessed at.
+// RENDERERS AND TERRAIN TREE PROTOTYPES BOTH. M_grass and M_grass 2 alone cover 728 of the scene's
+// renderer material slots and are what actually fills the frame in every walk screenshot; those were
+// fixed and verified first. `M_grass 1` (tree-attached undergrowth) only reaches the scene through
+// terrain tree prototypes, and carries the same measured bias -- tint (0.679,0.565,0.516) spread 0.163,
+// intensity 2.0 -- so it gets the same fix via the prefab-owning path, mirrored from
+// GmWendFoliage.OwnedPrefab. `M_Leaf`'s intensity sits BELOW 1 rather than above it and its tint is
+// already neutral: no measured evidence of the same bug, so it is checked by the same rule and left
+// alone by the same rule, not hand-excluded.
 //
 // DERIVED, NOT NAMED, same as the wall fix: any `_Albedo_Tint` far enough from grey, or any
-// `_Albedo_Intensity` elevated above 1, is neutralised, regardless of which material carries it.
+// `_Albedo_Intensity` elevated above 1, is neutralised, regardless of which material carries it or
+// which of the two paths (renderer, tree prototype) it reaches the scene through.
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -63,15 +67,30 @@ public static class GmWendGrassTone
         return new Color(luma, luma, luma, t.a);
     }
 
-    /// Repoints every renderer using a biased-tint S_Wind material onto an owned copy with the tint
-    /// neutralised. Safe to call whether the material is still the purchased original or already an
-    /// owned copy from a prior fix (GmWendFoliage's emission zeroing runs first in the pipeline): the
-    /// owning helper below returns the existing owned asset rather than re-copying it either way.
+    /// Repoints every renderer AND every terrain tree prototype using a biased S_Wind material onto an
+    /// owned copy with the defect neutralised. One shared cache across both passes, so a material that
+    /// happens to reach the scene both ways (it does not currently, but nothing here assumes it cannot)
+    /// is only ever owned and logged once.
     public static int Apply()
     {
         var owned = new Dictionary<Material, Material>();
-        int slots = 0, renderersTouched = 0;
+        int rendererSlots = ApplyToRenderers(owned);
+        int protoSlots = ApplyToTreePrototypes(owned);
 
+        AssetDatabase.SaveAssets();
+
+        string listing = owned.Count == 0
+            ? "none (all already owned or none biased)"
+            : string.Join(", ", owned.Select(kv => kv.Key.name));
+        Debug.Log($"[{LogTag}] this pass neutralised {owned.Count} material(s): {listing}\n" +
+                  $"  repointed {rendererSlots} renderer slot(s), {protoSlots} tree prototype slot(s)");
+
+        return rendererSlots + protoSlots;
+    }
+
+    static int ApplyToRenderers(Dictionary<Material, Material> owned)
+    {
+        int slots = 0;
         foreach (Renderer r in Object.FindObjectsByType<Renderer>(FindObjectsInactive.Include))
         {
             Material[] mats = r.sharedMaterials;
@@ -87,18 +106,101 @@ public static class GmWendGrassTone
             if (!changed) continue;
             r.sharedMaterials = mats;
             EditorUtility.SetDirty(r);
-            renderersTouched++;
+        }
+        return slots;
+    }
+
+    /// Mirrors GmWendFoliage.OwnedPrefab: prototype ORDER and COUNT are preserved (placed tree
+    /// instances refer to a prototype by index), and an owned prefab copy is opened, edited and saved
+    /// back rather than edited through the loaded root, because prefab ASSET contents cannot be.
+    static int ApplyToTreePrototypes(Dictionary<Material, Material> owned)
+    {
+        int slots = 0;
+        foreach (Terrain t in Object.FindObjectsByType<Terrain>(FindObjectsInactive.Include))
+        {
+            TerrainData td = t.terrainData;
+            if (td == null) continue;
+
+            TreePrototype[] protos = td.treePrototypes;
+            bool changed = false;
+            for (int i = 0; i < protos.Length; i++)
+            {
+                GameObject swapped = OwnedNeutralPrefab(protos[i].prefab, owned, ref slots);
+                if (swapped == null) continue;
+                protos[i].prefab = swapped;
+                changed = true;
+            }
+            if (!changed) continue;
+
+            td.treePrototypes = protos;
+            td.RefreshPrototypes();
+            t.Flush();
+            EditorUtility.SetDirty(td);
+            EditorUtility.SetDirty(t);
+        }
+        return slots;
+    }
+
+    /// Owned copy of a tree prototype prefab, with any biased S_Wind materials inside it repointed to
+    /// their own owned copies via the SAME OwnedNeutral used for scene renderers. Returns null when
+    /// nothing in the prefab needs fixing, which is how M_Leaf-only prototypes keep pointing at the
+    /// purchased original.
+    static GameObject OwnedNeutralPrefab(GameObject src, Dictionary<Material, Material> cache, ref int slots)
+    {
+        if (src == null) return null;
+        bool anyAffected = src.GetComponentsInChildren<Renderer>(true)
+            .SelectMany(r => r.sharedMaterials)
+            .Any(m => m != null && m.shader.name == ShaderName &&
+                      ((m.HasProperty(TintProp) && IsBiased(m.GetColor(TintProp))) ||
+                       (m.HasProperty(IntensityProp) && IsIntensityElevated(m.GetFloat(IntensityProp)))));
+        if (!anyAffected) return null;
+
+        string srcPath = AssetDatabase.GetAssetPath(src);
+        if (string.IsNullOrEmpty(srcPath))
+            throw new System.InvalidOperationException($"'{src.name}' has no asset path, cannot own a copy of it");
+        string dstPath = $"{GmWendFoliage.OwnedDir}/{System.IO.Path.GetFileNameWithoutExtension(srcPath)}.prefab";
+
+        EnsureOwnedDir();
+        if (AssetDatabase.LoadAssetAtPath<GameObject>(dstPath) == null)
+        {
+            if (!AssetDatabase.CopyAsset(srcPath, dstPath))
+                throw new System.InvalidOperationException($"failed to copy {srcPath} -> {dstPath}");
+            AssetDatabase.ImportAsset(dstPath, ImportAssetOptions.ForceSynchronousImport);
         }
 
-        AssetDatabase.SaveAssets();
+        GameObject contents = PrefabUtility.LoadPrefabContents(dstPath);
+        try
+        {
+            foreach (Renderer r in contents.GetComponentsInChildren<Renderer>(true))
+            {
+                Material[] mats = r.sharedMaterials;
+                bool changed = false;
+                for (int i = 0; i < mats.Length; i++)
+                {
+                    Material fixedMat = OwnedNeutral(mats[i], cache);
+                    if (fixedMat == null) continue;
+                    mats[i] = fixedMat;
+                    changed = true;
+                    slots++;
+                }
+                if (changed) r.sharedMaterials = mats;
+            }
+            PrefabUtility.SaveAsPrefabAsset(contents, dstPath);
+        }
+        finally
+        {
+            PrefabUtility.UnloadPrefabContents(contents);
+        }
 
-        string listing = owned.Count == 0
-            ? "none (all already owned or none biased)"
-            : string.Join(", ", owned.Select(kv => kv.Key.name));
-        Debug.Log($"[{LogTag}] this pass neutralised {owned.Count} material(s): {listing}\n" +
-                  $"  repointed {slots} renderer slot(s) across {renderersTouched} renderer(s)");
+        Debug.Log($"[{LogTag}] owned tree prototype prefab '{src.name}' at {dstPath}");
+        return AssetDatabase.LoadAssetAtPath<GameObject>(dstPath);
+    }
 
-        return slots;
+    static void EnsureOwnedDir()
+    {
+        if (AssetDatabase.IsValidFolder(GmWendFoliage.OwnedDir)) return;
+        string parent = System.IO.Path.GetDirectoryName(GmWendFoliage.OwnedDir).Replace('\\', '/');
+        AssetDatabase.CreateFolder(parent, System.IO.Path.GetFileName(GmWendFoliage.OwnedDir));
     }
 
     static Material OwnedNeutral(Material src, Dictionary<Material, Material> cache)
@@ -136,11 +238,7 @@ public static class GmWendGrassTone
 
     static Material LoadOrCopy(Material src)
     {
-        if (!AssetDatabase.IsValidFolder(GmWendFoliage.OwnedDir))
-        {
-            string parent = System.IO.Path.GetDirectoryName(GmWendFoliage.OwnedDir).Replace('\\', '/');
-            AssetDatabase.CreateFolder(parent, System.IO.Path.GetFileName(GmWendFoliage.OwnedDir));
-        }
+        EnsureOwnedDir();
 
         string srcPath = AssetDatabase.GetAssetPath(src);
         if (string.IsNullOrEmpty(srcPath))

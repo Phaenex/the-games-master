@@ -894,15 +894,22 @@ The band-fail count does not move, and should not: neither of the two failing fr
 grass. What moved is everything the written standard was never measuring -- confirmed by eye across the
 whole walk, not by a new number.
 
-**Scoped, not exhaustive.** `M_grass` and `M_grass 2` cover 728 renderer material slots, the ground
-cover in every frame. `M_grass 1` (tree-attached undergrowth) and `M_Leaf` (canopy) only reach the scene
-through terrain tree prototypes -- the more involved prefab-owning path `GmWendFoliage.OwnedPrefab`
-already implements for emission -- and were left alone rather than guessed at: `M_Leaf`'s tint is
-already neutral and its intensity sits BELOW 1, the opposite direction from every confirmed defect, with
-no measured evidence pointing at it. A faint residual warmth is still visible in some mid-depth grass
-(walk-0210m.png) that the fix's 8m-radius spot-check didn't identify a specific unfixed material for;
-given the dramatic improvement already confirmed and no further defect isolated, this is logged rather
-than chased further.
+**The two loose ends closed the same session.** The walk-0210m residual warmth: widened the spot-check
+past 8m and found it is `M_grass` at 9.6-10.6m, already owned and already at intensity 1 -- correctly-fixed
+grass sitting near a lamp, not an unfixed material. Real light, not a bug.
+
+`M_grass 1` (tree-attached undergrowth, reaches the scene only through terrain tree prototypes) carried
+the same measured bias as the renderer materials -- tint (0.679,0.565,0.516) spread 0.163, intensity 2.0
+-- so `GmWendGrassTone` gained a second path mirroring `GmWendFoliage.OwnedPrefab`: the prototype prefab
+is owned and its renderers repointed through the SAME `OwnedNeutral` decision already used for scene
+renderers, so a material is fixed by the same rule regardless of which of the two paths it reaches the
+scene through. `M_Leaf` (canopy) is checked by the identical rule and left alone by the identical rule:
+its tint is already neutral and its intensity sits BELOW 1, the opposite direction from every confirmed
+defect, not a hand-picked exclusion. Verified full-walk after: band fails 2/30 -> 3/30, but the added
+fail is `walk-0405m` at 0.009, a frame that has sat within noise of the 0.01 floor (0.009-0.010) across
+every run this session regardless of what changed -- not a regression, the same known boundary case.
+Confirmed by eye across the route: no new defects, several genuinely well-composed frames (walk-0165m,
+walk-0225m) with no foliage colour issues remaining.
 
 ## Three more attempts at the water cut, and why none of them are wired in
 
