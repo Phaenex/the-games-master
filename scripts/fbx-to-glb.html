@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>FBX → GLB</title>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/fflate.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
+</head>
+<body>
+<script>
+window.__FBX2GLB = {
+  busy: false,
+  error: null,
+  result: null,
+  async convert(url) {
+    this.busy = true; this.error = null; this.result = null;
+    try {
+      const manager = new THREE.LoadingManager();
+      const fbxDir = url.replace(/[^/]+$/, '');
+      manager.setURLModifier((u) => {
+        if (/^data:|^blob:/i.test(u)) return u;
+        const name = decodeURIComponent(String(u).split(/[/\\]/).pop() || '');
+        if (name && /\.(png|jpe?g|tga|webp|bmp)$/i.test(name)) return fbxDir + name;
+        return u;
+      });
+      const loader = new THREE.FBXLoader(manager);
+      const root = await new Promise((resolve, reject) => {
+        loader.load(url, resolve, undefined, reject);
+      });
+      const mapKeys = ['map','normalMap','roughnessMap','metalnessMap','aoMap','emissiveMap','bumpMap','alphaMap','displacementMap','lightMap','envMap'];
+      root.traverse((o) => {
+        if (!o.isMesh) return;
+        o.castShadow = true;
+        o.receiveShadow = true;
+        if (!o.material) return;
+        const mats = Array.isArray(o.material) ? o.material : [o.material];
+        mats.forEach((m) => {
+          if (!m) return;
+          if (!m.color) m.color = new THREE.Color(0x888888);
+          mapKeys.forEach((k) => {
+            const t = m[k];
+            if (!t) return;
+            if (!t.image || !(t.image.width > 0) || !(t.image.height > 0)) m[k] = null;
+            else if (k === 'map' || k === 'emissiveMap') t.encoding = THREE.sRGBEncoding;
+          });
+        });
+      });
+      const exporter = new THREE.GLTFExporter();
+      const ab = await new Promise((resolve, reject) => {
+        exporter.parse(root, (gltf) => {
+          if (gltf instanceof ArrayBuffer) resolve(gltf);
+          else reject(new Error('expected binary glTF'));
+        }, { binary: true, onlyVisible: false, embedImages: true });
+      });
+      const bytes = new Uint8Array(ab);
+      let bin = '';
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+      }
+      this.result = {
+        byteLength: bytes.length,
+        meshCount: 0,
+        names: [],
+        base64: btoa(bin),
+      };
+      root.traverse((o) => {
+        if (o.isMesh) {
+          this.result.meshCount++;
+          this.result.names.push(o.name || '(unnamed)');
+        }
+      });
+    } catch (e) {
+      this.error = String(e && e.stack ? e.stack : (e && e.message ? e.message : e));
+    } finally {
+      this.busy = false;
+    }
+  },
+};
+</script>
+</body>
+</html>

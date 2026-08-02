@@ -1,0 +1,17 @@
+import { chromium } from 'playwright';
+import { createServer } from 'http';
+import { readFile } from 'fs/promises';
+import { extname, join } from 'path';
+const ROOT = process.cwd(), PORT = 3808;
+const MIME = { '.html':'text/html','.js':'text/javascript','.json':'application/json','.glb':'model/gltf-binary','.gltf':'model/gltf+json','.bin':'application/octet-stream','.png':'image/png','.jpg':'image/jpeg','.ogg':'audio/ogg' };
+const server = createServer(async (req,res)=>{ try{ let p=decodeURIComponent(req.url.split('?')[0]); if(p==='/')p='/index.html'; const fp=join(ROOT,p); const buf=await readFile(fp); res.writeHead(200,{'Content-Type':MIME[extname(fp)]||'application/octet-stream'}); res.end(buf);}catch{res.writeHead(404);res.end('nf');} });
+await new Promise(r=>server.listen(PORT,r));
+const browser = await chromium.launch();
+const page = await browser.newPage({ viewport:{ width:1280, height:720 } });
+page.on('pageerror', e=>console.log('[pageerror]', e.message));
+page.on('console', m=>{ if(m.type()==='error') console.log('[console.error]', m.text()); });
+await page.goto(`http://localhost:${PORT}/The%20Games%20Master%20-%20Prologue.dc.html`,{ waitUntil:'load' });
+await page.waitForTimeout(5000);
+const info = await page.evaluate(()=>({ hasGMC:!!window.__GMC, hasScene:!!(window.__GMC&&window.__GMC.scene), ruins:window.__GMC?window.__GMC._ruinsBuilt:'nogmc', errs:(window.__GMC&&window.__GMC._errs)||[] }));
+console.log('boot:', JSON.stringify(info));
+await browser.close(); server.close();

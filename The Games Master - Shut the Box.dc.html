@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+<script src="./gm-settings.js"></script>
+<script src="./gm-progress.js"></script>
+<script src="./gm-shutbox-logic.js"></script>
+<script src="./gm-shutbox-board.js"></script>
+<script src="./gm-court-props.js"></script>
+<script src="./gm-unity-props.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Spectral:ital,wght@0,400;1,400;1,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" integrity="sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; background:#000; overflow:hidden; }
+  #stb-scene { position:fixed; inset:0; width:100vw; height:100vh; display:block; z-index:0; cursor:grab; }
+</style>
+</helmet>
+<div style="position:relative;width:100vw;height:100vh;background:#000;color:#EBE0D1;font-family:'Spectral',serif;overflow:hidden;">
+  <canvas id="stb-scene"></canvas>
+  <div style="position:fixed;top:0;left:0;right:0;height:8vh;background:#000;z-index:40;pointer-events:none;"></div>
+  <div style="position:fixed;bottom:0;left:0;right:0;height:8vh;background:#000;z-index:40;pointer-events:none;"></div>
+  <div style="position:fixed;inset:0;z-index:20;pointer-events:none;box-shadow:inset 0 0 110px 26px rgba(0,0,0,0.26);"></div>
+  <div style="position:fixed;bottom:12vh;left:0;right:0;z-index:30;text-align:center;padding:0 8vw;pointer-events:none;transition:opacity 1s ease;{{ beatStyle }}">
+    <div style="font-family:'Cormorant Garamond',serif;font-size:clamp(22px,3.2vw,34px);color:#FFFFF2;text-shadow:0 3px 20px #000;max-width:800px;margin:0 auto;">{{ beatMain }}</div>
+    <div style="font-family:'Spectral',serif;font-style:italic;font-size:clamp(14px,1.6vw,18px);color:#E6B86B;margin-top:10px;max-width:640px;margin-left:auto;margin-right:auto;">{{ beatSub }}</div>
+  </div>
+  <div style="position:fixed;top:11vh;left:0;right:0;z-index:30;text-align:center;pointer-events:none;opacity:{{ hintOp }};">
+    <span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.18em;color:#A69980;background:rgba(0,0,0,0.45);padding:6px 14px;">SHELL · boards wired · full match next</span>
+  </div>
+  <div onClick="{{ onDevToggle }}" style="position:fixed;bottom:8px;left:10px;z-index:88;font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:0.18em;color:#5c5344;cursor:pointer;">` DEV</div>
+  <sc-if value="{{ devOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;top:12px;left:12px;z-index:90;width:240px;background:rgba(8,8,10,0.94);border:1px solid rgba(242,199,89,0.4);padding:12px;color:#EBE0D1;font-family:'JetBrains Mono',monospace;font-size:10px;">
+      <div style="color:#F2C759;letter-spacing:0.2em;margin-bottom:8px;">DEV · SHUT THE BOX</div>
+      <div>ready: {{ ready }}</div>
+      <div>boards: {{ boards }}</div>
+      <div>playerSum: {{ playerSum }}</div>
+      <div>aldricSum: {{ aldricSum }}</div>
+      <div style="margin-top:8px;cursor:pointer;color:#E6B86B;" onClick="{{ onDemoShut }}">demo shut 9</div>
+    </div>
+  </sc-if>
+  <div style="{{ fadeStyle }}"></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:720}}">
+class Component extends DCLogic {
+  state = { fade:1, beatOn:true, beatMain:'', beatSub:'', hintOp:0, devOpen:false, ready:false, boards:0, playerSum:45, aldricSum:45 };
+
+  componentDidMount() {
+    this._errs = []; this.yaw = 0; this.pitch = -0.35;
+    this._onErr = (e)=>{ this._errs.push(String((e&&e.message)||e)); }; window.addEventListener('error', this._onErr);
+    this._kd = (e)=>{ if(e.key==='`'||e.code==='Backquote'){ e.preventDefault(); this.setState({ devOpen:!this.state.devOpen }); } };
+    window.addEventListener('keydown', this._kd);
+    window.__GMC = this;
+    window.__GM = {
+      scene:'shutbox',
+      phases:['shell'],
+      goTo:(n)=>this.devGoTo(n),
+      getState:()=>this.devSnapshot(),
+      errors:()=>this._errs||[],
+      demoShut9:()=>this.demoShut9(),
+    };
+    this.waitThree();
+  }
+  componentWillUnmount() {
+    if (this._raf) cancelAnimationFrame(this._raf);
+    window.removeEventListener('error', this._onErr);
+    window.removeEventListener('keydown', this._kd);
+  }
+  waitThree() { if (window.THREE && window.GMShutBox && window.GMShutBoxBoard) { try { this.initScene(); } catch(e){ this._errs.push(String(e)); console.warn(e); } } else setTimeout(()=>this.waitThree(), 70); }
+
+  initScene() {
+    const THREE = window.THREE;
+    const canvas = document.getElementById('stb-scene');
+    if (!canvas || !canvas.clientWidth) { setTimeout(()=>this.waitThree(), 80); return; }
+    const W=canvas.clientWidth, H=canvas.clientHeight;
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+    renderer.setPixelRatio(Math.min(2, devicePixelRatio||1));
+    renderer.setSize(W,H,false);
+    this.renderer = renderer;
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color('#060504');
+    scene.fog = new THREE.Fog('#060504', 8, 28);
+    this.scene = scene;
+    const cam = new THREE.PerspectiveCamera(60, W/H, 0.1, 60);
+    cam.rotation.order='YXZ'; cam.position.set(0, 1.65, 3.1);
+    this.cam = cam;
+    this.pitch = -0.42;
+    scene.add(new THREE.AmbientLight('#4a3422', 1.35));
+    scene.add(new THREE.HemisphereLight('#7a6048', '#181008', 1.05));
+    const L = new THREE.PointLight('#F2C75A', 2.4, 22, 2); L.position.set(0, 2.6, 0.4); scene.add(L);
+    const L2 = new THREE.PointLight('#E8A060', 1.25, 16, 2); L2.position.set(0, 1.8, -1.8); scene.add(L2);
+    [-3.2, 3.2].forEach((x) => {
+      const w = new THREE.PointLight('#d4b888', 1.2, 14, 2);
+      w.position.set(x, 2.5, 0);
+      scene.add(w);
+    });
+    const backW = new THREE.PointLight('#c9a070', 0.85, 14, 2);
+    backW.position.set(0, 2.4, -3.5);
+    scene.add(backW);
+
+    const mat=(c,r)=>new THREE.MeshStandardMaterial({ color:c, roughness:r==null?1:r });
+    // short hall shell
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(8, 18), mat('#1a140e'));
+    floor.rotation.x=-Math.PI/2; scene.add(floor);
+    const wallL = new THREE.Mesh(new THREE.PlaneGeometry(18, 6), mat('#221810')); wallL.rotation.y=Math.PI/2; wallL.position.set(-4,3,0); scene.add(wallL);
+    const wallR = new THREE.Mesh(new THREE.PlaneGeometry(18, 6), mat('#221810')); wallR.rotation.y=-Math.PI/2; wallR.position.set(4,3,0); scene.add(wallR);
+    const wallB = new THREE.Mesh(new THREE.PlaneGeometry(8, 6), mat('#1a120c')); wallB.position.set(0,3,-9); scene.add(wallB);
+    // Modular Victorian Interior — dress over plane walls
+    if (window.GMUnityProps) {
+      const MOD = 'assets/models/unity/modular-victorian-interior-mansion/Victorian Asset Pack/Resources/Models/';
+      GMUnityProps.placeMany(THREE, scene, MOD + 'Wall_01_NoLedge.glb', [
+        [-3.85, -6, Math.PI / 2], [-3.85, 0, Math.PI / 2], [-3.85, 6, Math.PI / 2],
+        [3.85, -6, -Math.PI / 2], [3.85, 0, -Math.PI / 2], [3.85, 6, -Math.PI / 2],
+        [0, -8.7, 0],
+      ], 5.8);
+    }
+
+    // dust-sheeted frames
+    if (window.GMCourtProps) {
+      [-6,-3,0,3,6].forEach((z,i)=>{
+        const f = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.1, 1.5), mat('#4a3a20',0.6));
+        f.position.set(-3.85, 2.8, z); scene.add(f);
+        const sheet = GMCourtProps.buildDustSheet(THREE, 1.35, 1.9);
+        sheet.position.set(-3.7, 2.8, z); sheet.rotation.y = Math.PI/2;
+        if (i===4) sheet.material.opacity = 0.55; // half-fallen hint later
+        scene.add(sheet);
+      });
+    }
+
+    // game table + boards — Unity MetalMan / haunted table when available
+    const table = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.12, 1.8), mat('#2a1c12',0.75));
+    table.position.set(0, 0.78, 0); scene.add(table); table.userData.stbFallbackTable = true;
+    [[-1.2,-0.7],[1.2,-0.7],[-1.2,0.7],[1.2,0.7]].forEach(([x,z])=>{
+      const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.78,8), mat('#16100a'));
+      leg.position.set(x,0.39,z); scene.add(leg); leg.userData.stbFallbackTable = true;
+    });
+    if (window.GMUnityProps) {
+      GMUnityProps.loadGLB(THREE, 'assets/models/unity/metalman/Table_3.glb', (root) => {
+        GMUnityProps.placeAt(root, THREE, 0, 0, 0, 0, 0.8);
+        // size to roughly match boards footprint
+        root.updateMatrixWorld(true);
+        const b = new THREE.Box3().setFromObject(root); const sz = new THREE.Vector3(); b.getSize(sz);
+        const scX = 2.6 / Math.max(sz.x, 0.001), scZ = 1.6 / Math.max(sz.z, 0.001);
+        root.scale.multiplyScalar(Math.min(scX, scZ));
+        root.updateMatrixWorld(true);
+        const b2 = new THREE.Box3().setFromObject(root);
+        root.position.set(-((b2.min.x+b2.max.x)/2), -b2.min.y, -((b2.min.z+b2.max.z)/2));
+        scene.add(root);
+        scene.traverse((o) => { if (o.userData && o.userData.stbFallbackTable) o.visible = false; });
+        this._unityTable = true;
+      }, () => {
+        GMUnityProps.loadGLB(THREE, 'assets/models/unity/furniture/Table_RoundLarge.glb', (root) => {
+          GMUnityProps.placeAt(root, THREE, 0, 0, 0, 0, 0.8);
+          scene.add(root);
+          scene.traverse((o) => { if (o.userData && o.userData.stbFallbackTable) o.visible = false; });
+        });
+      });
+      GMUnityProps.placeMany(THREE, scene, 'assets/models/unity/metalman/Chair_1.glb', [
+        [0, -1.55, Math.PI], [0, 1.65, 0],
+      ], 1.05);
+      GMUnityProps.placeMany(THREE, scene, 'assets/models/unity/haunted/PictureFrame_GhostMan.glb', [
+        [-3.7, 0, Math.PI / 2], [-3.7, 4, Math.PI / 2], [3.7, -2, -Math.PI / 2],
+      ], 1.5);
+      GMUnityProps.placeMany(THREE, scene, 'assets/models/unity/metalman/Lamp_2.glb', [[-2.2, -6, 0.3], [2.2, -6, -0.3]], 1.4);
+    }
+
+    this.playerBox = GMShutBox.freshBox();
+    this.aldricBox = GMShutBox.freshBox();
+    const match = GMShutBoxBoard.buildMatch(THREE);
+    match.position.set(0, 0.86, 0);
+    match.scale.setScalar(0.85);
+    scene.add(match);
+    this.match = match;
+    match.userData.playerBoard.userData.syncFromBox(this.playerBox);
+    match.userData.aldricBoard.userData.syncFromBox(this.aldricBox);
+
+    // seated Aldric — coat + collar + hands on table edge (still placeholder, not a character pipeline)
+    const coat = mat('#141018', 0.92), flesh = mat('#5a4838', 0.85), shirt = mat('#2a2430', 0.9);
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.7, 0.4), coat); torso.position.set(0, 1.15, -1.55); scene.add(torso);
+    const lap = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.22, 0.55), coat); lap.position.set(0, 0.72, -1.35); scene.add(lap);
+    const coll = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.12, 0.28), shirt); coll.position.set(0, 1.48, -1.42); scene.add(coll);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 12, 10), flesh); head.position.set(0, 1.78, -1.5); scene.add(head);
+    const hair = new THREE.Mesh(new THREE.SphereGeometry(0.175, 10, 8), mat('#0e0c10', 1)); hair.position.set(0, 1.88, -1.52); hair.scale.set(1, 0.7, 1); scene.add(hair);
+    [-0.22, 0.22].forEach((x) => {
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.55), coat); arm.position.set(x, 1.05, -1.15); scene.add(arm);
+      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), flesh); hand.position.set(x, 1.0, -0.85); scene.add(hand);
+    });
+
+    this._sceneReady = true;
+    this.setState({
+      fade:0, ready:true, boards:2,
+      playerSum:GMShutBox.openSum(this.playerBox),
+      aldricSum:GMShutBox.openSum(this.aldricBox),
+      beatOn:true,
+      beatMain:'The boards were already open.',
+      beatSub:'Dust sheets on the portraits. Two boxes on the table. He sat as if he had been waiting for the roll, not for me.',
+      hintOp:0.9,
+    });
+    setTimeout(()=> this.setState({ beatOn:false }), 4200);
+
+    const look = ()=>{ cam.rotation.x=this.pitch; cam.rotation.y=this.yaw; };
+    canvas.addEventListener('mousedown', ()=>{ this.dragging=true; });
+    window.addEventListener('mouseup', ()=>{ this.dragging=false; });
+    window.addEventListener('mousemove', (e)=>{
+      if (!this.dragging) return;
+      this.yaw -= e.movementX*0.004; this.pitch = Math.max(-1.2, Math.min(0.2, this.pitch - e.movementY*0.004));
+    });
+    const loop = ()=>{
+      this._raf = requestAnimationFrame(loop);
+      look();
+      renderer.render(scene, cam);
+    };
+    loop();
+  }
+
+  demoShut9() {
+    if (!this.playerBox || !this.match) return;
+    GMShutBox.applyMove(this.playerBox, [9]);
+    this.match.userData.playerBoard.userData.syncFromBox(this.playerBox);
+    this.setState({ playerSum:GMShutBox.openSum(this.playerBox), beatOn:true, beatMain:'Tile nine folded.', beatSub:'Somewhere the wall panel remembered a hinge.' });
+    setTimeout(()=> this.setState({ beatOn:false }), 3200);
+  }
+
+  devGoTo() { /* shell only */ }
+  devSnapshot() {
+    return {
+      phase:'shell', mode:'shell', sceneReady:!!this._sceneReady, boards: this.match?2:0,
+      playerSum: this.playerBox ? GMShutBox.openSum(this.playerBox) : null,
+      aldricSum: this.aldricBox ? GMShutBox.openSum(this.aldricBox) : null,
+      errors:(this._errs||[]).length,
+    };
+  }
+  renderVals() {
+    const st=this.state;
+    return {
+      beatStyle:'opacity:'+(st.beatOn?1:0)+';',
+      beatMain:st.beatMain, beatSub:st.beatSub, hintOp:st.hintOp,
+      fadeStyle:'position:fixed;inset:0;z-index:45;background:#000;opacity:'+st.fade+';pointer-events:'+(st.fade>0.02?'auto':'none')+';',
+      devOpen:st.devOpen, ready:String(!!st.ready), boards:String(st.boards),
+      playerSum:String(st.playerSum), aldricSum:String(st.aldricSum),
+      onDevToggle:()=>this.setState({devOpen:!this.state.devOpen}),
+      onDemoShut:()=>this.demoShut9(),
+    };
+  }
+}
+</script>
+</body>
+</html>

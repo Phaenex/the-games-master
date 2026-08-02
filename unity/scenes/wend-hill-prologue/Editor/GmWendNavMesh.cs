@@ -67,7 +67,7 @@ public static class GmWendNavMesh
         GameObject stale = GameObject.Find(RootName);
         if (stale != null) Object.DestroyImmediate(stale);
 
-        List<Vector3> route = GmWendRoute.Build(out _);
+        List<Vector3> route = GmWendRoute.BuildEstate(out _);
         if (route.Count == 0)
             throw new System.InvalidOperationException(
                 "no route to bake a corridor around; the road meshes did not match");
@@ -77,11 +77,12 @@ public static class GmWendNavMesh
         var root = new GameObject(RootName);
         var surface = root.AddComponent<NavMeshSurface>();
 
-        // Physics colliders, not render meshes. The props that actually stop the CharacterController
-        // are the ones with colliders, and baking render meshes would carve the mesh around decorative
-        // geometry the player walks straight through.
+        // The purchased road is a set of disconnected display meshes. The canonical opening owns a
+        // continuous collision ribbon on a dedicated layer; bake that exact walk contract instead of
+        // allowing nearby terrain islands to win SamplePosition and silently create partial paths.
         surface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
         surface.collectObjects = CollectObjects.Volume;
+        surface.layerMask = 1 << GmWendOpening.WalkDeckLayer;
         surface.center = corridor.center - root.transform.position;
         surface.size = corridor.size;
 

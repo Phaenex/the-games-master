@@ -11,6 +11,7 @@ public static class GmRuntimeIntegrityPolicy
         "shader is not supported on this gpu",
         "has no shader assigned",
         "fallback shader 'hidden/internalerrorshader'",
+        "boxcollider does not support negative scale or size",
     };
 
     public static bool IsRenderFailure(string condition)

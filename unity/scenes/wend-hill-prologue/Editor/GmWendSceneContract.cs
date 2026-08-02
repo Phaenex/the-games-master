@@ -55,7 +55,7 @@ public static class GmWendSceneContract
         UnityEditor.SceneManagement.EditorSceneManager.OpenScene(
             GmWendBuilder.ScenePath, UnityEditor.SceneManagement.OpenSceneMode.Single);
         List<string> failures = Audit();
-        if (failures.Count == 0) Debug.Log($"[{LogTag}] PASS: all 10 checks green");
+        if (failures.Count == 0) Debug.Log($"[{LogTag}] PASS: all 15 checks green");
         else Debug.LogError($"[{LogTag}] FAIL:\n  - {string.Join("\n  - ", failures)}");
         EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
     }
@@ -100,6 +100,177 @@ public static class GmWendSceneContract
                              "Either the scene predates the current recipe or the recipe changed without a rebuild");
         }
 
+        // 11. The canonical estate opening exists as one coherent layer.
+        GameObject opening = GameObject.Find(GmWendOpening.RootName);
+        GmRouteSpline route = Object.FindAnyObjectByType<GmRouteSpline>();
+        if (opening == null) failures.Add($"no '{GmWendOpening.RootName}' root: this is still the environment-only walk");
+        if (route == null) failures.Add("no semantic route spline");
+        else if (Mathf.Abs(route.Length - GmWendRoute.EstateRouteMetres) > 2f)
+            failures.Add($"canonical route is {route.Length:0}m, expected {GmWendRoute.EstateRouteMetres:0}m before the canyon");
+        else
+        {
+            int terrainObstructions = 0;
+            foreach (Terrain terrain in Object.FindObjectsByType<Terrain>(FindObjectsInactive.Include))
+            {
+                TerrainData data = terrain.terrainData;
+                if (data == null) continue;
+                foreach (TreeInstance tree in data.treeInstances)
+                {
+                    Vector3 world = terrain.transform.position + Vector3.Scale(tree.position, data.size);
+                    float metres = route.ProjectDistance(world);
+                    Vector3 onRoute = route.PointAt(metres);
+                    float distance = Vector2.Distance(new Vector2(world.x, world.z),
+                        new Vector2(onRoute.x, onRoute.z));
+                    if (distance <= (metres <= 30f ? 6.5f : 3.6f)) terrainObstructions++;
+                }
+            }
+            if (terrainObstructions > 0)
+                failures.Add($"{terrainObstructions} terrain vegetation instance(s) still intersect the walk lane");
+        }
+
+        // 12. Stable anchors are unique and every required story/world endpoint resolves.
+        failures.AddRange(GmWorldAnchor.ValidateScene());
+        foreach (string id in new[] { "arrival-car", "gate", "chapel", "manor-porch", "wake-pose" })
+            if (GmWorldAnchor.Find(id) == null) failures.Add($"required world anchor '{id}' is missing");
+        if (Object.FindObjectsByType<GmWorldAnchor>(FindObjectsInactive.Include)
+                .Count(a => a.name.StartsWith("POI_")) != 13)
+            failures.Add("canonical opening does not contain exactly 13 anchored POIs");
+
+        // 13. Full story runtime and deterministic review tour are wired into this scene.
+        GmDesignRuntime story = Object.FindAnyObjectByType<GmDesignRuntime>();
+        if (story == null || story.designFile != GmWendOpening.DesignFile)
+            failures.Add($"story runtime is missing or does not use {GmWendOpening.DesignFile}");
+        if (Object.FindAnyObjectByType<GmBellSummons>() == null ||
+            Object.FindAnyObjectByType<GmThreshold>() == null ||
+            Object.FindAnyObjectByType<GmCrossing>() == null ||
+            Object.FindAnyObjectByType<GmSecretEnding>() == null ||
+            Object.FindAnyObjectByType<GmColdOpen>() == null ||
+            Object.FindAnyObjectByType<GmPrologueHud>() == null ||
+            Object.FindAnyObjectByType<GmDisplayCalibration>() == null ||
+            Object.FindAnyObjectByType<GmWendRuntimeCulling>() == null ||
+            Object.FindAnyObjectByType<GmWendRenderBudget>() == null)
+            failures.Add("one or more canonical opening systems are missing");
+        GmWendStoryTour review = Object.FindAnyObjectByType<GmWendStoryTour>();
+        if (review == null || review.ShotCount != 8) failures.Add("canonical review tour is missing or is not 8 shots");
+
+        // 14. One manor, a real closing gate and a wake destination complete the route.
+        if (Object.FindObjectsByType<GmMansionIdentity>(FindObjectsInactive.Include).Length != 1)
+            failures.Add("expected exactly one authored manor");
+        if (Object.FindAnyObjectByType<GmGateLeaves>() == null) failures.Add("estate gate has no closable leaves");
+        if (GameObject.Find("WakeRoom/WakePose") == null) failures.Add("crossing wake room/pose is missing");
+
+        // 16. The crossing now continues into the complete first house chapter.
+        GameObject house = GameObject.Find(GmHouseBeginningBuilder.RootName);
+        if (house == null) failures.Add("house beginning root is missing");
+        else
+        {
+            if (house.GetComponent<GmHouseBeginning>() == null || house.GetComponent<GmHouseHud>() == null ||
+                house.GetComponent<GmHouseProgress>() == null)
+                failures.Add("house beginning does not carry its flow, HUD and shared progress engine");
+            Transform portraits = house.transform.Find("EntryHall/Portraits");
+            int namedPortraits = portraits == null ? 0 : portraits.Cast<Transform>()
+                .Count(child => child.name.StartsWith("Portrait_"));
+            if (namedPortraits != 9) failures.Add($"entry hall has {namedPortraits}/9 named guest portraits");
+            foreach (string path in new[]
+            {
+                "EntryHall/LedgerDesk/Ledger",
+                "EntryHall/Portraits/Portrait_Percival/MirrorShard",
+                "EntryHall/ParlorDoor",
+                "Parlor/AldricVoss",
+                "Parlor/FirstGameTable",
+                "Parlor/HostIntroductionThreshold",
+            })
+                if (house.transform.Find(path) == null) failures.Add($"house beginning is missing '{path}'");
+            GmInteractable[] houseInteractions = house.GetComponentsInChildren<GmInteractable>(true);
+            string[] interactionIds = houseInteractions.Select(item => item.InteractionId).ToArray();
+            if (interactionIds.Length < 20) failures.Add($"entry/parlor has only {interactionIds.Length} authored interactions, expected at least 20");
+            if (interactionIds.Any(string.IsNullOrWhiteSpace) || interactionIds.Distinct().Count() != interactionIds.Length)
+                failures.Add("house interaction IDs are missing or duplicated");
+
+            Renderer[] importedVictorian = house.GetComponentsInChildren<Renderer>(true)
+                .Where(GmVictorianInteriorKit.IsImportedVisual).ToArray();
+            if (importedVictorian.Length < 30)
+                failures.Add($"house beginning has only {importedVictorian.Length} imported Victorian renderer(s), expected at least 30");
+            int texturedVictorian = importedVictorian.Count(renderer => renderer.sharedMaterials.Any(material =>
+                material != null && material.shader != null && material.shader.name == "HDRP/Lit" &&
+                material.HasProperty("_BaseColorMap") && material.GetTexture("_BaseColorMap") != null &&
+                material.HasProperty("_NormalMap") && material.GetTexture("_NormalMap") != null));
+            if (texturedVictorian != importedVictorian.Length)
+                failures.Add($"{importedVictorian.Length - texturedVictorian}/{importedVictorian.Length} imported Victorian renderers lack HDRP albedo/normal materials");
+        }
+
+        // 15. Purchased-prefab reflections must not reach BoxCollider. Positive-scale scene-owned
+        // proxies preserve the collision while avoiding Unity's undefined negative-size warning.
+        string[] negative = GmWendColliderRepair.ActiveNegativeColliderPaths();
+        if (negative.Length > 0)
+            failures.Add($"{negative.Length} active negative-scale BoxCollider(s): {string.Join(", ", negative.Take(5))}");
+        string[] serializedNegative = GmWendColliderRepair.AllNegativeColliderPaths();
+        if (serializedNegative.Length > 0)
+            failures.Add($"{serializedNegative.Length} serialized negative-scale BoxCollider(s): " +
+                         string.Join(", ", serializedNegative.Take(5)));
+        foreach (GmWendColliderProxy marker in Object.FindObjectsByType<GmWendColliderProxy>(FindObjectsInactive.Include))
+        {
+            BoxCollider proxy = marker.GetComponent<BoxCollider>();
+            if (proxy == null || Vector3.Distance(proxy.bounds.center, marker.SourceWorldCenter) > 0.05f ||
+                Vector3.Distance(proxy.bounds.size, marker.SourceWorldSize) > 0.1f)
+                failures.Add($"collider proxy '{marker.name}' does not preserve source world bounds");
+        }
+        if (route != null)
+        {
+            int falseDoorBlockers = 0;
+            int falseRouteObstacles = 0;
+            string[] obstacleTokens = { "wall", "fence", "door", "wood", "barrel", "crate", "cart",
+                "wagon", "bench", "table", "chair", "rock", "debris", "prop" };
+            foreach (Collider collider in Object.FindObjectsByType<Collider>(FindObjectsInactive.Include))
+            {
+                if (!collider.enabled || collider.isTrigger) continue;
+                if (!GmWendPerformance.IntersectsRouteCapsule(collider.bounds, route)) continue;
+                if (collider.name.IndexOf("Wall_Door", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    falseDoorBlockers++;
+                string path = collider.name.ToLowerInvariant();
+                for (Transform current = collider.transform.parent; current != null; current = current.parent)
+                    path += "/" + current.name.ToLowerInvariant();
+                if (collider is not TerrainCollider && collider.transform.root.name != GmWendOpening.RootName &&
+                    collider.transform.root.name != GmWendBounds.RootName &&
+                    obstacleTokens.Any(path.Contains)) falseRouteObstacles++;
+            }
+            if (falseDoorBlockers > 0)
+                failures.Add($"{falseDoorBlockers} purchased doorway collider(s) still seal the semantic route");
+            if (falseRouteObstacles > 0)
+                failures.Add($"{falseRouteObstacles} purchased wall/prop collider(s) still seal the semantic route");
+        }
+
+        foreach (GmWorldAnchor poi in Object.FindObjectsByType<GmWorldAnchor>(FindObjectsInactive.Include,
+                     FindObjectsSortMode.None).Where(anchor => anchor.name.StartsWith("POI_")))
+        {
+            if (poi.AnchorId == "arrival-car" || poi.AnchorId == "chapel-door") continue;
+            Transform prop = poi.transform.Cast<Transform>().FirstOrDefault(child => child.name.StartsWith("Prop_"));
+            if (prop == null || prop.GetComponentsInChildren<Renderer>(true).Length == 0)
+                failures.Add($"story POI '{poi.AnchorId}' has no owned rendered evidence prop");
+            if (poi.transform.Cast<Transform>().Any(child => child.name.StartsWith("Evidence_")))
+                failures.Add($"story POI '{poi.AnchorId}' regressed to a primitive placeholder");
+        }
+        GameObject arrivalCar = GameObject.Find($"{GmWendOpening.RootName}/ArrivalCar");
+        if (arrivalCar == null)
+            failures.Add("arrival car is missing");
+        else
+        {
+            Renderer[] carRenderers = arrivalCar.GetComponentsInChildren<Renderer>(true);
+            if (carRenderers.Length == 0) failures.Add("arrival car has no renderers");
+            else
+            {
+                Bounds carBounds = carRenderers[0].bounds;
+                foreach (Renderer renderer in carRenderers.Skip(1)) carBounds.Encapsulate(renderer.bounds);
+                float longest = Mathf.Max(carBounds.size.x, Mathf.Max(carBounds.size.y, carBounds.size.z));
+                if (longest < 4.4f || longest > 4.8f)
+                    failures.Add($"arrival car longest dimension is {longest:0.00}m instead of 4.6m");
+                GmWorldAnchor carAnchor = GmWorldAnchor.Find("arrival-car");
+                if (carAnchor == null || Vector2.Distance(new Vector2(carBounds.center.x, carBounds.center.z),
+                        new Vector2(carAnchor.transform.position.x, carAnchor.transform.position.z)) > 0.15f)
+                    failures.Add("arrival car visual bounds are not centred on the arrival-car anchor");
+            }
+        }
+
         // 4 and 5. The owned profile, and the exposure on it.
         Volume host = Object.FindObjectsByType<Volume>(FindObjectsInactive.Include)
             .FirstOrDefault(v => v.sharedProfile != null);
@@ -137,6 +308,9 @@ public static class GmWendSceneContract
         else if (live[0].transform.parent == null || live[0].transform.parent.name != GmWendBuilder.PlayerName)
             failures.Add($"the only live camera is '{live[0].name}', which is not under " +
                          $"'{GmWendBuilder.PlayerName}'");
+        else if (live[0].GetComponent<HDAdditionalCameraData>() == null ||
+                 !live[0].GetComponent<HDAdditionalCameraData>().allowDynamicResolution)
+            failures.Add("the player HDRP camera does not allow the explicit built-player render budget");
 
         // 7. Foliage emission, by both routes.
         Material[] emitters = GmWendFoliage.RemainingEmitters();
@@ -213,12 +387,13 @@ public static class GmWendSceneContract
         }
 
         if (failures.Count == 0)
-            Debug.Log($"[{LogTag}] 10/10 checks pass: player, census ({census}), moon " +
+            Debug.Log($"[{LogTag}] 15/15 checks pass: player, census ({census}), moon " +
                       $"{GmWendNight.MoonLux} lux, owned profile, fixed EV " +
                       $"{GmWendNight.CommittedExposureEV}, one live camera, zero foliage emitters, " +
                       "closed map edge, one live ear, ambience wired " +
                       $"({ambience.footstepPool.Length} footstep clips, " +
-                      $"{ambience.cricketAnchors.Length} cricket anchors)");
+                      $"{ambience.cricketAnchors.Length} cricket anchors), canonical estate opening, " +
+                      $"semantic anchors, story runtime, manor/gate/wake, collider proxies");
 
         return failures;
     }

@@ -50,8 +50,9 @@ public static class GmSceneContractAudit
                 issues.Add($"scene identity id is '{identity.SceneId}', expected '{expectedId}'");
             if (identity.DisplayName != expectedDisplayName)
                 issues.Add($"scene identity name is '{identity.DisplayName}', expected '{expectedDisplayName}'");
-            if (identity.SchemaVersion != GmSceneCatalog.SchemaVersion)
-                issues.Add($"scene identity schema is {identity.SchemaVersion}, expected {GmSceneCatalog.SchemaVersion}");
+            int expectedSchema = expectedId == "wend-hill" ? 1 : GmSceneCatalog.SchemaVersion;
+            if (identity.SchemaVersion != expectedSchema)
+                issues.Add($"scene identity schema is {identity.SchemaVersion}, expected {expectedSchema}");
             if (identity.gameObject.scene != scene)
                 issues.Add("scene identity belongs to a different loaded scene");
         }

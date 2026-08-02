@@ -1,13 +1,13 @@
 {
   "$schema": "./scene-registry.schema.json",
-  "version": 1,
-  "defaultScene": "wend-hill",
+  "version": 2,
+  "defaultScene": "wend-hill-prologue",
   "scenes": [
     {
       "id": "wend-hill",
       "displayName": "Wend Hill",
       "phase": 0,
-      "status": "review",
+      "status": "legacy",
       "sceneName": "WendHill",
       "scenePath": "Assets/Scenes/WendHill.unity",
       "build": {
@@ -23,6 +23,12 @@
         "success": "[GmShotTour] TOUR COMPLETE",
         "logTag": "GmShotTour",
         "shots": 18
+      },
+      "standalone": {
+        "method": "GmStandaloneBuild.BuildMacReview",
+        "success": "[GmStandaloneBuild] PASS:",
+        "appPath": "Builds/macOS/The Games Master.app",
+        "executablePath": "Contents/MacOS/The Games Master"
       }
     },
     {
@@ -43,9 +49,37 @@
       },
       "tour": {
         "method": "GmWendReview.Run",
-        "success": "[GmWendReview] REVIEW COMPLETE",
+        "success": "[GmWendReview] TOUR COMPLETE",
         "logTag": "GmWendReview",
         "shots": 8
+      },
+      "standalone": {
+        "method": "GmWendStandaloneBuild.BuildPrologueApp",
+        "success": "[GmWendBuild] PASS:",
+        "appPath": "Builds/macOS-Wend/Wend Hill Prologue.app",
+        "executablePath": "Contents/MacOS/The Games Master"
+      },
+      "probes": {
+        "walk": {
+          "flag": "-gmWendWalk",
+          "success": "[GmWendWalkProbe] WALK PASS",
+          "report": "walk-performance.json"
+        },
+        "walls": {
+          "flag": "-gmWendWallTest",
+          "success": "[GmWendWallProbe] WALL TEST PASS"
+        },
+        "house": {
+          "flag": "-gmHouseProof",
+          "success": "[GmHouseProbe] HOUSE PASS"
+        }
+      },
+      "performance": {
+        "width": 1920,
+        "height": 1080,
+        "vSync": 0,
+        "warmupSeconds": 10,
+        "p95Milliseconds": 16.7
       }
     }
   ]

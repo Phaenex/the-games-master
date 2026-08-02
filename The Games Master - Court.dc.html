@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+<script src="./gm-doubt.js"></script>
+<script src="./gm-settings.js"></script>
+<script src="./gm-progress.js"></script>
+<script src="./gm-court-props.js"></script>
+<script src="./gm-unity-props.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Spectral:ital,wght@0,400;1,400;1,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" integrity="sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js" integrity="sha384-fljlqkjWlmSFjkESkQvm77heIZpoWmXEOzlCA7kOpGUH+95Zk0yGfQieWM2q136E" crossorigin="anonymous"></script>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #000; overflow: hidden; }
+  #court-scene { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; z-index: 0; cursor: grab; }
+  #court-scene:active { cursor: grabbing; }
+</style>
+</helmet>
+
+<div style="position:relative;width:100vw;height:100vh;background:#000;color:#EBE0D1;font-family:'Spectral',serif;overflow:hidden;">
+  <canvas id="court-scene"></canvas>
+  <div style="position:fixed;top:0;left:0;right:0;height:8vh;background:#000;z-index:40;pointer-events:none;"></div>
+  <div style="position:fixed;bottom:0;left:0;right:0;height:8vh;background:#000;z-index:40;pointer-events:none;"></div>
+  <div style="position:fixed;inset:0;z-index:20;pointer-events:none;box-shadow:inset 0 0 120px 28px rgba(0,0,0,0.28);"></div>
+
+  <div style="position:fixed;top:10.5vh;left:0;right:0;z-index:30;text-align:center;pointer-events:none;transition:opacity 1s ease;{{ hintStyle }}">
+    <span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.2em;color:#A69980;text-transform:uppercase;background:rgba(0,0,0,0.4);padding:6px 14px;">W A S D · walk &nbsp;·&nbsp; E · examine &nbsp;·&nbsp; 1–5 · present evidence</span>
+  </div>
+
+  <div style="position:fixed;bottom:12vh;left:0;right:0;z-index:30;text-align:center;padding:0 8vw;pointer-events:none;transition:opacity 1.1s ease;{{ beatStyle }}">
+    <div style="font-family:'Cormorant Garamond',serif;font-size:clamp(22px,3.3vw,36px);line-height:1.12;color:#FFFFF2;text-shadow:0 3px 24px rgba(0,0,0,0.95);max-width:840px;margin:0 auto;">{{ beatMain }}</div>
+    <div style="font-family:'Spectral',serif;font-style:italic;font-size:clamp(14px,1.7vw,19px);line-height:1.55;color:#E6B86B;text-shadow:0 2px 16px rgba(0,0,0,0.95);max-width:680px;margin:12px auto 0;">{{ beatSub }}</div>
+  </div>
+
+  <div style="position:fixed;bottom:9vh;left:0;right:0;z-index:31;text-align:center;pointer-events:none;transition:opacity .4s ease;{{ promptStyle }}">
+    <span style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.16em;color:#FFFFF2;text-transform:uppercase;background:rgba(10,7,4,0.72);border:1px solid rgba(242,199,89,0.55);padding:9px 18px;">{{ promptText }}</span>
+  </div>
+
+  <!-- three wax seals + evidence fan (shell) -->
+  <div style="position:fixed;top:11vh;right:3vw;z-index:32;display:flex;gap:10px;pointer-events:none;">
+    <sc-for list="{{ seals }}" as="s" hint-placeholder-count="3">
+      <div style="width:48px;height:48px;border-radius:50%;border:2px solid {{ s.border }};background:{{ s.bg }};box-shadow:0 0 14px {{ s.glow }};opacity:0.95;position:relative;" title="{{ s.label }}">
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.06em;color:{{ s.ink }};">{{ s.mark }}</div>
+      </div>
+    </sc-for>
+  </div>
+  <div style="position:fixed;bottom:18vh;left:0;right:0;z-index:32;display:flex;justify-content:center;gap:8px;flex-wrap:wrap;padding:0 4vw;pointer-events:none;{{ fanStyle }}">
+    <sc-for list="{{ cards }}" as="c" hint-placeholder-count="5">
+      <div style="width:min(160px,28vw);min-height:72px;background:rgba(18,12,8,0.88);border:1px solid {{ c.border }};padding:8px 10px;opacity:{{ c.opacity }};">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.14em;color:#A69980;">{{ c.key }} · {{ c.title }}</div>
+        <div style="font-family:'Spectral',serif;font-size:12px;line-height:1.35;color:#EBE0D1;margin-top:4px;">{{ c.short }}</div>
+      </div>
+    </sc-for>
+  </div>
+
+  <sc-if value="{{ devOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;top:12px;left:12px;z-index:90;width:260px;background:rgba(8,8,10,0.94);border:1px solid rgba(242,199,89,0.4);color:#EBE0D1;padding:12px 13px;">
+      <div style="display:flex;justify-content:space-between;border-bottom:1px solid rgba(242,199,89,0.2);padding-bottom:7px;margin-bottom:9px;">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.22em;color:#F2C759;">DEV · COURT</span>
+        <span onClick="{{ onDevClose }}" style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#A69980;cursor:pointer;">✕</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;">
+        <sc-for list="{{ devPhases }}" as="p" hint-placeholder-count="4">
+          <span onClick="{{ p.on }}" style="{{ p.style }}">{{ p.label }}</span>
+        </sc-for>
+      </div>
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-family:'JetBrains Mono',monospace;font-size:10px;">
+        <sc-for list="{{ devRows }}" as="r" hint-placeholder-count="6">
+          <span style="color:#8a7a5e;">{{ r.k }}</span><span style="color:#EBE0D1;text-align:right;">{{ r.v }}</span>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+  <div onClick="{{ onDevToggle }}" style="position:fixed;bottom:8px;left:10px;z-index:88;font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:0.18em;color:#5c5344;cursor:pointer;">` DEV</div>
+  <div style="{{ fadeStyle }}"></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:720}}">
+class Component extends DCLogic {
+  // Deck A — straight trial (see evidence draft). Flags never shown to player.
+  EVIDENCE = [
+    { id:'ledger', title:'Ledger extract', body:'Nine names. One blank line where a tenth would fit. The ink on the blank line has taken the paper\'s grain the way old ink does — as if something was written, then scraped.', isTrue:false },
+    { id:'wax', title:'Host\'s mark, wax seal V', body:'The same seal that closed the invitation. Present on three exhibit slips from three different years. The wax has never cracked unevenly — always the same fault line.', isTrue:false },
+    { id:'percival', title:'Guest register — Percival', body:'Last sat: before dawn. Notation in a second hand: kept his own counsel. The second hand matches no clerk entry elsewhere in the book.', isTrue:true },
+    { id:'chand', title:'Chandelier inventory', body:'One fixture enumerated twice. Once as brass. Once as \'not brass — do not polish.\'', isTrue:false },
+    { id:'latch', title:'Door-latch schedule', body:'Outer gate: locked from inside after third guest clears the drive. No key assigned to staff. No key listed at all.', isTrue:false },
+  ];
+  JURY = ['Marr','Dufresne','Pike','Hale','Gall','Quill','Thale','Aubrey-Locke','Percival'];
+
+  state = {
+    fade:1, beatOn:false, beatMain:'', beatSub:'', hintOn:false, promptOn:false, promptText:'',
+    devOpen:false, sealsCracked:0, gavelTarnish:0, rigged:false, fanOn:true, presented:[],
+  };
+
+  componentDidMount() {
+    this.mode = 'court'; this.walkEnabled = false;
+    this.keys = {}; this.yaw = 0; this.pitch = -0.08; this.dragging = false;
+    this.standY = 1.7; this._errs = []; this._presented = [];
+    this._onKey = (e,d)=>{
+      const k=e.key.toLowerCase(); this.keys[k]=d;
+      if(['arrowup','arrowdown','arrowleft','arrowright'].includes(k)) e.preventDefault();
+      if(k==='e'){ if(d&&!this._eDown){ this._eDown=true; this.tryExamine(); } if(!d) this._eDown=false; }
+      if(d && k>='1' && k<='5') this.presentEvidence(Number(k)-1);
+    };
+    this._kd = (e)=>{ if(e.key==='`'||e.code==='Backquote'){ e.preventDefault(); this.toggleDev(); return; } this._onKey(e,true); };
+    this._ku = (e)=>this._onKey(e,false);
+    window.addEventListener('keydown', this._kd); window.addEventListener('keyup', this._ku);
+    this._resize = ()=>this.onResize();
+    window.addEventListener('resize', this._resize);
+    this._onErr = (e)=>{ this._errs.push(String((e&&e.message)||e)); }; window.addEventListener('error', this._onErr);
+    window.__GMC = this;
+    window.__GM = {
+      scene:'court',
+      phases:this.devPhaseList(),
+      goTo:(n)=>this.devGoTo(n),
+      getState:()=>this.devSnapshot(),
+      errors:()=>this._errs||[],
+      presentTrue:()=>this.presentEvidence(this.EVIDENCE.findIndex(c=>c.isTrue)),
+      setRigged:(v)=>{ this._rigged = !!v; this.setState({ rigged:!!v }); },
+    };
+    this.waitThree();
+    this._t0 = setTimeout(()=>this.beginEntry(), 400);
+  }
+  componentWillUnmount() {
+    if (this._raf) cancelAnimationFrame(this._raf);
+    window.removeEventListener('keydown', this._kd); window.removeEventListener('keyup', this._ku);
+    window.removeEventListener('resize', this._resize);
+    window.removeEventListener('error', this._onErr);
+    if (this._t0) clearTimeout(this._t0);
+    if (this._sayTimer) clearTimeout(this._sayTimer);
+    if (this._devTick) clearInterval(this._devTick);
+  }
+
+  waitThree() { if (window.THREE) { try { this.initScene(); } catch(e){ console.warn('court init', e); this._errs.push(String(e)); } } else setTimeout(()=>this.waitThree(), 70); }
+
+  beginEntry() {
+    this.setState({
+      fade:0.85, beatOn:true,
+      beatMain:'The dining room had been re-laid as a court.',
+      beatSub:'Same long table. Same chairs. The candelabra was already lit — waiting on a role somebody meant to play.',
+    });
+    setTimeout(()=> this.setState({ fade:0.35 }), 900);
+    setTimeout(()=> {
+      this.walkEnabled = true;
+      this.setState({ fade:0, beatOn:false, hintOn:true });
+    }, 2800);
+  }
+
+  speak(main, sub, hold) {
+    if (this._sayTimer) clearTimeout(this._sayTimer);
+    this.setState({ beatMain:main, beatSub:sub||'', beatOn:true, hintOn:false });
+    this._sayTimer = setTimeout(()=> this.setState({ beatOn:false }), hold||5200);
+  }
+
+  presentEvidence(idx) {
+    const card = this.EVIDENCE[idx];
+    if (!card || this._presented.includes(card.id)) return false;
+    this._presented.push(card.id);
+    const seals = Math.min(3, (this.state.sealsCracked||0) + (card.isTrue ? 1 : 0));
+    let tarnish = this.state.gavelTarnish||0;
+    if (card.isTrue && (this._rigged || this.state.rigged)) {
+      tarnish = 1;
+      this._tarnishCur = 1; // getState reads cur — don't wait on RAF lerp for the truth jump
+      if (this.gavel && this.gavel.userData.setTarnish) this.gavel.userData.setTarnish(1);
+    }
+    if (card.isTrue) {
+      this.speak('The seal took the argument.', 'Somewhere along the jury wall a picture light warmed by a degree.', 5000);
+      if (window.GMProgress) GMProgress.add(1);
+    } else {
+      this.speak('Marked for the record.', 'The gavel did not move. Neither did anyone else.', 4200);
+    }
+    this.setState({ sealsCracked:seals, gavelTarnish:tarnish, presented:this._presented.slice() });
+    // continuous tarnish lerp toward target when rigged+true
+    this._tarnishTarget = tarnish;
+    return card.isTrue;
+  }
+
+  initScene() {
+    const THREE = window.THREE;
+    const canvas = document.getElementById('court-scene');
+    if (!canvas || !canvas.clientWidth) { setTimeout(()=>this.waitThree(), 80); return; }
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio||1));
+    renderer.setSize(W, H, false);
+    this.renderer = renderer;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color('#070504');
+    scene.fog = new THREE.Fog('#080605', 18, 55);
+    this.scene = scene;
+
+    const cam = new THREE.PerspectiveCamera(68, W/H, 0.1, 80);
+    cam.rotation.order = 'YXZ';
+    cam.position.set(0, 1.7, 8.5);
+    this.cam = cam;
+
+    scene.add(new THREE.AmbientLight('#4a3420', 1.15));
+    scene.add(new THREE.HemisphereLight('#7a6048', '#181008', 1.08));
+    const key = new THREE.PointLight('#F2C75A', 2.1, 32, 2); key.position.set(0, 5.2, -2); scene.add(key); this.roleLight = key;
+    // wall wash so Modular panels read — mood stays warm, not black void
+    [-5.5, 5.5].forEach((x) => {
+      const w = new THREE.PointLight('#d4b888', 1.35, 20, 2);
+      w.position.set(x, 3.6, 0);
+      scene.add(w);
+    });
+    const backWash = new THREE.PointLight('#c9a070', 1.05, 22, 2);
+    backWash.position.set(0, 3.8, -6);
+    scene.add(backWash);
+    const frontWash = new THREE.PointLight('#c9a070', 0.7, 18, 2);
+    frontWash.position.set(0, 3.2, 5);
+    scene.add(frontWash);
+
+    const mat = (c,r)=> new THREE.MeshStandardMaterial({ color:c, roughness:r==null?1:r });
+    const addBox = (w,h,d,x,y,z,m)=>{ const me=new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m); me.position.set(x,y,z); scene.add(me); return me; };
+
+    // room shell — dining proportions, Court dress
+    const RW=14, RD=16;
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(RW, RD), mat('#2a1c10', 0.85));
+    floor.rotation.x = -Math.PI/2; scene.add(floor);
+    addBox(RW, 0.3, RD, 0, 7.8, 0, mat('#171009'));
+    addBox(RW, 7.5, 0.4, 0, 3.75, -RD/2, mat('#241812'));
+    addBox(RW, 7.5, 0.4, 0, 3.75, RD/2, mat('#241812'));
+    addBox(0.4, 7.5, RD, -RW/2, 3.75, 0, mat('#241812'));
+    addBox(0.4, 7.5, RD, RW/2, 3.75, 0, mat('#241812'));
+    addBox(0.35, 2.2, RD, -RW/2+0.05, 1.1, 0, mat('#2a1c0e'));
+    addBox(0.35, 2.2, RD, RW/2-0.05, 1.1, 0, mat('#2a1c0e'));
+    // Modular Victorian Interior — dress walls over box shell
+    const MOD = 'assets/models/unity/modular-victorian-interior-mansion/Victorian Asset Pack/Resources/Models/';
+    const placeMod = (url, spots, targetH) => {
+      if (!THREE.GLTFLoader) return;
+      const loader = new THREE.GLTFLoader();
+      loader.load(url, (gltf) => {
+        const proto = gltf.scene;
+        if (window.GMUnityProps && GMUnityProps.dressModular) GMUnityProps.dressModular(proto, THREE);
+        spots.forEach(([x, z, ry]) => {
+          const c = proto.clone(true);
+          let b = new THREE.Box3().setFromObject(c); let sz = new THREE.Vector3(); b.getSize(sz);
+          if (sz.y < 0.5 && Math.max(sz.x, sz.z) > sz.y) { c.rotation.x = -Math.PI / 2; c.updateMatrixWorld(true); b = new THREE.Box3().setFromObject(c); b.getSize(sz); }
+          c.scale.setScalar((targetH || 7.2) / Math.max(sz.y, 0.001));
+          c.rotation.y += (ry || 0);
+          c.updateMatrixWorld(true);
+          const b2 = new THREE.Box3().setFromObject(c);
+          c.position.set(x - (b2.min.x + b2.max.x) / 2, -b2.min.y, z - (b2.min.z + b2.max.z) / 2);
+          scene.add(c);
+        });
+      });
+    };
+    placeMod(MOD + 'Wall_01_NoLedge.glb', [
+      [-RW/2 + 0.28, 0, Math.PI / 2], [RW/2 - 0.28, 0, -Math.PI / 2],
+      [-RW/2 + 0.28, -4, Math.PI / 2], [RW/2 - 0.28, -4, -Math.PI / 2],
+      [-RW/2 + 0.28, 4, Math.PI / 2], [RW/2 - 0.28, 4, -Math.PI / 2],
+      [0, -RD/2 + 0.28, 0], [0, RD/2 - 0.28, Math.PI],
+    ], 7.2);
+    // rug under bar
+    addBox(6.5, 0.03, 10, 0, 0.02, -1, mat('#3a1212', 0.97));
+
+    // bar table + chairs — box fallback, then upgrade from hall pack / candelabra.glb
+    const wood = mat('#3a2814', 0.7), woodDark = mat('#1a1208', 0.75);
+    const tableBox = addBox(1.7, 0.14, 5.6, 0, 0.95, -1.2, wood);
+    tableBox.userData.courtFallbackTable = true;
+    [[-0.7,-3.2],[0.7,-3.2],[-0.7,-1.2],[0.7,-1.2],[-0.7,0.8],[0.7,0.8]].forEach(([lx,lz])=>{
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.07,0.9,8), woodDark);
+      leg.position.set(lx, 0.45, lz); scene.add(leg); leg.userData.courtFallbackTable = true;
+    });
+    const fallbackChairs = [];
+    for (let i=-2;i<=2;i++) {
+      const mkChair=(x,z,ry)=>{
+        const g=new THREE.Group(); g.position.set(x,0,z); g.rotation.y=ry||0; g.userData.courtFallbackChair=true;
+        const s=new THREE.Mesh(new THREE.BoxGeometry(0.55,0.08,0.55), wood); s.position.y=0.58; g.add(s);
+        const b=new THREE.Mesh(new THREE.BoxGeometry(0.55,0.7,0.08), wood); b.position.set(0,0.95,-0.22); g.add(b);
+        scene.add(g); fallbackChairs.push(g);
+      };
+      mkChair(-1.35, -1.2+i*1.05, Math.PI/2);
+      mkChair(1.35, -1.2+i*1.05, -Math.PI/2);
+    }
+    addBox(1.1, 0.1, 0.9, 0, 1.05, -4.6, woodDark).userData.courtFallbackTable = true;
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(0.7,0.12,0.7), wood); seat.position.set(0,0.7,-5.3); seat.userData.courtFallbackChair=true; scene.add(seat);
+
+    if (window.GMCourtProps) {
+      const gavel = GMCourtProps.buildGavel(THREE);
+      gavel.position.set(0.35, 1.12, 0.9);
+      gavel.rotation.y = -0.4;
+      gavel.scale.setScalar(0.85);
+      scene.add(gavel);
+      this.gavel = gavel;
+      this._tarnishTarget = 0;
+      this._tarnishCur = 0;
+    }
+
+    const candleL = new THREE.PointLight('#F2C75A', 0.7, 12, 2); candleL.position.set(0, 1.6, -2.4); scene.add(candleL);
+
+    const loadGltf = (url, onOk, onFail) => {
+      if (!THREE.GLTFLoader) { if (onFail) onFail(); return; }
+      try {
+        const loader = new THREE.GLTFLoader();
+        loader.load(url, (gltf) => onOk(gltf.scene), undefined, () => { if (onFail) onFail(); });
+      } catch (e) { if (onFail) onFail(); }
+    };
+    const placeTable = (root) => {
+      // Haunted/Unity FBX tables often wash white under PointLights — force dark wood lambert
+      root.traverse((o) => {
+        if (!o.isMesh) return;
+        o.castShadow = false; o.receiveShadow = false;
+        const map = o.material && o.material.map ? o.material.map : null;
+        o.material = new THREE.MeshLambertMaterial({ color: 0x2a1c12, map, emissive: 0x080604, emissiveIntensity: 0.08 });
+      });
+      let box = new THREE.Box3().setFromObject(root);
+      let size = new THREE.Vector3(); box.getSize(size);
+      if (size.y < 0.6 && Math.max(size.x, size.z) > size.y) {
+        root.rotation.x = -Math.PI / 2;
+        root.updateMatrixWorld(true);
+        box = new THREE.Box3().setFromObject(root); box.getSize(size);
+      }
+      const targetLen = 5.2, s = targetLen / Math.max(size.z, size.x, 0.001);
+      root.scale.setScalar(s);
+      root.updateMatrixWorld(true);
+      const box2 = new THREE.Box3().setFromObject(root);
+      root.position.set(0, -box2.min.y, -1.2);
+      scene.add(root);
+      scene.traverse((o) => { if (o.userData && o.userData.courtFallbackTable) o.visible = false; });
+      if (this.gavel) this.gavel.position.y = (box2.max.y - box2.min.y) + 0.06;
+      this._unityCourtTable = true;
+    };
+    // Prefer Stealth Haunted dining table + MetalMan chairs; fall back to hall pack
+    loadGltf('assets/models/unity/haunted/Table.glb', placeTable, () => {
+      loadGltf('assets/models/hall/Table_Large.gltf', placeTable);
+    });
+    const placeChairs = (proto) => {
+      proto.traverse((o) => { if (o.isMesh) { o.castShadow = false; } });
+      let probe = proto.clone(true);
+      let pb = new THREE.Box3().setFromObject(probe); let psz = new THREE.Vector3(); pb.getSize(psz);
+      if (psz.y < 0.5 && psz.z > psz.y) {
+        proto.rotation.x = -Math.PI / 2;
+        proto.updateMatrixWorld(true);
+      }
+      for (let i=-2;i<=2;i++) {
+        [[-1.45, Math.PI/2],[1.45, -Math.PI/2]].forEach(([x, ry]) => {
+          const c = proto.clone(true);
+          const b = new THREE.Box3().setFromObject(c); const sz = new THREE.Vector3(); b.getSize(sz);
+          c.scale.setScalar(0.95 / Math.max(sz.y, 0.001));
+          c.updateMatrixWorld(true);
+          const b2 = new THREE.Box3().setFromObject(c);
+          c.position.set(x, -b2.min.y, -1.2 + i*1.05);
+          c.rotation.y = ry;
+          scene.add(c);
+        });
+      }
+      fallbackChairs.forEach((g) => { g.visible = false; });
+      const judge = proto.clone(true);
+      const jb = new THREE.Box3().setFromObject(judge); const jsz = new THREE.Vector3(); jb.getSize(jsz);
+      judge.scale.setScalar(1.05 / Math.max(jsz.y, 0.001));
+      judge.updateMatrixWorld(true);
+      const jb2 = new THREE.Box3().setFromObject(judge);
+      judge.position.set(0, -jb2.min.y, -5.15);
+      judge.rotation.y = Math.PI;
+      scene.add(judge);
+      seat.visible = false;
+    };
+    loadGltf('assets/models/unity/metalman/Chair_1.glb', placeChairs, () => {
+      loadGltf('assets/models/unity/furniture/Chair_1.glb', placeChairs, () => {
+        loadGltf('assets/models/hall/Chair_1.gltf', placeChairs);
+      });
+    });
+    loadGltf('assets/models/unity/haunted/CandleStick.glb', (proto) => {
+      [-1.6, 1.6].forEach((dz) => {
+        const c = proto.clone(true);
+        let b = new THREE.Box3().setFromObject(c); let sz = new THREE.Vector3(); b.getSize(sz);
+        if (sz.y < 0.3 && sz.z > sz.y) { c.rotation.x = -Math.PI / 2; c.updateMatrixWorld(true); b = new THREE.Box3().setFromObject(c); b.getSize(sz); }
+        c.scale.setScalar(0.45 / Math.max(sz.y, 0.001));
+        c.updateMatrixWorld(true);
+        const b2 = new THREE.Box3().setFromObject(c);
+        c.position.set(0.55, 1.02 - b2.min.y, -1.2 + dz);
+        scene.add(c);
+      });
+    });
+    loadGltf('assets/models/unity/furniture/Light_Chandelier.glb', (root) => {
+      const c = root.clone(true);
+      let b = new THREE.Box3().setFromObject(c); let sz = new THREE.Vector3(); b.getSize(sz);
+      if (sz.y < 0.3 && sz.z > sz.y) { c.rotation.x = -Math.PI / 2; c.updateMatrixWorld(true); b = new THREE.Box3().setFromObject(c); b.getSize(sz); }
+      c.scale.setScalar(0.9 / Math.max(sz.y, 0.001));
+      c.updateMatrixWorld(true);
+      const b2 = new THREE.Box3().setFromObject(c);
+      c.position.set(0, 6.2 - b2.max.y, -1.2);
+      scene.add(c);
+      const glow = new THREE.PointLight('#F2C75A', 0.85, 14, 2); glow.position.set(0, 5.6, -1.2); scene.add(glow);
+    });
+    loadGltf('assets/models/sourced/candelabra.glb', (root) => {
+      [-1.5, 1.5].forEach((dz) => {
+        const c = root.clone(true);
+        const b = new THREE.Box3().setFromObject(c); const sz = new THREE.Vector3(); b.getSize(sz);
+        c.scale.setScalar(0.55 / Math.max(sz.y, 0.001));
+        c.updateMatrixWorld(true);
+        const b2 = new THREE.Box3().setFromObject(c);
+        c.position.set(0, 1.02 - b2.min.y, -1.2 + dz);
+        scene.add(c);
+      });
+    });
+
+    // jury portraits along far wall
+    const portrait = (empty)=>{
+      const c=document.createElement('canvas'); c.width=128; c.height=170; const g=c.getContext('2d');
+      const bg=g.createRadialGradient(60,60,10,64,90,110); bg.addColorStop(0,'#3c3126'); bg.addColorStop(1,'#0c0906');
+      g.fillStyle=bg; g.fillRect(0,0,128,170);
+      if (!empty) {
+        g.fillStyle='#1e222a'; g.beginPath(); g.moveTo(16,170); g.quadraticCurveTo(64,100,112,170); g.fill();
+        g.fillStyle='#7c6249'; g.beginPath(); g.ellipse(67,78,22,28,0.08,0,7); g.fill();
+        g.fillStyle='#251a11'; g.beginPath(); g.ellipse(64,58,24,18,0,0,7); g.fill();
+      }
+      const t=new THREE.CanvasTexture(c); return t;
+    };
+    this.JURY.forEach((name, i)=>{
+      const x = -5.2 + i * 1.3;
+      addBox(0.08, 1.7, 1.15, x, 3.4, -RD/2+0.35, mat('#5c4a24',0.55));
+      const canv = new THREE.Mesh(new THREE.PlaneGeometry(0.95,1.4), new THREE.MeshStandardMaterial({ map:portrait(false), roughness:0.9 }));
+      canv.position.set(x, 3.4, -RD/2+0.42); scene.add(canv);
+      // tiny name plate
+      const plate = new THREE.Mesh(new THREE.BoxGeometry(0.7,0.12,0.04), mat('#2a1c0e'));
+      plate.position.set(x, 2.45, -RD/2+0.4); scene.add(plate);
+    });
+
+    // exit plaque toward Entry Hall
+    addBox(0.08, 2.2, 1.4, 0, 2.2, RD/2-0.25, woodDark);
+
+    this.walk = [[-5.8, 5.8, -6.5, 7.2]];
+    this.blocks = [[-1.1, 1.1, -4.2, 1.6]]; // table footprint
+    this.inWalk = (x,z)=>{
+      let ok=false; for (const r of this.walk){ if(x>=r[0]&&x<=r[1]&&z>=r[2]&&z<=r[3]) ok=true; }
+      if (!ok) return false;
+      for (const b of this.blocks){ if(x>=b[0]&&x<=b[1]&&z>=b[2]&&z<=b[3]) return false; }
+      return true;
+    };
+
+    this.pois = [
+      { x:0.4, z:1.4, r:2.2, type:'examine', verb:'Look at the gavel',
+        em:'The brass remembered heat.', es:'Even idle, the head of it sat as if waiting for a strike that hadn’t been earned yet.' },
+      { x:0, z:-5.0, r:2.4, type:'examine', verb:'Approach the bench',
+        em:'One chair. Three voices.', es:'Prosecutor, judge, bailiff — same coat hanging on the same spine. He hadn’t bothered with robes.' },
+      { x:0, z:6.5, r:2.2, type:'examine', verb:'Leave the hearing',
+        em:'The door back to the hall.', es:'Still open. He wasn’t keeping me for the walls.',
+        nav:'The Games Master - Entry Hall.dc.html' },
+    ];
+    this.pois.forEach(p=>{ p.said=false; });
+
+    // look controls
+    const applyLook = (dx,dy,k)=>{ this.yaw -= dx*k; this.pitch = Math.max(-1.2, Math.min(1.2, this.pitch - dy*k)); };
+    canvas.addEventListener('click', ()=>{ if (canvas.requestPointerLock) canvas.requestPointerLock(); });
+    document.addEventListener('mousemove', (e)=>{
+      if (document.pointerLockElement===canvas) applyLook(e.movementX, e.movementY, 0.0022);
+      else if (this.dragging) applyLook(e.movementX, e.movementY, 0.005);
+    });
+    canvas.addEventListener('mousedown', ()=>{ this.dragging=true; });
+    window.addEventListener('mouseup', ()=>{ this.dragging=false; });
+
+    this._last = performance.now();
+    const loop = (now)=>{
+      this._raf = requestAnimationFrame(loop);
+      const dt = Math.min(0.05, (now - this._last)/1000); this._last = now;
+      const reduce = !!(window.GMSettings && GMSettings.get().reduceMotion);
+      if (this.walkEnabled) {
+        const k=this.keys;
+        const f=(k['w']?1:0)-(k['s']?1:0), s=(k['d']?1:0)-(k['a']?1:0);
+        const running=!!k['shift'];
+        const sp = (running?9.5:5.8)*dt;
+        const turn=(k['arrowleft']?1:0)-(k['arrowright']?1:0);
+        const look=(k['arrowup']?1:0)-(k['arrowdown']?1:0);
+        if (turn) this.yaw += turn*2.2*dt;
+        if (look) this.pitch = Math.max(-1.2, Math.min(1.2, this.pitch+look*1.8*dt));
+        const sy=Math.sin(this.yaw), cy=Math.cos(this.yaw);
+        let nx = cam.position.x + (-sy*f + cy*s)*sp;
+        let nz = cam.position.z + (-cy*f - sy*s)*sp;
+        if (this.inWalk(nx, cam.position.z)) cam.position.x = nx;
+        if (this.inWalk(cam.position.x, nz)) cam.position.z = nz;
+        const bob = (f||s) && !reduce ? Math.sin(now*0.012)*0.02 : 0;
+        cam.position.y = this.standY + bob;
+        this.scanPOIs(cam.position.x, cam.position.z);
+      }
+      cam.rotation.x = this.pitch; cam.rotation.y = this.yaw; cam.rotation.z = 0;
+      // continuous gavel tarnish
+      if (this.gavel && this.gavel.userData.setTarnish) {
+        const tgt = this._tarnishTarget||0;
+        this._tarnishCur = this._tarnishCur + (tgt - this._tarnishCur) * Math.min(1, dt*1.8);
+        this.gavel.userData.setTarnish(this._tarnishCur);
+      }
+      // role light idle sway (key practical)
+      if (this.roleLight && !reduce) {
+        const t = now*0.001;
+        this.roleLight.position.x = Math.sin(t*0.7)*0.35;
+        this.roleLight.intensity = 1.05 + Math.sin(t*1.4)*0.08;
+      }
+      renderer.render(scene, cam);
+    };
+    loop(performance.now());
+    this._sceneReady = true;
+    this.forceUpdate();
+  }
+
+  scanPOIs(x, z) {
+    let best=null, bestD=Infinity;
+    const sy=Math.sin(this.yaw), cy=Math.cos(this.yaw);
+    for (const p of this.pois) {
+      const dx=p.x-x, dz=p.z-z, d=Math.hypot(dx,dz);
+      if (d>p.r) continue;
+      const facing = (-sy*dx + -cy*dz) / (d||1);
+      if (facing>0.25 && d<bestD) { best=p; bestD=d; }
+      if ((p.type==='murmur'||p.type==='both') && !p.said && d<p.r*0.7) {
+        p.said=true; this.speak(p.m, p.s, 4800);
+      }
+    }
+    this._active = best;
+    if (best && (best.type==='examine'||best.type==='both')) {
+      const key = best.verb;
+      if (this._promptKey!==key) { this._promptKey=key; this.setState({ promptOn:true, promptText:best.verb }); }
+    } else if (this._promptKey) { this._promptKey=null; this.setState({ promptOn:false }); }
+  }
+
+  tryExamine() {
+    const p=this._active; if (!p || !this.walkEnabled) return;
+    if (p.nav) {
+      this.speak(p.em, p.es, 1800);
+      setTimeout(()=>{ window.location.href = p.nav; }, 900);
+      return;
+    }
+    this.speak(p.em, p.es || '', 5600);
+  }
+
+  onResize() {
+    if (!this.renderer || !this.cam) return;
+    const c = document.getElementById('court-scene'); if (!c) return;
+    const W=c.clientWidth, H=c.clientHeight;
+    this.renderer.setSize(W,H,false); this.cam.aspect=W/H; this.cam.updateProjectionMatrix();
+  }
+
+  devPhaseList() { return ['entry','bar','bench','rigged']; }
+  toggleDev() { const open=!this.state.devOpen; this.setState({ devOpen:open }); if(open) this._devTick=setInterval(()=>this.forceUpdate(),250); else if(this._devTick){ clearInterval(this._devTick); this._devTick=null; } }
+  devSnapshot() {
+    const c=this.cam, st=this.state;
+    return {
+      phase: this.walkEnabled ? 'explore' : 'entry',
+      mode: this.mode||'court',
+      walk: !!this.walkEnabled,
+      camZ: c?+c.position.z.toFixed(1):null,
+      camX: c?+c.position.x.toFixed(1):null,
+      sceneReady: !!this._sceneReady,
+      pois: (this.pois||[]).length,
+      gavel: !!this.gavel,
+      sealsCracked: st.sealsCracked||0,
+      gavelTarnish: +(this._tarnishCur||0).toFixed(2),
+      rigged: !!(this._rigged||st.rigged),
+      errors: (this._errs||[]).length,
+    };
+  }
+  devGoTo(name) {
+    if (!this.cam) return;
+    this.walkEnabled = true;
+    this.setState({ fade:0, beatOn:false, hintOn:true });
+    if (name==='entry') { this.cam.position.set(0,1.7,8.5); this.yaw=0; this.pitch=-0.08; }
+    else if (name==='bar') { this.cam.position.set(0,1.7,3.2); this.yaw=0; this.pitch=-0.12; }
+    else if (name==='bench') { this.cam.position.set(0,1.7,-3.5); this.yaw=Math.PI; this.pitch=-0.05; }
+    else if (name==='rigged') {
+      this._rigged = true; this.setState({ rigged:true });
+      this.cam.position.set(0.2,1.7,2.5); this.yaw=0; this.pitch=-0.2;
+      this.speak('The deck felt heavier this time.', 'Not denser. Just arranged.', 3600);
+    }
+  }
+
+  renderVals() {
+    const st = this.state;
+    const snap = this.devSnapshot();
+    const _phStyle = (n)=> 'font-family:\'JetBrains Mono\',monospace;font-size:9px;letter-spacing:0.05em;padding:4px 7px;border:1px solid '+(n===snap.phase|| (n==='entry'&&snap.phase==='explore')?'#F2C759':'rgba(242,199,89,0.25)')+';color:#A69980;cursor:pointer;';
+    const seals = [0,1,2].map((i)=>{
+      const cracked = i < (st.sealsCracked||0);
+      return {
+        label: cracked ? 'Argument stands' : 'Argument unmade',
+        mark: cracked ? '✕' : 'V',
+        ink: cracked ? '#c8a060' : '#f0d080',
+        border: cracked ? '#5a4030' : '#a03020',
+        bg: cracked
+          ? 'radial-gradient(circle at 40% 35%, #3a2218 0%, #120806 70%), linear-gradient(135deg, transparent 45%, #1a0806 46%, #1a0806 54%, transparent 55%)'
+          : 'radial-gradient(circle at 35% 30%, #c04028, #6a180e 55%, #2a0806)',
+        glow: cracked ? 'rgba(40,20,10,0.15)' : 'rgba(180,50,30,0.55)',
+      };
+    });
+    const cards = this.EVIDENCE.map((c,i)=>{
+      const used = (this._presented||[]).includes(c.id);
+      return {
+        key: String(i+1),
+        title: c.title,
+        short: used ? '(entered)' : c.body.slice(0,72)+'…',
+        border: used ? 'rgba(90,80,60,0.4)' : 'rgba(242,199,89,0.45)',
+        opacity: used ? '0.45' : '1',
+      };
+    });
+    return {
+      hintStyle: 'opacity:'+(st.hintOn?0.9:0)+';',
+      beatStyle: 'opacity:'+(st.beatOn?1:0)+';',
+      promptStyle: 'opacity:'+(st.promptOn && !st.beatOn?1:0)+';',
+      promptText: st.promptText,
+      beatMain: st.beatMain, beatSub: st.beatSub,
+      fanStyle: 'opacity:'+(st.fanOn?1:0)+';',
+      seals, cards,
+      fadeStyle: 'position:fixed;inset:0;z-index:45;background:#000;transition:opacity 0.9s ease;opacity:'+st.fade+';pointer-events:'+(st.fade>0.02?'auto':'none')+';',
+      devOpen: st.devOpen,
+      devPhases: this.devPhaseList().map(n=>({ label:n, on:()=>this.devGoTo(n), style:_phStyle(n) })),
+      devRows: Object.keys(snap).map(k=>({ k, v:String(snap[k]) })),
+      onDevToggle:()=>this.toggleDev(), onDevClose:()=>this.toggleDev(),
+    };
+  }
+}
+</script>
+</body>
+</html>

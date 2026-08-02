@@ -7,7 +7,7 @@
   "required": ["version", "defaultScene", "scenes"],
   "properties": {
     "$schema": { "type": "string" },
-    "version": { "const": 1 },
+    "version": { "const": 2 },
     "defaultScene": { "$ref": "#/$defs/sceneId" },
     "scenes": {
       "type": "array",
@@ -46,6 +46,39 @@
         "shots": { "type": "integer", "minimum": 1, "maximum": 99 }
       }
     },
+    "standalone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "success", "appPath", "executablePath"],
+      "properties": {
+        "method": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+$" },
+        "success": { "type": "string", "minLength": 4 },
+        "appPath": { "type": "string", "pattern": "^[^/].*\\.app$" },
+        "executablePath": { "type": "string", "pattern": "^[^/].+$" }
+      }
+    },
+    "probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["flag", "success"],
+      "properties": {
+        "flag": { "type": "string", "pattern": "^-[A-Za-z][A-Za-z0-9]+$" },
+        "success": { "type": "string", "minLength": 4 },
+        "report": { "type": "string", "minLength": 1 }
+      }
+    },
+    "performance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height", "vSync", "warmupSeconds", "p95Milliseconds"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 640 },
+        "height": { "type": "integer", "minimum": 360 },
+        "vSync": { "enum": [0, 1] },
+        "warmupSeconds": { "type": "number", "minimum": 0 },
+        "p95Milliseconds": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
     "scene": {
       "type": "object",
       "additionalProperties": false,
@@ -58,14 +91,21 @@
         "displayName": { "type": "string", "minLength": 2 },
         "phase": { "type": "integer", "minimum": 0, "maximum": 10 },
         "status": {
-          "enum": ["scaffold", "blockout", "in-progress", "review", "approved"]
+          "enum": ["scaffold", "blockout", "in-progress", "review", "approved", "legacy"]
         },
         "sceneName": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$" },
         "scenePath": { "type": "string", "pattern": "^Assets/Scenes/.+\\.unity$" },
         "sourceDir": { "type": "string", "pattern": "^unity/scenes/[a-z0-9-]+$" },
         "build": { "$ref": "#/$defs/command" },
         "audit": { "$ref": "#/$defs/command" },
-        "tour": { "$ref": "#/$defs/tour" }
+        "tour": { "$ref": "#/$defs/tour" },
+        "standalone": { "$ref": "#/$defs/standalone" },
+        "probes": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "$ref": "#/$defs/probe" }
+        },
+        "performance": { "$ref": "#/$defs/performance" }
       }
     }
   }

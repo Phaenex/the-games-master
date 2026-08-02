@@ -111,9 +111,14 @@ public static class GmWendBuilder
     /// deleting what the pack shipped and that question is unanswerable if our own additions are mixed
     /// into the same number. With this, "24 practical" keeps meaning "the artist's 24 are all still
     /// here" no matter how many lamps the gap-filling step adds.
-    static bool IsOurs(Component c) =>
-        c.transform.root.name == GmWendLamps.RootName ||
-        c.GetComponentInParent<Transform>()?.root?.name == GmWendLamps.RootName;
+    static bool IsOurs(Component c)
+    {
+        string root = c.transform.root.name;
+        return root == GmWendLamps.RootName ||
+               root == GmWendOpening.RootName ||
+               root == "WakeRoom" ||
+               root == GmHouseBeginningBuilder.RootName;
+    }
 
     public static LightingCensus TakeCensus()
     {
@@ -146,7 +151,7 @@ public static class GmWendBuilder
         // over about 1.5km, so their centroid is not a location. It put the player on a slope running
         // downhill into the pack's water plane, and every review frame of the night was shot from there
         // before anyone walked away from it.
-        List<Vector3> route = GmWendRoute.Build(out string routeReport);
+        List<Vector3> route = GmWendRoute.BuildEstate(out string routeReport);
         Debug.Log($"[{LogTag}] route\n{routeReport}");
 
         Vector3 at;
@@ -203,7 +208,8 @@ public static class GmWendBuilder
         int deafened = SoloPlayerListener(camGo.GetComponent<AudioListener>());
         Debug.Log($"[{LogTag}] player ear is now the only live one ({deafened} pack listener(s) disabled)");
 
-        player.AddComponent<GmPlayer>();
+        var controls = player.AddComponent<GmPlayer>();
+        controls.walkSpeed = 2.1f;
         return spawn;
     }
 

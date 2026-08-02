@@ -80,7 +80,7 @@ public static class GmWendLamps
         GameObject stale = GameObject.Find(RootName);
         if (stale != null) Object.DestroyImmediate(stale);
 
-        List<Vector3> route = GmWendRoute.Build(out _);
+        List<Vector3> route = GmWendRoute.BuildEstate(out _);
         if (route.Count == 0)
         {
             Debug.LogWarning($"[{LogTag}] no route, so no gaps to fill");

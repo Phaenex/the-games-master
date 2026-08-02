@@ -95,18 +95,25 @@ public abstract class GmSceneReviewTour : MonoBehaviour
 
     protected virtual void Start()
     {
-        if (runOnPlay) { StartCoroutine(Tour()); return; }
 #if UNITY_EDITOR
         bool sessionArmed = SessionState.GetBool(ArmKey, false);
         string persistedArm = EditorPrefs.GetString(ArmKey, "");
+        // Consume both arm channels even when runOnPlay survived the domain reload. Returning before
+        // this cleanup leaked the global token into the next PlayMode scene for five minutes, where an
+        // unrelated legacy tour could start and fail a canonical test run.
+        SessionState.SetBool(ArmKey, false);
         EditorPrefs.DeleteKey(ArmKey);
         bool persistedArmed = long.TryParse(persistedArm, out long ticks) &&
             (System.DateTime.UtcNow - new System.DateTime(ticks, System.DateTimeKind.Utc)).TotalMinutes < 5.0;
+        // In the Editor, only an explicit, freshly consumed arm token may launch capture. Serialized
+        // runOnPlay values can survive a previous review in an unrelated scene and must not turn an
+        // ordinary PlayMode test into a rendering job. Player builds retain runOnPlay below.
         if (sessionArmed || persistedArmed)
         {
-            SessionState.SetBool(ArmKey, false);
             StartCoroutine(Tour());
         }
+#else
+        if (runOnPlay) StartCoroutine(Tour());
 #endif
     }
 
