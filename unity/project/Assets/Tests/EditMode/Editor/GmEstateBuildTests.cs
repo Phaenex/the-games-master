@@ -99,6 +99,27 @@ public class GmEstateBuildTests
         }
     }
 
+    /// Canon fixes the floor and the ceiling even though the escalation schedule is still Nick's
+    /// call: Tier 1 is the floor because he is already cheating when you meet him, and the ceiling
+    /// keeps "high corruption" a reachable state that content can gate off.
+    [Test]
+    public void CorruptionClimbsWithinItsCanonBounds()
+    {
+        GmHouseProgress.BeginNewRun();
+        Assert.AreEqual(GmHouseProgress.MinCorruptionTier, GmHouseProgress.CorruptionTierTotal,
+            "a run must start at Tier 1 — Tier 0 would mean he was ever playing straight");
+
+        for (int i = GmHouseProgress.MinCorruptionTier; i < GmHouseProgress.MaxCorruptionTier; i++)
+            Assert.IsTrue(GmHouseProgress.RaiseCorruption("test"), $"tier stuck below the ceiling at {i}");
+
+        Assert.AreEqual(GmHouseProgress.MaxCorruptionTier, GmHouseProgress.CorruptionTierTotal);
+        Assert.IsFalse(GmHouseProgress.RaiseCorruption("test"), "tier climbed past its ceiling");
+
+        GmHouseProgress.BeginNewRun();
+        Assert.AreEqual(GmHouseProgress.MinCorruptionTier, GmHouseProgress.CorruptionTierTotal,
+            "a new run did not return to the floor");
+    }
+
     /// The one hard blocker on the true ending: until the run survives a scene change, Court's and
     /// Shut the Box's catches cannot count toward it at all. Destroying the component must NOT
     /// clear the tally, and only BeginNewRun may.

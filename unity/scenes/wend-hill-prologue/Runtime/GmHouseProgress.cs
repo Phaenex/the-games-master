@@ -53,6 +53,27 @@ public sealed class GmHouseProgress : MonoBehaviour
     public static int DefianceTotal => run.Defiance;
     public static int ComplianceTotal => run.Compliance;
 
+    /// Tier 1 is the floor: he is already cheating when you meet him, never innocent. The ceiling
+    /// keeps "high corruption" a reachable state rather than an ever-climbing number, because
+    /// content gates off it — Shut the Box's tile-9 tampering only appears near the top.
+    public const int MinCorruptionTier = 1;
+    public const int MaxCorruptionTier = 4;
+
+    /// The mechanism only. WHAT raises the tier is a pacing decision that shapes all seven games
+    /// and is deliberately not decided here: canon fixes the floor, the ceiling, and that frequency
+    /// and visibility climb with it, but not the schedule. Callers pass a reason so the escalation
+    /// is auditable once that schedule exists.
+    public static bool RaiseCorruption(string reason)
+    {
+        if (run.CorruptionTier >= MaxCorruptionTier) return false;
+        run.CorruptionTier++;
+        GmExperienceTelemetry.Record("corruption", $"{run.CorruptionTier}:{reason}");
+        Debug.Log($"[GmHouseProgress] corruption tier {run.CorruptionTier} ({reason})");
+        return true;
+    }
+
+    public static int CorruptionTierTotal => run.CorruptionTier;
+
     public bool HasClue(string id) => !string.IsNullOrWhiteSpace(id) && run.Clues.Contains(id);
 
     public bool Discover(string id)
