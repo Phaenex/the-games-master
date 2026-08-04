@@ -18,6 +18,7 @@ public sealed class GmPrologueHud : MonoBehaviour
     Label brightnessLabel, brightnessValue;
     PauseRow resumeRow, quitRow;
 
+
     /// Proof reads this instead of matching prompt prose. Assertions pinned to UI copy break every
     /// time the copy is improved, which punishes exactly the work that should be encouraged.
     public bool PromptUsesControllerLabels { get; private set; }

@@ -99,6 +99,44 @@ public class GmEstateBuildTests
         }
     }
 
+    /// The one hard blocker on the true ending: until the run survives a scene change, Court's and
+    /// Shut the Box's catches cannot count toward it at all. Destroying the component must NOT
+    /// clear the tally, and only BeginNewRun may.
+    [Test]
+    public void RunStateSurvivesLosingItsComponent()
+    {
+        GmHouseProgress.BeginNewRun();
+        var host = new GameObject("ProgressProbe");
+        try
+        {
+            var progress = host.AddComponent<GmHouseProgress>();
+            progress.CatchCheat("test-cheat-a");
+            progress.CatchCheat("test-cheat-b");
+            progress.CatchCheat("test-cheat-a");   // same id twice must not bank twice
+            progress.FindShard("test-shard");
+            Assert.AreEqual(2, progress.CheatsCaught, "a repeated clue id banked a second catch");
+            Assert.AreEqual(1, progress.MirrorShards);
+        }
+        finally { Object.DestroyImmediate(host); }
+
+        // The scene that owned it is gone. This is exactly the transition that used to reset the run.
+        Assert.AreEqual(2, GmHouseProgress.CheatsCaughtTotal,
+            "cheatsCaught did not survive losing its component — Court and Shut the Box cannot " +
+            "contribute to the true ending if the tally dies with the scene");
+        Assert.AreEqual(1, GmHouseProgress.MirrorShardsTotal);
+
+        var revived = new GameObject("ProgressProbe2");
+        try
+        {
+            Assert.AreEqual(2, revived.AddComponent<GmHouseProgress>().CheatsCaught,
+                "a fresh component in a new scene did not see the existing run");
+        }
+        finally { Object.DestroyImmediate(revived); }
+
+        GmHouseProgress.BeginNewRun();
+        Assert.AreEqual(0, GmHouseProgress.CheatsCaughtTotal, "BeginNewRun did not clear the run");
+    }
+
     /// The interior added on 2026-07-31 was exempt from BOTH the runtime culling and the editor perf
     /// pass, so ~12 soft-shadow point lights stayed live across all 435 outdoor metres and nothing
     /// measured it. Route p95 was 20.35ms until the exemption was replaced with a phase rule. This

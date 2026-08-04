@@ -1,54 +1,94 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>Session state shared by the house chapter and every later game.</summary>
+/// <summary>
+/// Run state shared by the house chapter and every later game.
+///
+/// The model here was already complete; what was missing was surviving a scene load. This component
+/// used to own its fields directly, so the moment the Prologue handed off to another scene the run
+/// reset — that is what "cheatsCaught is Parlor-local" meant in the tracker, and why Court's and
+/// Shut the Box's catches could not count toward the true ending at all.
+///
+/// The state now lives in a static store and this component is a view over it. Deliberately NOT
+/// DontDestroyOnLoad: that would drag the whole HouseBeginning root — walls, lights, the Parlor —
+/// into every later scene. A static survives scene loads without carrying geometry with it.
+/// </summary>
 public sealed class GmHouseProgress : MonoBehaviour
 {
-    readonly HashSet<string> clues = new HashSet<string>();
+    /// One run's accumulated state. Cleared explicitly at new-game, never implicitly by a scene load.
+    sealed class Run
+    {
+        public readonly HashSet<string> Clues = new HashSet<string>();
+        public int Sanity = 100;
+        public int CorruptionTier = 1;
+        public int Defiance;
+        public int Compliance;
+        public int CheatsCaught;
+        public int MirrorShards;
+    }
 
-    public int Sanity { get; private set; } = 100;
-    public int CorruptionTier { get; private set; } = 1;
-    public int Defiance { get; private set; }
-    public int Compliance { get; private set; }
-    public int CheatsCaught { get; private set; }
-    public int MirrorShards { get; private set; }
-    public int ClueCount => clues.Count;
-    public IEnumerable<string> Clues => clues;
+    static Run run = new Run();
 
-    public bool HasClue(string id) => !string.IsNullOrWhiteSpace(id) && clues.Contains(id);
+    /// Starts a fresh run. The ONLY thing that clears the state — a scene transition must not.
+    public static void BeginNewRun()
+    {
+        run = new Run();
+        Debug.Log("[GmHouseProgress] new run: state cleared deliberately");
+    }
+
+    public int Sanity => run.Sanity;
+    public int CorruptionTier => run.CorruptionTier;
+    public int Defiance => run.Defiance;
+    public int Compliance => run.Compliance;
+    public int CheatsCaught => run.CheatsCaught;
+    public int MirrorShards => run.MirrorShards;
+    public int ClueCount => run.Clues.Count;
+    public IEnumerable<string> Clues => run.Clues;
+
+    /// Static mirrors so a scene with no GmHouseProgress component can still read the run. Court and
+    /// Shut the Box need the tally without inheriting the house's hierarchy to get it.
+    public static int CheatsCaughtTotal => run.CheatsCaught;
+    public static int MirrorShardsTotal => run.MirrorShards;
+    public static int SanityTotal => run.Sanity;
+    public static int DefianceTotal => run.Defiance;
+    public static int ComplianceTotal => run.Compliance;
+
+    public bool HasClue(string id) => !string.IsNullOrWhiteSpace(id) && run.Clues.Contains(id);
 
     public bool Discover(string id)
     {
-        if (string.IsNullOrWhiteSpace(id) || !clues.Add(id)) return false;
+        if (string.IsNullOrWhiteSpace(id) || !run.Clues.Add(id)) return false;
         GmExperienceTelemetry.Record("clue", id);
-        Debug.Log($"[GmHouseProgress] clue '{id}' ({clues.Count} total)");
+        Debug.Log($"[GmHouseProgress] clue '{id}' ({run.Clues.Count} total)");
         return true;
     }
 
     public void FindShard(string id)
     {
         if (!Discover(id)) return;
-        MirrorShards++;
-        Defiance++;
+        run.MirrorShards++;
+        run.Defiance++;
     }
 
+    /// Clue-keyed, so the same catch cannot be banked twice by re-entering a room. The true ending
+    /// needs 8+ genuine catches; a re-readable one would make that threshold meaningless.
     public void CatchCheat(string id)
     {
         if (!Discover(id)) return;
-        CheatsCaught++;
-        Defiance++;
-        Sanity = Mathf.Min(100, Sanity + 5);
+        run.CheatsCaught++;
+        run.Defiance++;
+        run.Sanity = Mathf.Min(100, run.Sanity + 5);
     }
 
     public void MissCheat()
     {
-        Compliance++;
-        Sanity = Mathf.Max(0, Sanity - 2);
+        run.Compliance++;
+        run.Sanity = Mathf.Max(0, run.Sanity - 2);
     }
 
     public void FalseRead()
     {
-        Compliance++;
-        Sanity = Mathf.Max(0, Sanity - 10);
+        run.Compliance++;
+        run.Sanity = Mathf.Max(0, run.Sanity - 10);
     }
 }
