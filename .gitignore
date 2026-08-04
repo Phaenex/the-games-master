@@ -5,5 +5,15 @@ node_modules/
 # Unity bulk staging (~36GB). Use scripts/unity-bulk-convert.mjs to regenerate.
 assets/models/unity-import/
 
+# Converted vendor packs (~2.6GB). Same third-party Unity Asset Store content as
+# unity-import above, just post-conversion, so it is re-derivable and not source.
+# It also contains files over GitHub's 100MB hard limit (Camila.glb is 341MB),
+# which would make any push containing it fail outright.
+# Inventory of what to re-acquire: docs/ASSET-PACKS-MANIFEST.md
+assets/models/unity/
+
+# Licensed exterior source meshes (~96MB, see assets/models/exterior/license.txt).
+assets/models/exterior/fbx/
+
 # Screen recordings of built games -- large binaries, not source, not repeatable byte-for-byte.
 recordings/

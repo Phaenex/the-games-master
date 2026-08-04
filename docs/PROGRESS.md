@@ -25,7 +25,13 @@ Check-in rule: every agent progress update must refresh this dashboard first. Pe
 | 8 — Manor puzzles | [░░░░░░░░░░░░░░░░░░░░] 0% | Deferred | Revisit after core route |
 | 9 — Final polish | [░░░░░░░░░░░░░░░░░░░░] 0% | Deferred | Nick + AI panel final pass |
 
-Current blocker: Claude's post-remediation adversarial review, followed by Nick's walk/listen and
+Current blocker (updated 2026-08-03): **a performance regression, not a review.** Opening gates 8 and
+10 fail the 16.7ms p95 budget (19.72–21.71ms) because the entry hall/Parlor interior added on
+2026-07-31 after the last perf measurement is exempt from runtime culling and from the editor perf
+audit. Nick owns the fix direction (a real indoor/outdoor visibility rule vs the current blanket
+exemption). His walk/listen and display call remain open behind it.
+
+Superseded blocker text: Claude's post-remediation adversarial review, followed by Nick's walk/listen and
 display call. Codex now self-grades fingerprint `2c9c97b0db8dc80b` as an **A candidate**, not A+:
 the Reed defect class is shared project policy, chapel readability has a pixel gate, the oxblood SUV
 reads in the arrival frame, players can calibrate brightness by keyboard or controller, and native
@@ -36,6 +42,35 @@ bed: its deep-space/rumble textures would recreate the exact "spaceship" problem
 ```
 
 ## Status
+
+### 2026-08-03 - Claude session: gates re-baselined; performance regression found and root-caused
+
+- **The opening gates had not actually been runnable.** `node_modules` was absent, so gate 1 crashed
+  on a missing `playwright` import and gates 2–11 never executed. Installed deps; the archived web
+  harness runs again at 47/47.
+- **Fixed a hard-coded path that broke Unity's repo resolution.** `GmSceneIntelligencePaths
+  .FindRepoRoot()` pinned `~/Projects/the-games-master`, but the repo now lives at
+  `~/Projects/games/the-games-master`; it now searches the Projects tree, and `unity-cli.mjs` exports
+  `GM_REPO_ROOT` explicitly. EditMode went 203/204 → **204/204**.
+- **Full gate run: 9/11 pass, 2 fail.** Gates 8 and 10 both miss the 16.7ms p95 budget (19.72–21.71ms
+  standalone across three runs; 20.35ms full-route). Everything non-performance is clean: 435/435
+  route metres, 0 stalls, 0 nav fallbacks, 0 missing frames, 0 runtime defects, PlayMode 12/12,
+  tour 8/8, house-proof 10 frames, wall-proof 4 frames. Fingerprint `460221080faabbff`.
+- **Root cause.** Host load fell 2.5x across runs while p95 moved 5%, excluding CPU contention. The
+  Jul 31 audit's perf artifact was written 20:12; scene sources were edited until 22:42 and never
+  re-measured. That window added an entry hall + Parlor interior inside the canonical prologue scene
+  (`GmHouseBeginningBuilder`, `GmVictorianInteriorKit`), which is exempt from culling
+  (`GmWendRuntimeCulling.cs:39,47` — renderers *and* lights) and invisible to the editor perf audit
+  (`GmWendPerformance.cs:30`). Roughly a dozen soft-shadowed HDRP point lights stay live across all
+  435 outdoor metres. Peak renderers 1,359 vs 1,174 on Jul 31.
+- **Not fixed, deliberately.** The culling exemption has a plausible gameplay reason; replacing it
+  with a real indoor/outdoor visibility rule is a scene-architecture decision for Nick.
+- Objective visual defects found that every automated gate passed: gate piers render as black voids
+  (`GmWendOpening.cs:447` — primitive cube at Metallic 0.42; measured RGB 1.1/0.0/0.8 std 0.75 vs the
+  adjacent stone wall at 17.9/9.9/8.3 std 16.6 under the same lamp), and
+  `05-cemetery-composition.png` is misnamed — it is authored to look at the **chapel**
+  (`GmStandaloneReviewProbe.cs:116`), so the cemetery has no dedicated built-player frame.
+- No commit, no push, no purchase.
 
 ### 2026-07-22 - post-B+ prevention, display-readability and clean-player closure
 

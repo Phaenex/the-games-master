@@ -9,7 +9,7 @@ app, all six Terrain foliage variants render without integrity warnings, audit
 ## Unity: you no longer click anything
 
 Build, audit, test, route-test, and screenshot capture are scripted. From
-`~/Projects/the-games-master`, with the Unity editor CLOSED:
+`~/Projects/games/the-games-master`, with the Unity editor CLOSED:
 
 ```bash
 node scripts/unity-cli.mjs setup      # assign HDRP + rebuild Wend Hill
@@ -143,7 +143,7 @@ regression archaeology; do not use them for the Phase 0 approval walk.
 
 ### A. Run the game locally
 ```bash
-cd ~/Projects/the-games-master
+cd ~/Projects/games/the-games-master
 npx --yes serve -l 3456 .
 # open http://localhost:3456/The%20Games%20Master%20-%20Prologue.dc.html
 ```

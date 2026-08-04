@@ -19,7 +19,7 @@ web work credited as design source, because a player on Steam cannot play a desi
 ```
 Overall (Unity/Steam): [███░░░░░░░░░░░░░░░░░]  17%
 
-Phase  0 Prologue        [████████████████████]  99%  B+ adversarial verdict; Reed defect closed; Nick darkness/walk gate remains
+Phase  0 Prologue        [██████████████████░░]  92%  REGRESSED 2026-08-03: 9/11 opening gates pass, 2 fail the 16.7ms p95 budget
 Phase  1 Entry Hall      [░░░░░░░░░░░░░░░░░░░░]   0%  design source: Entry Hall.dc.html (76K)
 Phase  2 Parlor          [░░░░░░░░░░░░░░░░░░░░]   0%  design source: Parlor prototype (52K), the only playable game
 Phase  3 Court           [░░░░░░░░░░░░░░░░░░░░]   0%  design source: Court.dc.html (36K) + evidence draft
@@ -64,7 +64,44 @@ and Nick's sensory/pacing/display gates remain open. Current prompt:
 
 ---
 
-## Phase 0 - Prologue: the Wend Hill approach `99%`
+## Phase 0 - Prologue: the Wend Hill approach `92%`
+
+### 2026-08-03 — Claude session: gates re-baselined, performance regression found
+
+**Every claim below this section predates 2026-07-31 22:42 and no longer describes the working tree.**
+The Jul 31 audit's `performance.json` was written at 20:12; scene sources were then edited until
+22:42 and never perf-measured again. This session ran all eleven opening gates:
+
+| # | Gate | Result |
+|---|---|---|
+| 1 | portable source + archive | PASS — C# 23/23, fast 50/50, web harness 47/47, sync 233 files |
+| 2 | Unity EditMode | PASS **204/204** (was 203/204 before the repo-root fix) |
+| 3 | Unity PlayMode | PASS **12/12** |
+| 4 | canonical scene rebuild | PASS |
+| 5 | saved-scene contract | PASS — fingerprint `460221080faabbff` |
+| 6 | player-camera visual tour | PASS 8/8 |
+| 7 | canonical macOS build | PASS |
+| 8 | standalone story/input/audio | **FAIL** — p95 19.72/20.83/21.71ms over three runs vs 16.70ms |
+| 9 | house entry + first game | PASS — 10 frames, zero integrity failures |
+| 10 | full-route 1080p performance | **FAIL** — p95 20.35ms vs 16.70ms; route itself clean (435/435m, 0 stalls, 0 nav fallbacks, 0 defects) |
+| 11 | standalone boundary walls | PASS — 4 frames |
+
+**Root cause of 8 and 10.** Host load fell 2.5x (19 → 8.6) across the three standalone runs while p95
+moved 5%, so CPU contention is not the driver. The regression window is 2026-07-31 20:12–22:42, in
+which `GmHouseBeginningBuilder` + `GmVictorianInteriorKit` added an entry hall and Parlor **inside the
+canonical prologue scene**. That interior is exempt from both performance systems:
+`GmWendRuntimeCulling.cs:39,47` skips its renderers *and* lights, and `GmWendPerformance.cs:30` skips
+it in the editor audit. It contributes roughly a dozen soft-shadowed HDRP point lights that stay
+active across all 435 outdoor metres. Peak renderers 1,359 vs 1,174 on Jul 31.
+
+Not fixed here: the culling exemption is plausibly deliberate (the interior must not pop while the
+player stands in it) and needs a real visibility rule rather than a blanket exemption. Nick's call.
+
+Repo blockers fixed this session: `node_modules` was absent so gate 1 died on a missing `playwright`
+and gates 2–11 never ran at all; `GmSceneIntelligencePaths.FindRepoRoot()` hardcoded
+`~/Projects/the-games-master` after the repo moved to `~/Projects/games/the-games-master`.
+
+
 
 The walk from the car to the porch. Plan: `docs/superpowers/plans/2026-07-17-prologue-intro-scene.md`.
 

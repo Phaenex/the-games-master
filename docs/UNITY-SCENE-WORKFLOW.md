@@ -27,7 +27,7 @@ large builder during Phase 0 review; that would add refactor risk without improv
 
 ## Commands
 
-Run these from `~/Projects/the-games-master` with Unity closed.
+Run these from `~/Projects/games/the-games-master` with Unity closed.
 
 ```bash
 npm run unity:scene:registry
