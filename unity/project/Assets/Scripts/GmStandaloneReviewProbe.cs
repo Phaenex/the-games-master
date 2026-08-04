@@ -2,6 +2,7 @@
 // skips the intro, proves the spawn view and look path, then exits. It never runs in normal play.
 using System.Collections;
 using System.IO;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
@@ -165,11 +166,20 @@ public sealed class GmStandaloneReviewProbe : MonoBehaviour
         try
         {
             gamepad = InputSystem.AddDevice<Gamepad>();
-            yield return null;
+            // Device registration is not instant, and a single yield was the only wait before the
+            // first state event was queued. Wait for the device to actually be added instead of
+            // assuming one frame is enough on a machine under load.
+            yield return WaitUntil(() => gamepad.added && InputSystem.devices.Contains(gamepad), 60);
 
             int firstCard = cold != null ? cold.CardNumber : -1;
             yield return SendGamepad(gamepad, new GamepadState().WithButton(GamepadButton.South));
             yield return SendGamepad(gamepad, new GamepadState());
+            // The cold open consumes an EDGE (InteractPressedThisFrame). Whether the consumer's
+            // Update sees it depends on where the input flush lands in the frame, which shifts under
+            // load. Assert the OUTCOME within a bounded window rather than at one arbitrary instant;
+            // this still fails if the press is never seen, it just stops failing on frame jitter.
+            yield return WaitUntil(() => player.UsingGamepad && cold != null &&
+                cold.CardNumber > firstCard, 60);
             if (!player.UsingGamepad || cold == null || cold.CardNumber <= firstCard)
                 ControllerFailure("A/Cross did not advance the cold open or select controller prompts");
 
@@ -299,6 +309,14 @@ public sealed class GmStandaloneReviewProbe : MonoBehaviour
             if (camera != null) camera.transform.localRotation = savedCameraRotation;
             Physics.SyncTransforms();
         }
+    }
+
+    /// Waits for a condition instead of a frame count. Fixed-frame waits encode an assumption about
+    /// how fast the machine is, which is why these assertions failed under load and passed on retry.
+    /// Bounded, so a genuinely broken path still fails rather than hanging.
+    static IEnumerator WaitUntil(System.Func<bool> condition, int maxFrames)
+    {
+        for (int i = 0; i < maxFrames && !condition(); i++) yield return null;
     }
 
     static IEnumerator SendGamepad(Gamepad gamepad, GamepadState state, int frames = 2)
