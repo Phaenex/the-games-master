@@ -134,7 +134,7 @@ public static class GmWendBounds
 
         // The same route definition the spawn and the walk use, so a recovery lands somewhere the
         // player could actually have been standing.
-        List<Vector3> route = GmWendRoute.Build(out _);
+        List<Vector3> route = GmWendRoute.BuildEstate(out _);
         float catchY = CatchY(world);
         root.AddComponent<GmWendCatchPlane>().Configure(catchY, route);
 

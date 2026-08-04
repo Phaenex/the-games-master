@@ -34,6 +34,52 @@ public static class GmWendRoute
     const int MinSettlementProps = 40;   // below this a road piece is countryside, not street
     const float MinSpacing = 12f;        // thin dense tiles so the walk advances instead of shuffling
     public const float WaterClearance = 1.0f;   // never route to a point at or below the water surface
+    public const float EstateRouteMetres = 435f;
+
+    /// The authored opening ends at the manor on dry village ground. The purchased showcase road
+    /// continues another ~140m into an uncollided canyon; that tail is scenery, not gameplay.
+    public static List<Vector3> BuildEstate(out string report)
+    {
+        List<Vector3> raw = Build(out string rawReport);
+        List<Vector3> estate = TakeThroughDistance(raw, EstateRouteMetres);
+        report = rawReport + $"estate route: {estate.Count} point(s), capped at {RouteLength(estate):0}m " +
+                 $"before the canyon/showcase tail\n";
+        return estate;
+    }
+
+    public static List<Vector3> TakeThroughDistance(IReadOnlyList<Vector3> route, float metres)
+    {
+        var result = new List<Vector3>();
+        if (route == null || route.Count == 0 || metres <= 0f) return result;
+        result.Add(route[0]);
+        float travelled = 0f;
+        for (int i = 1; i < route.Count; i++)
+        {
+            float segment = Vector2.Distance(new Vector2(route[i - 1].x, route[i - 1].z),
+                new Vector2(route[i].x, route[i].z));
+            if (travelled + segment <= metres)
+            {
+                result.Add(route[i]);
+                travelled += segment;
+                continue;
+            }
+            float remaining = metres - travelled;
+            if (remaining > 0.01f && segment > 0.01f)
+                result.Add(Vector3.Lerp(route[i - 1], route[i], remaining / segment));
+            break;
+        }
+        return result;
+    }
+
+    public static float RouteLength(IReadOnlyList<Vector3> route)
+    {
+        float length = 0f;
+        if (route == null) return length;
+        for (int i = 1; i < route.Count; i++)
+            length += Vector2.Distance(new Vector2(route[i - 1].x, route[i - 1].z),
+                new Vector2(route[i].x, route[i].z));
+        return length;
+    }
 
     /// The highest water surface in the scene, or null when it ships none.
     ///

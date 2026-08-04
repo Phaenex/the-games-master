@@ -26,10 +26,26 @@ public static class GmSceneIntelligencePaths
             if (IsRepo(cursor)) return cursor;
             cursor = Directory.GetParent(cursor)?.FullName;
         }
-        string conventional = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            "Projects", "the-games-master");
-        if (IsRepo(conventional)) return conventional;
-        throw new DirectoryNotFoundException("Cannot find the-games-master repo. Set GM_REPO_ROOT.");
+        foreach (string candidate in ConventionalRoots())
+            if (IsRepo(candidate)) return candidate;
+        throw new DirectoryNotFoundException(
+            "Cannot find the-games-master repo. Searched GM_REPO_ROOT, five parents of " +
+            Application.dataPath + ", and the Projects tree. Set GM_REPO_ROOT.");
+    }
+
+    // The repo has already moved once (~/Projects -> ~/Projects/games), so probe a level of
+    // grouping directories instead of pinning one path that the next move would break again.
+    static IEnumerable<string> ConventionalRoots()
+    {
+        string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        string projects = Path.Combine(home, "Projects");
+        yield return Path.Combine(projects, "the-games-master");
+        string[] groups;
+        try { groups = Directory.GetDirectories(projects); }
+        catch (Exception) { yield break; }
+        Array.Sort(groups, StringComparer.Ordinal);
+        foreach (string group in groups)
+            yield return Path.Combine(group, "the-games-master");
     }
 
     public static string KnowledgeRoot => Path.Combine(FindRepoRoot(), "unity", "scene-system", "knowledge");

@@ -5,10 +5,10 @@ using UnityEngine;
 
 public static class GmSceneCatalog
 {
-    public const int SchemaVersion = 1;
-    public const string WendHillId = "wend-hill";
-    public const string WendHillName = "Wend Hill";
-    public const string WendHillPath = "Assets/Scenes/WendHill.unity";
+    public const int SchemaVersion = 2;
+    public const string WendHillId = "wend-hill-prologue";
+    public const string WendHillName = "Wend Hill Prologue";
+    public const string WendHillPath = "Assets/Scenes/WendHill_Prologue.unity";
 }
 
 [DisallowMultipleComponent]

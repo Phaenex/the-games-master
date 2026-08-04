@@ -52,7 +52,7 @@ public static class GmWendStallDiagnostic
         Debug.Log($"[{LogTag}] inspecting {position} within {radius}m");
 
         // The route itself, so a waypoint index in a log line can be read straight off this list.
-        var route = GmWendRoute.Build(out _);
+        var route = GmWendRoute.BuildEstate(out _);
         for (int i = 0; i < route.Count; i++)
         {
             float d = Vector3.Distance(route[i], position);

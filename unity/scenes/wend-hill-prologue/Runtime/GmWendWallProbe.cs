@@ -25,6 +25,7 @@ public sealed class GmWendWallProbe : MonoBehaviour
     const float Tolerance = 1.5f;    // controller skin width and collider thickness
 
     string outputDirectory;
+    int missingScreenshots;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void Install()
@@ -120,7 +121,8 @@ public sealed class GmWendWallProbe : MonoBehaviour
                           "of walking into it.");
         }
 
-        Finish($"{held} wall(s) held, {breached} breached", breached == 0 ? 0 : 1);
+        Finish($"{held} wall(s) held, {breached} breached, {missingScreenshots} missing screenshot(s)",
+            breached == 0 && missingScreenshots == 0 ? 0 : 1);
     }
 
     IEnumerator Shot(string label)
@@ -129,7 +131,11 @@ public sealed class GmWendWallProbe : MonoBehaviour
         ScreenCapture.CaptureScreenshot(path, 1);
         float deadline = Time.realtimeSinceStartup + 10f;
         while (!File.Exists(path) && Time.realtimeSinceStartup < deadline) yield return null;
-        if (!File.Exists(path)) Debug.LogError($"[GmWendWallProbe] screenshot never appeared at {path}");
+        if (!File.Exists(path))
+        {
+            missingScreenshots++;
+            Debug.LogError($"[GmWendWallProbe] screenshot never appeared at {path}");
+        }
     }
 
     void Finish(string summary, int code)

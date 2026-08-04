@@ -323,6 +323,7 @@ public static class GmWendNight
             l.useColorTemperature = true;
             l.colorTemperature = LampKelvin;
             l.color = Color.white;   // let the temperature do the tinting, not a baked-in filter
+            l.shadows = LightShadows.None; // 24 tiny practical shadow maps cannot justify their frame cost
 
             // Flicker, so the windows breathe. Seeded off world position inside the component so no two
             // are in sync; synchronised flicker announces itself and is worse than none.
@@ -654,6 +655,11 @@ public static class GmWendNight
         // to disturb the pack's own lighting.
         int gapLamps = GapLamps > 0.5f ? GmWendLamps.Apply() : 0;
 
+        // Canonical opening layer: estate arrival, locking gate, story anchors, manor, wake room and
+        // the complete Ninth Bell runtime. It must precede the NavMesh so its physical gate/manor are
+        // included in the bake, and precede ambience so all route-derived emitters use the final route.
+        GmWendOpening.Result opening = GmWendOpening.Build();
+
         // The NavMesh belongs here and NOT in GmWendBuilder.BuildBase, which the ladder calls once per
         // rung, ten times a run, to render stills from a rig that never walks anywhere. Baking there
         // would pay the cost ten times over for frames nobody paths through.
@@ -672,7 +678,8 @@ public static class GmWendNight
         Debug.Log($"[{LogTag}] committed night applied at EV {CommittedExposureEV} (census {after}), " +
                   $"NavMesh {navArea:0}m^2, {gapLamps} gap lamp(s), {wallsFixed} wall slot(s) de-tinted, " +
                   $"{grassFixed} grass slot(s) de-tinted, ambience {ambience.cricketAnchors} cricket / " +
-                  $"{ambience.owlAnchors} owl anchor(s), {ambience.footstepClips} footstep clip(s)");
+                  $"{ambience.owlAnchors} owl anchor(s), {ambience.footstepClips} footstep clip(s), " +
+                  $"opening {opening.routeLength:0}m/{opening.anchors} anchors/{opening.pois} POIs");
     }
 
     /// STEP 3. Builds the scene and SAVES it, then reopens it from disk and audits it.

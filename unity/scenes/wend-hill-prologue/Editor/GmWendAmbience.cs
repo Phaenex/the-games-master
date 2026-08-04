@@ -91,7 +91,7 @@ public static class GmWendAmbience
         var stale = player.GetComponentInChildren<GmWendAmbienceSource>(true);
         if (stale != null) Object.DestroyImmediate(stale.gameObject);
 
-        List<Vector3> route = GmWendRoute.Build(out _);
+        List<Vector3> route = GmWendRoute.BuildEstate(out _);
         List<Vector3> dense = GmWendRoute.Densify(route, GmWendLamps.GapSampleSpacing);
         var terrain = Object.FindAnyObjectByType<Terrain>();
 

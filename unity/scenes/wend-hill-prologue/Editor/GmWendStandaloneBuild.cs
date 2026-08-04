@@ -13,6 +13,8 @@ using UnityEditor;
 using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.HighDefinition;
 
 public static class GmWendStandaloneBuild
 {
@@ -51,13 +53,32 @@ public static class GmWendStandaloneBuild
             throw new InvalidOperationException("build output has no parent directory");
         Directory.CreateDirectory(directory);
 
-        BuildReport report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+        // The HDRP instance is created before scene Awake methods run, so dynamic-resolution support
+        // must be present in the pipeline serialized into the player. Configure the active asset only
+        // in memory for the duration of this build and restore it afterward; the purchased asset on
+        // disk and every other build profile remain untouched.
+        HDRenderPipelineAsset pipeline = QualitySettings.renderPipeline as HDRenderPipelineAsset ??
+            GraphicsSettings.defaultRenderPipeline as HDRenderPipelineAsset;
+        if (pipeline == null) throw new InvalidOperationException("prologue build requires an active HDRP asset");
+        RenderPipelineSettings originalSettings = pipeline.currentPlatformRenderPipelineSettings;
+        pipeline.currentPlatformRenderPipelineSettings = GmWendRenderBudget.ConfigureSettings(originalSettings);
+        BuildReport report;
+        try
         {
-            scenes = new[] { GmWendBuilder.ScenePath },
-            locationPathName = output,
-            target = BuildTarget.StandaloneOSX,
-            options = BuildOptions.StrictMode,
-        });
+            report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+            {
+                scenes = new[] { GmWendBuilder.ScenePath },
+                locationPathName = output,
+                target = BuildTarget.StandaloneOSX,
+                options = BuildOptions.StrictMode,
+            });
+        }
+        finally
+        {
+            pipeline.currentPlatformRenderPipelineSettings = originalSettings;
+            EditorUtility.SetDirty(pipeline);
+            AssetDatabase.SaveAssetIfDirty(pipeline);
+        }
 
         BuildSummary summary = report.summary;
         if (summary.result != BuildResult.Succeeded || summary.totalErrors != 0)
