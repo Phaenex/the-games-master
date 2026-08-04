@@ -16,6 +16,7 @@ public sealed class GmPrologueHud : MonoBehaviour
     VisualElement scrim, card, beatPanel, examinePanel, reticle;
     VisualElement brightnessRow, brightnessTrack, brightnessFill;
     Label brightnessLabel, brightnessValue;
+    PauseRow resumeRow, quitRow;
 
     /// Proof reads this instead of matching prompt prose. Assertions pinned to UI copy break every
     /// time the copy is improved, which punishes exactly the work that should be encouraged.
@@ -142,6 +143,14 @@ public sealed class GmPrologueHud : MonoBehaviour
         brightnessValue.style.minWidth = 132;
         brightnessRow.Add(brightnessValue);
 
+        // A pause screen in a shipping game is a menu you operate, not a wall of key hints. Two
+        // real rows with a focus rule the player can see; the rule stays a single amber marker
+        // rather than a highlight bar, so it reads as the same furniture as the brightness track.
+        resumeRow = MakePauseRow("PauseResume", "Resume");
+        quitRow = MakePauseRow("PauseQuit", "Quit to desktop");
+        card.Add(resumeRow.root);
+        card.Add(quitRow.root);
+
         prompt = MakeLabel("Prompt", 15, new Color(0.50f, 0.47f, 0.42f), TextAnchor.MiddleCenter);
         prompt.style.letterSpacing = 2;
         prompt.style.marginTop = 52;
@@ -225,6 +234,38 @@ public sealed class GmPrologueHud : MonoBehaviour
         if (font != null) label.style.unityFontDefinition = FontDefinition.FromFont(font);
     }
 
+    struct PauseRow { public VisualElement root; public VisualElement marker; public Label label; }
+
+    static PauseRow MakePauseRow(string name, string text)
+    {
+        var row = new VisualElement { name = name, pickingMode = PickingMode.Ignore };
+        row.style.flexDirection = FlexDirection.Row;
+        row.style.alignItems = Align.Center;
+        row.style.marginTop = 18;
+        var marker = new VisualElement { name = name + "Marker", pickingMode = PickingMode.Ignore };
+        marker.style.width = 7; marker.style.height = 7;
+        marker.style.marginRight = 18;
+        marker.style.backgroundColor = new Color(0.85f, 0.62f, 0.30f, 1f);
+        row.Add(marker);
+        var label = MakeLabel(name + "Label", 20, new Color(0.86f, 0.82f, 0.74f), TextAnchor.MiddleLeft);
+        label.text = text;
+        row.Add(label);
+        return new PauseRow { root = row, marker = marker, label = label };
+    }
+
+    /// The focused row carries the marker and full-strength ink; the other dims. Encoding focus in
+    /// two channels rather than colour alone keeps it readable for players who cannot separate the
+    /// amber from the parchment.
+    void SetPauseFocus(bool resumeFocused)
+    {
+        SetVisible(resumeRow.marker, resumeFocused);
+        SetVisible(quitRow.marker, !resumeFocused);
+        resumeRow.label.style.color = resumeFocused
+            ? new Color(0.92f, 0.88f, 0.80f) : new Color(0.48f, 0.45f, 0.40f);
+        quitRow.label.style.color = resumeFocused
+            ? new Color(0.48f, 0.45f, 0.40f) : new Color(0.92f, 0.88f, 0.80f);
+    }
+
     static VisualElement MakeLetterbox(bool top)
     {
         var bar = new VisualElement { name = top ? "LetterboxTop" : "LetterboxBottom",
@@ -286,6 +327,11 @@ public sealed class GmPrologueHud : MonoBehaviour
             {
                 GmDisplayCalibration display = player.DisplayCalibration;
                 eyebrow.text = "PAUSED";
+                SetVisible(resumeRow.root, true);
+                SetVisible(quitRow.root, true);
+                // Resume is the safe default and stays focused; Quit is never the resting choice on
+                // a screen a player reaches by accident mid-walk.
+                SetPauseFocus(true);
                 cardBody.text = "Wend Hill waits.";
                 SetVisible(brightnessRow, display != null);
                 if (display != null)
@@ -307,6 +353,8 @@ public sealed class GmPrologueHud : MonoBehaviour
             else if (hasStory)
             {
                 SetVisible(brightnessRow, false);
+                SetVisible(resumeRow.root, false);
+                SetVisible(quitRow.root, false);
                 if (coldRunning)
                 {
                     // No "01/05". A counter turns a cold open into a slideshow and tells the player
