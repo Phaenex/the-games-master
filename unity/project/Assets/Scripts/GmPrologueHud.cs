@@ -15,8 +15,21 @@ public sealed class GmPrologueHud : MonoBehaviour
     UIDocument document;
     VisualElement scrim, card, beatPanel, examinePanel, reticle;
     VisualElement brightnessRow, brightnessTrack, brightnessFill;
-    Label brightnessLabel, brightnessValue;
+    Label brightnessLabel, brightnessValue, runState;
     PauseRow resumeRow, quitRow;
+
+    /// Three shards gate the true ending and 8+ catches gate it with them, so a player who has
+    /// started collecting needs to be able to check without leaving the game. Reads the static run
+    /// totals, so it works in any scene whether or not that scene owns a GmHouseProgress.
+    static string RunStateLine()
+    {
+        int caught = GmHouseProgress.CheatsCaughtTotal;
+        int shards = GmHouseProgress.MirrorShardsTotal;
+        if (caught == 0 && shards == 0) return "";
+        string catchText = caught == 1 ? "1 cheat caught" : $"{caught} cheats caught";
+        string shardText = shards == 1 ? "1 shard" : $"{shards} shards";
+        return $"{catchText}   ·   {shardText}";
+    }
 
 
     /// Proof reads this instead of matching prompt prose. Assertions pinned to UI copy break every
@@ -147,6 +160,14 @@ public sealed class GmPrologueHud : MonoBehaviour
         // A pause screen in a shipping game is a menu you operate, not a wall of key hints. Two
         // real rows with a focus rule the player can see; the rule stays a single amber marker
         // rather than a highlight bar, so it reads as the same furniture as the brightness track.
+        // Run state belongs on pause, not on the HUD. A permanent "cheats caught: 0" readout during
+        // a horror walk is atmosphere-killing clutter, and in the Prologue there is no game yet to
+        // have caught anything in — so this stays hidden until the run has something to report.
+        runState = MakeLabel("RunState", 14, new Color(0.58f, 0.54f, 0.47f), TextAnchor.MiddleCenter);
+        runState.style.letterSpacing = 2;
+        runState.style.marginTop = 30;
+        card.Add(runState);
+
         resumeRow = MakePauseRow("PauseResume", "Resume");
         quitRow = MakePauseRow("PauseQuit", "Quit to desktop");
         card.Add(resumeRow.root);
@@ -328,6 +349,9 @@ public sealed class GmPrologueHud : MonoBehaviour
             {
                 GmDisplayCalibration display = player.DisplayCalibration;
                 eyebrow.text = "PAUSED";
+                string line = RunStateLine();
+                runState.text = line;
+                SetVisible(runState, line.Length > 0);
                 SetVisible(resumeRow.root, true);
                 SetVisible(quitRow.root, true);
                 // Resume is the safe default and stays focused; Quit is never the resting choice on
@@ -354,6 +378,7 @@ public sealed class GmPrologueHud : MonoBehaviour
             else if (hasStory)
             {
                 SetVisible(brightnessRow, false);
+                SetVisible(runState, false);
                 SetVisible(resumeRow.root, false);
                 SetVisible(quitRow.root, false);
                 if (coldRunning)

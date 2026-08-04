@@ -23,6 +23,7 @@
     "verify:portable": "npm run test:logic:csharp && npm test && npm run unity:scene:check && npm run test:scene-system:csharp",
     "verify:opening": "node scripts/run-opening-gates.mjs",
     "verify:frames": "node scripts/scan-frame-defects.mjs \"$HOME/GamesMaster-Unity/Library/GmSceneIntelligence/standalone-proof/wend-hill-prologue\" \"$HOME/GamesMaster-Unity/Library/GmSceneIntelligence/player-probes/wend-hill-prologue\" \"$HOME/GamesMaster-Unity/Screens/WendHill_Prologue\"",
+    "verify:attribution": "node scripts/test-attribution.mjs",
     "unity:scene:registry": "node scripts/unity-cli.mjs scenes",
     "unity:scene:check": "node scripts/unity-cli.mjs registry-check && node scripts/sync-unity-scenes.mjs --check && node scripts/check-unity-packages.mjs",
     "unity:packages:check": "node scripts/check-unity-packages.mjs",
