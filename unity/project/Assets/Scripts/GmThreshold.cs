@@ -17,7 +17,6 @@ public class GmThreshold : MonoBehaviour
     GmAmbience amb;
     GmBellSummons bell;
     bool porchSaid, gateLocked, crossing;
-    float minZ = 999f;
     GmRouteSpline route;
     GmWorldAnchor gateAnchor, porchAnchor;
     float maxProgress;
@@ -44,14 +43,23 @@ public class GmThreshold : MonoBehaviour
         bool semantic = route != null && gateAnchor != null && porchAnchor != null;
         float progress = semantic ? route.ProjectDistance(player.transform.position) : 0f;
         if (semantic && progress > maxProgress) maxProgress = progress;
-        if (z < minZ) minZ = z;
 
-        // gate lock: first backward move after passing the gate. Arm the bell here -- the house
-        // can only count someone it already has, so the seventh state (retreating to the car
-        // before the gate) still beats it outright; nothing after this point does.
+        // Gate lock: crossing the gate house-ward IS the commitment. Arm the bell here -- the house
+        // can only count someone it already has, and passing its gate is when it has you. Retreating
+        // to the car BEFORE the gate still beats it outright; nothing after this point does.
+        //
+        // This used to require a backward move after passing (progress < maxProgress - 0.5f), which
+        // meant the count only started if the player happened to glance back. A player who did
+        // exactly what the invitation said -- walk to the house -- passed the gate, reached the
+        // porch, and stood there forever: no slam, no nine tolls, no crossing, no Entry Hall. The
+        // whole prologue sat behind an optional look over the shoulder. Nick's call, 2026-08-15.
+        //
+        // GmSecretEnding already treated this same line as the point of no return (it sets
+        // passedGate on exactly this condition and then refuses to fire), so the two systems
+        // disagreed about what commits you. They now agree.
         bool lockNow = semantic
-            ? maxProgress >= gateAnchor.RouteMetres + 1f && progress < maxProgress - 0.5f
-            : z < gateZ && player.transform.position.z > minZ + 0.5f;
+            ? maxProgress >= gateAnchor.RouteMetres + 1f
+            : z <= gateZ;
         if (!gateLocked && lockNow)
         {
             gateLocked = true;
@@ -59,7 +67,7 @@ public class GmThreshold : MonoBehaviour
             Invoke(nameof(LockTick), 0.52f);
             rt?.ShowBeat("Something slammed shut behind me.",
                 "When I looked back, the gate was closed — and the lock, somehow, had already turned.");
-            GmExperienceTelemetry.Record("gate-lock", "retreat after crossing");
+            GmExperienceTelemetry.Record("gate-lock", "crossed house-ward");
             bell?.Arm();
             FindFirstObjectByType<GmGateLeaves>()?.Close();
         }

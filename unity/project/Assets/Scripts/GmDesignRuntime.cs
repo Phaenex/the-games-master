@@ -164,7 +164,7 @@ public class GmDesignRuntime : MonoBehaviour
             if (!reached) continue;
             b.fired = true;
             activeBeatMain = b.main; activeBeatSub = b.sub;
-            beatClearAt = Time.time + 4.2f;
+            beatClearAt = Time.time + BeatSecondsFor(b.main, b.sub);
             Debug.Log($"[Beat] {b.main}");
             GmExperienceTelemetry.Record("drive-beat", b.main);
             break;
@@ -189,10 +189,39 @@ public class GmDesignRuntime : MonoBehaviour
         if (examineClearAt > 0 && Time.time > examineClearAt) { lastExamine = ""; examineClearAt = -1; }
     }
 
+    /// How long a beat stays up, derived from how much there is to read rather than fixed.
+    ///
+    /// This was a hardcoded 4.2s against beats of 45-51 words, which is 640-730 words per minute.
+    /// Comfortable adult silent reading is around 238 wpm and subtitle guidance sits at 160-180, so
+    /// the premise of the game -- the debt, the daughter, Mara, the invitation -- was being shown
+    /// roughly three times faster than a competent reader reads, once, in the dark, while walking,
+    /// with no pause and no replay. Nothing in 332 EditMode tests has any concept of reading speed,
+    /// so it went unnoticed until a panel measured it.
+    ///
+    /// ReadingWordsPerMinute is deliberately at the subtitle end rather than the silent-reading end:
+    /// this text is read while moving, in low light, over ambience.
+    public const float ReadingWordsPerMinute = 170f;
+    public const float MinimumBeatSeconds = 4.2f;   // the old fixed value is now the floor
+    public const float MaximumBeatSeconds = 14f;    // a long card should not strand the player
+
+    public static float BeatSecondsFor(string main, string sub)
+    {
+        int words = CountWords(main) + CountWords(sub);
+        float needed = words / ReadingWordsPerMinute * 60f;
+        // A beat is glanced at, not studied -- the reader also has to notice it arrived.
+        return Mathf.Clamp(needed + 0.9f, MinimumBeatSeconds, MaximumBeatSeconds);
+    }
+
+    static int CountWords(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return 0;
+        return text.Split(new[] { ' ', '\n', '\t', '\r' }, System.StringSplitOptions.RemoveEmptyEntries).Length;
+    }
+
     public void ShowBeat(string main, string sub)
     {
         activeBeatMain = main; activeBeatSub = sub;
-        beatClearAt = Time.time + 4.2f;
+        beatClearAt = Time.time + BeatSecondsFor(main, sub);
         Debug.Log($"[Beat] {main}");
         GmExperienceTelemetry.Record("story-beat", main);
     }

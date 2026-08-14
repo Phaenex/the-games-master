@@ -53,7 +53,51 @@ public static class GmMansion
         VaryTheWindows(go);
         DressFacadeForNight(go);
         SeatOnGround(go, mansionZ);
+        MakeSolid(go);
         return go;
+    }
+
+    /// Gives the house collision. Until 2026-08-15 it had none at all -- the FBX imports with
+    /// addColliders: 0, nothing added one, and BuildManor's footprint pass disables any collider it
+    /// finds in the area -- so a player could walk to the porch, keep walking, and pass through the
+    /// front wall, the interior, and out the back into the field. GmThreshold went on printing "The
+    /// doors did not open" from route-distance projection while they stood in the drawing room.
+    ///
+    /// That is not a cosmetic bug. Threshold Refusal is the whole opening: the house's own front
+    /// doors never open and the player is taken by the ninth bell rather than admitted. A house you
+    /// can stroll through defeats the premise in about four seconds.
+    ///
+    /// Mesh colliders rather than a box shell, deliberately. A box would need hand-placed extents
+    /// and would either block the porch the player must reach or leave a gap somewhere along a
+    /// facade nobody measured; the mesh is already the correct shape, and it keeps the porch steps
+    /// walkable without anyone guessing coordinates. These are static and non-convex, so the cost is
+    /// bake-time rather than per-frame, but the triangle total is logged because this scene is
+    /// carrying a perf regression (LANE A1) and a number nobody printed is a number nobody can weigh.
+    static void MakeSolid(GameObject go)
+    {
+        var filters = go.GetComponentsInChildren<MeshFilter>(true);
+        int added = 0;
+        long triangles = 0;
+        foreach (var filter in filters)
+        {
+            Mesh mesh = filter.sharedMesh;
+            if (mesh == null) continue;
+            // A renderer that was hidden to seal the doorway must still stop the player -- that slab
+            // is exactly where someone would otherwise walk in.
+            if (filter.GetComponent<MeshCollider>() != null) continue;
+            var collider = filter.gameObject.AddComponent<MeshCollider>();
+            collider.sharedMesh = mesh;
+            collider.convex = false;
+            added++;
+            triangles += mesh.triangles.Length / 3;
+        }
+
+        if (added == 0)
+        {
+            Debug.LogError("[GmMansion] FAILED: no mesh colliders added — the house is still walk-through");
+            return;
+        }
+        Debug.Log($"[GmMansion] solid: {added} mesh collider(s), {triangles} triangle(s) of static collision");
     }
 
     /// The source house is calibrated for its daylight showcase and its pale plaster catches the

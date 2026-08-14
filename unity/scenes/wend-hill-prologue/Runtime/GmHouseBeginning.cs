@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -40,7 +39,14 @@ public sealed class GmHouseBeginning : MonoBehaviour, IGmInteractionReceiver
 
     static readonly string[] IntroLines =
     {
-        "The doors give without a sound—the way a house opens when it has been expecting you.",
+        // Was: "The doors give without a sound—the way a house opens when it has been expecting
+        // you." That is the civil doorway the entire opening exists to refuse, handed back two
+        // minutes after the porch beat says "The doors did not open", in the same voice and the same
+        // warm-seam image. Threshold Refusal is a hard canon lock: the house's own front doors never
+        // open, and the player is TAKEN by the ninth bell rather than admitted. The replacement
+        // keeps the register and pays off the porch line's "Guests were taken" instead of
+        // contradicting it.
+        "No door opened. Nothing let me in—I was taken, the way the porch said guests are, and the hall was already warm.",
         "Firelight. A small round table. Two chairs. One seat already warm.",
         "There you are. I was beginning to think the hall had kept you. It does that—shows a guest the long way round.",
         "Forty-one thousand pounds. Friday. You may have every note of it, if you win it from me. One hand at a time. Simple.",
@@ -60,6 +66,8 @@ public sealed class GmHouseBeginning : MonoBehaviour, IGmInteractionReceiver
     GmInteractable parlorDoor;
     GameObject parlorDoorLeaf;
     GameObject mirrorShard;
+    Bounds crossingRegion;
+    bool crossingRegionValid;
     float nextInputAt;
     int introIndex;
     int roundNumber;
@@ -114,6 +122,7 @@ public sealed class GmHouseBeginning : MonoBehaviour, IGmInteractionReceiver
         parlorDoorLeaf = transform.Find("EntryHall/ParlorDoor/DoorLeaf")?.gameObject;
         mirrorShard = transform.Find("EntryHall/Portraits/Portrait_Percival/MirrorShard")?.gameObject;
         if (mirrorShard != null) mirrorShard.SetActive(false);
+        MeasureCrossingRegion();
     }
 
     void Start()
@@ -121,11 +130,47 @@ public sealed class GmHouseBeginning : MonoBehaviour, IGmInteractionReceiver
         player = FindAnyObjectByType<GmPlayer>();
     }
 
+    /// <summary>
+    /// Where the house is, asked of the house itself: this interior plus the wake room it opens onto.
+    /// The pocket sits far off the outdoor route, so being anywhere inside its footprint IS the
+    /// crossing. A baked world Z does not survive a rebuild that moves the rooms — it keeps passing,
+    /// silently measuring a doorway that is no longer there.
+    /// </summary>
+    void MeasureCrossingRegion()
+    {
+        EncloseRenderers(transform);
+        Transform wakeRoom = GameObject.Find("WakeRoom")?.transform;
+        if (wakeRoom != null) EncloseRenderers(wakeRoom);
+        if (!crossingRegionValid)
+            Debug.LogError("[GmHouseBeginning] no house geometry to measure the crossing against; the " +
+                           "entry hall can only be reached by the review methods");
+    }
+
+    void EncloseRenderers(Transform root)
+    {
+        foreach (Renderer renderer in root.GetComponentsInChildren<Renderer>(true))
+        {
+            // An inactive renderer reports stale bounds, and one reporting the origin would stretch
+            // the region back across the outdoor route and fire the crossing during the drive.
+            if (!renderer.gameObject.activeInHierarchy) continue;
+            if (crossingRegionValid) crossingRegion.Encapsulate(renderer.bounds);
+            else { crossingRegion = renderer.bounds; crossingRegionValid = true; }
+        }
+    }
+
+    bool PlayerHasCrossed()
+    {
+        if (player == null || !crossingRegionValid) return false;
+        // Footprint only. How high the player stands over the floor is not what this is asking.
+        Vector3 here = player.transform.position;
+        return here.x >= crossingRegion.min.x && here.x <= crossingRegion.max.x &&
+               here.z >= crossingRegion.min.z && here.z <= crossingRegion.max.z;
+    }
+
     void Update()
     {
         if (player == null) player = FindAnyObjectByType<GmPlayer>();
-        if (Phase == GmHousePhase.WaitingForCrossing && player != null && player.transform.position.z > 393f)
-            EnterHall();
+        if (Phase == GmHousePhase.WaitingForCrossing && PlayerHasCrossed()) EnterHall();
 
         if (Time.unscaledTime < nextInputAt) return;
         bool advance = (Keyboard.current != null &&
@@ -289,8 +334,8 @@ public sealed class GmHouseBeginning : MonoBehaviour, IGmInteractionReceiver
         }
         else
         {
-            List<GmParlorCard> deck = GmParlorRules.ShuffledDeck(41009 + roundNumber * 97);
-            for (int i = 0; i < GmParlorRules.HandSize; i++)
+            List<GmParlorCard> deck = GmWendParlorRules.ShuffledDeck(41009 + roundNumber * 97);
+            for (int i = 0; i < GmWendParlorRules.HandSize; i++)
             {
                 playerHand.Add(deck[i * 2]);
                 aldricHand.Add(deck[i * 2 + 1]);
@@ -312,7 +357,7 @@ public sealed class GmHouseBeginning : MonoBehaviour, IGmInteractionReceiver
         RevealedCard = "";
         if (!playerLeads)
         {
-            int choice = GmParlorRules.ChooseAldricLead(aldricHand);
+            int choice = GmWendParlorRules.ChooseAldricLead(aldricHand);
             aldricCard = aldricHand[choice];
             leadCard = aldricCard;
             aldricHand.RemoveAt(choice);
@@ -327,7 +372,7 @@ public sealed class GmHouseBeginning : MonoBehaviour, IGmInteractionReceiver
     {
         if (Phase != GmHousePhase.ParlorGame || TurnPhase != GmParlorTurnPhase.ChooseCard ||
             index < 0 || index >= playerHand.Count) return false;
-        if (!GmParlorRules.IsLegal(playerHand, index, leadCard))
+        if (!GmWendParlorRules.IsLegal(playerHand, index, leadCard))
         {
             TableMessage = $"You must follow {leadCard.Value.Suit} while you hold it.";
             TouchUi();
@@ -339,7 +384,7 @@ public sealed class GmHouseBeginning : MonoBehaviour, IGmInteractionReceiver
         if (playerLeads)
         {
             leadCard = playerCard;
-            GmAldricPlay response = GmParlorRules.ChooseAldricFollow(aldricHand, playerCard.Value, true);
+            GmAldricPlay response = GmWendParlorRules.ChooseAldricFollow(aldricHand, playerCard.Value, true);
             aldricCard = response.Card;
             aldricHand.RemoveAt(response.RemovedIndex);
             currentCheat = response.Cheated;
@@ -386,8 +431,8 @@ public sealed class GmHouseBeginning : MonoBehaviour, IGmInteractionReceiver
         if (!playerCard.HasValue || !aldricCard.HasValue) return;
         GmTrickOwner winner;
         if (caught) winner = GmTrickOwner.Player;
-        else if (playerLeads) winner = GmParlorRules.Winner(playerCard.Value, aldricCard.Value);
-        else winner = GmParlorRules.Winner(aldricCard.Value, playerCard.Value) == GmTrickOwner.Player
+        else if (playerLeads) winner = GmWendParlorRules.Winner(playerCard.Value, aldricCard.Value);
+        else winner = GmWendParlorRules.Winner(aldricCard.Value, playerCard.Value) == GmTrickOwner.Player
             ? GmTrickOwner.Aldric : GmTrickOwner.Player;
 
         if (playerCard.Value.Suit == GmCardSuit.Eyes && aldricHand.Count > 0)
@@ -482,7 +527,7 @@ public sealed class GmHouseBeginning : MonoBehaviour, IGmInteractionReceiver
     public bool ReviewPlayFirstLegalCard()
     {
         if (TurnPhase != GmParlorTurnPhase.ChooseCard) return false;
-        for (int i = 0; i < playerHand.Count; i++) if (GmParlorRules.IsLegal(playerHand, i, leadCard)) return SelectCard(i);
+        for (int i = 0; i < playerHand.Count; i++) if (GmWendParlorRules.IsLegal(playerHand, i, leadCard)) return SelectCard(i);
         return false;
     }
 

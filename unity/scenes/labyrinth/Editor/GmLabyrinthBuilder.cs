@@ -245,6 +245,10 @@ public static class GmLabyrinthBuilder
         huntsmanLight.color = new Color(1.0f, 0.70f, 0.30f);
         huntsmanLight.intensity = 200f;
         huntsmanLightObj.AddComponent<HDAdditionalLightData>();
+        // Handed to the plan so it can carry authored intent. Without this the plan structurally
+        // COULD NOT motivate it -- there was no field to reach it through -- so the brightest local
+        // light in the scene answered to nothing.
+        parts.HuntsmanLanternLight = huntsmanLight;
     }
 
     static void BuildWall(Transform parent, string name, Vector3 pos, Vector3 scale)
