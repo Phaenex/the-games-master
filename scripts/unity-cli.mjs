@@ -743,14 +743,11 @@ if (process.argv[3] && !sceneScopedRequest) {
  * fails the run, because a stale exclusion is how a suite quietly stops meaning anything. So does
  * any failure outside this list. The only thing tolerated is exactly the documented, expected red.
  */
-const EXPECTED_FAILURES = [
-  {
-    match: /^GmCourtBuildTests\./,
-    why: 'Court content is hard-locked behind Nick\'s Phase 0 walk (TASKBOARD F1b); its composition ' +
-      'wiring needs geometry re-parenting, which is content work the lock reserves.',
-    retireWhen: 'Nick completes the Phase 0 walk and Court\'s composition is authored.',
-  },
-];
+// Empty, and that is the goal state. Court's two tests lived here from 2026-08-15 until the lock on
+// its content was lifted the same day; the rule then reported itself stale on the very next run,
+// which is the behaviour that makes an allowlist survivable. Add entries only with a reason and a
+// retirement condition, and expect the suite to evict them for you.
+const EXPECTED_FAILURES = [];
 
 function verifyTests(resultsPath, requiredFixture = null) {
   if (!existsSync(resultsPath)) throw new Error(`no test results at ${resultsPath} — the run produced nothing`);
