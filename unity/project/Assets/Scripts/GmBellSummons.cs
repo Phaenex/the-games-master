@@ -183,7 +183,9 @@ public class GmBellSummons : MonoBehaviour
             const string main = "The card said nine.";
             const string sub = "I have never been on time for anything in my life. Ask Mara. Ask the bank. Ask the men who call before sunrise. I was early for this.";
             rt?.ShowBeat(main, sub);
-            takenCardHold = GmDesignRuntime.BeatSecondsFor(main, sub);
+            takenCardHold = takenCardHoldOverride >= 0f
+                ? takenCardHoldOverride
+                : GmDesignRuntime.BeatSecondsFor(main, sub);
             Invoke(nameof(BeginCrossingAfterCard), takenCardHold);
         }
     }
@@ -192,6 +194,11 @@ public class GmBellSummons : MonoBehaviour
     /// a real window rather than being overwritten in its own frame.
     public float TakenCardHold => takenCardHold;
     float takenCardHold;
+
+    /// Overrides the derived hold when >= 0. Same escape hatch GmCrossing gives its own timings
+    /// (deadAir, whisperTime, irisTime, cardTime), so a PlayMode proof can compress the beat instead
+    /// of waiting out a reading window at 20x timeScale.
+    public float takenCardHoldOverride = -1f;
 
     void BeginCrossingAfterCard() => threshold?.BeginCrossing();
 }

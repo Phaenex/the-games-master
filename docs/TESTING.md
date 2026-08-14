@@ -107,6 +107,32 @@ still a human hardware/feel check; do not represent virtual-device proof as a na
     documented ones, is only in `unity-project/Logs/editmode-results.xml`. Parse that XML — the
     console summary named four scenes where the tracker claimed one.
 
+## A test can encode a bug as a requirement (2026-08-15)
+
+`NinthTollCrossesToWakeRoomWithoutFiringSecretEnding` asserted the player was at the wake room
+**immediately** after toll 9 — no wait, no deadline, just a distance check on the next line. That
+passed for a long time, and it was only ever true because the toll-nine payoff card was being
+destroyed in its own frame: `ShowBeat` and `BeginCrossing` were called consecutively, so the crossing
+took the screen instantly and nobody ever read the line the whole nine-count exists to deliver.
+
+Fixing the bug — holding the card for its reading window before the cut — broke the test. The test
+was wrong, not the fix. It had quietly encoded "toll nine IS the crossing", which was a description
+of the defect.
+
+Two things to carry forward:
+
+1. **When a fix breaks a test, ask which one is describing the intended behaviour before touching
+   either.** The reflex is to make the test pass again; here that would have meant deleting the fix
+   and restoring unreadable text.
+2. **An assertion with no wait is an assertion that something is instantaneous.** If the thing under
+   test is a sequence, say so: wait with a deadline and assert after. The rewritten version waits for
+   the crossing and now proves both halves — the card gets its window *and* the player arrives.
+
+Related: give any new authored delay a test-side override the way `GmCrossing` already does for
+`deadAir`/`whisperTime`/`irisTime`/`cardTime`. `GmBellSummons.takenCardHoldOverride` exists so a
+proof can compress the hold rather than wait out a reading window at 20x timeScale — compressing a
+real beat is fine; skipping it is not.
+
 ## The gate-2 deadlock (found 2026-08-15)
 
 `scripts/run-opening-gates.mjs:11` runs gate 2 as `npm run test:unity` — **every** EditMode test,

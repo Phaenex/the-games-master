@@ -112,6 +112,11 @@ public sealed class GmWendCanonicalPlayModeTests
         SetField(crossing, "cardTime", 0.12f);
         SetField(bell, "firstTollDelay", 0.02f);
         SetField(bell, "tollInterval", 0.02f);
+        // The ninth toll holds its card before handing over to the crossing, so that the one line
+        // the whole count pays off ("I was early for this") is actually on screen rather than being
+        // overwritten in its own frame. Compress it here the same way the crossing's own timings
+        // above are compressed -- the hold is real behaviour under test, not something to skip.
+        SetField(bell, "takenCardHoldOverride", 0.05f);
         Move(player, PointAt(route, GateMetres + 4f));
         yield return null;
         Move(player, PointAt(route, GateMetres + 2f));
@@ -121,8 +126,17 @@ public sealed class GmWendCanonicalPlayModeTests
         float deadline = Time.realtimeSinceStartup + 5f;
         while (Property<int>(bell, "Toll") < 9 && Time.realtimeSinceStartup < deadline) yield return null;
         Assert.AreEqual(9, Property<int>(bell, "Toll"));
+
+        // The crossing no longer begins in the same frame as the ninth toll, so wait for it rather
+        // than assuming the player teleports instantly. Asserting immediately here is what made this
+        // test encode "toll nine IS the crossing" -- true only because the payoff card was being
+        // destroyed before anyone could read it.
         Transform wake = GameObject.Find("WakeRoom/WakePose").transform;
-        Assert.Less(Vector3.Distance(player.transform.position, wake.position), 0.05f);
+        deadline = Time.realtimeSinceStartup + 5f;
+        while (Vector3.Distance(player.transform.position, wake.position) >= 0.05f &&
+               Time.realtimeSinceStartup < deadline) yield return null;
+        Assert.Less(Vector3.Distance(player.transform.position, wake.position), 0.05f,
+            "the ninth toll never delivered the player to the wake room");
         Assert.IsFalse(Property<bool>(secret, "Fired"));
         deadline = Time.realtimeSinceStartup + 5f;
         while (Property<bool>(player, "ControlBlocked") && Time.realtimeSinceStartup < deadline) yield return null;
