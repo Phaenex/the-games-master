@@ -1,5 +1,50 @@
 # What needs Nick (human) vs what the agent can keep doing
 
+## 2026-08-15 — STOP. The prologue does not play for a player who obeys the invitation.
+
+Verified in source, not inferred. `bell?.Arm()` has exactly two production call sites:
+`GmThreshold.cs:63` and `GmVillageSave.cs:93` (which only restores an already-armed save). The first
+sits inside `lockNow`, which requires:
+
+```
+maxProgress >= gateAnchor.RouteMetres + 1f   &&   progress < maxProgress - 0.5f
+```
+
+— the player must pass the gate **and then move backward more than half a metre**. And
+`GmBellSummons.Update()` returns immediately unless armed.
+
+So: a player who does exactly what the letter tells them to do — walk to the house — passes the
+gate, reaches the porch, reads "The doors did not open", and **stands there forever**. No gate slam.
+No nine tolls. No crossing. No Entry Hall. The entire designed opening, and every page of the Ninth
+Bell spec, sits behind an optional decision to glance over your shoulder on a dark drive.
+
+This is not a bug I can fix for you, because the fix is a canon decision. The current behaviour is
+*deliberate* — the spec's reasoning is that "the house can only count someone it already has", so
+retreating to the car **before** the gate beats it outright, which is the secret ending. That
+reasoning is good. The hole is that it never considered the player who simply never turns around.
+
+Your options, and they change what the secret ending means:
+
+- **Arm on crossing the gate house-ward.** Committing is passing the gate, not being caught looking
+  back. Keeps the secret ending intact (leave before the gate and nothing is written). My
+  recommendation, and it is what the review panel independently converged on.
+- **Arm on porch arrival.** Latest possible commit; makes the grounds fully optional but means a
+  player who stops halfway is still un-counted.
+- **Arm on a timer from spawn.** The hour is coming regardless of what you do. Thematically the
+  strongest reading of "the ninth bell takes you wherever you stand", but it removes the player's
+  agency in starting the count.
+
+**Everything else the panel found is in `docs/reviews/2026-08-15-opening-panel.md`.** Six
+independent reviewers, all six FAIL, none would sign off even with their own top three fixed. Four
+more defects I verified in source myself: the first line inside the house contradicts the
+never-open-doors canon; beats run at 640-730 wpm against a hardcoded 4.2s dwell; the nine-count's
+payoff line is destroyed by a same-frame call ordering; and `GmSymptoms` puts a lowpass on the
+camera's AudioListener that progressively muffles the very bell the player must count.
+
+The one unanimous thing across all six reviewers: **the prose is genuinely good and must not be
+sanded down** by any systems or accessibility pass. Several quoted the same lines unprompted.
+
+
 ## 2026-08-15 — READ FIRST: the gate was not the worst of it. The house has no collision at all.
 
 You found the gate. The same audit, run properly across the whole opening, found something worse:
