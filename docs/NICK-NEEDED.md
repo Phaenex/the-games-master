@@ -53,6 +53,31 @@ build** if purchased doorway colliders still seal the route. So there is hard au
 remove collision and **no counterpart check anywhere that asserts anything is still solid**. That
 asymmetry is the machine that produces this bug, and it will keep producing it.
 
+## 2026-08-15 — three small calls, each 30 seconds, each blocking a green test
+
+The 2026-08-15 EditMode run found 8 failures (the tracker claimed 2). Five were objective
+pivot/placement errors and are fixed. Three are yours, because they are taste, not correctness —
+all three are in Labyrinth and all three keep its two tests red until answered:
+
+1. **Is a hedge "architecture"?** `shrine-pillars` and `hedge-walls` both declare the asset family
+   `maze-architecture`, and the audit's duplicate-placement guard is deliberately family-scoped, so
+   the two empty container roots (both legitimately at the world origin) hash to the same key and
+   trip it. Nothing is actually misplaced — the pillars are at ±2.5 around the shrine and the hedges
+   are spread across the 7×7 grid. Cleanest fix is a one-token retag of the hedges to `maze-hedge`
+   (hedges are planting, not carved stone). The alternative — nudging an invisible parent to dodge a
+   hash collision — works and is less honest.
+2. **Does the Huntsman's lantern burn?** `GmLabyrinthCompositionPlan` says "whether the Huntsman's
+   lantern should move or emit light is Nick's call, not invented here" — but that comment is now
+   stale on both counts: the prop is the `SM_Lantern` FBX (not the cube it describes) and the
+   builder already creates and enables a 200-intensity light at it. So either author the intent
+   (the light stays, comment gets corrected) or delete the light (comment becomes true again).
+   Deleting removes the only warm light in the stalk corridor.
+3. **Should the bone totem fill the frame?** Review shot `05-bone-totem` frames a 2.04m prop from
+   1.84m away, so it overflows top and bottom (viewport height 1.00 against a 0.90 ceiling). Nothing
+   is misplaced; it is purely how close the camera sits. Backing off to z=-7.0 gives 0.657 and keeps
+   the framing target. The alternative is to declare that the totem filling the frame IS the shot.
+   Note the plan file's own warning against tuning claim numbers to move the audit.
+
 ## 2026-08-13 — the gate you found is a real, confirmed defect
 
 You were right — the estate gate has no physical enforcement at all, open or closed. It's two
