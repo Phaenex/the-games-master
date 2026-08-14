@@ -16,10 +16,26 @@ but the delivery numbers reset to the engine that ships.
 This file tracks **Unity truth**. Where a thing is "done in web, absent in Unity," it reads 0% with the
 web work credited as design source, because a player on Steam cannot play a design source.
 
+> **2026-08-13 update.** Unity EditMode went from **not compiling at all** to **294/296 passing**
+> this session. The opening blocker (47 CS0117 errors, all `GmCompositionAuthoring.ReviewClaim(...)`,
+> a method that didn't exist) is resolved for 5 of the 6 Phase 1-7 scenes — `docs/audit/
+> F1-review-claim-decision.md` documents the interim adapter and what it assumes. **Court's 2 tests
+> are the only remaining failures, left failing on purpose**: Court is content-locked behind Nick's
+> Phase 0 walk, and closing its composition-audit failures means re-parenting real geometry, which
+> is content work. Gates 3-12 have never run against a compiling build — no evidence exists past
+> gate 2 yet; `npm run gates` is the next real step. Separately, a 262-agent source audit confirmed
+> 196 findings; the dominant theme was Phase 1-8 story systems being unit-tested scaffolding not
+> wired to gameplay. This session closed part of that (audio now plays, pause-menu tabs render,
+> credits read the real catalog, `GmRunStore`/`GmHouseProgress` are bridged) — save/load and scene
+> transitions are still unwired pending a boot/title-scene decision. See
+> `docs/audit/2026-08-13-findings.md` and TASKBOARD LANE F.
+> The scene-factory infrastructure below is **not** implicated: the scaffold generator emits no
+> `ReviewClaim` call and its Roslyn compile test still passes. The 47 bad calls were hand-authored.
+
 ```
 Overall (Unity/Steam): [███░░░░░░░░░░░░░░░░░]  17%
 
-Phase  0 Prologue        [██████████████████░░]  92%  REGRESSED 2026-08-03: 9/11 opening gates pass, 2 fail the 16.7ms p95 budget
+Phase  0 Prologue        [██████████████████░░]  92%  re-measured 2026-08-15: gates 1-7 PASS (3-7 for the first time), gate 8 FAIL p95 19.25ms vs 16.70 — best p95 on record, see below
 Phase  1 Entry Hall      [░░░░░░░░░░░░░░░░░░░░]   0%  design source: Entry Hall.dc.html (76K)
 Phase  2 Parlor          [░░░░░░░░░░░░░░░░░░░░]   0%  design source: Parlor prototype (52K), the only playable game
 Phase  3 Court           [░░░░░░░░░░░░░░░░░░░░]   0%  design source: Court.dc.html (36K) + evidence draft
@@ -85,6 +101,38 @@ The Jul 31 audit's `performance.json` was written at 20:12; scene sources were t
 | 9 | house entry + first game | PASS — 10 frames, zero integrity failures |
 | 10 | full-route 1080p performance | **FAIL** — p95 20.35ms vs 16.70ms; route itself clean (435/435m, 0 stalls, 0 nav fallbacks, 0 defects) |
 | 11 | standalone boundary walls | PASS — 4 frames |
+
+### 2026-08-15 re-measurement — gates 1-7 green, gate 8 still the same perf wall
+
+First run past gate 2 since the pipeline was unblocked (gate 2 previously ran the whole EditMode
+suite and broke on Court's by-design failures, making 3-12 structurally unreachable; that now
+carries a named, self-expiring exclusion).
+
+| Gate | 2026-08-03 | 2026-08-15 |
+|---|---|---|
+| 1 portable | PASS | PASS (101s) |
+| 2 EditMode | PASS | PASS (42s) — 337/339, Court's 2 tolerated by name |
+| 3 PlayMode | PASS | PASS (44s) — 12/12 |
+| 4 rebuild | PASS | PASS (26s) |
+| 5 saved-scene contract | PASS | PASS (16s) |
+| 6 visual tour | PASS 8/8 | PASS (63s) |
+| 7 macOS build | PASS | PASS (57s) |
+| 8 standalone proof | **FAIL** p95 19.72/20.83/21.71 | **FAIL** p95 **19.25** |
+| 9-12 | 9 and 11 passed then | not reached — 8 blocks them |
+
+**Gate 8 is not a new regression.** 19.25ms is the lowest p95 ever recorded for this gate, against a
+historical 19.72-21.71. The mansion gained 216,820 triangles of static collision this session
+(`GmMansion.MakeSolid`, fixing a walk-through house) and that was the obvious suspect — it is not
+supported by the numbers, and naming it as the cause ahead of the measurement would have been wrong.
+
+The 2026-08-03 diagnosis below blamed the interior being exempt from both performance systems. That
+exemption is gone: `GmWendRuntimeCulling` now collects `interiorLights` and toggles them with
+interior visibility, which is the likeliest reason the number improved at all. The remaining ~2.5ms
+belongs to LANE A1 and is unfinished, not misdiagnosed.
+
+The harness flagged its own conditions honestly: `host at measurement: 23.0 load / 10 cores = 2.30
+per core — treat p95 as indicative, not a verdict`. Under the 3.0/core requirement, but a quiet-host
+run is still owed before any release claim.
 
 **Root cause of 8 and 10.** Host load fell 2.5x (19 → 8.6) across the three standalone runs while p95
 moved 5%, so CPU contention is not the driver. The regression window is 2026-07-31 20:12–22:42, in
