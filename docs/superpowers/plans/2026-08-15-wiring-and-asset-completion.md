@@ -49,12 +49,31 @@ somewhere, and what would make every one of those five real mechanics playable f
 Not attempted in this pass — it's a per-scene builder change with real design implications (where
 does the player spawn, what does "leaving" the room do), not a mechanical fix.
 
-## Asset gaps that are just filing, not sourcing (do these next, cheap and safe)
+## Asset gaps that were just filing, not sourcing (done 2026-08-15)
+
+`assets/sfx/`'s 18 audio files were all already fully documented in the sibling `license.txt` —
+tracked as-is, `node scripts/test-attribution.mjs` still passes clean. Committed in `c0d742d`.
+
+## Corrected: the ~54 footstep/wind clips are NOT a filing fix — provenance unknown
+
+Original framing here was wrong. Investigated before touching anything: `foot_dirt_01..08`,
+`foot_grass_*`, `foot_gravel_*`, `foot_leaves_*`, `foot_stone_*`, `foot_wood_*`, `wind_local_01..04`,
+`amb_wind_natural`, `amb_wind_hybrid` exist **only** inside `unity-project/Resources/Sfx/` — searched
+every vendor pack under `assets/models/unity/` and `assets/models/unity-import/` (including the
+`unity-learn-foundations-of-real-time-audio-urp` pack, the obvious first guess given the filename
+style) and found zero matches anywhere. `docs/WEND-NIGHT-LADDER.md` confirms they're live and wired
+("40 footstep clip(s)... wired") but says nothing about where they came from. No `.meta` file, no
+doc, no script anywhere names a source or license for these ~54 files.
+
+This is not a "copy it over" fix — it's the same class of problem the attribution gate exists to
+catch, and fabricating a license entry to make it look filed would be worse than leaving it
+uncommitted. **Needs Nick**: does he know where these came from (a specific purchase, a personal
+recording session, an AI tool)? Until then these stay uncommitted rather than guessed at.
+
+## Tooling gaps that are just filing, not sourcing (do these next, cheap and safe)
 
 | Asset | Where it actually is | Fix |
 |---|---|---|
-| ~40 footstep/wind clips (`foot_dirt_01..08`, `wind_local_01..04`, etc.) | Only in `unity-project/Resources/Sfx/` — no copy in `assets/sfx/`, tracked or untracked, at all | Copy into `assets/sfx/`, add license entries, track. `GmAudioManager`/`GmWendAmbience` both already reference these by the same lookup keys. |
-| 16 of 18 files `assets/sfx/license.txt` documents | Untracked | `git add assets/sfx/` (verify the 2 already-tracked files, `gate_lock.ogg`/`gate_slam.ogg`, aren't accidentally duplicated) |
 | `scripts/sync-unity-scenes.mjs` | Untracked, never committed on this branch at all | First-ever commit of the project's core sync tool — needs its own dedicated review pass, not a drive-by. Also carries my small `GmHudTheme.tss` ownership-check addition, currently sitting in the working tree unattached to any commit. |
 | `scripts/sync-victorian-proof-assets.mjs` | Untracked, never committed | Same as above — the tool that gets the portrait/vendor assets into Unity has itself never been in git. |
 
@@ -64,13 +83,15 @@ does the player spawn, what does "leaving" the room do), not a mechanical fix.
 |---|---|---|
 | `Cobweb_02.fbx`, `Cobweb_03.fbx` (Hidden Room dressing) | Exist only in `unity-project/Assets/GamesMaster/Props/`, no source anywhere in `assets/` | Same class of fix as the portraits — find them, file them into `assets/models/`, track, re-point the builder if the path changes. |
 | `SM_Wood_02.prefab`, `SM_Bucket.prefab` (LeartesStudios "Abandoned Village") | Missing entirely — not even in `unity-project/` | The pack itself is already owned/present (dozens of its other prefabs load fine). Check whether the local import of "Abandoned Village" is just incomplete before assuming anything needs re-buying. |
+| ~54 footstep/wind clips | Exist only in `unity-project/Resources/Sfx/`, zero trace anywhere else on disk | **Needs Nick** — provenance genuinely unknown, not a filing task (see above). |
 
 ## Ranked punch list
 
 1. **D1/D2 answers from Nick** — everything downstream of "no ending can resolve" waits on this.
 2. **Give the 6 scaffold scenes a player rig** — highest-value single change; unlocks 5 real,
    already-tested mechanics plus makes `GmPauseMenu` visible somewhere.
-3. **File the sfx clips + `assets/sfx/` tracking** — cheap, mechanical, no design decision needed.
+3. ~~File the sfx clips + `assets/sfx/` tracking~~ — done (`c0d742d`). The ~54 footstep/wind
+   clips turned out to need Nick's input on provenance, not filing — see above.
 4. **Commit `sync-unity-scenes.mjs` and `sync-victorian-proof-assets.mjs`** — foundational tooling
    gap; do this as its own reviewed pass, not folded into a feature commit.
 5. **Cobweb FBX + the 2 missing Leartes prefabs** — small, bounded, check the owned pack first.
