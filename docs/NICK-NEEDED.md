@@ -1,5 +1,73 @@
 # What needs Nick (human) vs what the agent can keep doing
 
+## 2026-08-15 — READ FIRST: the gate was not the worst of it. The house has no collision at all.
+
+You found the gate. The same audit, run properly across the whole opening, found something worse:
+**the estate house — the object the game's central canon depends on — is a hologram.** Not its
+doors. The entire building. You can walk to the porch, keep walking, pass through the front wall,
+through the interior, and out the back into the field.
+
+Verified directly, three independent ways:
+
+1. `unity-project/Assets/GamesMaster/Exterior/haunted_victorian_house.fbx.meta:94` → `addColliders: 0`.
+   The house imports with zero colliders. (So do all nine owned FBX files.)
+2. Nothing ever adds one. The only collider-adding code near the house is
+   `GmHouseBeginningBuilder.cs`, which builds the *interior pocket* at z≈358-402 — a different
+   place entirely from the exterior manor you walk up to.
+3. `GmWendOpening.BuildManor` actively **disables** any collider it finds inside the manor
+   footprint (`unity/scenes/wend-hill-prologue/Editor/GmWendOpening.cs`, the footprint-clearing
+   loop), so even an incidental one would be switched off.
+
+And the thing named as the seal is not one. `GmMansion.SealTheDoors()`
+(`unity/project/Assets/Editor/GmMansion.cs:180-193`) is, in full, `r.enabled = false` — it hides a
+renderer. Its own log line says "hidden", which is honest; the method name says "sealed", which is
+not.
+
+**Why this is canon-critical, not cosmetic:** Threshold Refusal is the opening. Drive → gate locks →
+porch → *the doors never open* → the ninth bell takes you wherever you stand. Today a player walks
+through the front wall in about four seconds, and `GmThreshold` still prints "The doors did not
+open" from route-distance projection while they are standing inside the building. The reveal the
+whole prologue is built to deliver is defeated by walking forward.
+
+**This needs your call, and I have deliberately not made it**, because the three fixes have real and
+different costs in a scene already carrying a perf regression (LANE A1):
+
+- **Flip `addColliders` on the FBX.** Cheapest to write. Generates per-mesh collision on a large
+  building, and it collides head-on with the route-carving passes below.
+- **Author a collision shell** (a handful of box colliders forming the facade and walls). Controlled,
+  cheap at runtime, deliberate — my recommendation, but it is geometry authoring and that is yours.
+- **One blocking volume across the porch face.** Smallest change; only stops the front approach and
+  leaves the sides and rear open.
+
+**Second thing you should know, a process one:** the gate fix you were asked to *choose* has already
+been built and shipped into the saved scene — a `GateBarrier` collider plus 45m perimeter fence
+wings each side, present in `WendHill_Prologue.unity` right now, in uncommitted work, with no
+commit selecting the approach. It is decent work and the wings are solid, but it pre-empted your
+call. Its residual hole: the wings stop at ±45m and there is nothing beyond them but terrain.
+
+**Root cause of the whole defect class, worth fixing above any single door:** three build passes
+(`GmWendPerformance.CarveFalseRouteObstacles`, `ClearFalseDoorwayColliders`,
+`DisableIntersectingColliders`) delete or disable colliders by *name token* — the list includes
+"wall", "door", "house", "building", "fence" — and `GmWendSceneContract.cs:249-252` **fails the
+build** if purchased doorway colliders still seal the route. So there is hard automated pressure to
+remove collision and **no counterpart check anywhere that asserts anything is still solid**. That
+asymmetry is the machine that produces this bug, and it will keep producing it.
+
+## 2026-08-13 — the gate you found is a real, confirmed defect
+
+You were right — the estate gate has no physical enforcement at all, open or closed. It's two
+disconnected pier posts with nothing between them and no boundary tying them to anything; the
+"lock" is a route-progress flag that plays a sound and swings a cosmetic leaf animation. A player
+can walk 4-5m around either side and never touch it, before or after it "locks." Full root cause,
+why hundreds of walkthroughs never caught it, and everything else open from this session (a real
+stall the new coach house content introduced, a perf regression, deferred plumbing, and your
+still-open taste calls) are all in `docs/CLAUDE-FABLE-HANDOFF.md`'s 2026-08-13 section — that's
+the actual handoff, read it before anything else. **AGENT priority next session, before any new
+content: audit for this same failure pattern (logic says "blocked/locked/closed" with no matching
+physical collider) across the rest of the Prologue, then fix the gate itself once you pick an
+approach** (a real fence, an invisible blocking volume, or narrowing the walk deck — your call,
+not decided for you).
+
 Last audited: 2026-07-22 post-B+ A-candidate closure (103/103 EditMode, 5/5 PlayMode including
 the complete live crossing and virtual-controller route, seven measured wall contacts, 18/18 tour,
 7/7 clean scene frames plus 2/2 controller UI frames, 5/5 final Ninth Bell clips decoded in the built
@@ -38,9 +106,10 @@ Legend:
 ### 1. Play the standalone opening (blocking)
 
 Unity does not need to be open or installed to run the exported app. Launch
-`/Users/damato/GamesMaster-Unity/Builds/macOS/The Games Master.app`, or unzip
-`/Users/damato/GamesMaster-Unity/Builds/distribution/The Games Master - Phase 0 macOS.zip` and open
-the extracted app.
+`~/Projects/games/the-games-master/unity-project/Builds/macOS/The Games Master.app`, or unzip
+`~/Projects/games/the-games-master/unity-project/Builds/distribution/The Games Master - Phase 0 macOS.zip`
+and open the extracted app. (The Unity project moved from `~/GamesMaster-Unity` to
+`./unity-project` inside the repo; update any saved shortcuts.)
 
 Keyboard/mouse: WASD, mouse look, E interact, F8 wind comparison, Esc pause, Q quit while paused.
 Controller: left stick or D-pad move, right stick look, A/Cross interact and advance cards,
@@ -115,6 +184,29 @@ About one walk in three, the upper-right mansion window contains a figure; it is
 once you pass z≈18. The deterministic screenshot tour forces it in shot 15, proves it gone in 16,
 and holds the camera exactly still for the cutoff comparison in shots 17 and 18.
 The old three-toll chapel knock-back is retired. The ninth bell now owns the crossing.
+
+### 2c. The Reckoning — contextual bell + coach house (2026-08-13, new)
+
+Full design: `docs/superpowers/specs/2026-08-13-the-reckoning.md`. You already gave the core
+direction directly (outbuildings become genuinely enterable; the KO still always happens, but
+its timing should vary with what the player did rather than always being the same 4m45). That's
+recorded as an owner decision superseding part of the ninth-bell spec. What's still open:
+
+1. **Does exploring make the house hurry, or buy time?** One signed dial
+   (`reckoningPressureAuthority`). Ships neutral (no change from today) until you set it on a
+   walk with the coach house built.
+2. **How much randomness, concretely?** Ships at zero jitter until tuned — a feel call, not a
+   number anyone should pick in the abstract.
+3. **The chapel question.** Leave it shut (it's the bell's own diegetic source, and its shipped
+   "scratches from under the door" line is worth more closed than any room), or open it and let
+   the player pull the rope to answer a toll early (makes "nothing you do matters" mechanical
+   instead of asserted)? Recommend deciding this after walking the coach house, not before it
+   exists.
+4. Should the shed and a new below-grade icehouse follow later? The icehouse means a real new
+   asset-intake pass; a cheaper substitute (a cellar hatch inside the shed) gets the same "you
+   lose your read on the count" effect for zero new assets, if that's the part that matters.
+5. TASKBOARD lane F6 (corruption ceiling 4 vs 5) now also gates whether the Reckoning is
+   *allowed* to raise corruption at all — still open, still yours.
 
 ### 3. Taste calls (say yes/no)
 
