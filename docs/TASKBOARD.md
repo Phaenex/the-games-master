@@ -138,8 +138,8 @@ it, not the full backlog. No commit, no push.
 ## LANE F — Audit blockers (2026-08-13)
 
 ```
-Unity EditMode           [████████████████████]  294/296  ✓  only Court's 2 tests fail, on purpose
-Gates 3-12               [░░░░░░░░░░░░░░░░░░░░]   not run this session — no evidence past gate 2
+Unity EditMode           [███████████████████░]  324/332  ✗  measured 2026-08-15 — 8 fail, not 2
+Gates 3-12               [░░░░░░░░░░░░░░░░░░░░]   STRUCTURALLY BLOCKED, not merely un-run (see below)
 ```
 
 | # | Task | Status | TEST |
@@ -156,8 +156,16 @@ Gates 3-12               [░░░░░░░░░░░░░░░░░░
 | F9 | **The verification harness is itself defective** — 86 confirmed findings in `scripts/`. `verify-unity-full.mjs` throws an uncaught `TypeError` on every run and has never once passed; ~12 more capture/verify scripts collect real error evidence and never check it | TODO | each script fails when given a known-bad input |
 | F10 | `scan-frame-defects.mjs` counts undecodable frames as clean, and treats a missing target directory as zero frames | TODO | corrupt PNG in a target dir fails the run |
 
-**Gates 3-12 have never run against a compiling build.** `npm run gates` is the next real step —
-it will be the first full pipeline attempt against a tree that actually compiles.
+**Gates 3-12 have never run against a compiling build — and cannot, as currently wired.**
+Measured 2026-08-15 (real batchmode run, Unity 6000.5.3f1): EditMode is **324/332, 8 failing**, not
+294/296 with 2 failing. The 8 are Court (2, hard-locked by design), Hidden Room (2), Labyrinth (2)
+and Shut the Box (2) — three scenes beyond the one the tracker named.
+
+`run-opening-gates.mjs:11` runs gate 2 as the **entire** unfiltered EditMode suite and line 54
+breaks on first failure, so Court's by-design failures make gates 3-12 unreachable no matter what
+else is fixed. Running `npm run gates` today cannot produce evidence past gate 2. See
+`docs/TESTING.md` → "The gate-2 deadlock". **NICK**: this needs a policy call (scope gate 2 to the
+scene under test plus shared systems, or carry an explicit documented Court exclusion).
 
 ## LANE A — Phase 0 exit (blocking everything)
 
@@ -369,8 +377,8 @@ npm run unity:proof:mac  # 7 story + 2 controller frames, 5 cues, p95
 ## Current gate state (measured 2026-08-13, end of session — SUPERSEDES the 2026-08-03 block below)
 
 ```
-Unity EditMode           [████████████████████]  294/296  ✓  Court's 2 tests fail on purpose (F1, hard lock)
-Gates executed            [██░░░░░░░░░░░░░░░░░░]   2/12    portable ✓, EditMode ✓; 3-12 not run this session
+Unity EditMode           [███████████████████░]  324/332  ✗  superseded by the 2026-08-15 measured run
+Gates executed            [█░░░░░░░░░░░░░░░░░░░]   1/12    portable ✓; EditMode now FAILS, 3-12 unreachable
 ```
 
 **Unity EditMode compiles and runs for the first time on record for the six Phase 1-7 scene
