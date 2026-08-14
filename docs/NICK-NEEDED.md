@@ -1,5 +1,28 @@
 # What needs Nick (human) vs what the agent can keep doing
 
+## 2026-08-15 (later) — RESOLVED: everything below this heading is done
+
+Nick's call: **arm the bell on crossing the gate house-ward.** Implemented. He also said "fix all
+the rest", so the remaining open decisions were taken with the recommendations already documented
+here, each one noted in its commit:
+
+| Was blocking | Resolution |
+|---|---|
+| What arms the bell | Crossing the gate house-ward (Nick). `GmSecretEnding` already used that exact line as the point of no return, so the two systems now agree instead of contradicting each other. Retreating to the car before the gate still beats the house. |
+| House collision approach | Mesh colliders on the mansion (`GmMansion.MakeSolid`) rather than a hand-placed box shell, so the porch stays walkable without guessing extents. Triangle total is logged because of the LANE A1 perf regression. |
+| Gate-2 deadlock | Named `EXPECTED_FAILURES` rule in `verifyTests`, carrying its reason and its retirement condition. Any unlisted failure still fails; an excluded test that starts PASSING also fails, so the exclusion cannot go stale silently. Gate 2 now exits 0 — gates 3-12 are reachable for the first time. |
+| Hedge taxonomy | Retagged `maze-hedge`. Hedges are planting, not carved stone, and the guard is family-scoped by design. |
+| Does the Huntsman's lantern burn | Yes — it already did. The builder lit it; only the plan's comment claimed otherwise, and that comment was stale on both of its claims. Intent authored. |
+| Bone-totem framing | Camera backed off 1m. A review shot that overflows its frame cannot do the job a review shot exists for. |
+
+Measured after all of it: **EditMode 330/332**, the two remaining being Court's by-design failures.
+Session started at 324/332 with the tracker claiming 294/296.
+
+**Still genuinely open and still yours:** Aldric is absent from his own opening, and the player is
+never handed the game's core verb before sitting at the table — the panel's blockers 2 and 3, both
+marked owner-decision. Those are design work, not defects. See
+`docs/reviews/2026-08-15-opening-panel.md`.
+
 ## 2026-08-15 — STOP. The prologue does not play for a player who obeys the invitation.
 
 Verified in source, not inferred. `bell?.Arm()` has exactly two production call sites:
