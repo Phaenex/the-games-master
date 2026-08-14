@@ -1,0 +1,67 @@
+The Games Master — sound effects & ambience
+=============================================
+
+Sourced open assets. CC-BY items must stay credited in the shipped game's credits.
+
+AMBIENCE
+- amb_wind.ogg   "Wind Loop" by AntumDeluge, derived from a recording by InspectorJ
+                 (Jonathan Shaw). License: CC-BY 3.0.
+                 https://opengameart.org/content/wind-loop
+                 https://freesound.org/people/InspectorJ/sounds/376415/
+- amb_dark.ogg   "Dark Ambience Loop" by Iwan Gabovitch (qubodup). License: CC-BY 3.0
+                 (also offered GPL2/GPL3). Credit line requested:
+                 "Dark Ambience Loop by Iwan Gabovitch http://opengameart.org/users/qubodup"
+                 https://opengameart.org/content/dark-ambience-loop
+- amb_crickets.ogg  "cricket2" from "Bird, cricket, frog and mosquito sounds". License: CC0
+                 (no attribution required, credited anyway). Quiet night-crickets bed.
+                 https://opengameart.org/content/birdcricketfrog-and-mosquito-sounds
+- amb_owl.ogg    "birdNight" from the same CC0 pack. Occasional distant hoot one-shot (not looped).
+                 https://opengameart.org/content/birdcricketfrog-and-mosquito-sounds
+
+FOOTSTEPS  (all CC0 — no attribution required, credited anyway)
+- step_stone.ogg   from "Different steps on wood, stone, leaves, gravel and mud"
+- step_gravel.ogg  by TinyWorlds. License: CC0.
+- step_leaves1.ogg https://opengameart.org/content/different-steps-on-wood-stone-leaves-gravel-and-mud
+- step_leaves2.ogg
+
+DOOR
+- door_creak.ogg "Creaky light wooden door" by fractilegames. License: CC-BY 3.0.
+                 https://opengameart.org/content/creaky-light-wooden-door
+
+GATE + KO (procedural originals — project-authored, 2026-07-15)
+- gate_slam.ogg  Synthesized heavy wood impact (ffmpeg lavfi / Opus). Original work for this project. CC0.
+- gate_lock.ogg  Synthesized short metal latch tick. Original work for this project. CC0.
+- ko_thud.ogg    Synthesized low-body impact for Threshold Refusal knockout. Original work for this project. CC0.
+  Prior mystery copies on disk were replaced — no orphaned third-party credit owed for these three.
+
+THRESHOLD PRESENCE (licensed pack — 2026-07-16)
+- porch_breath.ogg  "Misc_breath" from "Horror Elements" by Anthon (Unity Asset Store, free tier,
+                 acquired 2026-07-15). Converted WAV -> Opus OGG for web. Licensed under the Unity
+                 Asset Store EULA: usable embedded in this game; the raw pack must NOT be
+                 redistributed or committed outside converted in-game assets.
+                 https://assetstore.unity.com/ (Anthon — Horror Elements)
+- chapel_bell.ogg "Amb_bell" from the same Anthon "Horror Elements" pack, trimmed to a 7s single
+                 toll with fade (ffmpeg -> Opus OGG). Same Unity Asset Store EULA terms as above.
+                 Distant one-shot in the chapel forecourt only.
+
+THE NINTH BELL - FINAL CURATED CUES (2026-07-20)
+- clock_chime.ogg  Derived from "G25-02-Grandfather Clock Chime.wav" by craigsmith.
+                 License: CC0 1.0. Source Freesound ID 438313. One physical strike is isolated
+                 from 2.20-3.62s, then given a project-authored room decay. It contains no second
+                 clock strike.
+                 https://freesound.org/people/craigsmith/sounds/438313/
+- heartbeat.ogg  Derived from "Heartbeat" by JonasTisell, an actual resting heartbeat recorded
+                 from Andy Jack. License: CC0 1.0. Source Freesound ID 670465. Seven complete beat
+                 cycles are boundary-trimmed into a click-safe loop.
+                 https://freesound.org/people/JonasTisell/sounds/670465/
+- whisper_bed.ogg  Derived from "Whisper.wav" by PlumForestPodcast, described by its author as a
+                 quiet whisper with no meaning. License: CC0 1.0. Source Freesound ID 517868.
+                 Curated as a non-looping nine-second crossing cue with restrained stereo motion.
+                 https://freesound.org/people/PlumForestPodcast/sounds/517868/
+- ear_whine.ogg  Project-authored tinnitus cue. Deterministic periodic synthesis by this project,
+                 2026-07-20. It intentionally uses narrow high tones because it is an internal
+                 symptom, not environmental ambience. Eight-second seam-safe stereo loop. CC0.
+
+The reproducible, SHA-256-pinned curation pipeline is scripts/gen-bell-audio.py. The shipping OGG
+files are transformed in-game assets; the three Freesound sources are CC0 and require no credit,
+but remain credited here for durable provenance.
