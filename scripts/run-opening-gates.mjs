@@ -1,9 +1,22 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
-import { homedir } from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { loadSceneRegistry } from './unity-scene-registry.mjs';
 
-const home = homedir();
+const REPO_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const unityRoot = process.env.GM_UNITY_PROJECT || path.join(REPO_ROOT, 'unity-project');
 const scene = 'wend-hill-prologue';
+
+// The tour writes to Screens/<sceneName>, and sceneName is the registry's to change. Hardcoding
+// "WendHill_Prologue" in gate 12 agreed with the registry only by coincidence: rename sceneName and
+// the tour writes a new folder, unity-cli only clears the current one so the old folder survives,
+// and gate 12 would rescan those stale frames and report clean. Derive it, like unityRoot already is.
+const sceneName = loadSceneRegistry().scenes.find((entry) => entry.id === scene)?.sceneName;
+if (!sceneName) {
+  console.error(`✗ scene '${scene}' has no sceneName in the registry — gate 12 has nothing to scan`);
+  process.exit(1);
+}
 const gates = [
   ['portable source and archive checks', 'npm', ['run', 'verify:portable']],
   ['Unity EditMode', 'npm', ['run', 'test:unity']],
@@ -20,15 +33,18 @@ const gates = [
   // brightness and nothing else: a magenta object survived every green gate run on 2026-08-03 by
   // hiding in screenshots behind an opaque UI panel, while black-void gate piers scored "ok".
   ['captured-frame render defects', 'node', ['scripts/scan-frame-defects.mjs',
-    `${home}/GamesMaster-Unity/Library/GmSceneIntelligence/standalone-proof/${scene}`,
-    `${home}/GamesMaster-Unity/Library/GmSceneIntelligence/player-probes/${scene}`,
-    `${home}/GamesMaster-Unity/Screens/WendHill_Prologue`]],
+    `${unityRoot}/Library/GmSceneIntelligence/standalone-proof/${scene}`,
+    `${unityRoot}/Library/GmSceneIntelligence/player-probes/${scene}`,
+    `${unityRoot}/Screens/${sceneName}`]],
 ];
 
 function run(command, args) {
   return new Promise((resolve) => {
     const started = Date.now();
-    const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'], detached: true });
+    // Pinned to the repo root: every gate's argv is a relative path (scripts/unity-cli.mjs), so
+    // invoking this pipeline from anywhere else killed 11 of 12 gates on module-not-found.
+    const child = spawn(command, args,
+      { stdio: ['ignore', 'pipe', 'pipe'], detached: true, cwd: REPO_ROOT });
     let tail = [];
     const keep = (chunk) => {
       process.stdout.write(chunk);

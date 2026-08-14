@@ -98,24 +98,53 @@ if (targets.length === 0) {
   process.exit(2);
 }
 
-const frames = targets.flatMap(collect).sort();
+// A target that produced no evidence fails, and the test is the FRAME COUNT, not whether the path
+// exists. Checking existence alone left a hole wide enough to drive the whole gate through: a
+// directory that exists and holds zero PNGs contributed nothing, appeared in no list, and the run
+// still printed a clean tally — proven by `scan-frame-defects.mjs <one-real-frame> scripts/`, which
+// reported "1 frame(s) clean" while scripts/ was silently ignored. A Unity output path that gets
+// renamed, or an earlier gate that fails to populate its directory, lands exactly there.
+//
+// Absence of evidence is the failure condition. Each target must speak for itself.
+const tally = targets.map((target) => ({
+  target,
+  exists: existsSync(target),
+  frames: collect(target).sort(),
+}));
+
+const barren = tally.filter((entry) => entry.frames.length === 0);
+for (const entry of barren) {
+  console.log(entry.exists
+    ? `  ✗ empty target: ${entry.target} — the path is there but captured no frames`
+    : `  ✗ missing target: ${entry.target} — nothing was captured there`);
+}
+
+const frames = tally.flatMap((entry) => entry.frames).sort();
 if (frames.length === 0) {
   console.error('✗ no PNG frames found — nothing was verified');
   process.exit(1);
 }
 
 let bad = 0;
+let unreadable = 0;
 for (const frame of frames) {
   let result;
+  // A frame that will not decode was not scanned. Counting it as clean is the exact blindness this
+  // scanner exists to close, so it fails the run instead of dropping out of the tally.
   try { result = scan(frame); }
-  catch (error) { console.log(`  ? ${path.basename(frame)}: ${error.message}`); continue; }
+  catch (error) { unreadable++; console.log(`  ✗ ${path.basename(frame)}: ${error.message} — NOT SCANNED`); continue; }
   if (result.defects.length === 0) continue;
   bad++;
   console.log(`  ✗ ${path.basename(frame)}`);
   for (const defect of result.defects) console.log(`      ${defect}`);
 }
 
-console.log(bad === 0
-  ? `✓ frame defects: ${frames.length} frame(s) clean`
-  : `✗ frame defects: ${bad}/${frames.length} frame(s) carry a render defect`);
-process.exit(bad === 0 ? 0 : 1);
+const scanned = frames.length - unreadable;
+const problems = [];
+if (bad) problems.push(`${bad}/${scanned} scanned frame(s) carry a render defect`);
+if (unreadable) problems.push(`${unreadable} frame(s) could not be decoded`);
+if (barren.length) problems.push(`${barren.length} target(s) produced no frames`);
+console.log(problems.length === 0
+  ? `✓ frame defects: ${scanned} frame(s) clean`
+  : `✗ frame defects: ${problems.join('; ')}`);
+process.exit(problems.length === 0 ? 0 : 1);
