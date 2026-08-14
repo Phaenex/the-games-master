@@ -425,19 +425,29 @@ public sealed class GmPrologueHud : MonoBehaviour
         bool showFocus = canPlay && scanner != null && scanner.HasFocus;
         SetVisible(focusPrompt, showFocus);
         if (showFocus)
-            focusPrompt.text = $"{(player.UsingGamepad ? "A / CROSS" : "E")}   {scanner.PromptText}";
+        {
+            string examineKey = player.UsingGamepad ? "A / CROSS" : "E";
+            focusPrompt.text = $"{examineKey}   {scanner.PromptText}";
+            // The core verb has to be discoverable, and only once looking has happened -- offering
+            // "that's wrong" before the player has examined anything teaches them to press it
+            // blindly, which is the opposite of the judgement the game is about. The prompt appears
+            // on things already examined and disappears once their tell is caught.
+            if (scanner.CanCallTell)
+                focusPrompt.text += $"          {(player.UsingGamepad ? "X / SQUARE" : "F")}   THAT'S WRONG";
+        }
 
         bool needsCapture = canPlay && !player.HasPointerCapture && !player.UsingGamepad;
         bool showControls = canPlay && (needsCapture || Time.unscaledTime < controlsUntil);
         SetVisible(controls, showControls);
+        ControlsUseControllerLabels = !needsCapture && player != null && player.UsingGamepad;
         if (showControls)
-            ControlsUseControllerLabels = !needsCapture && player.UsingGamepad;
-        if (showControls)
+        {
             controls.text = needsCapture
                 ? "CLICK TO CAPTURE MOUSE     •     ESC OPENS PAUSE"
-                : player.UsingGamepad
+                : (player != null && player.UsingGamepad)
                     ? "LEFT STICK / D-PAD  MOVE   •   RIGHT STICK  LOOK   •   A / CROSS  INTERACT   •   RB / R1  WIND   •   MENU / OPTIONS  PAUSE"
                     : "WASD  MOVE   •   MOUSE  LOOK   •   E  INTERACT   •   F8  WIND   •   ESC  PAUSE";
+        }
 
         string windProfile = ambience != null ? ambience.ReviewProfileId : "";
         if (!string.IsNullOrEmpty(windProfile) && !string.IsNullOrEmpty(observedWindProfile) &&

@@ -77,6 +77,38 @@ public sealed class GmInteractionScanner : MonoBehaviour
         return result;
     }
 
+    /// The core verb, on the grounds: "that is wrong."
+    ///
+    /// The whole game is catching a cheat, and before this the player reached the card table without
+    /// ever once having pressed a button that means "I see it" -- every discrepancy on the grounds
+    /// was narrated to them. This is the same judgement the Read makes at the table, taught on
+    /// objects, with the same two outcomes: a real catch, or a false read that costs.
+    public GmTellCall TryCallTell()
+    {
+        if (focused == null) return GmTellCall.Unavailable;
+        GmTellCall outcome = focused.CallTell(runtime);
+        if (outcome == GmTellCall.Unavailable) return outcome;
+
+        GmExperienceTelemetry.Record($"tell-{outcome.ToString().ToLowerInvariant()}", focused.InteractionId);
+        var progress = FindAnyObjectByType<GmHouseProgress>();
+        switch (outcome)
+        {
+            case GmTellCall.Caught:
+                // Keyed by the object, so the same tell cannot be banked twice, and it lands in the
+                // same ledger the parlour catches use -- these count toward the true ending.
+                progress?.CatchCheat($"grounds-tell-{focused.InteractionId}");
+                break;
+            case GmTellCall.False:
+                progress?.FalseRead();
+                break;
+        }
+        return outcome;
+    }
+
+    /// True when the focused object can be called at all -- examined, and not already caught. Drives
+    /// the prompt, so the player is never invited to press a button that will do nothing.
+    public bool CanCallTell => focused != null && focused.Examined && !focused.TellFound;
+
     bool IsWithinFocus(GmInteractable target, Vector3 point, Vector3 forward)
     {
         Vector3 direction = point - viewCamera.transform.position;

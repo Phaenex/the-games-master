@@ -49,6 +49,9 @@ public sealed class GmHouseBeginning : MonoBehaviour, IGmInteractionReceiver
         "No door opened. Nothing let me in—I was taken, the way the porch said guests are, and the hall was already warm.",
         "Firelight. A small round table. Two chairs. One seat already warm.",
         "There you are. I was beginning to think the hall had kept you. It does that—shows a guest the long way round.",
+        // The slot Aldric's slip pays into. Replaced at runtime by AldricCardLine when the player
+        // caught the visiting card at the gate; otherwise it is the debt line it always was, and a
+        // player who missed the card never learns there was anything to miss.
         "Forty-one thousand pounds. Friday. You may have every note of it, if you win it from me. One hand at a time. Simple.",
         "Four suits. Follow the suit led when you can. Flames are trump; a Flame burns any other suit. Highest card takes the trick.",
         "Eyes let you glimpse what is hidden. Teeth expose a card when they win. One lost Bone may return to your hand. Flames need no kindness explained.",
@@ -101,13 +104,42 @@ public sealed class GmHouseBeginning : MonoBehaviour, IGmInteractionReceiver
     public int PlayerRounds => playerRounds;
     public int AldricRounds => aldricRounds;
     public int Suspicion => suspicion;
-    public bool ReadUnlocked => suspicion >= 2;
+    /// The Read used to be gated purely behind suspicion >= 2, and the only way to raise suspicion
+    /// is to let a cheat go past unpunished (AllowTrick). So the teaching sequence for the game's
+    /// central verb was: be cheated twice, lose both, and THEN receive the button. A player who had
+    /// spent ten minutes on the grounds correctly calling tells arrived at the table and was told
+    /// they had not earned the same judgement indoors.
+    ///
+    /// Catching a tell outside now carries in. It is the same verb -- look at a state of the world,
+    /// notice a mismatch, stake something on calling it -- and the grounds are where it is taught.
+    public bool ReadUnlocked => suspicion >= 2 || GmRunStore.CheatsCaughtCount > 0;
     public bool CurrentPlayCanBeRead => TurnPhase == GmParlorTurnPhase.JudgePlay && ReadUnlocked;
     public bool ReviewCurrentPlayWasCheat => currentCheat;
     public int IntroIndex => introIndex;
+    /// Aldric's first appearance in his own opening, and it is a confirmation rather than an
+    /// introduction. The panel's finding was that across ten minutes the antagonist is a countdown
+    /// timer wearing a bell -- no host, no hand, nothing to read. He is still not put on screen
+    /// (Threshold Refusal reserves that), but if the player caught the card wedged in the gate then
+    /// the debt line lands as him admitting the number he wrote was wrong on purpose. A cheat who
+    /// wants to lose, established before a single card is dealt, by something the player noticed.
+    const string AldricCardLine =
+        "You found my card, then. I wrote your number down short and left it where you would trip over it. " +
+        "Most guests pocket it and say nothing. Forty-one thousand pounds, Friday — that is the true figure, " +
+        "and you may have every note of it if you win it from me.";
+
+    /// Index of the debt line the card pays into.
+    const int DebtLineIndex = 3;
+
+    /// The clue id GmInteractionScanner banks when the gate card's tell is called.
+    public const string GateCardTellClue = "grounds-tell-gate-card";
+
+    public static bool PlayerCaughtAldricsCard => GmRunStore.HasClue(GateCardTellClue);
+
     public int IntroCount => IntroLines.Length;
     public string DialogueSpeaker => Phase == GmHousePhase.HostIntroduction ? IntroSpeakers[introIndex] : "";
-    public string DialogueLine => Phase == GmHousePhase.HostIntroduction ? IntroLines[introIndex] : "";
+    public string DialogueLine => Phase != GmHousePhase.HostIntroduction ? ""
+        : introIndex == DebtLineIndex && PlayerCaughtAldricsCard ? AldricCardLine
+        : IntroLines[introIndex];
     public string Objective { get; private set; } = "WAKE";
     public string TableMessage { get; private set; } = "";
     public string RevealedCard { get; private set; } = "";

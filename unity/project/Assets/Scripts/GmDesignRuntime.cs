@@ -263,7 +263,14 @@ public class GmDesignRuntime : MonoBehaviour
                 Debug.LogError($"[GmDesignRuntime] no visible interactable is bound to POI '{poi.id}'");
                 continue;
             }
-            target.BindContent(poi.text, poi.text2);
+            // text2 is the discrepancy, and it now binds as a TELL rather than as a second Examine
+            // line. Every one of these is shaped like a caught cheat -- coins all heads-down, one
+            // mason's hand on stones a century apart, boots going to the shed and none coming back --
+            // and handing them over for a second button press meant the narrator played the game's
+            // core verb on the player's behalf for the whole opening. Examine now gives the
+            // observation; the player has to call the tell to earn the catch.
+            target.BindContent(poi.text, "");
+            target.BindTell(poi.text2);
         }
     }
 

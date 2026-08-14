@@ -13,7 +13,7 @@ public class GmPlayer : MonoBehaviour
     Transform cam;
     InputActionMap gameplay;
     InputAction moveAction, lookAction, interactAction, cancelAction, pauseAction, reviewWindAction,
-        quitAction, brightnessDownAction, brightnessUpAction;
+        quitAction, brightnessDownAction, brightnessUpAction, callTellAction;
     GmInteractionScanner interactionScanner;
     GmDisplayCalibration displayCalibration;
     float pitch;
@@ -33,6 +33,8 @@ public class GmPlayer : MonoBehaviour
     public bool ReviewWindPressedThisFrame => !ControlBlocked && !paused && reviewWindAction != null &&
         reviewWindAction.WasPressedThisFrame();
     public GmInteractionScanner InteractionScanner => interactionScanner;
+    public bool CallTellPressedThisFrame => !ControlBlocked && !paused &&
+        callTellAction != null && callTellAction.WasPressedThisFrame();
 
     void Start()
     {
@@ -55,6 +57,7 @@ public class GmPlayer : MonoBehaviour
             quitAction = gameplay.FindAction("Quit", true);
             brightnessDownAction = gameplay.FindAction("BrightnessDown", true);
             brightnessUpAction = gameplay.FindAction("BrightnessUp", true);
+            callTellAction = gameplay.FindAction("CallTell", true);
             gameplay.Enable();
         }
         LockPointer();
@@ -125,6 +128,11 @@ public class GmPlayer : MonoBehaviour
 
         if (InteractPressedThisFrame)
             interactionScanner?.TryInteract();
+
+        // The core verb. Deliberately a separate press from Interact: Examine is looking, this is
+        // judging, and a game about catching a cheat should never conflate the two.
+        if (CallTellPressedThisFrame)
+            interactionScanner?.TryCallTell();
     }
 
     void UpdateActiveDevice()
@@ -148,6 +156,12 @@ public class GmPlayer : MonoBehaviour
             (mouse.delta.ReadValue().sqrMagnitude > 0.01f || mouse.leftButton.wasPressedThisFrame);
         bool keyboardActivity = Keyboard.current != null && Keyboard.current.anyKey.wasPressedThisFrame;
         if (mouseActivity || keyboardActivity) usingGamepad = false;
+    }
+
+    public void SetPitch(float newPitch)
+    {
+        pitch = Mathf.Clamp(newPitch, -89f, 89f);
+        if (cam != null) cam.localRotation = Quaternion.Euler(pitch, 0f, 0f);
     }
 
     public void SetControlBlocked(bool blocked)
