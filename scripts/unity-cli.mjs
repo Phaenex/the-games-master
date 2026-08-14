@@ -251,6 +251,30 @@ function shotsIn(scene) {
  * and two separate investigations were spent arguing about which number was real. Record the
  * conditions with the measurement so that argument is never had again.
  */
+/**
+ * The conditions a timing was taken under, rendered next to the timing itself.
+ *
+ * A p95 quoted bare is unfalsifiable. On 2026-08-15 gate 8 read 19.25ms and answering "is that a
+ * regression?" meant excavating a historical range from a tracker doc -- during which the obvious
+ * suspect (216,820 triangles of new mansion collision) looked guilty and was innocent. Numbers that
+ * travel without their conditions get a cause supplied by the reader, and the supplied cause is
+ * usually wrong. This makes that impossible to do accidentally.
+ */
+function describeConditions(perf) {
+  const parts = [];
+  if (Number.isFinite(perf.processorCount)) parts.push(`${perf.processorCount} cores`);
+  if (Number.isFinite(perf.systemMemoryMegabytes)) parts.push(`${perf.systemMemoryMegabytes}MB RAM`);
+  // Written by stampHostState, which runs before this -- host-side conditions Unity cannot know.
+  if (Number.isFinite(perf.hostOneMinuteLoad)) parts.push(`load ${perf.hostOneMinuteLoad.toFixed(2)}`);
+  if (Number.isFinite(perf.hostLoadPerCore)) {
+    // Above 1.0/core the harness already warns the number is indicative; say so where it is quoted.
+    parts.push(`${perf.hostLoadPerCore.toFixed(2)}/core${perf.hostLoadPerCore > 1 ? ' ⚠loaded' : ''}`);
+  }
+  if (perf.graphicsDevice) parts.push(perf.graphicsDevice);
+  if (perf.batchMode === true) parts.push('BATCHMODE');
+  return parts.length ? `[${parts.join(' · ')}]` : '[conditions unrecorded]';
+}
+
 function stampHostState(reportPath) {
   if (!existsSync(reportPath)) return null;
   const report = JSON.parse(readFileSync(reportPath, 'utf8'));
@@ -557,14 +581,19 @@ async function runStandaloneProof() {
       performance.lodBias < 0.99 || performance.lodBias > 1.01 || performance.lodCrossFade !== false ||
       performance.maxQueuedFrames !== 1 || performance.targetFrameRate !== 120)
     throw new Error(`standalone internal-render contract drifted: ${JSON.stringify(performance)}`);
-  if (performance.p95Milliseconds > budget.p95Milliseconds)
-    throw new Error(`standalone missed ${budget.p95Milliseconds.toFixed(1)}ms p95 budget: p95=${performance.p95Milliseconds.toFixed(2)}ms`);
+  if (performance.p95Milliseconds > budget.p95Milliseconds) {
+    // A failing p95 quoted bare invites the reader to supply a cause, and the supplied cause is
+    // usually wrong -- on 2026-08-15 the obvious suspect (216k triangles of new mansion collision)
+    // was innocent, and only the historical range proved it. Carry the conditions with the number.
+    throw new Error(`standalone missed ${budget.p95Milliseconds.toFixed(1)}ms p95 budget: ` +
+      `p95=${performance.p95Milliseconds.toFixed(2)}ms ${describeConditions(performance)}`);
+  }
   console.log(`  ✓ frame pacing ${performance.width}x${performance.height} output / ` +
     `${performance.internalWidth}x${performance.internalHeight} internal (${(performance.internalRenderScale * 100).toFixed(0)}% ${performance.upscaleFilter}): ` +
     `${performance.sampleFrames} frames, ` +
     `mean=${performance.meanMilliseconds.toFixed(2)}ms p50=${performance.p50Milliseconds.toFixed(2)}ms ` +
     `p95=${performance.p95Milliseconds.toFixed(2)}ms p99=${performance.p99Milliseconds.toFixed(2)}ms ` +
-    `max=${performance.maximumMilliseconds.toFixed(2)}ms`);
+    `max=${performance.maximumMilliseconds.toFixed(2)}ms ${describeConditions(performance)}`);
   console.log('  ✓ build contains no UnityEditor assembly');
   console.log('  ✓ built player loaded and decoded all five final Ninth Bell clips');
   console.log('  ✓ built player exercised cold-open, movement, look, interaction, wind, display calibration and pause through a virtual gamepad');

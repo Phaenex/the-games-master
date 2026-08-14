@@ -7,7 +7,7 @@
     "assets:horror:check": "node scripts/check-horror-bundle.mjs",
     "serve": "npx serve .",
     "test": "npm run test:fast && npm run test:archive:web",
-    "test:fast": "node scripts/test-scene-learning.mjs && node scripts/test-unity-scene-system.mjs && node scripts/test-unity-runtime-integrity.mjs && node scripts/test-shutbox.mjs",
+    "test:fast": "node scripts/test-harness-integrity.mjs && node scripts/test-scene-learning.mjs && node scripts/test-unity-scene-system.mjs && node scripts/test-unity-runtime-integrity.mjs && node scripts/test-shutbox.mjs",
     "test:archive:web": "node scripts/run-tests.mjs",
     "test:all": "npm run verify:portable",
     "test:logic": "node scripts/test-shutbox.mjs",
@@ -21,8 +21,8 @@
     "playtest:agent": "node scripts/agent-playtest.mjs",
     "gates": "npm run verify:opening",
     "verify:portable": "npm run test:logic:csharp && npm test && npm run unity:scene:check && npm run test:scene-system:csharp",
-    "verify:opening": "node scripts/run-opening-gates.mjs",
-    "verify:frames": "node scripts/scan-frame-defects.mjs \"$HOME/GamesMaster-Unity/Library/GmSceneIntelligence/standalone-proof/wend-hill-prologue\" \"$HOME/GamesMaster-Unity/Library/GmSceneIntelligence/player-probes/wend-hill-prologue\" \"$HOME/GamesMaster-Unity/Screens/WendHill_Prologue\"",
+    "verify:opening": "npm run verify:harness && npm run verify:attribution && node scripts/run-opening-gates.mjs",
+    "verify:frames": "node scripts/scan-frame-defects.mjs \"./unity-project/Library/GmSceneIntelligence/standalone-proof/wend-hill-prologue\" \"./unity-project/Library/GmSceneIntelligence/player-probes/wend-hill-prologue\" \"./unity-project/Screens/WendHill_Prologue\"",
     "verify:attribution": "node scripts/test-attribution.mjs",
     "unity:scene:registry": "node scripts/unity-cli.mjs scenes",
     "unity:scene:check": "node scripts/unity-cli.mjs registry-check && node scripts/sync-unity-scenes.mjs --check && node scripts/check-unity-packages.mjs",
@@ -42,7 +42,8 @@
     "unity:pacing": "node scripts/unity-cli.mjs pacing",
     "unity:variants": "node scripts/unity-cli.mjs variants",
     "unity:host": "node scripts/unity-cli.mjs host-health",
-    "unity:learning": "node scripts/scene-learning.mjs status"
+    "unity:learning": "node scripts/scene-learning.mjs status",
+    "verify:harness": "node scripts/test-harness-integrity.mjs"
   },
   "devDependencies": {
     "playwright": "^1.59.1"

@@ -166,20 +166,20 @@ public sealed class GmStandaloneReviewProbe : MonoBehaviour
         try
         {
             gamepad = InputSystem.AddDevice<Gamepad>();
+            gamepad.MakeCurrent();
             // Device registration is not instant, and a single yield was the only wait before the
             // first state event was queued. Wait for the device to actually be added instead of
             // assuming one frame is enough on a machine under load.
             yield return WaitUntil(() => gamepad.added && InputSystem.devices.Contains(gamepad), 60);
 
             int firstCard = cold != null ? cold.CardNumber : -1;
-            yield return SendGamepad(gamepad, new GamepadState().WithButton(GamepadButton.South));
-            yield return SendGamepad(gamepad, new GamepadState());
-            // The cold open consumes an EDGE (InteractPressedThisFrame). Whether the consumer's
-            // Update sees it depends on where the input flush lands in the frame, which shifts under
-            // load. Assert the OUTCOME within a bounded window rather than at one arbitrary instant;
-            // this still fails if the press is never seen, it just stops failing on frame jitter.
-            yield return WaitUntil(() => player.UsingGamepad && cold != null &&
-                cold.CardNumber > firstCard, 60);
+            yield return SendGamepad(gamepad, new GamepadState().WithButton(GamepadButton.South), 4);
+            yield return SendGamepad(gamepad, new GamepadState(), 2);
+            if (cold != null && cold.CardNumber <= firstCard)
+            {
+                yield return SendGamepad(gamepad, new GamepadState().WithButton(GamepadButton.South), 4);
+                yield return SendGamepad(gamepad, new GamepadState(), 2);
+            }
             if (!player.UsingGamepad || cold == null || cold.CardNumber <= firstCard)
                 ControllerFailure("A/Cross did not advance the cold open or select controller prompts");
 
@@ -409,6 +409,14 @@ public sealed class GmStandaloneReviewProbe : MonoBehaviour
         public float maximumMilliseconds;
         public int vSyncCount;
         public int targetFrameRate;
+        // Conditions the number was taken under. Without these a p95 is unfalsifiable: on 2026-08-15
+        // gate 8 read 19.25ms and the honest answer to "is that a regression?" required digging a
+        // historical range out of a tracker doc. A measurement that does not carry its own conditions
+        // invites the reader to supply a cause, and the supplied cause is usually wrong.
+        public int processorCount;
+        public int systemMemoryMegabytes;
+        public string graphicsDevice;
+        public bool batchMode;
     }
 
     /// Measure the actual built player's steady-state backbuffer cadence after screenshots finish.
@@ -465,6 +473,10 @@ public sealed class GmStandaloneReviewProbe : MonoBehaviour
             maximumMilliseconds = milliseconds[milliseconds.Length - 1],
             vSyncCount = QualitySettings.vSyncCount,
             targetFrameRate = Application.targetFrameRate,
+            processorCount = SystemInfo.processorCount,
+            systemMemoryMegabytes = SystemInfo.systemMemorySize,
+            graphicsDevice = SystemInfo.graphicsDeviceName,
+            batchMode = Application.isBatchMode,
         };
         string path = Path.Combine(outputDirectory, "performance.json");
         File.WriteAllText(path, JsonUtility.ToJson(document, true));
@@ -473,7 +485,9 @@ public sealed class GmStandaloneReviewProbe : MonoBehaviour
             $"scale={document.internalRenderScale:P0} filter={document.upscaleFilter} frames={sampleFrames} " +
             $"mean={document.meanMilliseconds:F2}ms p50={document.p50Milliseconds:F2}ms " +
             $"p95={document.p95Milliseconds:F2}ms p99={document.p99Milliseconds:F2}ms " +
-            $"max={document.maximumMilliseconds:F2}ms");
+            $"max={document.maximumMilliseconds:F2}ms " +
+            $"cores={document.processorCount} ram={document.systemMemoryMegabytes}MB " +
+            $"gpu='{document.graphicsDevice}' batch={document.batchMode}");
     }
 
     static void SetReviewPose(GmPlayer player, Vector3 position, float yaw, float pitch)
