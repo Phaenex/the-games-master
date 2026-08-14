@@ -31,6 +31,30 @@ Overall (Unity/Steam)   [████░░░░░░░░░░░░░░�
 3. **The Phase 0 perf regression outranks new content.** The cause is the *interior* — so every
    additional interior room compounds it. Fix the visibility architecture before building more rooms
    inside that scene.
+4. **2026-08-13: the physical/logic integrity audit (LANE G) outranks everything else, including
+   items 1-3.** Nick manually found that the estate gate has zero physical enforcement — the
+   "lock" is a narrative state flag with no matching collider, so a player can walk around it.
+   Every green EditMode/PlayMode/gate number this project has ever produced proves code executes
+   and scripted paths complete; none of them prove an object physically does what its logic
+   claims. That gap could exist anywhere else "locked/blocked/closed" is asserted. Full writeup:
+   `docs/CLAUDE-FABLE-HANDOFF.md`, 2026-08-13 section.
+
+---
+
+## LANE G — Physical/logic integrity audit (2026-08-13, BLOCKING, top priority)
+
+```
+Gate defect confirmed          [██████████████████░░]  90%  root cause known, fix not chosen
+Sweep for sibling defects       [░░░░░░░░░░░░░░░░░░░░]   0%  not started
+```
+
+| # | Task | Status | TEST |
+|---|---|---|---|
+| G1 | **Audit every "locked/blocked/closed/can't-pass" narrative beat in the Prologue for matching physical enforcement**, not just a state flag + sound + cosmetic animation like the gate has. Start from every `GmThreshold`-adjacent system and every spec in `docs/superpowers/specs/` that asserts something is physically barred. | TODO | new adversarial probe per finding: try to walk around/through, not just down the scripted centerline |
+| G2 | **Fix the estate gate** — Nick has not chosen an approach (real fence tying the piers to boundary vs. an invisible blocking volume vs. narrowing the walk deck at the approach). Do not pick for him. | **NICK** to pick the approach, then TODO | adversarial walk-around probe must fail to bypass it |
+| G3 | Build the adversarial "try to walk around/through anything the game claims is blocked" probe pattern once and reuse it for every finding G1 surfaces | TODO | the probe itself, run against the fixed gate as its first proof |
+| G4 | Root-cause the second, unrelated walk-proof stall at (-23.96, 0.57, -39.52), ~158m in — found 2026-08-13, not yet investigated | TODO | `npm run unity:proof:walk`, 0 stalls |
+| G5 | Root-cause and fix the coach-house stall at waypoint 32 (~324m, "Coach doors, and chalk under the moss") — the new interior's trigger volume/geometry is blocking the walk path; needs an actual in-editor visual look, not just code review | TODO | `npm run unity:proof:walk`, 0 stalls near the coach house |
 
 ---
 
@@ -61,6 +85,80 @@ flushing the input queue (turned one flaky assertion into every assertion failin
 at 15/16GB swap) — needs a quiet-host baseline. #42 cold-open flake is undiagnosed after a wrong
 diagnosis was withdrawn. Nick's walk (#17) remains the Phase 0 exit gate.
 
+## Session log — 2026-08-13 (Claude) — full ground-up audit
+
+A 262-agent source audit read every C# file, all 82 scripts, and all 8 `.dc.html` prototypes, then
+put every HIGH/MED finding through an adversarial verifier that defaults to refuting. **294 raw
+findings → 196 confirmed (94 HIGH, 102 MED), 9 refuted, 89 LOW unverified.** Full list:
+`docs/audit/2026-08-13-findings.md`.
+
+**The headline is not any single bug. It is that Phase 1-8 is scaffolding, not a game.** Around 50
+of the confirmed findings are one defect class: a system is built, unit-tested, green — and no
+gameplay code ever calls it. `GmSaveSystem.Load()` is never called in production. `GmSceneDirector`
+transitions are only ever invoked by their own test. `GmEndingManager.ResolveEnding()` is never
+called, so **no ending resolves in a real playthrough**. `GmAudioManager` is never instantiated and
+its `PlayAmbience`/`PlaySfx` never assign a clip or call `Play()`. The pause menu's four tabs render
+zero content. `GmCreditsUI` is never instantiated — that one is licence exposure, not polish.
+Underneath it all sit **two independent run-state stores** (`GmRunStore` and `GmHouseProgress`) that
+never exchange a value, which by itself makes two of the six endings unreachable dead code.
+
+**Correction (2026-08-14, itself corrected 2026-08-15):** this specific claim is stale against the
+current working tree — `GmHouseProgress.MissCheat()`/`FalseRead()`/`FindShard()`, called from real
+gameplay in `GmHouseBeginning.cs`, reach `GmRunStore.RecordCompliance()` and `CollectShard(0)`, so
+HostSuccession and TrueEscape are reachable there. **But the bridge is not in any commit** — `da18f95`
+does not touch `GmRunStore` (checked directly: `git show da18f95:.../GmHouseProgress.cs` has only a
+private static `Run` class), and `GmRunStore.cs`/`GmEndingManager.cs` are untracked in git entirely.
+So this correction describes the working tree, not the committed branch — a clean checkout of this
+branch still has the original, un-bridged bug. Full annotation: `docs/audit/2026-08-13-findings.md`
+lines 20/36/37/41/42/105-107. `GmEndingManager.ResolveEnding()` itself being uncalled from a real
+scene transition is a separate, still-open issue (see F6/F7 below) — not fixed by this correction.
+
+The bars in LANE C are honest about the *games* not existing, but they read as if the scene code
+that does exist is sound. It is not: six of the seven scene folders have never compiled.
+
+**Fixed and re-verified this session — EditMode taken from 0 compiling to 294/296 passing:**
+duplicate `GmParlorRules`/`GmParlorRulesTests` (prologue vs parlor) · `GmShutTheBoxController`
+calling three nonexistent `ShutBoxRules` methods · a missing `GmWendOpening.RoadSurfaceY` helper ·
+a removed HDRP `lightTypeExtent` call · `System.Linq` missing in three test files ·
+`Volume.profileRef` (internal to the SRP assembly, invisible to game code) → `sharedProfile` ·
+`LightUnit` moved out of the HDRP namespace in this Unity 6 version, six call sites fixed (one
+missing `using UnityEngine.Rendering;`) · none of the six new `*BuildTests.cs` files cleaned up the
+scene their `Build()` created, so all six scenes' geometry piled up and corrupted an unrelated
+ground-detection test — added `[OneTimeTearDown]` to all six · a Huntsman sanity-gain test asserted
+an increase from an already-maxed starting value · the `ReviewClaim`/`Claim` API mismatch (below,
+F1) resolved for 5 of 6 scenes, each camera fix verified against a from-scratch Python replica of
+the audit's own `WorldToViewportPoint` math, not eyeballed. Also fixed: `NICK-NEEDED.md` sent Nick
+to `/Users/damato/GamesMaster-Unity/…`, a directory that no longer exists, and a copy edit that
+introduced a fresh self-contradiction in `Art Direction.dc.html` (reverted to original wording).
+
+**Not fixed, deliberately:** Court's composition wiring (hard lock, see F1) and most of the other
+findings from the 196-item audit — this pass targeted the compile chain and the systems that gate
+it, not the full backlog. No commit, no push.
+
+## LANE F — Audit blockers (2026-08-13)
+
+```
+Unity EditMode           [████████████████████]  294/296  ✓  only Court's 2 tests fail, on purpose
+Gates 3-12               [░░░░░░░░░░░░░░░░░░░░]   not run this session — no evidence past gate 2
+```
+
+| # | Task | Status | TEST |
+|---|---|---|---|
+| F1 | **Review-claim authoring API mismatch.** Six `*CompositionPlan.cs` files called `GmCompositionAuthoring.ReviewClaim(...)`, a method that didn't exist. Resolved with a documented interim adapter on `GmCompositionAuthoring` (`docs/audit/F1-review-claim-decision.md` — read this before trusting any framing result) plus real geometry/camera fixes for **entry-hall, hidden-room, labyrinth, parlor, shut-the-box** — all 5 now pass. **Court's composition wiring is untouched on purpose** (hard lock, below) | 5/6 DONE, Court **NICK** | `node scripts/unity-cli.mjs test`: 5 scenes pass |
+| F1b | **Court composition wiring** — 26 issues (11 elements with no renderer, 3 unmotivated lights, 3 under-authored cluster minimums, 9 shot-framing failures). Fixing means reattaching composition markers to real Court geometry, which is content work Court's hard lock reserves for after Nick's Phase 0 walk | **NICK** (unblocks after walk) | `GmCourtBuildTests` both tests |
+| F2 | Duplicate `GmParlorRules` class (prologue vs parlor) | DONE | verified: EditMode compiles past CS0101 |
+| F3 | `GmShutTheBoxController` → nonexistent `ShutBoxRules` methods | DONE | verified; `Hold` left unimplemented on purpose |
+| F4 | `GmWendOpening.RoadSurfaceY` missing; HDRP `lightTypeExtent`/`LightUnit` namespace issues (6 call sites) | DONE | verified compiles |
+| F5 | `System.Linq` missing in 3 scene test files; 6 `BuildTests.cs` files missing scene teardown | DONE | verified: EditMode 294/296 |
+| F6 | **Bridge `GmHouseProgress` into `GmRunStore`** | DONE — bridged; the house-caps-at-4-vs-store-caps-at-5 gap is confirmed intentional pacing, not a conflict (Nick, 2026-08-14): Parlor/Court/Shut the Box call `GmRunStore.RaiseCorruption` directly, uncapped, and are what can carry a run to Tier 5/Ending D — the House alone must never end a run in Corrupted Host | DONE | EditMode: a house catch is readable via `GmRunStore` |
+| F7 | **Wire the wired-to-nothing systems** — audio manager now actually plays clips, pause-menu tabs now render real content, credits UI now reads the real catalog. Save/load and scene-transition wiring are still open: there is no boot/title scene to call `GmSaveSystem.Load()` or instantiate `GmSceneDirector` from, and auto-resume vs. explicit Continue is a UX call | PARTIAL | one test per system asserting a **production** call path exists |
+| F8 | **Attribution gate & records** — `CREDITS.txt` and `assets/sfx/license.txt` tracked in git; `npm run verify:attribution` green (5 CC-BY entries accounted for) and wired into `npm run gates` | DONE | `npm run verify:attribution` green **and** invoked by gates |
+| F9 | **The verification harness is itself defective** — 86 confirmed findings in `scripts/`. `verify-unity-full.mjs` throws an uncaught `TypeError` on every run and has never once passed; ~12 more capture/verify scripts collect real error evidence and never check it | TODO | each script fails when given a known-bad input |
+| F10 | `scan-frame-defects.mjs` counts undecodable frames as clean, and treats a missing target directory as zero frames | TODO | corrupt PNG in a target dir fails the run |
+
+**Gates 3-12 have never run against a compiling build.** `npm run gates` is the next real step —
+it will be the first full pipeline attempt against a tree that actually compiles.
+
 ## LANE A — Phase 0 exit (blocking everything)
 
 Phase 0 must close before Court by project rule, and Nick's walk is the gate.
@@ -87,6 +185,29 @@ Phase 0 Prologue        [██████████████████�
 **Already green in Phase 0** (verified 2026-08-03): Threshold Refusal 100% · 13 two-layer POIs 100% ·
 5 drive beats 100% · walk bounds 100% · gate lock 100% · controller path 100% · Ninth Bell chain 100% ·
 boundary walls 4/4 · route 435/435m, 0 stalls, 0 nav fallbacks.
+
+---
+
+## LANE R — The Reckoning: contextual bell + enterable coach house (2026-08-13)
+
+Full design: `docs/superpowers/specs/2026-08-13-the-reckoning.md`. Addendum to the ninth-bell
+spec: `docs/superpowers/specs/2026-07-17-the-ninth-bell.md`. Owner-approved direction; specific
+pacing values are not.
+
+```
+Phase A (schedule core, zero geometry)   [░░░░░░░░░░░░░░░░░░░░]   0%
+Phase B (coach house interior)           [░░░░░░░░░░░░░░░░░░░░]   0%
+```
+
+| # | Task | Status | TEST |
+|---|---|---|---|
+| R1 | Reckoning schedule core + seeding + `GmFeelConfig` fields, ships at `authority=0` (byte-identical to today) | TODO | EditMode: bound/monotonicity/seeded-replay tests; existing PlayMode `285f` assertion unchanged |
+| R2 | Coach house interior, clue persistence, probe/registry/gate wiring | **BLOCKED on A1** — every additional interior room compounds the exact perf regression A1 exists to fix; do not start until A1 has a measured p95 number | `-gmOutbuildingProof` probe PASS; `npm run gates` clean x2 |
+| R3 | Chapel / shed / icehouse — later slice, scope not yet decided | TODO (post-R2 walk) | — |
+
+**F6 is closed (2026-08-14)**, so the Reckoning's optional corruption bridge (default off, routed
+through `GmHouseProgress`'s 4-ceiling path) is unblocked on that front: it correctly cannot deliver
+Ending D on its own, by the same confirmed-intentional design as the rest of the House chapter.
 
 ---
 
@@ -245,7 +366,34 @@ npm run unity:proof:mac  # 7 story + 2 controller frames, 5 cues, p95
 
 **Requires:** Unity closed · `node_modules` installed · host load <3.0/core · sandbox must permit `ps`.
 
-## Current gate state (measured 2026-08-03)
+## Current gate state (measured 2026-08-13, end of session — SUPERSEDES the 2026-08-03 block below)
+
+```
+Unity EditMode           [████████████████████]  294/296  ✓  Court's 2 tests fail on purpose (F1, hard lock)
+Gates executed            [██░░░░░░░░░░░░░░░░░░]   2/12    portable ✓, EditMode ✓; 3-12 not run this session
+```
+
+**Unity EditMode compiles and runs for the first time on record for the six Phase 1-7 scene
+folders** (`entry-hall`, `court`, `parlor`, `shut-the-box`, `hidden-room`, `labyrinth`). The
+session opened with EditMode unable to compile at all (47 CS0117 errors, every one
+`GmCompositionAuthoring.ReviewClaim(...)` — a method that didn't exist). By the end: **294 of 296
+EditMode tests pass.** The two that don't are Court's, left failing on purpose — Court is
+content-locked behind Nick's Phase 0 walk, and closing its composition-audit failures means
+re-parenting geometry, which is content work, not a compile fix. See **F1** below.
+
+Gates 3-12 (PlayMode, rebuild, tour, build-mac, standalone-proof, walk-proof, wall-proof,
+frame-defect scan) were **not run this session** — EditMode was the blocker all the way through
+until the final hour, so there was no compiling build to run them against until now. They carry no
+current evidence; run `npm run gates` fresh before trusting any number below Gate 2.
+
+18 compile errors across 6 defect classes were found and fixed this session (F2-F7), plus 4
+composition-geometry passes across 5 non-locked scenes, verified against a from-scratch
+replica of the audit's actual `WorldToViewportPoint` math (numbers below are load-bearing, not
+eyeballed). Every claim above was read from captured run output, never a completion notice: the harness
+repeatedly reported "exit code 0" on background runs while their own logs ended in a real
+failure — recorded in `docs/TESTING.md`.
+
+### Superseded — measured 2026-08-03
 
 ```
 Gates executed          [████████████████████]  11/11
