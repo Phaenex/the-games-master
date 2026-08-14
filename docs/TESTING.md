@@ -97,12 +97,41 @@ still a human hardware/feel check; do not represent virtual-device proof as a na
 10. **Do not reach for a cause before measuring.** Four hypotheses about one magenta object were each
     plausible and each wrong. The fixes that stuck all started from a measurement; every confident
     story told ahead of evidence had to be retracted.
+11. **`unity-cli.mjs` needs `ps`, and an agent sandbox usually denies it.** Symptom: the run dies
+    instantly with `spawnSync ps EPERM` and no Unity log, which reads like a Unity problem and is
+    not — it is the host-health check that runs before Unity is ever launched. Run Unity tasks with
+    the sandbox disabled. Recorded 2026-08-15 after rule 2 was re-learned the hard way in the same
+    minute: the failure was piped through `| tail`, which reported exit 0 over the top of it.
+12. **A batch run reporting an exit code is not the same as reading the results file.** The 2026-08-15
+    run exited 1 and printed `324/332 passed, 8 failed`, but which 8, and whether they were the
+    documented ones, is only in `unity-project/Logs/editmode-results.xml`. Parse that XML — the
+    console summary named four scenes where the tracker claimed one.
+
+## The gate-2 deadlock (found 2026-08-15)
+
+`scripts/run-opening-gates.mjs:11` runs gate 2 as `npm run test:unity` — **every** EditMode test,
+unfiltered — and line 54 `break`s on first failure. Court's two tests fail *by design* (its content
+is hard-locked behind Nick's Phase 0 walk). So the opening's gates 3-12 are not merely un-run, they
+are **structurally unreachable**: the opening cannot be verified until Court is fixed, and Court
+cannot be touched until after the walk that verification is supposed to precede.
+
+This is the real reason "Gates 3-12 have never run against a compiling build" has persisted across
+sessions. It is not a scheduling gap and no amount of fixing wend-hill-prologue will clear it.
+Resolving it is a policy call (scope gate 2 to the scene under test plus shared systems, or carry an
+explicit documented Court exclusion) and belongs to Nick, not to whoever notices it next.
 
 ## When adding grounds content
 
 Tag every mount with `userData.gmKind`, add expected height range to `EXPECT` in
 `agent-playtest.mjs` if it's a new kind, give POIs a radius the player can physically reach
 (collision boxes push players away — radius must exceed block clearance), and run `npm run gates`.
+
+**Coverage gap: `agent-playtest.mjs` drives the archived web build, not Unity.** It cannot
+literally exercise a Unity-only interior (e.g. the coach house, `2026-08-13-the-reckoning.md`).
+The honest substitute is a dedicated player probe modeled on `GmHouseProbe.cs` (see
+`-gmOutbuildingProof`). Do not describe new Unity-only interiors as "covered by the walkthrough
+rig" — that's the exact kind of claim the wiring-blind-spot lesson below warns about. Call it
+what it is: covered by its own probe, not by the rig.
 
 ## Fix playbook — defect class → proven fix (all battle-tested 2026-07-16)
 
@@ -133,6 +162,30 @@ Tag every mount with `userData.gmKind`, add expected height range to `EXPECT` in
 | Magenta in evidence frames that NO scene test can find | **The instrument was in the shot.** `GmStandaloneReviewProbe` spawned a runtime primitive 1.45m from the camera as a controller-interaction target; a runtime primitive gets the built-in default material, which HDRP cannot render, so Unity substituted `Hidden/InternalErrorShader`. Five hypotheses died because the object is not in the scene at all — it exists only in the built player, only during the controller sequence | Disable the Renderer on any proof-only object: the collider is what a test needs, drawing is not. **Instrumentation must never appear in the composition it is verifying.** And when a defect resists scene-level analysis, stop guessing — ask the RUNNING player what occupies the pixel (raycast + screen-bounds scan at the centroid). That named it in one build cycle after five had failed. |
 | A render defect survives every green gate | Nothing scanned the captured frames for colour. Worse, an **opaque UI panel in a screenshot is a blind spot** — everything behind it is unverifiable, and a magenta object hid behind the pause card through every gate run this project has ever done | `npm run verify:frames` (gate 12) scans every captured frame for magenta/near-black/blown/flat. When a UI panel covers scene content, capture the same pose without it — that one extra frame is what exposed this. |
 | Gate 1 fails on `Unity scene source drift` mid-session | A repo file was edited after the last `unity:scene:sync`, so the Unity copy differs | Sync before running gates, and never edit tracked sources while a gates run is in flight. The drift gate is working correctly — do not "fix" it. |
+| A background job's "exit code 0" is a lie | **The harness completion notice reported `exit code 0` on repeated `npm run gates`/`unity-cli.mjs test` runs whose captured output ended in a real failure.** Trusting the notice would have recorded a false pass every single time | Never grade a background run from its completion notice. `echo "EXIT_CODE=$?"` as the last command, then read the tail of the captured output. The log is the evidence; the notification is a hint. |
+| A fix that reasons correctly about timing still breaks the test | Entry Hall's `devGoTo('card')` sets `isArrival:true` so `devSnapshot()` reports `phase:'card'`, which the harness asserts 160ms later. A LOW finding said `isArrival:true` also hides narrative beat text if the arrival sequence is left running. The obvious fix — clear `isArrival` inside the per-frame beat-firing code once a beat has something to show — computed correctly on paper (`dt` capped at 50ms/frame, `a` needs ~216ms of accumulated `dt` to cross the 0.06 threshold that fires the first beat, well past the 160ms wait) but the harness still failed with `phase=door` after the fix, meaning something in the headless timing crossed that threshold faster than the arithmetic predicted | Ran it, it failed, reverted immediately rather than iterate blind on a timing theory with no way to instrument the headless run further in the moment. **A fix that "should" work by the numbers still has to be run.** Documented the real, narrower gap (dev-tool-only, cosmetic) in a code comment instead of shipping an unverified guess. |
+| Renaming a synced C# file leaves the old class still compiling | `sync-unity-scenes.mjs` is **additive only** — it copies repo→Unity and has no prune/delete path. After a rename, `unity-project/` keeps the stale file *and* its `.meta`, so Unity compiles both copies and reports a duplicate-definition CS0101 that does not exist in the repo | After any rename/delete of a synced source, remove the stale `unity-project/` copy **and its `.meta`** by hand, then `unity:scene:check`. The ownership-gap line (`Unity-only project source: …`) is the check naming exactly which orphans to delete. |
+| `test:scene-system:csharp` fails with `CS2001: Source file … could not be found` | The Roslyn smoke test compiles against `Library/Bee/artifacts/**/Assembly-CSharp.rsp`, a **cache regenerated only by a real Unity compile**. After renaming/adding sources, the cached `.rsp` still lists the old file set. In `run-opening-gates.mjs` this check runs in gate 1, *before* the gate 2 Unity EditMode run that would refresh it | Run `node scripts/unity-cli.mjs test` once to refresh the `.rsp`, then re-run gates. A stale-cache failure here is the instrument, not the product. |
+| `EADDRINUSE :::8813` mid-gates | The gates pipeline runs its own `test:archive:web`; a second harness run started by hand (or a leaked server from an earlier crash) already holds the port. Most `verify-*.mjs` scripts bind a hardcoded port with no `try/finally`, so any thrown assertion leaks the listener | Never run a harness script and `npm run gates` concurrently. If the port is stuck, find the owning PID — do not blanket-kill node. |
+
+## The wiring blind spot — unit-tested is not connected (2026-08-13)
+
+A 262-agent source audit found ~50 confirmed findings that are all **one defect class**: a system is
+built, unit-tested, and green, but **no gameplay code ever calls it.** The suite passes because the
+tests invoke the scaffolding directly; the player never reaches it.
+
+Confirmed instances: `GmSaveSystem.Load()` never called in production · `GmSceneDirector.TransitionTo`
+only ever called by its own test · `GmEndingManager.ResolveEnding()` never called, so no ending
+resolves in a real playthrough · `GmAudioManager` never instantiated and its `PlayAmbience/PlaySfx`
+never assign a clip or call `Play()` · `GmPauseMenu`'s four tabs render zero content · `GmCreditsUI`
+never instantiated (this one is a **licensing** exposure, not a polish item) · two independent
+run-state stores (`GmRunStore` vs `GmHouseProgress`) that never exchange a value, which alone makes
+two of the six endings unreachable.
+
+**The rule this earns:** a green EditMode suite proves a unit behaves, never that it is reachable.
+For any system that must run during play, add one test that asserts a **production call path**
+exists — assert the caller, not just the callee. "Has tests" and "is wired" are different claims and
+this project has been reporting the first as if it were the second.
 
 ## Known coverage boundaries (honest)
 
