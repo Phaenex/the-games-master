@@ -82,7 +82,21 @@ recording session, an AI tool)? Until then these stay uncommitted rather than gu
 | Asset | Status | Note |
 |---|---|---|
 | `Cobweb_02.fbx`, `Cobweb_03.fbx` (Hidden Room dressing) | Exist only in `unity-project/Assets/GamesMaster/Props/`, no source anywhere in `assets/` | Same class of fix as the portraits — find them, file them into `assets/models/`, track, re-point the builder if the path changes. |
-| `SM_Wood_02.prefab`, `SM_Bucket.prefab` (LeartesStudios "Abandoned Village") | Missing entirely — not even in `unity-project/` | The pack itself is already owned/present (dozens of its other prefabs load fine). Check whether the local import of "Abandoned Village" is just incomplete before assuming anything needs re-buying. |
+
+### `SM_Wood_02.prefab` / `SM_Bucket.prefab` — solved, not a sourcing gap (2026-08-15)
+
+Confirmed NOT missing from the owned pack: both sit in the raw import at
+`assets/models/unity-import/leartes-abandoned-village/LeartesStudios/Abandoned Village/HDRP/Art/Prefabs/`
+— the exact relative path `GmWendEstateForest.cs`'s constants expect, alongside 217 sibling prefabs
+from the same pack that already work correctly in the live Unity project. This is an incomplete
+import of 2 files out of an otherwise-complete 219-prefab pack, not a missing asset.
+
+**Not fixed here on purpose**: copying `.prefab`/`.meta` files by hand risks wrong GUIDs and broken
+mesh/material references that only Unity's own AssetDatabase import resolves correctly — exactly
+the "never hand-edit serialized Unity assets, changes go through Editor scripts using the Unity API"
+rule this project's CLAUDE.md states directly. The actual fix is trivial in the Editor itself: open
+the project, re-import (or drag in) those 2 specific files from the source pack the same way the
+other 217 already got there. Left for whoever next has Unity open.
 | ~54 footstep/wind clips | Exist only in `unity-project/Resources/Sfx/`, zero trace anywhere else on disk | **Needs Nick** — provenance genuinely unknown, not a filing task (see above). |
 
 ## Ranked punch list
