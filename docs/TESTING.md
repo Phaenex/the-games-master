@@ -278,6 +278,35 @@ chair stays out of the wall, and there is clear floor behind the bench to sit in
 A guard that fires on correct work gets switched off, and then it protects nothing. Before asserting,
 name the failure the assertion is for, and check it would not also condemn the healthy case.
 
+## A percentile needs to say how repeatable it is, or it is not a measurement (2026-08-15)
+
+**Symptom:** gate 8's p95 read 19.25ms in the morning and 24.67ms in the evening, on lighter load.
+The tracker held four values (19.25 / 19.72 / 20.83 / 21.71) as a performance *trend*.
+
+**Root cause:** the sample was 240 frames — about 2.5 seconds — which puts p95 at the twelfth-worst
+frame. Hitches are rare and clustered, so the twelfth-worst mostly reports whether a cluster landed
+inside the window. Three back-to-back runs of the *same unchanged build on the same idle machine*
+gave **18.39 / 21.17 / 24.32ms — a 34% spread.** Every value in the "trend" fell inside one build's
+noise. `p50` over the same runs was 8.44 / 8.45 / 8.48, so only the tail was noisy, and the tail is
+the only thing the budget tests.
+
+**The fix that worked:** 1800 frames, and each run splits its own sample in half and reports both
+p95s. That gap is the measurement's reproducibility, established by the run that produced it rather
+than assumed from a past one. Run-to-run spread fell to 5.4%; within-run agreement is now 0.4–3%.
+If the halves disagree by more than 25% the run reports that it **judges nothing** — checked before
+the budget, because a non-converged run that lands under the budget is not a pass either, and that
+is precisely how a flaky gate teaches people to re-run until green.
+
+**What it cost to learn twice:** this morning I added conditions to every p95 specifically so nobody
+could supply a cause for a bare number, and wrote up the mansion-collision false lead. That same
+evening I read two samples and called it a regression. **Conditions are not enough. A number also
+has to carry its own variance**, or the next reader — including the person who built the tool —
+will read two samples as a trend.
+
+Between-build spread is still larger than within-run spread (a freshly rebuilt app measured 17.53ms
+against 21ms for the previous binary), so a cross-build comparison still needs repeats. The failure
+itself is real and reproducible: p95 exceeds the 16.7ms budget in every observation taken.
+
 ## Known coverage boundaries (honest)
 
 - **Court / Shut the Box**: boot + phase screenshots only. Their gameplay is Phase 1/2 work,
