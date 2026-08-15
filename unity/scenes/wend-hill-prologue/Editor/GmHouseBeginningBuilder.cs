@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -108,9 +107,14 @@ public static class GmHouseBeginningBuilder
         fire.SetColor("_EmissiveColor", new Color(1.35f, 0.18f, 0.018f));
     }
 
-    static Material Mat(string name, Color color, float smoothness, float metallic = 0f)
+    internal static Material Mat(string name, Color color, float smoothness, float metallic = 0f)
     {
-        var material = new Material(Shader.Find("HDRP/Lit")) { name = name, color = color };
+        // Guarded like the same lookup in GmVictorianInteriorKit. A null shader here builds fifteen
+        // magenta materials for the whole interior, which the project treats as never acceptable, and
+        // Unity's own null-shader material would carry that through the build without an error.
+        Shader shader = Shader.Find("HDRP/Lit");
+        if (shader == null) throw new InvalidOperationException("HDRP/Lit is unavailable");
+        var material = new Material(shader) { name = name, color = color };
         material.SetFloat("_Smoothness", smoothness);
         material.SetFloat("_Metallic", metallic);
         return material;
@@ -159,7 +163,10 @@ public static class GmHouseBeginningBuilder
         }
     }
 
-    static void BuildRoomShell(Transform parent, string prefix, float centreZ, float width, float depth,
+    /// Internal rather than private: GmWendOutbuildings reuses this exact wall/doorway carving for
+    /// the coach house interior rather than duplicating it. Room-local Z only -- callers rotate the
+    /// parent transform to align local Z with whatever world direction the room actually faces.
+    internal static void BuildRoomShell(Transform parent, string prefix, float centreZ, float width, float depth,
         float height, float doorwayWidth, bool northDoor, bool southDoor)
     {
         float halfW = width * 0.5f;
@@ -238,19 +245,21 @@ public static class GmHouseBeginningBuilder
             shard.AddComponent<MeshRenderer>().sharedMaterial = mirrorShard;
             var collider = shard.AddComponent<BoxCollider>();
             collider.size = new Vector3(0.22f, 0.30f, 0.05f);
+
+            var glintGo = new GameObject("ShardGlint");
+            glintGo.transform.SetParent(shard.transform, false);
+            glintGo.transform.localPosition = new Vector3(0f, 0f, 0.04f);
+            var glintLight = glintGo.AddComponent<Light>();
+            glintLight.type = LightType.Point;
+            glintLight.color = new Color(0.80f, 0.92f, 1.0f);
+            glintLight.range = 0.8f;
+            glintLight.intensity = 12f;
+            glintLight.lightUnit = LightUnit.Lumen;
+
             AddInteractable(shard, "hall-mirror-shard", "Take",
                 "A triangular mirror shard was pressed behind Percival's frame. In it, Aldric's chair is occupied even from the empty hall.",
                 "The shard is cold enough to numb your palm.", 3.6f, 11f, GmInteractionRepeatPolicy.FirstOnly);
         }
-    }
-
-    static void Frame(Transform parent, float width, float height, Material frameMat, Material canvasMat)
-    {
-        Slab("Canvas", Vector3.zero, new Vector3(width, height, 0.08f), canvasMat, parent, false);
-        Slab("FrameTop", new Vector3(0f, height * 0.5f + 0.08f, -0.02f), new Vector3(width + 0.24f, 0.16f, 0.14f), frameMat, parent, false);
-        Slab("FrameBottom", new Vector3(0f, -height * 0.5f - 0.08f, -0.02f), new Vector3(width + 0.24f, 0.16f, 0.14f), frameMat, parent, false);
-        Slab("FrameLeft", new Vector3(-width * 0.5f - 0.08f, 0f, -0.02f), new Vector3(0.16f, height, 0.14f), frameMat, parent, false);
-        Slab("FrameRight", new Vector3(width * 0.5f + 0.08f, 0f, -0.02f), new Vector3(0.16f, height, 0.14f), frameMat, parent, false);
     }
 
     static void OrnateFrame(Transform parent, float width, float height, int index, Material canvasMaterial = null)
@@ -270,22 +279,56 @@ public static class GmHouseBeginningBuilder
         GmVictorianInteriorKit.Place("Table_2", "LedgerDesk", desk,
             desk.position + new Vector3(0f, 0.55f, 0f), new Vector3(2.45f, 1.1f, 1.15f),
             Quaternion.Euler(0f, 90f, 0f), "table");
-        var ledger = new GameObject("Ledger");
-        ledger.transform.SetParent(desk, false);
-        ledger.transform.localPosition = new Vector3(0f, 1.13f, 0f);
-        ledger.transform.localRotation = Quaternion.Euler(0f, 12f, 0f);
-        Slab("LeatherCover", new Vector3(0f, -0.045f, 0f), new Vector3(1.46f, 0.09f, 0.72f), red, ledger.transform, false);
-        Slab("BookSpine", new Vector3(0f, -0.005f, 0f), new Vector3(0.10f, 0.11f, 0.70f), darkWood, ledger.transform, false);
-        Slab("LeftPage", new Vector3(-0.35f, 0f, 0f), new Vector3(0.66f, 0.042f, 0.62f), paper, ledger.transform, false);
-        Slab("RightPage", new Vector3(0.35f, 0f, 0f), new Vector3(0.66f, 0.042f, 0.62f), paper, ledger.transform, false);
-        for (int i = 0; i < 10; i++)
-            Slab("WrittenLine" + i, new Vector3(0.35f, 0.028f, -0.235f + i * 0.051f),
-                new Vector3(i == 9 ? 0.46f : 0.53f, 0.006f, 0.010f), i == 8 ? brass : blackWood, ledger.transform, false);
-        var collider = ledger.AddComponent<BoxCollider>();
-        collider.size = new Vector3(1.85f, 0.2f, 0.95f);
+
+        // Open Ledger Book — Real FBX mesh: SM_Book_1.fbx
+        var bookPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/LeartesStudios/WitchVillage/HDRP/Art/Meshes/SmallProps/Books/SM_Book_1.fbx");
+        GameObject ledger;
+        if (bookPrefab != null)
+        {
+            ledger = (GameObject)PrefabUtility.InstantiatePrefab(bookPrefab, desk);
+            ledger.name = "Ledger";
+            ledger.transform.localPosition = new Vector3(0f, 0.88f, 0f);
+            ledger.transform.localRotation = Quaternion.Euler(0f, 102f, 0f);
+            ledger.transform.localScale = new Vector3(0.9f, 0.9f, 0.9f);
+        }
+        else
+        {
+            ledger = new GameObject("Ledger");
+            ledger.transform.SetParent(desk, false);
+            ledger.transform.localPosition = new Vector3(0f, 0.88f, 0f);
+            ledger.transform.localRotation = Quaternion.Euler(0f, 12f, 0f);
+            Slab("LeatherCover", new Vector3(0f, -0.045f, 0f), new Vector3(1.46f, 0.09f, 0.72f), red, ledger.transform, false);
+        }
+
+        var collider = ledger.GetComponent<Collider>() ?? ledger.AddComponent<BoxCollider>();
+        if (collider is BoxCollider boxCol) boxCol.size = new Vector3(1.85f, 0.3f, 0.95f);
         AddInteractable(ledger, "hall-ledger", "Read",
             "Names, down the page: Marr. Dufresne. Pike. Hale. Gall. Quill. Thale. Aubrey-Locke. A ninth, the ink gone soft where someone kept touching it, worn past reading. Every one crossed neatly through. At the foot, a blank line left open. My width, exactly.",
             "Nine crossed names. The blank tenth line waits at the exact width of your name.", 3.6f, 10f);
+
+        // Guestbook Brass Inkstand and Glass Inkwell (SM_Bottles_1.fbx)
+        var bottlePrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/LeartesStudios/WitchVillage/HDRP/Art/Meshes/SmallProps/Bottles/SM_Bottles_1.fbx");
+        GameObject inkstand;
+        if (bottlePrefab != null)
+        {
+            inkstand = (GameObject)PrefabUtility.InstantiatePrefab(bottlePrefab, desk);
+            inkstand.name = "Inkstand";
+            inkstand.transform.localPosition = new Vector3(0.85f, 0.88f, 0.18f);
+            inkstand.transform.localScale = new Vector3(0.45f, 0.45f, 0.45f);
+        }
+        else
+        {
+            inkstand = new GameObject("Inkstand");
+            inkstand.transform.SetParent(desk, false);
+            inkstand.transform.localPosition = new Vector3(0.85f, 0.88f, 0.18f);
+            Cylinder("InkwellBrass", Vector3.zero, new Vector3(0.12f, 0.06f, 0.12f), brass, inkstand.transform, false);
+        }
+
+        var penCol = inkstand.GetComponent<Collider>() ?? inkstand.AddComponent<BoxCollider>();
+        if (penCol is BoxCollider bCol) bCol.size = new Vector3(0.25f, 0.3f, 0.25f);
+        AddInteractable(inkstand, "hall-ledger-pen", "Examine",
+            "A brass inkwell with a bone dip pen resting in the groove. The nib is coated in fresh, wet black ink.",
+            "The nib has not yet dried. The eleventh guest was not expected to wait long.", 3.2f, 10f);
     }
 
     static void BuildHallFurniture(Transform hall)
@@ -386,23 +429,23 @@ public static class GmHouseBeginningBuilder
     {
         var parlor = new GameObject("Parlor").transform;
         parlor.SetParent(root, false);
-        BuildRoomShell(parlor, "Parlor", ParlorCentreZ, 14f, 24f, 4.8f, 2.8f, true, false);
-        Slab("ParlorCarpetUnderlay", new Vector3(0f, 0.012f, ParlorCentreZ), new Vector3(10.7f, 0.024f, 15.6f), red, parlor, false);
+        BuildRoomShell(parlor, "Parlor", ParlorCentreZ, 8.8f, 17f, 4.2f, 2.8f, true, false);
+        Slab("ParlorCarpetUnderlay", new Vector3(0f, 0.012f, ParlorCentreZ), new Vector3(7.4f, 0.024f, 13.6f), red, parlor, false);
         GmVictorianInteriorKit.Place("Carpet_1", "ParlorCarpet", parlor,
-            new Vector3(0f, 0.055f, ParlorCentreZ), new Vector3(10.5f, 0.10f, 15.2f),
+            new Vector3(0f, 0.055f, ParlorCentreZ), new Vector3(7.2f, 0.10f, 13.2f),
             Quaternion.identity, "carpet");
-        BuildFireplace(parlor, new Vector3(6.38f, 0f, 356.0f), Quaternion.Euler(0f, -90f, 0f), "ParlorHearth", "parlor-fireplace");
+        BuildFireplace(parlor, new Vector3(4.0f, 0f, 358.0f), Quaternion.Euler(0f, -90f, 0f), "ParlorHearth", "parlor-fireplace");
         BuildBookshelves(parlor);
         BuildGameTable(parlor);
         BuildAldric(parlor);
-        BuildChandelier(parlor, new Vector3(0f, 3.95f, 359f), "ParlorChandelier", 360f);
-        AddWarmLight(parlor, "TableLight", new Vector3(2.0f, 3.1f, 359.3f), 190f, 9f);
-        AddWarmLight(parlor, "NorthParlorFill", new Vector3(3.8f, 2.5f, 365.2f), 190f, 8f);
-        AddWarmLight(parlor, "SouthParlorFill", new Vector3(-3.8f, 2.5f, 352.8f), 190f, 8f);
+        BuildChandelier(parlor, new Vector3(0f, 3.4f, 358.5f), "ParlorChandelier", 320f);
+        AddWarmLight(parlor, "TableLight", new Vector3(0f, 2.6f, 358.5f), 220f, 8f);
+        AddWarmLight(parlor, "NorthParlorFill", new Vector3(2.5f, 2.2f, 363.2f), 120f, 6f);
+        AddWarmLight(parlor, "SouthParlorFill", new Vector3(-2.5f, 2.2f, 353.8f), 120f, 6f);
 
         var threshold = new GameObject("HostIntroductionThreshold");
         threshold.transform.SetParent(parlor, true);
-        threshold.transform.position = new Vector3(0f, 1.1f, 368.5f);
+        threshold.transform.position = new Vector3(0f, 1.1f, 366.5f);
         var collider = threshold.AddComponent<BoxCollider>();
         collider.isTrigger = true;
         collider.size = new Vector3(4.2f, 2.2f, 1.4f);
@@ -418,16 +461,26 @@ public static class GmHouseBeginningBuilder
     {
         var table = new GameObject("FirstGameTable").transform;
         table.SetParent(parlor, false);
-        table.position = new Vector3(0f, 0f, 359.25f);
+        table.position = new Vector3(0f, 0f, 358.5f);
         GmVictorianInteriorKit.Place("Table_3", "FirstGameTable", table,
-            table.position + new Vector3(0f, 0.53f, 0f), new Vector3(3.0f, 1.06f, 3.0f),
+            table.position + new Vector3(0f, 0.53f, 0f), new Vector3(2.6f, 1.06f, 2.6f),
             Quaternion.identity, "table");
         GmVictorianInteriorKit.Place("Chair_2", "PlayerChair", table,
-            table.position + new Vector3(0f, 0.72f, 2.35f), new Vector3(1.0f, 1.45f, 1.0f),
+            table.position + new Vector3(0f, 0.72f, 2.1f), new Vector3(1.0f, 1.45f, 1.0f),
             Quaternion.identity, "chair");
         GmVictorianInteriorKit.Place("Chair_2", "AldricChair", table,
-            table.position + new Vector3(0f, 0.72f, -2.35f), new Vector3(1.0f, 1.45f, 1.0f),
+            table.position + new Vector3(0f, 0.72f, -2.1f), new Vector3(1.0f, 1.45f, 1.0f),
             Quaternion.Euler(0f, 180f, 0f), "chair");
+
+        // Sculpted Tabletop Candle
+        var candlePrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/LeartesStudios/WitchVillage/HDRP/Art/Meshes/SmallProps/Candles/SM_Candles_1.fbx");
+        if (candlePrefab != null)
+        {
+            var candle = (GameObject)PrefabUtility.InstantiatePrefab(candlePrefab, table);
+            candle.name = "TableCandle";
+            candle.transform.localPosition = new Vector3(-0.85f, 1.08f, 0f);
+            candle.transform.localScale = new Vector3(0.6f, 0.6f, 0.6f);
+        }
 
         var cards = new GameObject("FourSuitDeck").transform;
         cards.SetParent(table, false);
@@ -436,8 +489,8 @@ public static class GmHouseBeginningBuilder
             float side = i < 7 ? 1f : -1f;
             int row = i % 7;
             Material suit = (row % 4) switch { 0 => red, 1 => glass, 2 => bone, _ => blackWood };
-            Slab($"Card_{i + 1:00}", new Vector3(-0.72f + row * 0.24f, 1.095f, side * (0.58f + Mathf.Abs(row - 3) * 0.045f)),
-                new Vector3(0.40f, 0.025f, 0.64f), suit, cards, false);
+            Slab($"Card_{i + 1:00}", new Vector3(-0.62f + row * 0.20f, 1.095f, side * (0.45f + Mathf.Abs(row - 3) * 0.035f)),
+                new Vector3(0.35f, 0.025f, 0.55f), suit, cards, false);
         }
     }
 
@@ -519,7 +572,7 @@ public static class GmHouseBeginningBuilder
         AddWarmLight(parent, name + "Light", position + inward * 0.55f + Vector3.down * 0.05f, lumens, 7f);
     }
 
-    static void AddWarmLight(Transform parent, string name, Vector3 position, float lumens, float range)
+    internal static void AddWarmLight(Transform parent, string name, Vector3 position, float lumens, float range)
     {
         var go = new GameObject(name);
         go.transform.SetParent(parent, true);
@@ -530,7 +583,7 @@ public static class GmHouseBeginningBuilder
         light.range = range;
         light.shadows = LightShadows.Soft;
         var hd = go.AddComponent<HDAdditionalLightData>();
-        light.lightUnit = LightUnit.Lumen;
+        hd.lightUnit = LightUnit.Lumen;
         light.intensity = lumens;
         hd.affectsVolumetric = false;
     }
@@ -545,13 +598,13 @@ public static class GmHouseBeginningBuilder
         light.color = new Color(1f, 0.57f, 0.28f);
         light.range = range;
         light.shadows = LightShadows.Soft;
-        light.lightUnit = LightUnit.Lumen;
         light.intensity = lumens;
         var hd = go.AddComponent<HDAdditionalLightData>();
+        hd.lightUnit = LightUnit.Lumen;
         hd.affectsVolumetric = false;
     }
 
-    static GameObject Slab(string name, Vector3 position, Vector3 size, Material material, Transform parent, bool collider = true)
+    internal static GameObject Slab(string name, Vector3 position, Vector3 size, Material material, Transform parent, bool collider = true)
     {
         var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
         go.name = name;
@@ -637,7 +690,7 @@ public static class GmHouseBeginningBuilder
         mesh.color = new Color(0.72f, 0.62f, 0.43f);
     }
 
-    static void AddInteractable(GameObject go, string id, string verb, string first, string second,
+    internal static void AddInteractable(GameObject go, string id, string verb, string first, string second,
         float range = 3.7f, float angle = 9f,
         GmInteractionRepeatPolicy policy = GmInteractionRepeatPolicy.FirstThenSecond)
     {

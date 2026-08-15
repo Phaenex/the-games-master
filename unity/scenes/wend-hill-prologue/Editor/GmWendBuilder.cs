@@ -35,6 +35,13 @@ public static class GmWendBuilder
     public const string PlayerName = "Player";
     const float PlayerEyeHeight = 1.7f;
 
+    /// The prologue's walk speed, overriding GmPlayer's own 3.5 default. One member because the same
+    /// literal was written into two build entry points, this one and the canonical opening, where
+    /// editing either alone would leave the walk running at two different speeds depending on which
+    /// path built the scene. The value itself now lives on GmFeelConfig, where the feel boundary says
+    /// it belongs; this stays as the name both entry points already read.
+    public static float WalkSpeed => GmFeelConfig.Active.walkSpeedMetresPerSecond;
+
     static readonly Regex RoadPattern =
         new Regex(@"Road|Path|Street|Track|Lane|Trail|Cobble", RegexOptions.IgnoreCase);
     static readonly Regex LodSuffix = new Regex(@"_LOD[1-9]$");
@@ -186,10 +193,18 @@ public static class GmWendBuilder
             if (look.sqrMagnitude > 0.01f)
                 player.transform.rotation = Quaternion.LookRotation(look.normalized, Vector3.up);
         }
+        // The body and the NavMesh bake are one contract, so both read the same four numbers. They
+        // were only half wired before: the capsule matched GmWendNavMesh on radius and height by
+        // coincidence of literals, while slopeLimit and stepOffset were left at Unity's defaults (45
+        // degrees, 0.3m) and the bake used the project's agent instead of either. A body that climbs
+        // less than the mesh says it can is the failure GmWendNavMesh is written to prevent: the
+        // player jams while standing on a route that claims to be clear.
         var cc = player.AddComponent<CharacterController>();
-        cc.height = 1.8f;
-        cc.radius = 0.35f;
-        cc.center = new Vector3(0f, 0.9f, 0f);
+        cc.height = GmWendNavMesh.AgentHeight;
+        cc.radius = GmWendNavMesh.AgentRadius;
+        cc.center = new Vector3(0f, GmWendNavMesh.AgentHeight * 0.5f, 0f);
+        cc.slopeLimit = GmWendNavMesh.AgentSlope;
+        cc.stepOffset = GmWendNavMesh.AgentStep;
         player.transform.position = spawn;
 
         var camGo = new GameObject("PlayerCamera");
@@ -209,7 +224,7 @@ public static class GmWendBuilder
         Debug.Log($"[{LogTag}] player ear is now the only live one ({deafened} pack listener(s) disabled)");
 
         var controls = player.AddComponent<GmPlayer>();
-        controls.walkSpeed = 2.1f;
+        controls.walkSpeed = WalkSpeed;
         return spawn;
     }
 

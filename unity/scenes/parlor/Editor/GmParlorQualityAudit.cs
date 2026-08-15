@@ -1,0 +1,69 @@
+using System.Collections.Generic;
+using UnityEditor;
+using UnityEngine;
+
+public static class GmParlorQualityAudit
+{
+    static readonly string[] RequiredRoots =
+    {
+        // "Player", not "ReviewCamera": this room now contains a body, and the review tour already
+        // prefers the player's own camera when one exists (GmSceneReviewTour picks
+        // player.GetComponentInChildren<Camera>() over Camera.main). A standalone ReviewCamera
+        // alongside it would be a second live camera and a second AudioListener -- the exact
+        // fault that made the first prologue build render a purchased pack's beauty shot
+        // instead of the player's eye.
+        "SceneSystems", "Environment", "Gameplay", "Lighting", "Composition", "Player"
+    };
+
+    [MenuItem("GamesMaster/Scenes/Audit Parlor")]
+    public static void Run()
+    {
+        GmParlorBuilder.Build();
+        List<string> issues = ValidateOpenScene();
+        if (issues.Count > 0)
+        {
+            foreach (string issue in issues) Debug.LogError("[GmParlorAudit] FAILED: " + issue);
+            return;
+        }
+        Debug.Log("[GmParlorAudit] PASS: scene contract, card table, Aldric chair, and composition verified");
+    }
+
+    public static List<string> ValidateOpenScene()
+    {
+        var issues = GmSceneContractAudit.ValidateOpenScene(
+            GmParlorBuilder.SceneId, GmParlorBuilder.DisplayName, GmParlorBuilder.ScenePath, RequiredRoots);
+
+        // Room-specific checks
+        if (GameObject.Find("CardTable") == null)
+            issues.Add("CardTable object is missing");
+
+        if (GameObject.Find("AldricChair") == null)
+            issues.Add("AldricChair object is missing");
+
+        if (GameObject.Find("BankerLamp") == null)
+            issues.Add("BankerLamp object is missing");
+
+        if (GameObject.Find("StoneMantel") == null)
+            issues.Add("StoneMantel object is missing");
+
+        var systems = GameObject.Find("SceneSystems");
+        if (systems == null)
+        {
+            issues.Add("SceneSystems root is missing");
+        }
+        else
+        {
+            if (systems.GetComponent<GmParlorRules>() == null)
+                issues.Add("GmParlorRules component is missing from SceneSystems");
+            if (systems.GetComponent<GmHostAI>() == null)
+                issues.Add("GmHostAI component is missing from SceneSystems");
+            if (systems.GetComponent<GmTheReadController>() == null)
+                issues.Add("GmTheReadController component is missing from SceneSystems");
+        }
+
+        issues.AddRange(GmSceneCompositionAudit.ValidateOpenScene(
+            GmParlorBuilder.SceneId, Object.FindAnyObjectByType<GmParlorShotTour>(), Camera.main));
+
+        return issues;
+    }
+}

@@ -85,13 +85,11 @@ public static class GmHiddenRoomBuilder
         var composition = new GameObject("Composition");
         GmHiddenRoomCompositionPlan.Author(composition, props);
 
-        var cameraRig = new GameObject("ReviewCamera");
-        cameraRig.transform.position = new Vector3(0f, 1.4f, -1.8f);
-        cameraRig.transform.rotation = Quaternion.Euler(15f, 0f, 0f);
-        cameraRig.AddComponent<Camera>();
-        cameraRig.AddComponent<HDAdditionalCameraData>();
-        cameraRig.AddComponent<AudioListener>();
-        cameraRig.tag = "MainCamera";
+        // A player, at last. This room had real, tested gameplay and nobody who could reach
+        // it. Spawn is the viewpoint the ReviewCamera used to sit at -- the one vantage a
+        // human already chose for this room -- so it is the least arbitrary spawn available,
+        // and the review tour prefers the player's own camera when a player exists.
+        GmPlayerRig.Build(null, new Vector3(0f, 0f, -1.8f), new Vector3(0f, 1.2f, 0f));
 
         GmSceneBuildUtility.SaveScene(scene, ScenePath);
         Debug.Log("[GmHiddenRoom] BUILD PASS: " + ScenePath);
