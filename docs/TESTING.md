@@ -394,6 +394,36 @@ TerrainLayer remaps entirely. It does. So the layer values were neutral, correct
 3. **A dead colour channel on a walkable surface is a defect, not a style.** Now asserted, with
    emission exempt because a lit window is allowed to be one hue. Proven by sabotage.
 
+## A string tag is a dependency that can silently not exist (2026-08-15)
+
+`GmSceneTransitionTrigger.OnTriggerEnter` read `CompareTag("Player")`. Nothing in this project has
+ever set that tag — `GmPlayerRig` tags the *camera* `MainCamera` and leaves the body untagged. So
+the component's only real entry path could never fire, and every test called `TriggerTransition()`
+directly, which is why it looked covered.
+
+**Prefer a component to a tag, a layer name, or a `GameObject.Find` path.** A missing component is a
+compile-time or null-check failure. A missing tag is silence. `GetComponentInParent<GmPlayer>()`
+also survives the hit landing on a child collider, which a tag on the root would not.
+
+**And test the entry point Unity actually calls.** Reflecting into the private `OnTriggerEnter` is
+worth the ugliness — the public method was green the whole time the component was dead. Include the
+negative case, or "fire for anything" passes as a fix: a chair must not walk into the Parlor.
+
+## Two Unity tasks back to back will collide (2026-08-15)
+
+Chaining `unity-cli` invocations in one shell line fails the second with *"Unity has … open. Close
+the editor first."* The previous editor has exited but not released the project yet. It reads like a
+stale-lock bug and it is just a race. Wait for release between runs:
+
+```bash
+until ! pgrep -f "Unity.app/Contents/MacOS/Unity.*<project>" >/dev/null 2>&1; do sleep 5; done
+```
+
+Related, and it bit twice in one session: **run Unity tasks with the sandbox disabled.** Without it
+`unity-cli` dies on `spawnSync ps EPERM` before Unity ever launches (rule 11), which also reads like
+a test failure and is not one. A green-looking commit message was written on the back of that once
+today; the tests did pass on re-run, but the claim was made before the evidence existed.
+
 ## Known coverage boundaries (honest)
 
 - **Court / Shut the Box**: boot + phase screenshots only. Their gameplay is Phase 1/2 work,
