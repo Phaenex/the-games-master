@@ -359,6 +359,41 @@ after the task name. Rebuild, tour, measure, compare. Never argue about a look y
 scene gets `cli-<scene>-rebuild.log`. Reading the prefixed file showed a two-hour-old line with the
 default values and nearly cost a correct result its attribution.
 
+## Interrogate the scene, not the code that writes it (2026-08-15)
+
+**Symptom:** the drive's ground rendered as molten orange through every green gate.
+
+**Four wrong answers, all reached the same way.** The lamps, the TerrainLayer diffuse remaps, the
+cliff tint, the moon. Each was investigated by opening the file that sets that value and reading it.
+Each reading was *accurate*. Three of them were about surfaces the camera was not looking at, which
+is the most expensive kind of evidence: true, and about the wrong thing.
+
+**Root cause, found in one pass by asking the scene instead.** A raycast down the actual route,
+reporting the renderer, the material, the shader and the colours really on it:
+
+```
+_Mud_Tint = (0.576, 0.380, 0.000)
+```
+
+Blue is not low. Blue is **zero**. A surface with a dead channel cannot be lit in that colour by
+anything — no moon brightness will ever cool it, because there is nothing there to reflect. It also
+explains why raising the moon fixed the background and made the foreground *worse*.
+
+**The specific trap:** `GmWendTerrainSurface` sets `diffuseRemapMin/Max` on the TerrainLayers, and
+the terrain draws through `S_Landscape`, a **purchased Shader Graph**, which is free to ignore
+TerrainLayer remaps entirely. It does. So the layer values were neutral, correct, and irrelevant.
+
+**Rules this earns:**
+
+1. **When a value you set does not show up on screen, check that the thing drawing it reads that
+   value at all.** A custom shader graph, a material override, or a second material slot will
+   silently win over the property you carefully set.
+2. **Reading the writer proves what was written, never what is rendered.** For "why does this look
+   wrong", query the live scene — what renderer is under this point, what material, what shader,
+   what colour. `GmGroundToneProbe` is that query and is cheap to extend.
+3. **A dead colour channel on a walkable surface is a defect, not a style.** Now asserted, with
+   emission exempt because a lit window is allowed to be one hue. Proven by sabotage.
+
 ## Known coverage boundaries (honest)
 
 - **Court / Shut the Box**: boot + phase screenshots only. Their gameplay is Phase 1/2 work,
