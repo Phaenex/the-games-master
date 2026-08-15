@@ -422,6 +422,13 @@ public sealed class GmStandaloneReviewProbe : MonoBehaviour
         public float p95FirstHalfMilliseconds;
         public float p95SecondHalfMilliseconds;
         public float p95HalfSpreadPercent;
+        // Why the tail looks the way it does. See MeasureFramePacing.
+        public int gcCollections;
+        public long managedGrowthKB;
+        public int spikeFrames;
+        public float spikeFloorMilliseconds;
+        public int firstSpikeFrame;
+        public int longestQuietRunFrames;
     }
 
     /// Percentile over a half-open slice, without disturbing the caller's ordering.
@@ -462,6 +469,15 @@ public sealed class GmStandaloneReviewProbe : MonoBehaviour
         var milliseconds = new float[sampleFrames];
         double previous = Time.realtimeSinceStartupAsDouble;
         double total = 0d;
+        // Attribution, not just a number. p50 sits on the 120fps limiter and p95 is 2.5x it, so the
+        // budget is missed by a small number of hitches rather than by the scene being heavy. That
+        // shape has a short list of usual causes and managed GC is top of it, so count collections
+        // and bytes across the same window that produces the percentile. A spike count with nothing
+        // beside it invites the reader to supply a cause, which is how the mansion collision got
+        // blamed for something it did not do.
+        int gc0Before = System.GC.CollectionCount(0);
+        int gc1Before = System.GC.CollectionCount(1);
+        long managedBefore = System.GC.GetTotalMemory(false);
         for (int i = 0; i < sampleFrames; i++)
         {
             yield return new WaitForEndOfFrame();
@@ -471,6 +487,25 @@ public sealed class GmStandaloneReviewProbe : MonoBehaviour
             milliseconds[i] = elapsed;
             total += elapsed;
         }
+        int gcCollections = (System.GC.CollectionCount(0) - gc0Before) + (System.GC.CollectionCount(1) - gc1Before);
+        long managedGrowthKB = (System.GC.GetTotalMemory(false) - managedBefore) / 1024;
+
+        // Where the spikes are, not just how many. Evenly spread says "something every N frames";
+        // clustered says "one event", and those want completely different investigations.
+        float spikeFloor = 2f * (float)(total / sampleFrames);
+        int spikes = 0, longestQuietRun = 0, currentQuiet = 0, firstSpike = -1;
+        for (int i = 0; i < sampleFrames; i++)
+        {
+            if (milliseconds[i] > spikeFloor)
+            {
+                spikes++;
+                if (firstSpike < 0) firstSpike = i;
+                if (currentQuiet > longestQuietRun) longestQuietRun = currentQuiet;
+                currentQuiet = 0;
+            }
+            else currentQuiet++;
+        }
+        if (currentQuiet > longestQuietRun) longestQuietRun = currentQuiet;
 
         // Split-half agreement, computed BEFORE the sort destroys the ordering. Each half is an
         // independent estimate of the same quantity, so the gap between them is this measurement's
@@ -513,6 +548,12 @@ public sealed class GmStandaloneReviewProbe : MonoBehaviour
             p95SecondHalfMilliseconds = p95Second,
             p95HalfSpreadPercent = Mathf.Approximately(Mathf.Min(p95First, p95Second), 0f) ? 0f :
                 100f * Mathf.Abs(p95First - p95Second) / Mathf.Min(p95First, p95Second),
+            gcCollections = gcCollections,
+            managedGrowthKB = managedGrowthKB,
+            spikeFrames = spikes,
+            spikeFloorMilliseconds = spikeFloor,
+            firstSpikeFrame = firstSpike,
+            longestQuietRunFrames = longestQuietRun,
         };
         string path = Path.Combine(outputDirectory, "performance.json");
         File.WriteAllText(path, JsonUtility.ToJson(document, true));
@@ -524,6 +565,9 @@ public sealed class GmStandaloneReviewProbe : MonoBehaviour
             $"max={document.maximumMilliseconds:F2}ms " +
             $"p95halves={document.p95FirstHalfMilliseconds:F2}/{document.p95SecondHalfMilliseconds:F2}ms " +
             $"(spread {document.p95HalfSpreadPercent:F0}%) " +
+            $"| spikes={document.spikeFrames}/{sampleFrames} over {document.spikeFloorMilliseconds:F1}ms " +
+            $"first@{document.firstSpikeFrame} longestQuiet={document.longestQuietRunFrames} " +
+            $"gc={document.gcCollections} managed+{document.managedGrowthKB}KB " +
             $"cores={document.processorCount} ram={document.systemMemoryMegabytes}MB " +
             $"gpu='{document.graphicsDevice}' batch={document.batchMode}");
     }

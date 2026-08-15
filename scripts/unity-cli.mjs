@@ -638,6 +638,22 @@ async function runStandaloneProof() {
       '  Re-run on an idle machine. Do NOT raise the tolerance to make this pass — the number is ' +
       'the problem, not the threshold.');
   }
+  // The harness already decides, in stampHostState, whether the host was fit to be timed on -- and
+  // then printed "treat p95 as indicative, not a verdict" while using it as a verdict two functions
+  // later. Same inconsistency as the convergence case: a number the tool itself calls untrustworthy
+  // must not decide anything, in EITHER direction.
+  //
+  // This still exits non-zero, because a run that could not judge has not proved the budget and must
+  // not read as a pass. It fails for the honest reason instead of blaming the game -- measured
+  // 2026-08-15, the same build gave p95 16.13ms at 1.01/core and 18.38ms at 1.30/core, so host load
+  // moves this number across the budget line on its own.
+  if (Number.isFinite(performance.hostLoadPerCore) && performance.hostLoadPerCore > 1.0) {
+    throw new Error('standalone frame pacing was measured on a loaded host, so this run judges ' +
+      `nothing: ${performance.hostLoadPerCore.toFixed(2)}/core (limit 1.00). ` +
+      `p95 was ${performance.p95Milliseconds.toFixed(2)}ms ${describeConditions(performance)}\n` +
+      '  This is NOT a performance regression and must not be recorded as one. Close other work and ' +
+      're-run. Do NOT raise the load limit to make it judge.');
+  }
   if (performance.p95Milliseconds > budget.p95Milliseconds) {
     // A failing p95 quoted bare invites the reader to supply a cause, and the supplied cause is
     // usually wrong -- on 2026-08-15 the obvious suspect (216k triangles of new mansion collision)
