@@ -121,4 +121,96 @@ public sealed class GmPlayerRigTests
             Object.DestroyImmediate(host);
         }
     }
+
+    /// Full hierarchy path, because "Cube" alone names nothing in a room built from primitives.
+    static string HierarchyPath(Transform t)
+    {
+        string path = t.name;
+        for (Transform p = t.parent; p != null; p = p.parent) path = p.name + "/" + path;
+        return path;
+    }
+
+    /// The skin the CharacterController itself keeps between its capsule and the world. Insetting the
+    /// probe by the same amount means resting cleanly ON the floor is not reported as being IN it.
+    const float SkinWidth = 0.02f;
+
+    [Test]
+    public void NoPlayerSpawnsInsideTheGeometryOfItsOwnRoom()
+    {
+        // The whole reason this is a physics query and not arithmetic: five props this session were
+        // found standing off the floor they were declared to stand on, and the sixth -- the dice --
+        // got buried by hand-arithmetic done while fixing the fifth. Spawns were placed the same way
+        // and never checked at all. Ask the engine where the capsule actually is.
+        var faults = new List<string>();
+        foreach ((string id, string path) in PlayableScenes)
+        {
+            if (!System.IO.File.Exists(path)) continue;
+            EditorSceneManager.OpenScene(path, OpenSceneMode.Single);
+            Physics.SyncTransforms();
+
+            var player = Object.FindAnyObjectByType<GmPlayer>(FindObjectsInactive.Include);
+            if (player == null) continue;   // already reported by the test above
+            var body = player.GetComponent<CharacterController>();
+            if (body == null) continue;
+
+            Vector3 foot = player.transform.TransformPoint(body.center - Vector3.up * (body.height * 0.5f - body.radius));
+            Vector3 head = player.transform.TransformPoint(body.center + Vector3.up * (body.height * 0.5f - body.radius));
+
+            foreach (Collider hit in Physics.OverlapCapsule(foot, head, body.radius - SkinWidth,
+                         ~0, QueryTriggerInteraction.Ignore))
+            {
+                if (hit == body) continue;
+                faults.Add($"{id}: the player spawns inside '{HierarchyPath(hit.transform)}' " +
+                    $"— the first frame of this room is the inside of a prop");
+            }
+
+            // The mirror defect, and the one the dice had: not overlapping anything, but not standing
+            // on anything either. A spawn floating above the floor drops on frame one; a spawn below it
+            // is inside the slab with its head poking out, which the capsule test above can miss when
+            // the floor is thin.
+            Vector3 from = player.transform.position + Vector3.up * 0.5f;
+            if (!Physics.Raycast(from, Vector3.down, out RaycastHit ground, 5f, ~0, QueryTriggerInteraction.Ignore))
+                faults.Add($"{id}: nothing solid under the spawn within 5m — the player falls out of the room");
+            else
+            {
+                float drop = player.transform.position.y - ground.point.y;
+                if (Mathf.Abs(drop) > 0.05f)
+                    faults.Add($"{id}: spawn sits {drop:F3}m {(drop > 0 ? "above" : "below")} the surface " +
+                        $"under it ('{HierarchyPath(ground.transform)}')");
+            }
+        }
+
+        Assert.IsEmpty(faults, "players spawn inside or off the geometry of their rooms:\n- " + string.Join("\n- ", faults));
+    }
+
+    [Test]
+    public void TheSpawnProbeItselfReportsAnOverlapWhenThereIsOne()
+    {
+        // The test above is only worth its runtime if it can go red. A physics query in EditMode is
+        // exactly the kind of thing that silently returns an empty array -- colliders unregistered,
+        // transforms unsynced -- and an empty array reads identically to a clean room.
+        var host = new GameObject("SpawnProbeFixture");
+        try
+        {
+            GameObject player = GmPlayerRig.Build(host.transform, Vector3.zero);
+            var body = player.GetComponent<CharacterController>();
+
+            var obstacle = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            obstacle.transform.SetParent(host.transform, true);
+            obstacle.transform.position = new Vector3(0f, 0.9f, 0f);   // straight through the capsule
+            Physics.SyncTransforms();
+
+            Vector3 foot = player.transform.TransformPoint(body.center - Vector3.up * (body.height * 0.5f - body.radius));
+            Vector3 head = player.transform.TransformPoint(body.center + Vector3.up * (body.height * 0.5f - body.radius));
+            Collider[] hits = Physics.OverlapCapsule(foot, head, body.radius - SkinWidth, ~0, QueryTriggerInteraction.Ignore);
+
+            CollectionAssert.Contains(hits, obstacle.GetComponent<BoxCollider>(),
+                "the capsule probe found nothing inside a box placed deliberately through the player — " +
+                "EditMode physics is not answering, so every clean result above proves nothing");
+        }
+        finally
+        {
+            Object.DestroyImmediate(host);
+        }
+    }
 }

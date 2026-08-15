@@ -40,11 +40,15 @@ public static class GmParlorBuilder
         var composition = new GameObject("Composition");
         GmParlorCompositionPlan.Author(composition, authored);
 
-        // A player, at last. This room had real, tested gameplay and nobody who could reach
-        // it. Spawn is the viewpoint the ReviewCamera used to sit at -- the one vantage a
-        // human already chose for this room -- so it is the least arbitrary spawn available,
-        // and the review tour prefers the player's own camera when a player exists.
-        GmPlayerRig.Build(null, new Vector3(0f, 0f, -1.35f), new Vector3(0f, 1.0f, 0f));
+        // A player, at last. This room had real, tested gameplay and nobody who could reach it.
+        //
+        // The spawn was first placed where the ReviewCamera used to sit, on the reasoning that it was
+        // the one vantage a human had already chosen. That reasoning has a hole in it: a camera has no
+        // body. The old spawn (0, 0, -1.35) put the capsule inside PlayerChair's box collider, so the
+        // first frame of this room was the inside of an armchair. Behind the chair instead, facing the
+        // table across it -- the chair's rear face is z=-1.525, the capsule radius is 0.35, and the
+        // drapes are at -3.70, so this sits in the clear band with room on both sides.
+        GmPlayerRig.Build(null, new Vector3(0f, 0f, -2f), new Vector3(0f, 1.0f, 0f));
 
         GmSceneBuildUtility.SaveScene(scene, ScenePath);
         Debug.Log("[GmParlor] BUILD PASS: " + ScenePath);
@@ -67,6 +71,7 @@ public static class GmParlorBuilder
         carpet.transform.position = new Vector3(0f, 0.01f, 0f);
         carpet.transform.localScale = new Vector3(6f, 0.02f, 6f);
         ApplyMaterial(carpet, "HDRP/Lit", new Color(0.40f, 0.12f, 0.12f), 0.0f, 0.15f);
+        GmSceneBuildUtility.MakeDecorativeOverlay(carpet);
 
         // Walls (Mahogany paneling)
         GameObject northWall = GameObject.CreatePrimitive(PrimitiveType.Cube);

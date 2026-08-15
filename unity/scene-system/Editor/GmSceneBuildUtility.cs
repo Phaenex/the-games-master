@@ -26,6 +26,22 @@ public static class GmSceneBuildUtility
         return identity;
     }
 
+    /// Marks a flat prop that lies ON the floor and is meant to be walked over -- a rug, a gravel
+    /// path, a painted track -- by taking its collider away.
+    ///
+    /// GameObject.CreatePrimitive attaches a collider to everything, so a two-centimetre rug ships as
+    /// a two-centimetre kerb. The player does not stand on it, they stand IN it: the floor beneath is
+    /// still the surface the controller rests on, and the rug's box swallows their ankles for as long
+    /// as they are on it. Four of these shipped -- the Entry Hall runner, the Parlor carpet, and the
+    /// Labyrinth's gravel path and patrol track -- and the last two were 6cm, which is a real lip a
+    /// controller has to step up. The floor underneath already carries collision. A rug is not a step.
+    public static void MakeDecorativeOverlay(GameObject overlay)
+    {
+        if (overlay == null) throw new ArgumentNullException(nameof(overlay));
+        var collider = overlay.GetComponent<Collider>();
+        if (collider != null) UnityEngine.Object.DestroyImmediate(collider);
+    }
+
     public static void SaveScene(Scene scene, string scenePath)
     {
         if (!scene.IsValid()) throw new ArgumentException("cannot save an invalid scene", nameof(scene));

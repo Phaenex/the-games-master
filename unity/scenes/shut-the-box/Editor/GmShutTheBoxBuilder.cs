@@ -58,11 +58,14 @@ public static class GmShutTheBoxBuilder
         var composition = new GameObject("Composition");
         GmShutTheBoxCompositionPlan.Author(composition, refs);
 
-        // A player, at last. This room had real, tested gameplay and nobody who could reach
-        // it. Spawn is the viewpoint the ReviewCamera used to sit at -- the one vantage a
-        // human already chose for this room -- so it is the least arbitrary spawn available,
-        // and the review tour prefers the player's own camera when a player exists.
-        GmPlayerRig.Build(null, new Vector3(0f, 0f, -1.2f), new Vector3(0f, 0.9f, 0f));
+        // A player, at last. This room had real, tested gameplay and nobody who could reach it.
+        //
+        // The spawn was first placed where the ReviewCamera used to sit, on the reasoning that it was
+        // the one vantage a human had already chosen. That reasoning has a hole in it: a camera has no
+        // body. The old spawn (0, 0, -1.2) shared its exact XZ with PlayerChair and put the capsule
+        // through PlayerNamePlate, the trim strip along the near edge of the box. Behind the chair
+        // instead, facing the box across it.
+        GmPlayerRig.Build(null, new Vector3(0f, 0f, -2f), new Vector3(0f, 0.9f, 0f));
 
         GmSceneBuildUtility.SaveScene(scene, ScenePath);
         Debug.Log("[GmShutTheBox] BUILD PASS: " + ScenePath);

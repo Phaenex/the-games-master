@@ -127,6 +127,7 @@ public static class GmLabyrinthBuilder
         gravel.transform.position = new Vector3(-15f, 0.03f, -14f);
         gravel.transform.localScale = new Vector3(2.4f, 0.06f, 4f);
         ApplyMaterial(gravel, "HDRP/Lit", new Color(0.22f, 0.21f, 0.19f), 0.0f, 0.15f);
+        GmSceneBuildUtility.MakeDecorativeOverlay(gravel);
         parts.GravelPath = gravel;
 
         // Exit Wrought Gate (graveyard_gate FBX)
@@ -191,6 +192,7 @@ public static class GmLabyrinthBuilder
         track.transform.position = new Vector3(5f, 0.03f, -5f);
         track.transform.localScale = new Vector3(1.6f, 0.06f, 10f);
         ApplyMaterial(track, "HDRP/Lit", new Color(0.15f, 0.13f, 0.10f), 0.0f, 0.1f);
+        GmSceneBuildUtility.MakeDecorativeOverlay(track);
         parts.PatrolTrack = track;
 
         // Bone Totem (SM_TwigTotems-1 FBX)

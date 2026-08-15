@@ -63,6 +63,7 @@ public static class GmEntryHallBuilder
         runner.transform.position = new Vector3(0f, 0.01f, 0f);
         runner.transform.localScale = new Vector3(2.4f, 0.02f, 18f);
         ApplyMaterial(runner, "HDRP/Lit", new Color(0.45f, 0.08f, 0.08f), 0.0f, 0.15f);
+        GmSceneBuildUtility.MakeDecorativeOverlay(runner);
 
         // Left Wall (Wood Panel)
         GameObject leftWall = GameObject.CreatePrimitive(PrimitiveType.Cube);
