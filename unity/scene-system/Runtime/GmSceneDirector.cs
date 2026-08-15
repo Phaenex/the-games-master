@@ -16,6 +16,24 @@ public sealed class GmSceneDirector : MonoBehaviour
     public const string HiddenRoomScenePath = "Assets/Scenes/HiddenRoom.unity";
     public const string LabyrinthScenePath = "Assets/Scenes/Labyrinth.unity";
 
+    /// Every scene this director is capable of asking for, in play order.
+    ///
+    /// Exists so the shipped build manifest can be DERIVED from this list rather than maintained
+    /// beside it. LoadSceneAsync returns null for a scene that is not in Build Settings, and the
+    /// transition below correctly refuses to move when that happens — but refusing to move is a
+    /// dead end at runtime, not a warning at build time. A room the director can name and the
+    /// player can never enter is the same defect as a room with no player in it, one layer up.
+    public static readonly string[] ReachableScenePaths =
+    {
+        PrologueScenePath,
+        EntryHallScenePath,
+        ParlorScenePath,
+        ShutTheBoxScenePath,
+        CourtScenePath,
+        HiddenRoomScenePath,
+        LabyrinthScenePath,
+    };
+
     public string CurrentSceneId { get; private set; } = "wend-hill-prologue";
     public bool IsTransitioning { get; private set; } = false;
 

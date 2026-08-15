@@ -29,6 +29,7 @@
     "unity:packages:check": "node scripts/check-unity-packages.mjs",
     "unity:scene:sync": "node scripts/sync-unity-scenes.mjs",
     "unity:build:mac": "node scripts/unity-cli.mjs build-mac",
+    "unity:build:game": "node scripts/unity-cli.mjs build-game",
     "unity:proof:mac": "node scripts/unity-cli.mjs standalone-proof",
     "unity:proof:walk": "node scripts/unity-cli.mjs walk-proof",
     "unity:proof:walls": "node scripts/unity-cli.mjs wall-proof",

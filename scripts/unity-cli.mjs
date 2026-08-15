@@ -151,6 +151,15 @@ const TASKS = {
     clean: () => rmSync(PLAYTEST_RESULTS, { force: true }),
     expected: 1,
   },
+  // The whole game, as opposed to build-mac's deliberately scene-scoped review app. Not registry
+  // driven, because it is not a scene: it is every scene, and it derives its manifest from the
+  // director rather than from SCENE.
+  'build-game': {
+    method: 'GmFullGameBuild.BuildMacGame',
+    gui: false,
+    useGraphics: true,
+    done: /\[GmFullGameBuild\] BUILD PASS:/,
+  },
   'build-mac': {
     method: SCENE.standalone?.method,
     gui: false,
