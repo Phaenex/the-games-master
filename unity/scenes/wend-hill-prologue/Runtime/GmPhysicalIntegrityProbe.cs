@@ -47,6 +47,11 @@ public sealed class GmPhysicalIntegrityProbe : MonoBehaviour
         /// Name of the collider that held it, or "None" when nothing was touched. Sourced from the
         /// real ControllerColliderHit callback, so a result naming a collider is evidence that
         /// specific object did the stopping.
+        /// EDIT-MODE CAVEAT: OnControllerColliderHit is a play-mode message and does not fire in an
+        /// EditMode test, so this reads "None" there even when the controller was genuinely stopped.
+        /// In EditMode judge blocking by `blocked` and `travelledDistance`; `obstacleHit` is only
+        /// evidence in play mode. Reading a bare "None" as "nothing stopped it" would invert the
+        /// result -- the estate-house sweep reports exactly that shape while being firmly blocked.
         public string obstacleHit;
     }
 
