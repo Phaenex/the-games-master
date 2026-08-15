@@ -192,7 +192,7 @@ public static class GmVillagePropertyLights
         // Volumetric off, same conclusion the window practicals and gate lanterns reached: with fog
         // this dense every source grows a halo wider than the thing it is lighting.
         hd.affectsVolumetric = false;
-        light.lightUnit = LightUnit.Lumen;
+        hd.lightUnit = LightUnit.Lumen;
         light.intensity = lumens;
 
         var flicker = go.AddComponent<GmLightFlicker>();

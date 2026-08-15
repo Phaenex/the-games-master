@@ -52,6 +52,12 @@ public sealed class GmWendWallProbe : MonoBehaviour
 
         var human = playerGo.GetComponent<GmPlayer>();
         if (human != null) human.enabled = false;
+        // Wall evidence must show the wall. The cold open holds four cards over the whole screen for
+        // ~21s from scene start, and the first wall is settled, pushed and photographed inside that
+        // window: the held/BREACHED verdict is measured from the transform and stays correct, but the
+        // screenshot backing it would be a card. Same fix, same reason, as GmWendWalkProbe.
+        GmColdOpen coldOpen = FindAnyObjectByType<GmColdOpen>();
+        if (coldOpen != null && coldOpen.IsRunning) coldOpen.SkipIntroForReview();
 
         GameObject boundsRoot = GameObject.Find("GmWendBounds");
         if (boundsRoot == null) { Finish("no GmWendBounds root; the map edge is open", 1); yield break; }

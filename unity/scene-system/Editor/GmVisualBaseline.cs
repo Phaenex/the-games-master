@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
@@ -46,6 +45,22 @@ sealed class GmVisualBaselineDocument
     public int schemaVersion = 1;
     public GmVisualBaselineRecord[] items = Array.Empty<GmVisualBaselineRecord>();
 }
+
+[Serializable] sealed class GmSceneRegistryDocument { public GmSceneRegistryEntry[] scenes = Array.Empty<GmSceneRegistryEntry>(); }
+[Serializable] sealed class GmSceneRegistryEntry { public string id; public string status; }
+
+// Only what the approval gate reads. Recorded sessions are not uniformly typed -- historical
+// objectiveFindings carry numeric 'actual'/'expected' where GmObjectiveFindingDocument declares
+// strings -- so this gate deserializes the verdict half it needs rather than the whole
+// GmReviewSessionDocument, which would have to parse fields it never looks at.
+[Serializable] sealed class GmBaselineSessionDocument
+{
+    public string sceneId;
+    public GmBaselineReviewerDocument reviewer;
+    public GmBaselineVerdictDocument[] verdicts = Array.Empty<GmBaselineVerdictDocument>();
+}
+[Serializable] sealed class GmBaselineReviewerDocument { public string kind; }
+[Serializable] sealed class GmBaselineVerdictDocument { public string category; public string verdict; }
 
 public sealed class GmBaselineEvaluation
 {
@@ -115,27 +130,52 @@ public static class GmVisualBaseline
         return result;
     }
 
+    // Every gate here reads structure, not substrings. The earlier version matched on exact key
+    // spacing and a fixed-size window around the scene id, so reformatting either file -- or a
+    // registry entry outgrowing the window before its status field -- would have silently changed
+    // the pass/fail decision instead of failing loudly.
     public static List<string> ApprovalBlockers(string sceneId)
     {
         var blockers = new List<string>();
         string repo = GmSceneIntelligencePaths.FindRepoRoot();
-        string registry = File.ReadAllText(Path.Combine(repo, "unity", "scene-system", "scene-registry.json"));
-        int sceneAt = registry.IndexOf("\"id\": \"" + sceneId + "\"", StringComparison.Ordinal);
-        string sceneBlock = sceneAt < 0 ? "" : registry.Substring(sceneAt, Math.Min(1800, registry.Length - sceneAt));
-        if (sceneAt < 0) blockers.Add("scene is absent from the registry");
-        else if (sceneBlock.Contains("\"status\": \"review\"")) blockers.Add("scene registry status is still review");
-        string defects = File.ReadAllText(Path.Combine(GmSceneIntelligencePaths.KnowledgeRoot, "derived", "defects.json"));
-        foreach (string block in defects.Split(new[] { "\"defectId\"" }, StringSplitOptions.None))
-            if (block.Contains("\"sceneId\": \"" + sceneId + "\"") && block.Contains("\"severity\": \"high\"") &&
-                block.Contains("\"status\": \"open\"")) { blockers.Add("one or more high-severity defects remain open"); break; }
-        string sessions = Path.Combine(GmSceneIntelligencePaths.KnowledgeRoot, "review-sessions");
-        bool nickKeep = Directory.Exists(sessions) && Directory.GetFiles(sessions, "*.json").Any(file => {
-            string json = File.ReadAllText(file);
-            return json.Contains("\"kind\": \"nick\"") && json.Contains("\"sceneId\": \"" + sceneId + "\"") &&
-                json.Contains("\"verdict\": \"keep\"");
-        });
-        if (!nickKeep) blockers.Add("no explicit Nick Keep verdict has been recorded");
+        GmSceneRegistryDocument registry = ReadJson<GmSceneRegistryDocument>(
+            Path.Combine(repo, "unity", "scene-system", "scene-registry.json"));
+        GmSceneRegistryEntry entry = (registry.scenes ?? Array.Empty<GmSceneRegistryEntry>())
+            .FirstOrDefault(scene => scene.id == sceneId);
+        if (entry == null) blockers.Add("scene is absent from the registry");
+        else if (entry.status == "review") blockers.Add("scene registry status is still review");
+        GmDefectListDocument defects = ReadJson<GmDefectListDocument>(
+            Path.Combine(GmSceneIntelligencePaths.KnowledgeRoot, "derived", "defects.json"));
+        if ((defects.items ?? Array.Empty<GmDefectSummaryDocument>()).Any(defect =>
+            defect.sceneId == sceneId && defect.severity == "high" && defect.status == "open"))
+            blockers.Add("one or more high-severity defects remain open");
+        if (!HasNickVisualKeep(sceneId)) blockers.Add("no explicit Nick Keep verdict has been recorded");
         return blockers;
+    }
+
+    // Scoped to the visual category on purpose. Every category records through the same session
+    // shape, so an unscoped search let a Nick Keep on audio, pacing or performance satisfy the
+    // gate that exists to prove Nick looked at this scene's composition.
+    static bool HasNickVisualKeep(string sceneId)
+    {
+        string sessions = Path.Combine(GmSceneIntelligencePaths.KnowledgeRoot, "review-sessions");
+        if (!Directory.Exists(sessions)) return false;
+        foreach (string file in Directory.GetFiles(sessions, "*.json").OrderBy(value => value, StringComparer.Ordinal))
+        {
+            GmBaselineSessionDocument session = ReadJson<GmBaselineSessionDocument>(file);
+            if (session.sceneId != sceneId || session.reviewer == null || session.reviewer.kind != "nick") continue;
+            if ((session.verdicts ?? Array.Empty<GmBaselineVerdictDocument>())
+                .Any(verdict => verdict.verdict == "keep" && verdict.category == "visual")) return true;
+        }
+        return false;
+    }
+
+    static T ReadJson<T>(string file) where T : class
+    {
+        if (!File.Exists(file)) throw new FileNotFoundException("Approval evidence is missing.", file);
+        T document = JsonUtility.FromJson<T>(File.ReadAllText(file));
+        if (document == null) throw new InvalidDataException($"Approval evidence could not be parsed: {file}");
+        return document;
     }
 
     public static void ApproveCurrent()

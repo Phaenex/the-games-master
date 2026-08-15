@@ -66,12 +66,14 @@ public static class GmVictorianInteriorKit
             .Distinct()
             .Where(name => AssetDatabase.LoadAssetAtPath<Texture2D>(TextureRoot + name) == null)
             .ToArray();
+        // Throws rather than logging, because the caller builds the entire interior straight after this
+        // returns and then logs PASS. A missing kit used to produce hundreds of empty furniture
+        // GameObjects under a success line -- a silent build that reports success is exactly the failure
+        // this check exists to close.
         if (missingModels.Length > 0 || missingTextures.Length > 0)
-        {
-            Debug.LogError("[GmVictorianKit] missing proof-room assets. Run `npm run unity:assets:victorian`. " +
-                           $"models=[{string.Join(", ", missingModels)}], textures=[{string.Join(", ", missingTextures)}]");
-            return;
-        }
+            throw new InvalidOperationException(
+                "[GmVictorianKit] missing proof-room assets. Run `npm run unity:assets:victorian`. " +
+                $"models=[{string.Join(", ", missingModels)}], textures=[{string.Join(", ", missingTextures)}]");
         Debug.Log($"[GmVictorianKit] READY: {RequiredModels.Length} model families and {Families.Count} HDRP material recipes");
     }
 
@@ -141,10 +143,7 @@ public static class GmVictorianInteriorKit
         string path = $"{AssetRoot}/{modelName}.fbx";
         GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
         if (prefab == null)
-        {
-            Debug.LogError($"[GmVictorianKit] no model at {path}");
-            return null;
-        }
+            throw new InvalidOperationException($"[GmVictorianKit] no model at {path}");
 
         Material material = Surface(materialFamily, "House_Imported_" + materialFamily, Vector2.one, tintOverride);
         return PlacePrefab(prefab, VisualPrefix + objectName, parent, targetCenter, targetSize, worldRotation, material);
@@ -155,10 +154,7 @@ public static class GmVictorianInteriorKit
     {
         GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
         if (prefab == null)
-        {
-            Debug.LogError($"[GmVictorianKit] no model at {assetPath}");
-            return null;
-        }
+            throw new InvalidOperationException($"[GmVictorianKit] no model at {assetPath}");
         return PlacePrefab(prefab, "AuthoredArt_" + objectName, parent, targetCenter, targetSize, worldRotation, material);
     }
 

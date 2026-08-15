@@ -434,7 +434,7 @@ public static class GmVillageEstate
             // and washed the whole foreground (frame luminance 0.558 against 0.234 unlit). Without
             // the fog term the same lamp lights the stonework and leaves the road dark to walk down.
             hd.affectsVolumetric = false;
-            light.lightUnit = LightUnit.Lumen;
+            hd.lightUnit = LightUnit.Lumen;
             // Enough to pick the ironwork out of the dark and no more. At 45 these two lamps were
             // the brightest thing on screen and lit the whole approach like a forecourt.
             light.intensity = 26f;

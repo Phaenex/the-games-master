@@ -15,6 +15,11 @@ public static class GmWendOpening
     public const float ChapelMetres = 220f;
     public const float PorchMetres = GmWendRoute.EstateRouteMetres;
     public const int WalkDeckLayer = 30;
+
+    /// The walk deck's object name, shared so the passes that look it up cannot drift from the pass
+    /// that builds it. They already had: two of them searched for a 'RouteSurface' that no version of
+    /// this builder creates, which made both a permanent no-op that nothing reported.
+    public const string WalkDeckName = "RouteWalkDeck";
     const string WalkDeckMeshPath = "Assets/Scenes/Generated/GmWendRouteWalkDeck.asset";
     const float WalkDeckLift = 0.22f;
 
@@ -48,7 +53,7 @@ public static class GmWendOpening
         ("garden-scarecrow", "SM_Pugalo", 2.35f),
         ("garden-well", "SM_Well_01", 1.60f),
         ("garden-basin", "SM_Bucket", 0.55f),
-        ("garden-shed", "SM_House_06", 5.50f),
+        ("garden-shed", "SM_BarnDoor", 2.80f),
         ("coach-doors", "SM_Wood_Door_Set_C", 2.80f),
         ("gate-plaque", "SM_Wood_01", 1.15f),
     };
@@ -84,7 +89,7 @@ public static class GmWendOpening
         player.transform.position = spline.PointAt(0f) + Vector3.up * 0.1f;
         player.transform.rotation = Quaternion.LookRotation(spline.TangentAt(0f), Vector3.up);
         GmPlayer controls = player.GetComponent<GmPlayer>();
-        if (controls != null) controls.walkSpeed = 2.1f;
+        if (controls != null) controls.walkSpeed = GmWendBuilder.WalkSpeed;
 
         int anchors = 0;
         MakeAnchor(root.transform, "arrival-car", 0f, Offset(spline, 0f, -3.2f)); anchors++;
@@ -96,6 +101,10 @@ public static class GmWendOpening
         BuildGate(root.transform, spline);
         BuildManor(root.transform, spline);
         int pois = BuildPois(root.transform, spline, ref anchors);
+        // Requires the coach-doors POI anchor BuildPois just created above.
+        GmWendOutbuildings.Build(root.transform, spline);
+        GmWendEstateForest.Apply(root.transform, spline);
+        GmWendFoliage.Apply();
         BuildStoryAnchors(root.transform, spline, ref anchors);
         BuildWakeRoom(ref anchors);
         GmHouseBeginningBuilder.Build();
@@ -130,6 +139,9 @@ public static class GmWendOpening
         systems.AddComponent<GmAmbience>();
         var bell = systems.AddComponent<GmBellSummons>();
         bell.ChapelPosition = RequireAnchor("chapel").transform.position + Vector3.up * 6f;
+        // Reads the branch-beat/POI signals GmDesignRuntime already tracks; the bell finds this via
+        // FindFirstObjectByType in its own Start(), so add order relative to the bell doesn't matter.
+        systems.AddComponent<GmGroundsExploration>();
         systems.AddComponent<GmSymptoms>();
         var threshold = systems.AddComponent<GmThreshold>();
         threshold.gateAnchorId = "gate";
@@ -392,7 +404,7 @@ public static class GmWendOpening
             AssetDatabase.DeleteAsset(WalkDeckMeshPath);
         AssetDatabase.CreateAsset(mesh, WalkDeckMeshPath);
 
-        var deck = new GameObject("RouteWalkDeck");
+        var deck = new GameObject(WalkDeckName);
         deck.transform.SetParent(parent, true);
         deck.layer = WalkDeckLayer;
         deck.AddComponent<MeshCollider>().sharedMesh = mesh;
@@ -410,9 +422,47 @@ public static class GmWendOpening
         MakeGateCube(rig.transform, "PierRight", new Vector3(2.7f, 1.65f, 0f), new Vector3(0.65f, 3.3f, 0.65f));
         Transform left = MakeLeaf(rig.transform, "LeafLeft", -2.35f, 1f);
         Transform rightLeaf = MakeLeaf(rig.transform, "LeafRight", 2.35f, -1f);
-        rig.AddComponent<GmGateLeaves>().Configure(left, rightLeaf, 96f, 0.55f);
+
+        var barrier = new GameObject("GateBarrier");
+        barrier.transform.SetParent(rig.transform, false);
+        barrier.transform.localPosition = new Vector3(0f, 1.65f, 0f);
+        var barrierCol = barrier.AddComponent<BoxCollider>();
+        barrierCol.size = new Vector3(5.2f, 3.3f, 0.4f);
+        barrierCol.enabled = false;
+
+        rig.AddComponent<GmGateLeaves>().Configure(left, rightLeaf, 96f, 0.55f, barrierCol);
         MakeGateLantern(rig.transform, new Vector3(-2.7f, 3.45f, 0.15f));
         MakeGateLantern(rig.transform, new Vector3(2.7f, 3.45f, 0.15f));
+
+        BuildPerimeterWing(rig.transform, -1f, 2.7f, 45f);
+        BuildPerimeterWing(rig.transform, 1f, 2.7f, 45f);
+    }
+
+    static void BuildPerimeterWing(Transform parent, float side, float startX, float endX)
+    {
+        float span = endX - startX;
+        int sections = Mathf.CeilToInt(span / 3.5f);
+        float sectionWidth = span / sections;
+
+        for (int i = 0; i < sections; i++)
+        {
+            float x1 = side * (startX + i * sectionWidth);
+            float x2 = side * (startX + (i + 1) * sectionWidth);
+            float midX = (x1 + x2) * 0.5f;
+
+            MakeGateCube(parent, $"WallBase_{side}_{i}", new Vector3(midX, 0.6f, 0f), new Vector3(sectionWidth, 1.2f, 0.45f));
+            MakeGateCube(parent, $"RailTop_{side}_{i}", new Vector3(midX, 2.3f, 0f), new Vector3(sectionWidth, 0.08f, 0.08f));
+            MakeGateCube(parent, $"RailMid_{side}_{i}", new Vector3(midX, 1.3f, 0f), new Vector3(sectionWidth, 0.08f, 0.08f));
+
+            int pickets = Mathf.FloorToInt(sectionWidth / 0.35f);
+            for (int p = 0; p < pickets; p++)
+            {
+                float px = Mathf.Lerp(x1, x2, (p + 0.5f) / pickets);
+                MakeGateCube(parent, $"Picket_{side}_{i}_{p}", new Vector3(px, 1.8f, 0f), new Vector3(0.06f, 1.1f, 0.06f));
+            }
+
+            MakeGateCube(parent, $"Pier_{side}_{i}", new Vector3(x2, 1.35f, 0f), new Vector3(0.45f, 2.7f, 0.45f));
+        }
     }
 
     static void MakeGateLantern(Transform parent, Vector3 localPosition)
@@ -567,4 +617,11 @@ public static class GmWendOpening
             point.y = hit.point.y;
         return point;
     }
+
+    /// <summary>
+    /// The road's physical riding surface height at a route point. BuildWalkDeck places its ribbon
+    /// vertices at the route spline's own Y with no added offset, so the spline height already is
+    /// the surface height; terrainY is accepted for callers that report clearance against it.
+    /// </summary>
+    public static float RoadSurfaceY(float routeCenterY, float terrainY) => routeCenterY;
 }

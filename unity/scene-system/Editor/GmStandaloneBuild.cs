@@ -11,6 +11,12 @@ public static class GmStandaloneBuild
 {
     public const string MacOutputPath = "Builds/macOS/The Games Master.app";
 
+    // Deliberately not GmSceneCatalog.WendHillPath. That constant now names WendHill_Prologue,
+    // which has its own builder (GmWendStandaloneBuild.BuildPrologueApp) and its own output path.
+    // scene-registry.json wires this method to the legacy 'wend-hill' estate scene, so this is the
+    // startup scene the review app must refuse to build without.
+    public const string StartupScenePath = "Assets/Scenes/WendHill.unity";
+
     [MenuItem("GamesMaster/Build/macOS Review App")]
     public static void BuildMacReview()
     {
@@ -22,9 +28,9 @@ public static class GmStandaloneBuild
 
         var scenes = EnabledScenePaths();
         if (scenes.Count == 0) throw new InvalidOperationException("no enabled scenes are in Build Settings");
-        if (scenes[0] != GmSceneCatalog.WendHillPath)
+        if (scenes[0] != StartupScenePath)
             throw new InvalidOperationException(
-                $"first startup scene is '{scenes[0]}', expected '{GmSceneCatalog.WendHillPath}'");
+                $"first startup scene is '{scenes[0]}', expected '{StartupScenePath}'");
 
         PlayerSettings.companyName = "Damatnic";
         PlayerSettings.productName = "The Games Master";

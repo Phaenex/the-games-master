@@ -25,12 +25,16 @@ public sealed class GmWendAmbienceSource : MonoBehaviour
     public Vector3[] cricketAnchors = System.Array.Empty<Vector3>();
     public Vector3[] owlAnchors = System.Array.Empty<Vector3>();
 
-    public const float WindVolumeMin = 0.07f;
-    public const float WindVolumeMax = 0.12f;
-    const float CricketVolume = 0.032f;
-    const float OwlVolume = 0.15f;
-    const float FootstepVolume = 0.30f;
-    const float FootstepStrideMetres = 1.68f;
+    // The mix itself lives on GmFeelConfig -- these names stay so the edit-time builder and this
+    // component keep reading one number each, and so the recipe below is still readable in place.
+    // Read through a property rather than a field initializer: Unity refuses Resources.Load from a
+    // MonoBehaviour's constructor, and a config lookup in an initializer would throw on scene load.
+    public static float WindVolumeMin => GmFeelConfig.Active.windVolumeMin;
+    public static float WindVolumeMax => GmFeelConfig.Active.windVolumeMax;
+    static float CricketVolume => GmFeelConfig.Active.cricketVolume;
+    static float OwlVolume => GmFeelConfig.Active.owlVolume;
+    static float FootstepVolume => GmFeelConfig.Active.footstepVolume;
+    static float FootstepStrideMetres => GmFeelConfig.Active.footstepStrideMetres;
 
     Transform selfTransform;
     Vector3 lastPosition;
@@ -44,8 +48,8 @@ public sealed class GmWendAmbienceSource : MonoBehaviour
         selfTransform = transform;
         lastPosition = selfTransform.position;
         windSeed = Random.value * 100f;
-        cricketTimer = 14f + Random.value * 24f;
-        owlTimer = 58f + Random.value * 64f;
+        cricketTimer = NextCricketGap();
+        owlTimer = NextOwlGap();
         if (windBed != null && windBed.clip != null && !windBed.isPlaying)
         {
             windBed.timeSamples = Random.Range(0, windBed.clip.samples);
@@ -93,17 +97,27 @@ public sealed class GmWendAmbienceSource : MonoBehaviour
         cricketTimer -= deltaTime;
         if (cricketTimer <= 0f)
         {
-            cricketTimer = 14f + Random.value * 24f;
+            cricketTimer = NextCricketGap();
             PlayAt(cricketSource, cricketAnchors, CricketVolume);
         }
 
         owlTimer -= deltaTime;
         if (owlTimer <= 0f)
         {
-            owlTimer = 58f + Random.value * 64f;
+            owlTimer = NextOwlGap();
             PlayAt(owlSource, owlAnchors, OwlVolume);
         }
     }
+
+    // Minimum plus a random span, not Random.Range(min, max): the first call and every later one have
+    // to draw the gap the same way, and a helper is the only way both sites stay that way.
+    static float NextCricketGap() =>
+        GmFeelConfig.Active.cricketIntervalMinSeconds +
+        Random.value * GmFeelConfig.Active.cricketIntervalSpanSeconds;
+
+    static float NextOwlGap() =>
+        GmFeelConfig.Active.owlIntervalMinSeconds +
+        Random.value * GmFeelConfig.Active.owlIntervalSpanSeconds;
 
     static void PlayAt(AudioSource source, Vector3[] anchors, float volume)
     {

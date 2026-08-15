@@ -9,9 +9,11 @@ using UnityEngine.Rendering.HighDefinition;
 [DisallowMultipleComponent]
 public sealed class GmDisplayCalibration : MonoBehaviour
 {
-    public const int MinimumLevel = -2;
-    public const int MaximumLevel = 2;
-    public const float StopsPerLevel = 0.25f;
+    // The stop range and its step live on GmFeelConfig: display brightness is one of the human-owned
+    // feel gates, and it is the one dial a player is most likely to want moved on their own screen.
+    public static int MinimumLevel => GmFeelConfig.Active.displayMinimumLevel;
+    public static int MaximumLevel => GmFeelConfig.Active.displayMaximumLevel;
+    public static float StopsPerLevel => GmFeelConfig.Active.displayStopsPerLevel;
     public const string PreferenceKey = "gm.display.brightness.v1";
 
     int level;
@@ -58,19 +60,36 @@ public sealed class GmDisplayCalibration : MonoBehaviour
 
     void Apply()
     {
-        if (volume == null) volume = GetComponent<Volume>();
-        if (volume == null) volume = FindAnyObjectByType<Volume>();
+        if (volume != null && !OwnsGrade(volume)) volume = null;
+        if (volume == null) volume = ResolveGradeVolume();
         if (volume == null)
         {
-            Debug.LogError("[GmDisplayCalibration] FAILED: no Volume owns the display grade");
+            colour = null;
+            Debug.LogError("[GmDisplayCalibration] FAILED: no Volume owns a ColorAdjustments override");
             return;
         }
-        VolumeProfile profile = volume.profile;
-        if (profile == null || !profile.TryGet(out colour))
+        if (!volume.profile.TryGet(out colour))
         {
-            Debug.LogError("[GmDisplayCalibration] FAILED: active Volume has no ColorAdjustments override");
+            Debug.LogError("[GmDisplayCalibration] FAILED: graded Volume lost its ColorAdjustments override");
             return;
         }
         colour.postExposure.Override(PostExposureOffset);
     }
+
+    // Scenes raise extra global Volumes at runtime (the symptom grade, for one), so the first Volume
+    // found is not necessarily the one carrying the display grade. Caching one that cannot hold the
+    // grade short-circuits every later Apply() and loses calibration for the rest of the session.
+    Volume ResolveGradeVolume()
+    {
+        Volume owner = GetComponent<Volume>();
+        if (OwnsGrade(owner)) return owner;
+        foreach (Volume candidate in FindObjectsByType<Volume>(FindObjectsSortMode.None))
+            if (OwnsGrade(candidate)) return candidate;
+        return null;
+    }
+
+    // sharedProfile reads the asset-based profile without instantiating a runtime copy (profile
+    // would), so probing a Volume this component does not own leaves it exactly as the scene authored it.
+    static bool OwnsGrade(Volume candidate) =>
+        candidate != null && candidate.sharedProfile != null && candidate.sharedProfile.Has<ColorAdjustments>();
 }

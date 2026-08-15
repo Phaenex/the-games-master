@@ -152,8 +152,11 @@ public sealed class GmPacingScenario
 
 public static class GmPerceptualAuthoring
 {
-    static T AddOrGet<T>(GameObject owner) where T : Component =>
-        owner.GetComponent<T>() ?? owner.AddComponent<T>();
+    static T AddOrGet<T>(GameObject owner) where T : Component
+    {
+        if (owner == null) throw new ArgumentNullException(nameof(owner));
+        return owner.GetComponent<T>() ?? owner.AddComponent<T>();
+    }
 
     public static GmRepetitionIntent Repetition(GameObject owner, string id, string rationale,
         string[] elements, int minimumSignatures, float maximumShare, int maximumRun)

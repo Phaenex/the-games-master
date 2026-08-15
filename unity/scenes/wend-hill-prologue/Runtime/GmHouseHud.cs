@@ -164,7 +164,7 @@ public sealed class GmHouseHud : MonoBehaviour
         {
             int cardIndex = i;
             GmParlorCard card = house.PlayerHand[i];
-            bool legal = choosing && GmParlorRules.IsLegal(house.PlayerHand, i, house.LeadCard);
+            bool legal = choosing && GmWendParlorRules.IsLegal(house.PlayerHand, i, house.LeadCard);
             var button = new Button(() => house.SelectCard(cardIndex))
             {
                 name = $"Card_{i + 1}_{card.Suit}_{card.Rank}",

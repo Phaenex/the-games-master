@@ -100,6 +100,28 @@ public sealed class GmPerceptualAuditTests
     }
 
     [Test]
+    public void StoryAcceptsThreeNamedTracesStagedAcrossTwoReveals()
+    {
+        MarkCube("well", new Vector3(0f, 0.5f, 8f), Vector3.one);
+        MarkCube("basket", new Vector3(-1.4f, 0.3f, 6.5f), new Vector3(0.6f, 0.6f, 0.6f));
+        MarkCube("hand-tool", new Vector3(1.2f, 0.25f, 7.2f), new Vector3(0.5f, 0.5f, 0.5f));
+        MarkCube("boot-scrape", new Vector3(0.4f, 0.2f, 5.5f), new Vector3(0.4f, 0.4f, 0.4f));
+        var owner = new GameObject("StoryIntent");
+        GmPerceptualAuthoring.Story(owner, "garden-interruption", "garden",
+            "Productive kitchen-garden work stopped abruptly and was never resumed.", "well",
+            new[] { "basket", "hand-tool", "boot-scrape" },
+            new[] {
+                new GmStoryRevealStep("entry", "well"),
+                new GmStoryRevealStep("detail", "basket", "hand-tool"),
+            });
+
+        GmSceneAuditReport report = Analyze();
+        Assert.That(report.findings.Where(item => item.category == "story" &&
+            item.severity == GmAuditSeverity.Error), Is.Empty,
+            string.Join("\n", report.findings.Select(item => item.message)));
+    }
+
+    [Test]
     public void StyleRejectsUnexplainedEraConflict()
     {
         MarkCube("car", new Vector3(0f, 0.75f, 7f), new Vector3(2f, 1.5f, 4f));
@@ -111,6 +133,33 @@ public sealed class GmPerceptualAuditTests
         GmSceneAuditReport report = Analyze();
         Assert.That(report.findings.Any(item => item.category == "style" &&
             item.message.Contains("without an exception")), Is.True);
+    }
+
+    [Test]
+    public void StyleAcceptsAnEraContrastThatDocumentsItsExceptionAndKeepsItsShotBudget()
+    {
+        GmCompositionElement car = MarkCube("car", new Vector3(0f, 0.6f, 14f), new Vector3(2f, 1.2f, 4f));
+        var material = new Material(Shader.Find("HDRP/Lit") ?? Shader.Find("Standard"));
+        if (material.HasProperty("_Smoothness")) material.SetFloat("_Smoothness", 0.15f);
+        else if (material.HasProperty("_Glossiness")) material.SetFloat("_Glossiness", 0.15f);
+        car.GetComponent<Renderer>().sharedMaterial = material;
+        var owner = new GameObject("StyleIntent");
+        GmPerceptualAuthoring.Style(owner, "arrival-car-style", "car",
+            GmEra.Contemporary, GmEra.Victorian, true,
+            "A deliberate era contrast fixture that records its exception in one authored sentence.",
+            0.4f, new[] { new GmStyleShotBudget("entry", 0.25f) });
+
+        try
+        {
+            GmSceneAuditReport report = Analyze();
+            Assert.That(report.findings.Where(item => item.category == "style" &&
+                item.severity == GmAuditSeverity.Error), Is.Empty,
+                string.Join("\n", report.findings.Select(item => item.message)));
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(material);
+        }
     }
 
     [Test]
@@ -148,6 +197,26 @@ public sealed class GmPerceptualAuditTests
         GmSceneAuditReport report = Analyze();
         Assert.That(report.findings.Any(item => item.category == "landscape" &&
             item.severity == GmAuditSeverity.Error), Is.True);
+    }
+
+    [Test]
+    public void LandscapeAcceptsThreeOrderedBandsAndABrokenFarHorizon()
+    {
+        MarkCube("near", new Vector3(-1.5f, 0.75f, 5f), new Vector3(1.5f, 1.5f, 1.5f));
+        MarkCube("middle", new Vector3(0f, 1.5f, 18f), new Vector3(3f, 3f, 3f));
+        // Two far masses with a gap between them: a horizon that is neither empty nor a solid wall.
+        MarkCube("far-left", new Vector3(-13f, 4f, 40f), new Vector3(20f, 8f, 1f));
+        MarkCube("far-right", new Vector3(13f, 4f, 40f), new Vector3(20f, 8f, 1f));
+        var owner = new GameObject("LandscapeIntent");
+        GmPerceptualAuthoring.Landscape(owner, "acreage-depth",
+            "The property must continue through three irregular distance bands.",
+            new[] { new GmLandscapeShotRequirement("entry", new[] { "near" },
+                new[] { "middle" }, new[] { "far-left", "far-right" }, 0.30f, 0.75f) });
+
+        GmSceneAuditReport report = Analyze();
+        Assert.That(report.findings.Where(item => item.category == "landscape" &&
+            item.severity == GmAuditSeverity.Error), Is.Empty,
+            string.Join("\n", report.findings.Select(item => item.message)));
     }
 
     [Test]

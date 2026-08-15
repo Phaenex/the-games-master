@@ -45,7 +45,7 @@ public sealed class GmWendStoryTour : GmSceneReviewTour
         AddRoute("03-lookback", 28f, "arrival-car", 2f, 1.2f);
         AddRoute("04-route", 180f, "chapel", -2f, 2.5f);
         AddRoute("05-chapel", 208f, "chapel", -4f, 3f);
-        AddRoute("06-grounds", 270f, "garden-shed", -2f, 2f);
+        AddRoute("06-grounds", 270f, "garden-basin", -2f, 1.8f);
         AddRoute("07-manor", 390f, "manor-porch", -8f, 7f);
         AddRoute("08-porch", 426f, "manor-porch", -3f, 2f);
     }

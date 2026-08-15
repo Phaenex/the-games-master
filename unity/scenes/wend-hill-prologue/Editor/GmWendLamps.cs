@@ -31,20 +31,21 @@ public static class GmWendLamps
     public const string RootName = "GmWendLamps";
 
     /// How far a lamp is treated as carrying. Beyond this the route is unlit, which the walk measures
-    /// as a frame around 0.012 against a lit frame's 0.1 to 0.2.
-    public const float LampReach = 30f;
+    /// as a frame around 0.012 against a lit frame's 0.1 to 0.2. Authored on GmFeelConfig: brightness
+    /// is a feel gate, and the measurement above is only worth anything if Nick can move the dial.
+    public static float LampReach => GmFeelConfig.Active.gapLampReachMetres;
 
     /// Lumens per added lamp. The pack's own practicals land near 93 lumens after the night scale, and
     /// its brightest are clamped to 200. Sitting at the top of the pack's own range keeps these
     /// consistent with the lamps already in the street rather than introducing a brighter species.
-    public const float Lumens = 200f;
+    public static float Lumens => GmFeelConfig.Active.gapLampLumens;
 
     /// 2000K, matching the paraffin colour temperature the practicals were retinted to. A different
     /// temperature in the gaps would read as a different kind of light source.
-    public const float Kelvin = 2000f;
+    public static float Kelvin => GmFeelConfig.Active.gapLampKelvin;
 
     /// Lamp height above the ground, roughly a lamp bracket on a wall or a post.
-    public const float Height = 3.2f;
+    public static float Height => GmFeelConfig.Active.gapLampHeightMetres;
 
     /// How finely the route is sampled before checking for gaps, in metres. Matches
     /// `GmWendWalkProbe.CaptureEveryMeters`, which is not a coincidence: checking gaps at any coarser

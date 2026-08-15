@@ -1,7 +1,6 @@
 // Explicit lighting, audio and guarded-variation intent for generated scenes. These components
 // describe authored decisions; they do not move objects, select assets, or alter saved scenes.
 using System;
-using System.Collections.Generic;
 using UnityEngine;
 
 public enum GmLightIntentKind

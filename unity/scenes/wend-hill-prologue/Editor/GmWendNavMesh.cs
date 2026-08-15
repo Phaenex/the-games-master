@@ -32,13 +32,22 @@ public static class GmWendNavMesh
     /// mesh, narrow enough that the bake stays cheap.
     public const float CorridorMargin = 45f;
 
-    /// Vertical padding above and below the route, for the hill the street runs over.
+    /// TOTAL vertical size added for the hill the street runs over, not the padding per side:
+    /// Bounds.Expand grows the box by the amount given ACROSS both sides, so this is 60m above the
+    /// highest waypoint and 60m below the lowest. CorridorMargin below is written as `* 2f` at the
+    /// call for the opposite reason -- it is stated per side, so it has to be doubled to survive the
+    /// same halving.
     public const float CorridorHeight = 120f;
 
     /// These must match the player's CharacterController in GmWendBuilder. A NavMesh baked for a
     /// narrower agent than the body that walks it produces paths through gaps the controller cannot
     /// fit, which is a harder failure to read than a stall: the player jams while standing on a route
     /// that claims to be clear.
+    ///
+    /// "Must match" is now enforced by both ends reading these four fields: GmWendBuilder configures
+    /// the capsule from them and Apply() hands them to the NavMesh builder. Until that was wired, the
+    /// capsule's radius and height agreed with these by coincidence of literals, its slope and step
+    /// silently kept Unity's defaults, and the bake used the project's agent type in place of all four.
     public const float AgentRadius = 0.35f;
     public const float AgentHeight = 1.8f;
     public const float AgentSlope = 50f;
@@ -80,6 +89,8 @@ public static class GmWendNavMesh
         // The purchased road is a set of disconnected display meshes. The canonical opening owns a
         // continuous collision ribbon on a dedicated layer; bake that exact walk contract instead of
         // allowing nearby terrain islands to win SamplePosition and silently create partial paths.
+        // WalkDeckSources() below is what actually feeds the builder; the component keeps the matching
+        // volume and layer mask so a rebake from the inspector collects the same geometry.
         surface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
         surface.collectObjects = CollectObjects.Volume;
         surface.layerMask = 1 << GmWendOpening.WalkDeckLayer;
@@ -91,7 +102,35 @@ public static class GmWendNavMesh
         surface.voxelSize = AgentRadius / 3f;   // the usual 3 voxels per radius
         surface.overrideTileSize = false;
 
-        surface.BuildNavMesh();
+        // The agent the scene actually walks, rather than the project's.
+        //
+        // surface.BuildNavMesh() takes its four agent dimensions from the PROJECT's agent type -- type
+        // 0 is a 0.5m radius, 2m tall agent that climbs 0.75m at 45 degrees -- so every constant above
+        // was discarded at the one moment it mattered, while the log line below still printed
+        // AgentRadius as though the bake had used it. Handing explicit settings to the builder is the
+        // only way the public API lets those numbers reach the voxeliser. agentTypeID stays 0, so the
+        // baked data is still the type a default NavMeshAgent queries.
+        NavMeshBuildSettings settings = surface.GetBuildSettings();
+        settings.agentRadius = AgentRadius;
+        settings.agentHeight = AgentHeight;
+        settings.agentSlope = AgentSlope;
+        settings.agentClimb = AgentStep;
+
+        List<NavMeshBuildSource> sources = WalkDeckSources();
+        if (sources.Count == 0)
+            throw new System.InvalidOperationException(
+                $"nothing to bake: no walk-deck mesh collider on layer {GmWendOpening.WalkDeckLayer}. " +
+                "The canonical opening builds that ribbon, so this means the opening did not run or " +
+                "its deck lost its mesh, and a corridor baked from the pack's own road meshes would " +
+                "path through the gaps between them.");
+
+        NavMeshData data = NavMeshBuilder.BuildNavMeshData(settings, sources,
+            new Bounds(surface.center, surface.size), root.transform.position, root.transform.rotation);
+        if (data == null)
+            throw new System.InvalidOperationException("the NavMesh builder returned no data for the corridor");
+        data.name = RootName;
+        surface.navMeshData = data;
+        surface.AddData();
 
         NavMeshTriangulation tri = NavMesh.CalculateTriangulation();
         float area = TriangulatedArea(tri);
@@ -102,9 +141,37 @@ public static class GmWendNavMesh
                 "and a surface that exists but covers nothing looks like success in every log line.");
 
         Debug.Log($"[{LogTag}] baked {area:0}m^2 over a " +
-                  $"{corridor.size.x:0}x{corridor.size.z:0}m corridor from {route.Count} waypoint(s), " +
-                  $"{tri.indices.Length / 3} triangle(s), agent radius {AgentRadius}");
+                  $"{corridor.size.x:0}x{corridor.size.z:0}m corridor from {route.Count} waypoint(s) " +
+                  $"and {sources.Count} walk-deck source(s), {tri.indices.Length / 3} triangle(s), " +
+                  $"agent radius {settings.agentRadius} height {settings.agentHeight} " +
+                  $"slope {settings.agentSlope} climb {settings.agentClimb}");
         return area;
+    }
+
+    /// The geometry the bake is allowed to see: the canonical opening's own continuous walk deck, and
+    /// nothing else. Collected by hand rather than by a volume sweep so the sources are the same in
+    /// edit mode and play mode, and so a bake that found no deck says so instead of quietly falling
+    /// back to whatever else the corridor happens to contain.
+    static List<NavMeshBuildSource> WalkDeckSources()
+    {
+        var sources = new List<NavMeshBuildSource>();
+        foreach (MeshCollider collider in Object.FindObjectsByType<MeshCollider>(
+                     FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            // enabled and non-null, because those are the two conditions under which the deck is
+            // something the CharacterController can actually stand on. Collecting a disabled deck
+            // would bake a mesh the player falls straight through.
+            if (collider.gameObject.layer != GmWendOpening.WalkDeckLayer ||
+                collider.sharedMesh == null || !collider.enabled) continue;
+            sources.Add(new NavMeshBuildSource
+            {
+                shape = NavMeshBuildSourceShape.Mesh,
+                sourceObject = collider.sharedMesh,
+                transform = collider.transform.localToWorldMatrix,
+                area = 0,
+            });
+        }
+        return sources;
     }
 
     /// Total area of the triangulation, in square metres.

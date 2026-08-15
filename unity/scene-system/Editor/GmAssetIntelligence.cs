@@ -87,7 +87,13 @@ public static class GmAssetIntelligence
 {
     public const string OutputDirectory = "Library/GmSceneIntelligence";
     public const string IndexPath = OutputDirectory + "/asset-index.json";
-    static readonly string[] Roles = { "Anchor", "Support", "Detail", "Boundary", "Ground", "RouteCue", "Audio" };
+    // Each contact-sheet role paired with the tag InferTags actually writes. The pairing is explicit
+    // because 'RouteCue' does not survive a plain lowercase: its tag is 'route-cue', so that sheet
+    // selected nothing and wrote an empty manifest on every reindex.
+    static readonly (string Role, string Tag)[] Roles = {
+        ("Anchor", "anchor"), ("Support", "support"), ("Detail", "detail"), ("Boundary", "boundary"),
+        ("Ground", "ground"), ("RouteCue", "route-cue"), ("Audio", "audio"),
+    };
 
     [MenuItem("Games Master/Scene Intelligence/Reindex Imported Assets")]
     public static void ReindexMenu() => Reindex(true);
@@ -339,9 +345,8 @@ public static class GmAssetIntelligence
     {
         string directory = Path.Combine(OutputDirectory, "contact-sheets");
         Directory.CreateDirectory(directory);
-        foreach (string role in Roles)
+        foreach ((string role, string tag) in Roles)
         {
-            string tag = role.ToLowerInvariant();
             GmAssetProfile[] selected = index.assets.Where(asset => asset.tags.Contains(tag))
                 .OrderBy(asset => asset.path, StringComparer.Ordinal).Take(12).ToArray();
             WriteAtomic(Path.Combine(directory, $"{role}.json"), JsonUtility.ToJson(new ContactSheetManifest {

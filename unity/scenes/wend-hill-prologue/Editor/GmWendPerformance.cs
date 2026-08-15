@@ -6,7 +6,7 @@ using UnityEngine.Rendering.HighDefinition;
 
 public static class GmWendPerformance
 {
-    public const float RenderCorridorMetres = 45f;
+    public const float RenderCorridorMetres = 140f;
 
     public static int Apply(GmRouteSpline route)
     {
@@ -45,11 +45,15 @@ public static class GmWendPerformance
             // grass with the authored car and gate hidden behind it. Clear only vegetation renderers
             // whose bounds intersect the walk lane; buildings, walls and evidence props remain.
             string hierarchy = HierarchyName(renderer.transform).ToLowerInvariant();
-            bool vegetation = new[] { "tree", "grass", "bush", "shrub", "plant", "fern", "weed",
+            bool isModularRuinOrDebris = new[] { "shack", "frame", "roof", "fence", "wall", "plank", "sm_wall",
+                "sm_house", "sm_roof", "sm_wood_frame", "sm_wood_fence", "sm_wood_plank", "sm_wood_0" }
+                .Any(token => hierarchy.Contains(token));
+            bool isVegetation = new[] { "tree", "grass", "bush", "shrub", "plant", "fern", "weed",
                 "reed", "flower", "ivy", "branch", "trunk", "foliage", "sapling" }
                 .Any(token => hierarchy.Contains(token));
-            float clearance = nearestSample >= 0 && nearestSample * 15f <= 30f ? 5.5f : 3.2f;
-            if (vegetation && Mathf.Max(bounds.size.x, bounds.size.z) <= 30f &&
+
+            float clearance = isModularRuinOrDebris ? 18.0f : (nearestSample >= 0 && nearestSample * 15f <= 30f ? 5.5f : 3.5f);
+            if ((isModularRuinOrDebris || isVegetation) && Mathf.Max(bounds.size.x, bounds.size.z) <= 30f &&
                 nearest <= clearance + Mathf.Max(bounds.extents.x, bounds.extents.z))
             {
                 renderer.enabled = false;
@@ -72,7 +76,7 @@ public static class GmWendPerformance
         Camera playerCamera = GameObject.Find(GmWendBuilder.PlayerName)?.GetComponentInChildren<Camera>();
         if (playerCamera != null)
         {
-            playerCamera.farClipPlane = 90f;
+            playerCamera.farClipPlane = 220f;
             playerCamera.allowDynamicResolution = true;
             EditorUtility.SetDirty(playerCamera);
             HDAdditionalCameraData hd = playerCamera.GetComponent<HDAdditionalCameraData>();
@@ -137,14 +141,17 @@ public static class GmWendPerformance
     static (int colliders, int renderers) CarveFalseRouteObstacles(GmRouteSpline route)
     {
         string[] tokens = { "wall", "fence", "door", "wood", "barrel", "crate", "cart", "wagon",
-            "bench", "table", "chair", "rock", "debris", "prop" };
+            "bench", "table", "chair", "rock", "debris", "prop", "roof", "frame", "house", "building",
+            "cabin", "barn", "shack", "plank", "beam", "ceiling", "post", "sm_" };
         var blockers = new List<Collider>();
         var hidden = new HashSet<Renderer>();
-        foreach (Collider collider in Object.FindObjectsByType<Collider>(FindObjectsInactive.Include))
+        foreach (Collider collider in Object.FindObjectsByType<Collider>(FindObjectsInactive.Include, FindObjectsSortMode.None))
         {
             if (!collider.enabled || collider.isTrigger || collider is TerrainCollider ||
                 collider.transform.root.name == GmWendOpening.RootName ||
-                collider.transform.root.name == GmWendBounds.RootName)
+                collider.transform.root.name == GmWendBounds.RootName ||
+                collider.transform.root.name == "WakeRoom" ||
+                collider.transform.root.name == GmHouseBeginningBuilder.RootName)
                 continue;
             string hierarchy = HierarchyName(collider.transform).ToLowerInvariant();
             if (!tokens.Any(hierarchy.Contains)) continue;
@@ -154,7 +161,9 @@ public static class GmWendPerformance
             foreach (Renderer renderer in collider.GetComponentsInChildren<Renderer>(true)
                          .Concat(collider.GetComponentsInParent<Renderer>(true)))
             {
-                if (IntersectsRouteCapsule(renderer.bounds, route)) hidden.Add(renderer);
+                if (renderer.transform.root.name != GmWendOpening.RootName &&
+                    renderer.transform.root.name != GmWendBounds.RootName)
+                    hidden.Add(renderer);
             }
         }
         foreach (Renderer renderer in hidden)
@@ -164,20 +173,18 @@ public static class GmWendPerformance
         }
         foreach (Collider collider in blockers)
         {
-            GmWendColliderProxy proxy = collider.GetComponent<GmWendColliderProxy>();
-            if (proxy != null) Object.DestroyImmediate(proxy);
-            Object.DestroyImmediate(collider);
+            if (collider != null)
+            {
+                GmWendColliderProxy proxy = collider.GetComponent<GmWendColliderProxy>();
+                if (proxy != null) Object.DestroyImmediate(proxy);
+                Object.DestroyImmediate(collider);
+            }
         }
         return (blockers.Count, hidden.Count);
     }
 
     public static bool IntersectsRouteCapsule(Bounds bounds, GmRouteSpline route)
     {
-        // Projecting only the collider centre onto a winding route can select the wrong branch,
-        // and sampling only at chest height misses low wall/curb colliders that still stop the
-        // CharacterController. Sweep the controller's entire vertical span along the ordered
-        // route instead. One-metre samples plus the 0.9m horizontal padding cannot step over a
-        // thin modular wall and include a small amount of normal controller clearance.
         Bounds padded = bounds;
         padded.Expand(new Vector3(1.8f, 0.4f, 1.8f));
         for (float metres = 0f; metres <= route.Length; metres += 1f)

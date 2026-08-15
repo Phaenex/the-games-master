@@ -27,6 +27,8 @@ public static class GmAudioAnalysis
 {
     const int WindowSize = 512;
     const int WindowCount = 20;
+    const int AnalysisSeconds = 120;
+    const int LoopWindow = 2048;
 
     public static GmAudioClipMetrics Measure(AudioClip clip)
     {
@@ -34,19 +36,26 @@ public static class GmAudioAnalysis
         if (clip == null || clip.samples <= 0 || clip.channels <= 0 || clip.frequency <= 0)
             return metrics;
 
-        int frames = Mathf.Min(clip.samples, clip.frequency * 120);
+        int frames = Mathf.Min(clip.samples, clip.frequency * AnalysisSeconds);
         float[] interleaved = new float[frames * clip.channels];
         if (!clip.LoadAudioData() || !clip.GetData(interleaved, 0)) return metrics;
-        var mono = new float[frames];
+        float[] mono = Downmix(interleaved, frames, clip.channels);
+        // Level and spectrum are measured from the head of a long clip, but the loop seam is a
+        // property of the real first and last samples. Read the true tail separately: treating the
+        // point the analysis window stopped at as the clip end reported a fabricated boundary,
+        // discontinuity and similarity for anything longer than the window, with nothing saying so.
+        float[] tail = mono;
+        if (frames < clip.samples)
+        {
+            int tailFrames = Mathf.Min(clip.samples, LoopWindow * 2);
+            var tailInterleaved = new float[tailFrames * clip.channels];
+            if (!clip.GetData(tailInterleaved, clip.samples - tailFrames)) return metrics;
+            tail = Downmix(tailInterleaved, tailFrames, clip.channels);
+        }
         double sumSquares = 0d;
         float peak = 0f;
-        for (int frame = 0; frame < frames; frame++)
+        foreach (float sample in mono)
         {
-            float sample = 0f;
-            for (int channel = 0; channel < clip.channels; channel++)
-                sample += interleaved[frame * clip.channels + channel];
-            sample /= clip.channels;
-            mono[frame] = sample;
             sumSquares += sample * sample;
             peak = Mathf.Max(peak, Mathf.Abs(sample));
         }
@@ -80,7 +89,7 @@ public static class GmAudioAnalysis
         metrics.stationarity = 1f / (1f + coefficient);
 
         MeasureSpectrum(mono, clip.frequency, metrics);
-        MeasureLoop(mono, metrics);
+        MeasureLoop(mono, tail, metrics);
         // Two different failures read as "spaceship" in a quiet exterior: an obvious narrow
         // drone, or a merely tonal bed whose envelope never breathes and whose seam keeps
         // announcing the loop. The second case is what the original Wend Hill wind slipped
@@ -92,6 +101,19 @@ public static class GmAudioAnalysis
             metrics.loopDiscontinuity > 0.12f;
         metrics.spaceshipRisk = narrowDrone || mechanicalBed;
         return metrics;
+    }
+
+    static float[] Downmix(float[] interleaved, int frames, int channels)
+    {
+        var mono = new float[frames];
+        for (int frame = 0; frame < frames; frame++)
+        {
+            float sample = 0f;
+            for (int channel = 0; channel < channels; channel++)
+                sample += interleaved[frame * channels + channel];
+            mono[frame] = sample / channels;
+        }
+        return mono;
     }
 
     static void MeasureSpectrum(float[] mono, int sampleRate, GmAudioClipMetrics metrics)
@@ -165,32 +187,35 @@ public static class GmAudioAnalysis
         metrics.persistentToneDb = Mathf.Max(0f, (float)(10d * Math.Log10(Math.Max(1d, ratio))) * persistence);
     }
 
-    static void MeasureLoop(float[] mono, GmAudioClipMetrics metrics)
+    // 'head' is the analysed window from the start of the clip; 'tail' ends on the clip's real last
+    // sample. They are the same array whenever the clip fits inside the analysis window.
+    static void MeasureLoop(float[] head, float[] tail, GmAudioClipMetrics metrics)
     {
-        if (mono.Length >= 3)
+        if (head.Length >= 3 && tail.Length >= 1)
         {
-            metrics.boundaryJump = Mathf.Abs(mono[0] - mono[mono.Length - 1]);
-            float firstSlope = mono[1] - mono[0];
-            float wrapSlope = mono[0] - mono[mono.Length - 1];
+            float lastSample = tail[tail.Length - 1];
+            metrics.boundaryJump = Mathf.Abs(head[0] - lastSample);
+            float firstSlope = head[1] - head[0];
+            float wrapSlope = head[0] - lastSample;
             metrics.boundarySlopeJump = Mathf.Abs(firstSlope - wrapSlope);
             double stepSquares = 0d;
-            for (int i = 1; i < mono.Length; i++)
+            for (int i = 1; i < head.Length; i++)
             {
-                float step = mono[i] - mono[i - 1];
+                float step = head[i] - head[i - 1];
                 stepSquares += step * step;
             }
-            metrics.sampleStepRms = (float)Math.Sqrt(stepSquares / (mono.Length - 1));
+            metrics.sampleStepRms = (float)Math.Sqrt(stepSquares / (head.Length - 1));
             metrics.boundaryJumpRatio = metrics.boundaryJump /
                 Mathf.Max(0.000001f, metrics.sampleStepRms);
         }
-        int count = Mathf.Min(2048, mono.Length / 2);
+        int count = Mathf.Min(LoopWindow, Mathf.Min(head.Length, tail.Length) / 2);
         if (count <= 0) return;
         double difference = 0d, firstEnergy = 0d, lastEnergy = 0d, dot = 0d;
-        int lastStart = mono.Length - count;
+        int lastStart = tail.Length - count;
         for (int i = 0; i < count; i++)
         {
-            float first = mono[i];
-            float last = mono[lastStart + i];
+            float first = head[i];
+            float last = tail[lastStart + i];
             float delta = first - last;
             difference += delta * delta;
             firstEnergy += first * first;

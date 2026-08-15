@@ -553,7 +553,7 @@ public static class GmVillageBuilder
             hd.angularDiameter = 2.2f;
             hd.softnessScale = 1f;
         }
-        light.lightUnit = LightUnit.Lux;
+        hd.lightUnit = LightUnit.Lux;
         light.intensity = lux;
     }
 
@@ -634,7 +634,7 @@ public static class GmVillageBuilder
 
         var hd = go.AddComponent<HDAdditionalLightData>();
         hd.affectsVolumetric = volumetric;
-        light.lightUnit = LightUnit.Lumen;
+        hd.lightUnit = LightUnit.Lumen;
         light.intensity = lumens;
 
         // Flame, not a bulb. A perfectly steady window in an abandoned village reads as a light

@@ -11,7 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const REPO_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const UNITY_ROOT = process.env.GM_UNITY_PROJECT || path.join(homedir(), 'GamesMaster-Unity');
+const UNITY_ROOT = process.env.GM_UNITY_PROJECT || path.join(REPO_ROOT, 'unity-project');
 const REQUIRED = path.join(REPO_ROOT, 'unity', 'required-packages.json');
 const MANIFEST = path.join(UNITY_ROOT, 'Packages', 'manifest.json');
 
@@ -19,7 +19,11 @@ export function checkUnityPackages({ required = REQUIRED, manifest = MANIFEST } 
   if (!existsSync(required)) throw new Error(`missing requirements file: ${required}`);
   if (!existsSync(manifest)) throw new Error(`missing Unity manifest: ${manifest}`);
 
-  const wanted = JSON.parse(readFileSync(required, 'utf8')).packages ?? {};
+  // `?? {}` on this side would make a renamed or emptied `packages` key check nothing at all and still
+  // report success — the same silent loss this script exists to catch, one file earlier.
+  const wanted = JSON.parse(readFileSync(required, 'utf8')).packages;
+  if (!wanted || typeof wanted !== 'object' || Array.isArray(wanted)) throw new Error(`${required} has no "packages" object; nothing to check against`);
+  if (!Object.keys(wanted).length) throw new Error(`${required} lists zero packages; a requirements file that requires nothing cannot detect package loss`);
   const have = JSON.parse(readFileSync(manifest, 'utf8')).dependencies ?? {};
 
   const problems = [];

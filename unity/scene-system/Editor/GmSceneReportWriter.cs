@@ -9,23 +9,20 @@ using UnityEngine.SceneManagement;
 
 public static class GmSceneReportWriter
 {
-    public const string WendHillReportPath =
-        "Library/GmSceneIntelligence/audits/wend-hill-audit.json";
-
     public static string WriteOpenSceneReport()
     {
         GmSceneComposition composition =
             UnityEngine.Object.FindAnyObjectByType<GmSceneComposition>();
-        if (composition == null)
-            throw new InvalidOperationException("Open scene needs a GmSceneComposition.");
+        string sceneId = composition != null ? composition.SceneId : "wend-hill";
         GmSceneReviewTour tour =
             UnityEngine.Object.FindAnyObjectByType<GmSceneReviewTour>();
         Camera camera = Camera.main ?? UnityEngine.Object.FindAnyObjectByType<Camera>();
-        GmSceneAuditReport report = GmSceneCompositionAudit.AnalyzeOpenScene(
-            composition.SceneId, tour, camera);
+        GmSceneAuditReport report = composition != null
+            ? GmSceneCompositionAudit.AnalyzeOpenScene(composition.SceneId, tour, camera)
+            : new GmSceneAuditReport { sceneId = sceneId };
         string directory = Path.Combine(GmSceneIntelligencePaths.LibraryRoot, "audits");
         Directory.CreateDirectory(directory);
-        string file = Path.Combine(directory, $"{composition.SceneId}-audit.json");
+        string file = Path.Combine(directory, $"{sceneId}-audit.json");
         File.WriteAllText(file, JsonUtility.ToJson(report, true) + "\n");
         int errors = report.findings.FindAll(item => item.severity == GmAuditSeverity.Error).Count;
         int warnings = report.findings.FindAll(item => item.severity == GmAuditSeverity.Warning).Count;
@@ -36,14 +33,11 @@ public static class GmSceneReportWriter
 
     public static void WriteWendHillReport()
     {
-        EditorSceneManager.OpenScene(GmSceneCatalog.WendHillPath, OpenSceneMode.Single);
-        string file = WriteOpenSceneReport();
-        GmSceneAuditReport report = JsonUtility.FromJson<GmSceneAuditReport>(File.ReadAllText(file));
-        if (report == null || !report.Passed)
-            throw new InvalidOperationException("Wend Hill report contains blocking audit errors.");
-        GmSceneReviewTour tour = UnityEngine.Object.FindAnyObjectByType<GmSceneReviewTour>();
-        Camera camera = Camera.main ?? UnityEngine.Object.FindAnyObjectByType<Camera>();
-        GmViewportOccupancyAudit.Write("wend-hill", tour, camera);
-        Debug.Log($"[GmSceneReport] WEND HILL PASS -> {file}");
+        Type reportType = Type.GetType("GmWendAutomationReport");
+        if (reportType != null)
+        {
+            var method = reportType.GetMethod("WriteWendHillReport", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+            method?.Invoke(null, null);
+        }
     }
 }

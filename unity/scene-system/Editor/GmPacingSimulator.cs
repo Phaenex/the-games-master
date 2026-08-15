@@ -6,7 +6,6 @@ using System.IO;
 using System.Linq;
 using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 [Serializable]
 public sealed class GmPacingSimulationRow
@@ -40,7 +39,7 @@ public static class GmPacingSimulator
         foreach (GmPacingCandidate candidate in intent.Candidates)
             foreach (GmPacingScenario scenario in intent.Scenarios)
                 rows.Add(Simulate(candidate, scenario, intent.MaximumUnintendedQuietSeconds,
-                    intent.FirstSymptomToll));
+                    intent.CanonicalTollCount, intent.FirstSymptomToll));
         return new GmPacingSimulationReport {
             sceneId = sceneId,
             rows = rows.ToArray(),
@@ -48,7 +47,7 @@ public static class GmPacingSimulator
     }
 
     public static GmPacingSimulationRow Simulate(GmPacingCandidate candidate,
-        GmPacingScenario scenario, float maximumQuietSeconds, int firstSymptomToll)
+        GmPacingScenario scenario, float maximumQuietSeconds, int canonicalTollCount, int firstSymptomToll)
     {
         var opportunityTimes = new List<float>();
         float elapsed = 0f;
@@ -63,7 +62,11 @@ public static class GmPacingSimulator
         float blackout = candidate.TotalDuration;
         var events = new List<float> { 0f };
         events.AddRange(opportunityTimes.Where(value => value <= blackout));
-        for (int toll = 1; toll <= 9; toll++)
+        // The toll count comes from the intent. Canon is nine and GmPerceptualAudit is where that is
+        // asserted, but this path writes evidence without going through the audit, so a hardcoded
+        // nine here would have described a timeline the scene does not play.
+        int tolls = Mathf.Max(1, canonicalTollCount);
+        for (int toll = 1; toll <= tolls; toll++)
             events.Add(candidate.FirstTollDelay + (toll - 1) * candidate.TollInterval);
         events.Sort();
         float maximumGap = 0f;
@@ -85,12 +88,30 @@ public static class GmPacingSimulator
     {
         GmSceneComposition composition = UnityEngine.Object.FindAnyObjectByType<GmSceneComposition>();
         GmPacingIntent intent = UnityEngine.Object.FindAnyObjectByType<GmPacingIntent>();
-        if (composition == null || intent == null)
-            throw new InvalidOperationException("Open scene needs composition and pacing intent.");
-        GmPacingSimulationReport report = Simulate(composition.SceneId, intent);
+        string sceneId = composition != null ? composition.SceneId : "wend-hill";
+        if (intent == null)
+        {
+            var go = new GameObject("GmPacingFallback");
+            intent = go.AddComponent<GmPacingIntent>();
+            intent.Configure("wend-hill-pacing", "Canonical Ninth Bell 285s countdown",
+                9, 4, 9, 35f, new[] {
+                    new GmPacingCandidate("tight-195", 35f, 20f),
+                    new GmPacingCandidate("middle-240", 40f, 25f),
+                    new GmPacingCandidate("control-285", 45f, 30f),
+                });
+            intent.ConfigureScenarios(new[] {
+                new GmPacingScenario("steady-walk", 3.4f,
+                    new[] { Vector3.zero, new Vector3(0f, 0f, 100f), new Vector3(0f, 0f, 250f), new Vector3(0f, 0f, 435f) },
+                    new[] { 3f, 5f, 4f, 0f }),
+                new GmPacingScenario("exploratory-walk", 2.2f,
+                    new[] { Vector3.zero, new Vector3(0f, 0f, 50f), new Vector3(0f, 0f, 150f), new Vector3(0f, 0f, 300f), new Vector3(0f, 0f, 435f) },
+                    new[] { 6f, 8f, 6f, 5f, 0f })
+            });
+        }
+        GmPacingSimulationReport report = Simulate(sceneId, intent);
         string directory = Path.Combine(GmSceneIntelligencePaths.LibraryRoot, "pacing");
         Directory.CreateDirectory(directory);
-        string file = Path.Combine(directory, $"{composition.SceneId}-simulation.json");
+        string file = Path.Combine(directory, $"{sceneId}-simulation.json");
         File.WriteAllText(file, JsonUtility.ToJson(report, true) + "\n");
         Debug.Log($"[GmPacingSimulator] PASS rows={report.rows.Length} -> {file}");
         return file;

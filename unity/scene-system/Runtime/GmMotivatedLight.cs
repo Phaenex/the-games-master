@@ -17,7 +17,7 @@ public sealed class GmMotivatedLight : MonoBehaviour
     public void Configure(string id, string sourceId, string why, float maxSourceDistance = 1.5f)
     {
         lightId = id;
-        sourceElementId = sourceId;
+        sourceElementId = sourceId ?? "";
         purpose = why;
         maximumSourceDistance = Mathf.Max(0.05f, maxSourceDistance);
     }

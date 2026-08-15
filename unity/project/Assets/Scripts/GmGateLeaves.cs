@@ -24,22 +24,27 @@ public sealed class GmGateLeaves : MonoBehaviour
     [SerializeField] float openYaw = 96f;
     [SerializeField] float closeSeconds = 0.55f;
 
+    [SerializeField] Collider barrierCollider;
+
     bool closing;
     float t;
 
     public bool IsClosed { get; private set; }
 
-    public void Configure(Transform left, Transform right, float open, float seconds)
+    public void Configure(Transform left, Transform right, float open, float seconds, Collider barrier = null)
     {
         leftPivot = left;
         rightPivot = right;
         openYaw = open;
         closeSeconds = Mathf.Max(0.05f, seconds);
+        if (barrier != null) barrierCollider = barrier;
+        if (barrierCollider != null) barrierCollider.enabled = IsClosed;
         ApplyYaw(openYaw);
     }
 
     void Awake()
     {
+        if (barrierCollider != null) barrierCollider.enabled = IsClosed;
         if (!IsClosed && !closing) ApplyYaw(openYaw);
     }
 
@@ -50,6 +55,7 @@ public sealed class GmGateLeaves : MonoBehaviour
         if (closing || IsClosed) return;
         closing = true;
         t = 0f;
+        if (barrierCollider != null) barrierCollider.enabled = true;
     }
 
     /// Snap shut with no animation. Used by the lighting lab to render the closed state for review
@@ -59,6 +65,7 @@ public sealed class GmGateLeaves : MonoBehaviour
     {
         closing = false;
         IsClosed = true;
+        if (barrierCollider != null) barrierCollider.enabled = true;
         ApplyYaw(0f);
     }
 
@@ -67,6 +74,7 @@ public sealed class GmGateLeaves : MonoBehaviour
     {
         closing = false;
         IsClosed = false;
+        if (barrierCollider != null) barrierCollider.enabled = false;
         ApplyYaw(openYaw);
     }
 

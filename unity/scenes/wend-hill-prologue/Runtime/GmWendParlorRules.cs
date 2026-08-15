@@ -48,7 +48,7 @@ public struct GmAldricPlay
 /// presentation code: a legal winning card must always be played cleanly; cheating is available only
 /// when every legal response loses. Tests can therefore prove the character rule mechanically.
 /// </summary>
-public static class GmParlorRules
+public static class GmWendParlorRules
 {
     public const int Suits = 4;
     public const int RanksPerSuit = 7;

@@ -1,4 +1,3 @@
-using System;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -24,11 +23,20 @@ public static class GmWendColliderRepair
         return false;
     }
 
+    /// Replaces every broken BoxCollider with a positive-size proxy, and returns how many it replaced.
+    ///
+    /// Reuses an existing proxy root rather than clearing it, because clearing it destroyed the only
+    /// copy of the collision it was holding: the broken sources a rerun would need to rebuild those
+    /// proxies from were destroyed by the first run, so the second run deleted working colliders,
+    /// found nothing left to repair, reported 0 and left that geometry with no collision at all --
+    /// worse than not running. Every shipping path starts from a fresh copy of the purchased scene, so
+    /// in practice the root is absent and the sources are back; this is about what happens when it is
+    /// called twice against one scene state.
     public static int Apply()
     {
-        GameObject stale = GameObject.Find(RootName);
-        if (stale != null) UnityEngine.Object.DestroyImmediate(stale);
-        var root = new GameObject(RootName);
+        GameObject root = GameObject.Find(RootName);
+        if (root == null) root = new GameObject(RootName);
+        int kept = root.GetComponentsInChildren<GmWendColliderProxy>(true).Length;
         int repaired = 0;
 
         BoxCollider[] colliders = UnityEngine.Object.FindObjectsByType<BoxCollider>(
@@ -45,7 +53,7 @@ public static class GmWendColliderRepair
 
             Bounds before = source.bounds;
             string sourcePath = AnimationUtility.CalculateTransformPath(source.transform, null);
-            var proxyObject = new GameObject($"Proxy_{repaired:D3}_{source.name}");
+            var proxyObject = new GameObject($"Proxy_{kept + repaired:D3}_{source.name}");
             proxyObject.layer = source.gameObject.layer;
             proxyObject.transform.SetParent(root.transform, true);
             proxyObject.transform.SetPositionAndRotation(source.transform.TransformPoint(source.center),
@@ -68,7 +76,8 @@ public static class GmWendColliderRepair
             repaired++;
         }
 
-        Debug.Log($"[GmWendColliderRepair] repaired {repaired} active negative-scale BoxCollider(s)");
+        Debug.Log($"[GmWendColliderRepair] repaired {repaired} active negative-scale BoxCollider(s), " +
+                  $"kept {kept} proxy/proxies from an earlier pass");
         return repaired;
     }
 

@@ -12,7 +12,8 @@
 # this tiny script, not to every future run.
 set -euo pipefail
 
-APP="$HOME/GamesMaster-Unity/Builds/macOS-Wend/Wend Hill Prologue.app"
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
+APP="${GM_UNITY_PROJECT:-$DIR/unity-project}/Builds/macOS-Wend/Wend Hill Prologue.app"
 BINARY="$APP/Contents/MacOS/The Games Master"
 
 if [ ! -f "$BINARY" ]; then

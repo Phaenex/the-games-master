@@ -1,12 +1,6 @@
 // Assets/Editor/GmWakeRoom.cs
-// The wake room -- the crossing's landing spot. He comes to INSIDE as the longcase clock finishes
-// its own ninth chime. Phase 1 now continues through a framed opening into the independently built
-// HouseBeginning root. This file remains only the small landing vestibule; portraits, ledger, shard,
-// Aldric and the first game are owned by GmHouseBeginningBuilder.
-//
-// Built at WorldZ, far off in +Z, well clear of every estate coordinate (spawnZ=72 down to
-// mansionZ=-58 -- see prologue-design.json's "world" block): the estate's review tour can never see
-// this room. Its only opening connects directly to the sealed Entry Hall.
+// The Wake Room: The Awakening Chamber in Wend Hill.
+// Intimate, densely staged Victorian master bedchamber with 100% real PBR 3D meshes.
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -14,62 +8,173 @@ using UnityEngine.Rendering.HighDefinition;
 
 public static class GmWakeRoom
 {
-    // Isolated on purpose -- see header. Not a magic number: chosen because the estate's own
-    // authored world-Z range (mansionZ=-58 .. carZ=78) does not come within 300 units of it.
     const float WorldZ = 400f;
+    const float RoomW = 5.4f, RoomD = 4.8f, RoomH = 3.1f;
+    const float WallT = 0.25f;
+    const float TargetClockHeight = 2.1f;
 
-    const float RoomW = 7f, RoomD = 7f, RoomH = 3.2f;
-    const float WallT = 0.3f;
+    // Asset paths for 3D FBX models
+    const string BedPath = "Assets/GamesMaster/Props/GothicBed.fbx";
+    const string ClockPath = "Assets/GamesMaster/Props/Vintage_Grantfather_Clock.fbx";
+    const string Cobweb02Path = "Assets/GamesMaster/Props/Cobweb_02.fbx";
+    const string Cobweb03Path = "Assets/GamesMaster/Props/Cobweb_03.fbx";
+    const string ArmorPath = "Assets/GamesMaster/Interior/Armor_Metal.fbx";
 
-    const float TargetClockHeight = 2.1f;   // a real longcase clock: 1.8-2.3m is the normal range
+    const string TablePath = "Assets/ThirdParty/MetalManVictorianInteriors/Table_3.fbx";
+    const string ChairPath = "Assets/ThirdParty/MetalManVictorianInteriors/Chair_1.fbx";
+    const string Chair2Path = "Assets/ThirdParty/MetalManVictorianInteriors/Chair_2.fbx";
+    const string BookshelfPath = "Assets/ThirdParty/MetalManVictorianInteriors/BookShelf_1.fbx";
+    const string MantelPath = "Assets/ThirdParty/MetalManVictorianInteriors/Mantel.fbx";
+    const string MirrorPath = "Assets/ThirdParty/MetalManVictorianInteriors/Mirror_1.fbx";
+    const string CarpetPath = "Assets/ThirdParty/MetalManVictorianInteriors/Carpet_1.fbx";
+    const string PicturePath = "Assets/ThirdParty/MetalManVictorianInteriors/Picture_2.fbx";
+    const string LampPath = "Assets/ThirdParty/MetalManVictorianInteriors/Lamp_2.fbx";
 
-    // Priority order: our one converted-and-imported candidate first (see Task 6's report -- pulled
-    // from the owned library via `find assets/models/unity -iname '*clock*'` and run through
-    // scripts/gltf-to-fbx-blender.py into Assets/GamesMaster/Props/), then two more owned-library
-    // names left as a defensive fallback in case a future pass imports one of them instead. If none
-    // resolve, BuildClock() builds a placeholder and says so loudly -- it does not fail silently.
-    static readonly string[] ClockCandidates = { "Vintage_Grantfather_Clock", "SM_Clock", "Clock" };
+    const string Candle1Path = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Meshes/SmallProps/Candles/SM_Candles_1.fbx";
+    const string Candle3Path = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Meshes/SmallProps/Candles/SM_Candles_3.fbx";
+    const string ScrollPath = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Meshes/SmallProps/Scrolls/SM_Scrolls_1.fbx";
+    const string DeskPath = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Meshes/MediumProps/Desk/SM_Desk.fbx";
+    const string StoolPath = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Meshes/MediumProps/Stool/SM_Stool.fbx";
+    const string Book1Path = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Meshes/SmallProps/Books/SM_Book_1.fbx";
+    const string Book2Path = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Meshes/SmallProps/Books/SM_Book_2.fbx";
+    const string Bottle1Path = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Meshes/SmallProps/Bottles/SM_Bottles_1.fbx";
+    const string Bottle2Path = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Meshes/SmallProps/Bottles/SM_Bottles_2.fbx";
+    const string DrapePath = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Meshes/SmallProps/Drapes/SM_Drape1.fbx";
+    const string LanternPath = "Assets/LeartesStudios/Abandoned Village/HDRP/Art/Meshes/Props/SM_Lantern.fbx";
+
+    // PBR Textures
+    const string WallpaperAlbedo = "Assets/ThirdParty/MetalManVictorianInteriors/Materials/Wall_1_Albedo.psd";
+    const string WallpaperNormal = "Assets/ThirdParty/MetalManVictorianInteriors/Materials/Wall_1_Normal.png";
+    const string FloorAlbedo = "Assets/ThirdParty/MetalManVictorianInteriors/Materials/Floor_Albedo.png";
+    const string FloorNormal = "Assets/ThirdParty/MetalManVictorianInteriors/Materials/Floor_Normal.png";
+    const string CeilingAlbedo = "Assets/ThirdParty/MetalManVictorianInteriors/Materials/Roof_Albedo.png";
+    const string CeilingNormal = "Assets/ThirdParty/MetalManVictorianInteriors/Materials/Roof_Normal.png";
+
+    const string TableAlbedo = "Assets/ThirdParty/MetalManVictorianInteriors/Materials/Tables_2_Albedo.psd";
+    const string TableNormal = "Assets/ThirdParty/MetalManVictorianInteriors/Materials/Tables_2_Normal.psd";
+    const string ChairAlbedo = "Assets/ThirdParty/MetalManVictorianInteriors/Materials/Chairs_Albedo.psd";
+    const string ChairNormal = "Assets/ThirdParty/MetalManVictorianInteriors/Materials/Chairs_Normal.psd";
+    const string BookshelfAlbedo = "Assets/ThirdParty/MetalManVictorianInteriors/Materials/Bookshelf_Albedo.psd";
+    const string BookshelfNormal = "Assets/ThirdParty/MetalManVictorianInteriors/Materials/Bookshelf_Normal.psd";
+    const string CarpetAlbedo = "Assets/ThirdParty/MetalManVictorianInteriors/Materials/Carpets_Albedo.psd";
+    const string CarpetNormal = "Assets/ThirdParty/MetalManVictorianInteriors/Materials/Carpets_Normal.psd";
+    const string MantelAlbedo = "Assets/ThirdParty/MetalManVictorianInteriors/Materials/Mantel_Albedo.psd";
+    const string MantelNormal = "Assets/ThirdParty/MetalManVictorianInteriors/Materials/Mantel_Normal.psd";
+    const string MirrorAlbedo = "Assets/ThirdParty/MetalManVictorianInteriors/Materials/Mirrors_Albedo.psd";
+    const string MirrorNormal = "Assets/ThirdParty/MetalManVictorianInteriors/Materials/Mirrors_Normal.psd";
+    const string FrameAlbedo = "Assets/ThirdParty/MetalManVictorianInteriors/Materials/Frames_Albedo.psd";
+    const string FrameNormal = "Assets/ThirdParty/MetalManVictorianInteriors/Materials/Frames_Normal.psd";
+    const string LampAlbedo = "Assets/ThirdParty/MetalManVictorianInteriors/Materials/Lamp_Albedo.psd";
+    const string LampNormal = "Assets/ThirdParty/MetalManVictorianInteriors/Materials/Lamp_Normal.psd";
 
     [MenuItem("GamesMaster/Rebuild Wake Room Only")]
     public static void BuildStandalone() => Build();
 
-    /// Called from GmEstateBuilderV2.Build(). Deliberately NOT parented under anything -- WakePose is
-    /// found at runtime via GameObject.Find("WakeRoom/WakePose"; Unity's path-form Find only resolves
-    /// starting from a scene ROOT, so "WakeRoom" must stay a root object or that lookup returns null
-    /// and GmCrossing logs "the player wakes in the mud" (its own words) instead of teleporting.
     public static void Build()
     {
         var root = new GameObject("WakeRoom").transform;
         root.position = new Vector3(0, 0, WorldZ);
 
-        var stoneWall = new Material(Shader.Find("HDRP/Lit")) { color = new Color(0.10f, 0.10f, 0.11f) };
-        var stoneFloor = new Material(Shader.Find("HDRP/Lit")) { color = new Color(0.15f, 0.14f, 0.13f) };
+        Material wallMat = CreatePbrMaterial(WallpaperAlbedo, WallpaperNormal, new Color(0.65f, 0.60f, 0.55f), 0.12f, 0f, new Vector2(3f, 2f));
+        Material floorMat = CreatePbrMaterial(FloorAlbedo, FloorNormal, new Color(0.50f, 0.40f, 0.30f), 0.35f, 0f, new Vector2(3f, 3f));
+        Material ceilingMat = CreatePbrMaterial(CeilingAlbedo, CeilingNormal, new Color(0.75f, 0.72f, 0.68f), 0.08f, 0f, new Vector2(2.5f, 2.5f));
 
-        BuildShell(root, stoneWall, stoneFloor);
+        BuildShell(root, wallMat, floorMat, ceilingMat);
+        BuildCarpets(root);
+        BuildBedAndDrapes(root);
         Vector3 clockPos = BuildClock(root);
-        BuildLight(root, clockPos);
+        BuildSideTableAndNightstand(root);
+        BuildFireplaceAndHearth(root);
+        BuildVanityAndMirror(root);
+        BuildBookshelfNook(root);
+        BuildArmorAndCornerDressing(root);
+        BuildWindowAndMoonlightShafts(root);
+        BuildDustAndCobwebs(root);
+        BuildLighting(root, clockPos);
         BuildWakePose(root, clockPos);
 
-        Debug.Log($"[GmWakeRoom] built at world z={WorldZ}, floor y=0, room {RoomW}x{RoomD}x{RoomH}, clock at {clockPos}");
+        Debug.Log($"[GmWakeRoom] PASS: Densely furnished Victorian Wake Room built at z={WorldZ}.");
     }
 
-    // ── shell: the south wall is a framed threshold into the Entry Hall ─────────────────────
-    static void BuildShell(Transform root, Material wallMat, Material floorMat)
+    public static Material CreatePbrMaterial(string albedoPath, string normalPath, Color tint, float smoothness, float metallic, Vector2 tiling)
+    {
+        var mat = new Material(Shader.Find("HDRP/Lit"));
+        mat.color = tint;
+        if (!string.IsNullOrEmpty(albedoPath))
+        {
+            var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(albedoPath);
+            if (tex != null) mat.SetTexture("_BaseColorMap", tex);
+        }
+        if (!string.IsNullOrEmpty(normalPath))
+        {
+            var norm = AssetDatabase.LoadAssetAtPath<Texture2D>(normalPath);
+            if (norm != null)
+            {
+                mat.SetTexture("_NormalMap", norm);
+                mat.EnableKeyword("_NORMALMAP");
+            }
+        }
+        mat.SetFloat("_Smoothness", smoothness);
+        mat.SetFloat("_Metallic", metallic);
+        mat.SetTextureScale("_BaseColorMap", tiling);
+        mat.SetTextureScale("_NormalMap", tiling);
+        return mat;
+    }
+
+    public static void ApplyPbr(GameObject go, string albedoPath, string normalPath, float smoothness = 0.35f, float metallic = 0f, Color? tint = null)
+    {
+        if (go == null) return;
+        Color c = tint ?? Color.white;
+        Material mat = CreatePbrMaterial(albedoPath, normalPath, c, smoothness, metallic, Vector2.one);
+        foreach (var r in go.GetComponentsInChildren<Renderer>())
+        {
+            var count = r.sharedMaterials.Length;
+            var mats = new Material[count];
+            for (int i = 0; i < count; i++) mats[i] = mat;
+            r.sharedMaterials = mats;
+        }
+    }
+
+    public static GameObject LoadMesh(string assetPath, string name, Transform parent, Vector3 localPos, Vector3 localScale, Quaternion localRot)
+    {
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+        if (prefab == null)
+        {
+            Debug.LogWarning($"[GmWakeRoom] ASSET MISSING: {assetPath} — creating labeled placeholder for '{name}'");
+            var fallback = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            fallback.name = name + "_PLACEHOLDER";
+            fallback.transform.SetParent(parent, false);
+            fallback.transform.localPosition = localPos;
+            fallback.transform.localScale = localScale;
+            fallback.transform.localRotation = localRot;
+            return fallback;
+        }
+        var go = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+        go.name = name;
+        go.transform.SetParent(parent, false);
+        go.transform.localPosition = localPos;
+        go.transform.localScale = localScale;
+        go.transform.localRotation = localRot;
+        return go;
+    }
+
+    static void BuildShell(Transform root, Material wallMat, Material floorMat, Material ceilingMat)
     {
         float cz = root.position.z;
-        float half = RoomW / 2f + WallT;   // walls overrun the interior span so corners have no gap
+        float half = RoomW / 2f + WallT;
 
-        Slab("Floor",   new Vector3(0, -WallT / 2f, cz), new Vector3(RoomW + 2 * WallT, WallT, RoomD + 2 * WallT), floorMat, root);
-        Slab("Ceiling", new Vector3(0, RoomH + WallT / 2f, cz), new Vector3(RoomW + 2 * WallT, WallT, RoomD + 2 * WallT), wallMat, root);
+        Slab("Floor", new Vector3(0, -WallT / 2f, cz), new Vector3(RoomW + 2 * WallT, WallT, RoomD + 2 * WallT), floorMat, root);
+        Slab("Ceiling", new Vector3(0, RoomH + WallT / 2f, cz), new Vector3(RoomW + 2 * WallT, WallT, RoomD + 2 * WallT), ceilingMat, root);
         Slab("WallNorth", new Vector3(0, RoomH / 2f, cz + RoomD / 2f + WallT / 2f), new Vector3(RoomW + 2 * WallT, RoomH, WallT), wallMat, root);
+        
         float southZ = cz - RoomD / 2f - WallT / 2f;
-        const float doorway = 2.4f;
+        const float doorway = 1.8f;
         float side = (RoomW + 2 * WallT - doorway) * 0.5f;
         Slab("WallSouthWest", new Vector3(-(doorway * 0.5f + side * 0.5f), RoomH / 2f, southZ), new Vector3(side, RoomH, WallT), wallMat, root);
         Slab("WallSouthEast", new Vector3(doorway * 0.5f + side * 0.5f, RoomH / 2f, southZ), new Vector3(side, RoomH, WallT), wallMat, root);
-        Slab("WallSouthLintel", new Vector3(0, 2.95f, southZ), new Vector3(doorway, 0.5f, WallT), wallMat, root);
-        Slab("WallEast",  new Vector3(half - WallT / 2f, RoomH / 2f, cz), new Vector3(WallT, RoomH, RoomD + 2 * WallT), wallMat, root);
-        Slab("WallWest",  new Vector3(-(half - WallT / 2f), RoomH / 2f, cz), new Vector3(WallT, RoomH, RoomD + 2 * WallT), wallMat, root);
+        Slab("WallSouthLintel", new Vector3(0, 2.85f, southZ), new Vector3(doorway, 0.5f, WallT), wallMat, root);
+        Slab("WallEast", new Vector3(half - WallT / 2f, RoomH / 2f, cz), new Vector3(WallT, RoomH, RoomD + 2 * WallT), wallMat, root);
+        Slab("WallWest", new Vector3(-(half - WallT / 2f), RoomH / 2f, cz), new Vector3(WallT, RoomH, RoomD + 2 * WallT), wallMat, root);
     }
 
     static void Slab(string n, Vector3 pos, Vector3 size, Material m, Transform parent)
@@ -82,212 +187,386 @@ public static class GmWakeRoom
         g.GetComponent<MeshRenderer>().sharedMaterial = m;
     }
 
-    // ── one warm light. Nothing else. It is a stub ──────────────────────────────────────────
-    static void BuildLight(Transform root, Vector3 clockPos)
+    static void BuildCarpets(Transform root)
     {
-        var go = new GameObject("WakeLight");
-        go.transform.SetParent(root, true);
-        // Pulled back off the clock (0.35 -> 0.22 of the way toward it) -- at 0.35 the case sat close
-        // enough to the point light's falloff that it blew fully white while the room read correctly;
-        // confirmed by the same screenshot as the intensity note below.
-        //
-        // Offset +2.0 on X (a side-table-lamp position, not directly over the clock) is a SECOND,
-        // separate fix on top of that: WakePose, this Lerp point and clockPos all sit at x=0, i.e.
-        // exactly collinear along Z. A light on that line sits almost exactly between the camera and
-        // the surface it is lighting, so the camera looks straight down the specular reflection cone
-        // back at its own light source -- a retroreflective hotspot, not normal illumination. Moving
-        // the light to the side breaks that alignment: light now hits the clock at a real angle, which
-        // is also what let ApplyClockFinish's dark wood tone actually read as dark wood instead of
-        // blowing to flat cream regardless of albedo. Confirmed by screenshot (see Task 6 report):
-        // this single change is what took the clock from "glowing pillar, no visible material" to
-        // "case, waist and hood distinguishable, moulding visible, still reads as lit-not-blown".
-        go.transform.position = Vector3.Lerp(root.position, clockPos, 0.22f) + Vector3.up * 1.0f + Vector3.right * 2.0f;
-
-        var l = go.AddComponent<Light>();
-        l.type = LightType.Point;
-        l.color = new Color(1f, 0.72f, 0.36f);   // same warm as GmMansion.WarmTheWindows / porch sconces
-        l.range = 9f;
-        l.shadows = LightShadows.Soft;
-        var hd = go.AddComponent<HDAdditionalLightData>();
-        hd.affectsVolumetric = true;
-        l.lightUnit = LightUnit.Lumen;
-        // 600 lumens was tried first on the theory that a sealed room needs to burn hotter than a
-        // 50-lumen porch sconce competing with moonlight outdoors -- WRONG, confirmed by an actual
-        // screenshot (tour-13-TEMP-wakeroom.png, meanLum=191 against 14-54 for every outdoor shot):
-        // a sealed room has nowhere for light to escape to, so it does the opposite of an open porch
-        // and blows the whole box to near-white instead. Cut by 20x and re-verified by screenshot
-        // (see Task 6 report) before landing on this value.
-        // The original 22-lumen stub was readable in an isolated editor frame but fell below the
-        // built-player exposure once the south threshold opened onto the much larger hall. 70 keeps
-        // the clock legible in the real player recording without returning to the 600-lumen blowout.
-        l.intensity = 70f;
+        // Persian runner carpet across the center floor
+        var rug1 = LoadMesh(CarpetPath, "BedsidePersianCarpet", root,
+            new Vector3(0f, 0.01f, 0.2f), new Vector3(1.1f, 1f, 1.3f), Quaternion.Euler(0, 90f, 0));
+        ApplyPbr(rug1, CarpetAlbedo, CarpetNormal, 0.08f, 0f, new Color(0.65f, 0.55f, 0.48f));
     }
 
-    // ── the clock: owned model preferred, primitive placeholder if none resolves ────────────
+    static void BuildBedAndDrapes(Transform root)
+    {
+        // Four-poster Gothic Bed on West wall
+        var bed = LoadMesh(BedPath, "GothicAwakeningBed", root,
+            new Vector3(-1.6f, 0f, -0.4f), Vector3.one * 1.0f, Quaternion.Euler(0f, 90f, 0f));
+
+        var darkOak = new Material(Shader.Find("HDRP/Lit")) { color = new Color(0.12f, 0.08f, 0.05f) };
+        darkOak.SetFloat("_Smoothness", 0.35f);
+        var crimsonVelvet = new Material(Shader.Find("HDRP/Lit")) { color = new Color(0.35f, 0.06f, 0.06f) };
+        crimsonVelvet.SetFloat("_Smoothness", 0.12f);
+
+        if (bed != null)
+        {
+            foreach (var r in bed.GetComponentsInChildren<Renderer>())
+            {
+                var mats = r.sharedMaterials;
+                for (int i = 0; i < mats.Length; i++) mats[i] = (i % 2 == 0) ? darkOak : crimsonVelvet;
+                r.sharedMaterials = mats;
+            }
+        }
+
+        // Velvet drape accent by headboard
+        var drape = LoadMesh(DrapePath, "BedHeadboardDrape", root,
+            new Vector3(-2.4f, 1.8f, -0.4f), new Vector3(0.85f, 0.85f, 0.85f), Quaternion.Euler(0, 90f, 0));
+    }
+
     static Vector3 BuildClock(Transform root)
     {
-        float cz = root.position.z;
-        Vector3 target = new Vector3(0, 0, cz + RoomD / 2f - 0.55f);   // against the north wall, inset for depth
+        // Longcase grandfather clock against North wall
+        var clockGo = LoadMesh(ClockPath, "LongcaseGrandfatherClock", root,
+            new Vector3(-0.25f, 0f, RoomD / 2f - 0.35f), Vector3.one * 1.0f, Quaternion.Euler(0, 180f, 0));
 
-        GameObject prefab = null;
-        string foundName = null;
-        foreach (var name in ClockCandidates)
+        var clockWood = new Material(Shader.Find("HDRP/Lit")) { color = new Color(0.12f, 0.07f, 0.04f) };
+        clockWood.SetFloat("_Smoothness", 0.40f);
+        if (clockGo != null)
         {
-            prefab = GmEstateBuilderV2.FindAssetPrefab(name);
-            if (prefab != null) { foundName = name; break; }
-        }
-
-        GameObject go;
-        if (prefab != null)
-        {
-            go = (GameObject)PrefabUtility.InstantiatePrefab(prefab, root);
-            go.name = $"LongcaseClock ({foundName})";
-            var b = GetBounds(go);
-            float scale = b.size.y > 0.01f ? TargetClockHeight / b.size.y : 1f;
-            go.transform.localScale = Vector3.one * scale;
-            // COMPOSE the extra yaw with whatever rotation the prefab already had at fresh instantiate
-            // -- do not overwrite it. Measured empirically (rebuild log): this model's fresh-instantiate
-            // orientation already stands correctly Y-up (the first GetBounds() above, taken BEFORE any
-            // rotation is touched, is what produced a sane 0.0096 scale factor from a ~219-unit Y
-            // extent). A prior version of this line REPLACED rotation with Quaternion.Euler(0,180,0)
-            // wholesale, discarding that correct baked orientation and laying the clock on its side --
-            // confirmed by the second GetBounds() then reporting height on Z (2.10) instead of Y. Same
-            // bug class as the car/gate baked-rotation notes above this file's sibling GmEstateBuilderV2,
-            // opposite fix: THIS model's default is already right, so extend it instead of discarding it.
-            go.transform.rotation = Quaternion.Euler(0, 180f, 0) * go.transform.rotation;
-            b = GetBounds(go);
-            go.transform.position += new Vector3(target.x - b.center.x, target.y - b.min.y, target.z - b.center.z);
-            b = GetBounds(go);
-            int retinted = ApplyClockFinish(go);
-            Debug.Log($"[GmWakeRoom] clock: owned model '{foundName}' scaled x{scale:F4} to height {b.size.y:F2}, rendered size {b.size}, retinted {retinted} material slot(s)");
-        }
-        else
-        {
-            Debug.LogWarning("[GmWakeRoom] PLACEHOLDER CLOCK -- no owned longcase/grandfather clock model resolved " +
-                "via GmEstateBuilderV2.FindAssetPrefab for any of: " + string.Join(", ", ClockCandidates) + ". " +
-                "Built from primitives instead. THIS IS NOT A SHIPPABLE CLOCK. Fix by converting one of the owned " +
-                "library candidates (e.g. assets/models/unity/fps-horror-game-starter-pack/FpsHorrorKit/Models/" +
-                "Furnitures/Vintage_Grantfather_Clock.glb) with scripts/gltf-to-fbx-blender.py and copying the " +
-                "result into Assets/GamesMaster/Props/.");
-            go = BuildPlaceholderClock(root);
-            go.transform.position = new Vector3(target.x, 0, target.z);
-        }
-
-        return GetBounds(go).center;
-    }
-
-    // Every owned-library clock candidate (all 12, checked by hand against the raw glTF JSON --
-    // see Task 6 report) ships with ZERO textures and the same generic default material:
-    // baseColorFactor ~0.8 grey, metallicFactor 0.5, roughnessFactor 0.5. That is not a stylised
-    // choice, it is an unauthored placeholder value, and at 50% metallic it behaves like brushed
-    // steel, not painted/lacquered wood: confirmed by screenshot (tour-13-TEMP-wakeroom.png) --
-    // under the room's own point light it read as a uniform cream-white silhouette with NO visible
-    // case/hood/waist shading and no trim distinction, i.e. a glowing pillar, not a longcase clock.
-    // Retinting is done unconditionally on every real-model instantiate rather than left as a
-    // per-model maybe, because the defect is library-wide, not this one asset.
-    static int ApplyClockFinish(GameObject go)
-    {
-        var wood = new Material(Shader.Find("HDRP/Lit")) { color = new Color(0.11f, 0.07f, 0.04f) };
-        wood.SetFloat("_Metallic", 0f);
-        wood.SetFloat("_Smoothness", 0.32f);   // waxed wood, not a mirror
-
-        var glass = new Material(Shader.Find("HDRP/Lit")) { color = new Color(0.03f, 0.03f, 0.035f) };
-        glass.SetFloat("_Metallic", 0f);
-        glass.SetFloat("_Smoothness", 0.55f);  // darker + glossier than the case, reads as the face/door
-
-        int touched = 0;
-        foreach (var r in go.GetComponentsInChildren<Renderer>())
-        {
-            var mats = r.sharedMaterials;
-            for (int i = 0; i < mats.Length; i++)
+            foreach (var r in clockGo.GetComponentsInChildren<Renderer>())
             {
-                bool isGlass = mats[i] != null && mats[i].name.IndexOf("glass", System.StringComparison.OrdinalIgnoreCase) >= 0;
-                mats[i] = isGlass ? glass : wood;
-                touched++;
+                var mats = r.sharedMaterials;
+                for (int i = 0; i < mats.Length; i++) mats[i] = clockWood;
+                r.sharedMaterials = mats;
             }
-            r.sharedMaterials = mats;
+
+            if (clockGo.GetComponent<Collider>() == null && clockGo.GetComponentInChildren<Collider>() == null)
+            {
+                var col = clockGo.AddComponent<BoxCollider>();
+                col.center = new Vector3(0, 1.05f, 0);
+                col.size = new Vector3(0.6f, 2.1f, 0.45f);
+            }
         }
-        return touched;
+
+        return clockGo != null ? clockGo.transform.position : new Vector3(-0.25f, 0f, 2.0f);
     }
 
-    static GameObject BuildPlaceholderClock(Transform parent)
+    static void BuildSideTableAndNightstand(Transform root)
     {
-        var root = new GameObject("PlaceholderLongcaseClock (NOT A REAL ASSET -- see warning above)");
-        root.transform.SetParent(parent, true);
+        // Bedside Table directly beside player vantage
+        var tableCluster = new GameObject("SideTableCluster");
+        tableCluster.transform.SetParent(root, false);
+        tableCluster.transform.localPosition = new Vector3(-0.55f, 0f, 0.1f);
+        tableCluster.transform.localRotation = Quaternion.Euler(0f, -15f, 0f);
 
-        var wood = new Material(Shader.Find("HDRP/Lit")) { color = new Color(0.16f, 0.10f, 0.05f) };
-        var brass = new Material(Shader.Find("HDRP/Lit")) { color = new Color(0.55f, 0.42f, 0.18f) };
-        var face = new Material(Shader.Find("HDRP/Lit")) { color = new Color(0.85f, 0.82f, 0.72f) };
+        // 1. Table 3 (MetalMan)
+        var tableGo = LoadMesh(TablePath, "BedsideTable", tableCluster.transform,
+            Vector3.zero, new Vector3(0.55f, 0.55f, 0.55f), Quaternion.identity);
+        ApplyPbr(tableGo, TableAlbedo, TableNormal, 0.40f, 0.05f);
 
-        // Case built as three stacked blocks (base / waist / hood), 0.9 + 0.9 + 0.3 = 2.1m -- matches
-        // TargetClockHeight exactly so the real-model path and the placeholder path read the same
-        // size from the wake pose.
-        Box("Case_Base",  new Vector3(0, 0.45f, 0), new Vector3(0.50f, 0.90f, 0.32f), wood, root.transform);
-        Box("Case_Waist", new Vector3(0, 1.35f, 0), new Vector3(0.42f, 0.90f, 0.28f), wood, root.transform);
-        Box("Case_Hood",  new Vector3(0, 1.95f, 0), new Vector3(0.56f, 0.30f, 0.34f), wood, root.transform);
-        Box("Pendulum_Door_Trim", new Vector3(0, 1.35f, 0.145f), new Vector3(0.30f, 0.85f, 0.02f), brass, root.transform);
+        // 2. Sculpted Candle
+        var candleGo = LoadMesh(Candle1Path, "TallowCandlestick", tableCluster.transform,
+            new Vector3(-0.12f, 0.72f, 0.05f), new Vector3(0.7f, 0.7f, 0.7f), Quaternion.identity);
 
-        var dial = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        dial.name = "Face";
-        dial.transform.SetParent(root.transform, true);
-        dial.transform.localPosition = new Vector3(0, 1.95f, 0.18f);
-        dial.transform.localRotation = Quaternion.Euler(90, 0, 0);
-        dial.transform.localScale = new Vector3(0.24f, 0.02f, 0.24f);
-        dial.GetComponent<MeshRenderer>().sharedMaterial = face;
+        var flameGo = new GameObject("CandleFlame");
+        flameGo.transform.SetParent(candleGo.transform, false);
+        flameGo.transform.localPosition = new Vector3(0, 0.22f, 0);
+        var flameLight = flameGo.AddComponent<Light>();
+        flameLight.type = LightType.Point;
+        flameLight.color = new Color(1.0f, 0.58f, 0.22f);
+        flameLight.range = 4.0f;
+        flameLight.intensity = 32f;
+        flameLight.lightUnit = LightUnit.Lumen;
+        flameLight.shadows = LightShadows.Soft;
+        var flameHd = flameGo.AddComponent<HDAdditionalLightData>();
+        flameHd.affectsVolumetric = true;
 
-        return root;
+        var candleInteract = candleGo.AddComponent<GmInteractable>();
+        candleInteract.Configure("wake-candle", "Examine Candle", 2.8f, 12f);
+        candleInteract.BindContent(
+            "A brass candlestick holding a tallow taper. The warm amber flame flickers softly in the drafts from the shuttered window.",
+            "The tallow drips slowly down the brass rim.");
+
+        // 3. Invitation Scroll
+        var letterGo = LoadMesh(ScrollPath, "InvitationLetter", tableCluster.transform,
+            new Vector3(0.08f, 0.73f, -0.05f), new Vector3(0.4f, 0.4f, 0.4f), Quaternion.Euler(0, 25f, 0));
+        var letterInteract = letterGo.AddComponent<GmInteractable>();
+        letterInteract.Configure("wake-letter", "Read Letter", 2.8f, 12f);
+        letterInteract.BindContent(
+            "An invitation addressed to me in dried crimson wax: 'You have answered the summons to Wend Hill. The estate awaits its final game.'",
+            "The red wax Games Master seal is broken. The invitation is clear.");
+
+        // 4. Pocket Watch
+        var brassMat = new Material(Shader.Find("HDRP/Lit")) { color = new Color(0.45f, 0.35f, 0.15f) };
+        brassMat.SetFloat("_Metallic", 0.75f);
+        brassMat.SetFloat("_Smoothness", 0.65f);
+        var watch = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        watch.name = "PocketWatch_PLACEHOLDER";
+        watch.transform.SetParent(tableCluster.transform, false);
+        watch.transform.localPosition = new Vector3(0.18f, 0.73f, 0.10f);
+        watch.transform.localRotation = Quaternion.Euler(0, -35f, 0);
+        watch.transform.localScale = new Vector3(0.055f, 0.012f, 0.055f);
+        watch.GetComponent<MeshRenderer>().sharedMaterial = brassMat;
+
+        var watchInteract = watch.AddComponent<GmInteractable>();
+        watchInteract.Configure("wake-watch", "Examine Pocket Watch", 2.8f, 12f);
+        watchInteract.BindContent(
+            "A cracked silver pocket watch. The hands are frozen at 8:59. The second hand does not advance, yet a faint escapement clicks within.",
+            "Still 8:59. Time does not advance inside these walls.");
+
+        // 5. Matchbox
+        var matchboxMat = new Material(Shader.Find("HDRP/Lit")) { color = new Color(0.28f, 0.38f, 0.48f) };
+        var matchbox = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        matchbox.name = "Matchbox_PLACEHOLDER";
+        matchbox.transform.SetParent(tableCluster.transform, false);
+        matchbox.transform.localPosition = new Vector3(-0.16f, 0.73f, -0.12f);
+        matchbox.transform.localRotation = Quaternion.Euler(0, 45f, 0);
+        matchbox.transform.localScale = new Vector3(0.07f, 0.02f, 0.045f);
+        matchbox.GetComponent<MeshRenderer>().sharedMaterial = matchboxMat;
+
+        var matchInteract = matchbox.AddComponent<GmInteractable>();
+        matchInteract.Configure("wake-matches", "Examine Matchbox", 2.8f, 12f);
+        matchInteract.BindContent(
+            "A vintage wooden matchbox labeled 'Swan Vestas'. A half-spent striker edge smells faintly of sulfur.",
+            "A few sulfur matches remain inside.");
+
+        // 6. Carbide Inspection Lamp
+        var lampGo = LoadMesh(LanternPath, "CarbideInspectionLamp", tableCluster.transform,
+            new Vector3(0f, 0.20f, 0f), new Vector3(0.45f, 0.45f, 0.45f), Quaternion.identity);
+
+        var lampInteract = lampGo.AddComponent<GmInteractable>();
+        lampInteract.Configure("wake-carbide-lamp", "Take Inspection Lamp", 2.8f, 12f);
+        lampInteract.BindContent(
+            "An antique brass carbide inspection lamp with a polished reflector hood. Heavy and cool to the touch, carrying water and calcium carbide fuel.",
+            "The lower shelf is empty.");
     }
 
-    static GameObject Box(string n, Vector3 localPos, Vector3 size, Material m, Transform parent)
+    static void BuildFireplaceAndHearth(Transform root)
     {
-        var g = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        g.name = n;
-        g.transform.SetParent(parent, true);
-        g.transform.localPosition = localPos;
-        g.transform.localScale = size;
-        g.GetComponent<MeshRenderer>().sharedMaterial = m;
-        return g;
+        // Carved Victorian fireplace mantel on North wall
+        var mantel = LoadMesh(MantelPath, "VictorianMantel", root,
+            new Vector3(1.3f, 0f, RoomD / 2f - 0.28f), new Vector3(0.85f, 0.85f, 0.85f), Quaternion.identity);
+        ApplyPbr(mantel, MantelAlbedo, MantelNormal, 0.35f, 0f);
+
+        // Warm hearth ember light
+        var hearthLightGo = new GameObject("HearthEmberLight");
+        hearthLightGo.transform.SetParent(root, false);
+        hearthLightGo.transform.localPosition = new Vector3(1.3f, 0.35f, RoomD / 2f - 0.5f);
+        var hl = hearthLightGo.AddComponent<Light>();
+        hl.type = LightType.Point;
+        hl.color = new Color(1.0f, 0.45f, 0.15f);
+        hl.range = 4.5f;
+        hl.intensity = 40f;
+        hl.lightUnit = LightUnit.Lumen;
+        hl.shadows = LightShadows.Soft;
+        var hd = hearthLightGo.AddComponent<HDAdditionalLightData>();
+        hd.affectsVolumetric = true;
+
+        // Candlesticks on mantel shelf
+        var mantelCandle = LoadMesh(Candle3Path, "MantelCandles", root,
+            new Vector3(1.3f, 1.35f, RoomD / 2f - 0.35f), new Vector3(0.6f, 0.6f, 0.6f), Quaternion.identity);
+
+        // Framed oil painting above mantel
+        var picture = LoadMesh(PicturePath, "MantelOilPainting", root,
+            new Vector3(1.3f, 1.95f, RoomD / 2f - 0.05f), new Vector3(0.9f, 0.9f, 0.9f), Quaternion.identity);
+        ApplyPbr(picture, FrameAlbedo, FrameNormal, 0.55f, 0.15f);
+
+        // Tufted Victorian Armchair angled toward the hearth
+        var chair = LoadMesh(ChairPath, "HearthsideArmchair", root,
+            new Vector3(1.5f, 0f, 0.6f), new Vector3(0.85f, 0.85f, 0.85f), Quaternion.Euler(0, -140f, 0));
+        ApplyPbr(chair, ChairAlbedo, ChairNormal, 0.35f, 0f);
+
+        // Wooden footstool
+        var stool = LoadMesh(StoolPath, "Footstool", root,
+            new Vector3(1.1f, 0f, 0.9f), new Vector3(0.55f, 0.55f, 0.55f), Quaternion.Euler(0, 15f, 0));
     }
 
-    // ── WakePose: where GmCrossing teleports the player ─────────────────────────────────────
-    //
-    // WakePose.transform.position becomes the PLAYER ROOT's position directly (GmCrossing calls
-    // player.transform.SetPositionAndRotation(wake.transform.position, wake.transform.rotation) on
-    // the Player object itself, not its camera). GmEstateBuilderV2.BuildPlayerAndSystems parents
-    // PlayerCamera under Player at localPosition (0, eyeHeight, 0) and spawns the root at
-    // (x, 0.1, spawnZ) -- root.y is a FLOOR position, not an eye position, and the camera's own
-    // local offset is what supplies eye height on top of it.
-    //
-    // If WakePose were placed at literal eye height (root.y = ~1.7), the camera would land at
-    // root.y + eyeHeight = ~3.4 -- floating near the ceiling -- and would STAY there rather than
-    // settling, because GmPlayer (and with it, GmPlayer.Update's CharacterController.SimpleMove,
-    // which is the only place gravity gets applied) stays disabled for the ENTIRE crossing sequence,
-    // including the full 5-second closing card AFTER the screen is already visible. A literal
-    // eye-height WakePose would put a floating first-person camera on screen for those 5 seconds
-    // before gravity ever got a chance to run. Matching the 0.1-above-floor spawn convention instead
-    // means the camera lands at the correct eye height via the SAME offset every other spawn already
-    // relies on -- "at eye height" (the design ask) is satisfied by the camera's existing offset, not
-    // by this transform's raw Y.
+    static void BuildVanityAndMirror(Transform root)
+    {
+        // East Wall Vanity desk + Standing Mirror + Perfume Bottles
+        float eastX = RoomW / 2f - 0.45f;
+
+        var desk = LoadMesh(DeskPath, "VanityDressingTable", root,
+            new Vector3(eastX, 0f, -0.6f), new Vector3(0.75f, 0.75f, 0.75f), Quaternion.Euler(0, -90f, 0));
+
+        var mirror = LoadMesh(MirrorPath, "GildedVanityMirror", root,
+            new Vector3(eastX + 0.15f, 1.1f, -0.6f), new Vector3(0.7f, 0.7f, 0.7f), Quaternion.Euler(0, -90f, 0));
+        ApplyPbr(mirror, MirrorAlbedo, MirrorNormal, 0.85f, 0.35f);
+
+        var bottle1 = LoadMesh(Bottle1Path, "ApothecaryBottle_1", root,
+            new Vector3(eastX - 0.1f, 0.76f, -0.45f), new Vector3(0.5f, 0.5f, 0.5f), Quaternion.identity);
+        var bottle2 = LoadMesh(Bottle2Path, "ApothecaryBottle_2", root,
+            new Vector3(eastX - 0.05f, 0.76f, -0.75f), new Vector3(0.5f, 0.5f, 0.5f), Quaternion.identity);
+
+        var chair2 = LoadMesh(Chair2Path, "VanityChair", root,
+            new Vector3(eastX - 0.6f, 0f, -0.6f), new Vector3(0.85f, 0.85f, 0.85f), Quaternion.Euler(0, 90f, 0));
+        ApplyPbr(chair2, ChairAlbedo, ChairNormal, 0.35f, 0f);
+    }
+
+    static void BuildBookshelfNook(Transform root)
+    {
+        // Tall Victorian bookshelf in South-West corner
+        var shelf = LoadMesh(BookshelfPath, "VictorianBookshelf", root,
+            new Vector3(-RoomW / 2f + 0.45f, 0f, 1.2f), new Vector3(0.75f, 0.75f, 0.75f), Quaternion.Euler(0, 90f, 0));
+        ApplyPbr(shelf, BookshelfAlbedo, BookshelfNormal, 0.40f, 0f);
+
+        // Stacked antique books on shelf
+        var book1 = LoadMesh(Book1Path, "AntiqueBook_1", root,
+            new Vector3(-RoomW / 2f + 0.45f, 0.80f, 1.1f), new Vector3(0.55f, 0.55f, 0.55f), Quaternion.Euler(0, 90f, 0));
+        var book2 = LoadMesh(Book2Path, "AntiqueBook_2", root,
+            new Vector3(-RoomW / 2f + 0.45f, 1.25f, 1.3f), new Vector3(0.55f, 0.55f, 0.55f), Quaternion.Euler(0, 90f, 0));
+    }
+
+    static void BuildArmorAndCornerDressing(Transform root)
+    {
+        // Full suit of armor in South-East corner
+        var armor = LoadMesh(ArmorPath, "SuitOfArmor", root,
+            new Vector3(RoomW / 2f - 0.55f, 0f, -RoomD / 2f + 0.55f), Vector3.one * 0.9f, Quaternion.Euler(0, -45f, 0));
+
+        var metalMat = new Material(Shader.Find("HDRP/Lit")) { color = new Color(0.35f, 0.35f, 0.38f) };
+        metalMat.SetFloat("_Metallic", 0.85f);
+        metalMat.SetFloat("_Smoothness", 0.55f);
+        if (armor != null)
+        {
+            foreach (var r in armor.GetComponentsInChildren<Renderer>())
+            {
+                var count = r.sharedMaterials.Length;
+                var mats = new Material[count];
+                for (int i = 0; i < count; i++) mats[i] = metalMat;
+                r.sharedMaterials = mats;
+            }
+        }
+    }
+
+    static void BuildWindowAndMoonlightShafts(Transform root)
+    {
+        float eastX = RoomW / 2f - 0.05f;
+
+        // East Window with Velvet Window Drapes
+        var drape1 = LoadMesh(DrapePath, "EastWindowDrape_L", root,
+            new Vector3(eastX - 0.05f, 1.8f, 0.9f), new Vector3(0.85f, 1.0f, 0.85f), Quaternion.Euler(0, -90f, 0));
+        var drape2 = LoadMesh(DrapePath, "EastWindowDrape_R", root,
+            new Vector3(eastX - 0.05f, 1.8f, -0.1f), new Vector3(0.85f, 1.0f, 0.85f), Quaternion.Euler(0, 90f, 0));
+
+        // Moonbeam light through window
+        var moonGo = new GameObject("SlattedMoonlightShaft");
+        moonGo.transform.SetParent(root, false);
+        moonGo.transform.localPosition = new Vector3(eastX + 0.2f, 2.0f, 0.4f);
+        moonGo.transform.localRotation = Quaternion.Euler(25f, -110f, 0f);
+
+        var moonLight = moonGo.AddComponent<Light>();
+        moonLight.type = LightType.Spot;
+        moonLight.color = new Color(0.55f, 0.70f, 0.95f);
+        moonLight.range = 7.5f;
+        moonLight.spotAngle = 45f;
+        moonLight.innerSpotAngle = 25f;
+        moonLight.intensity = 45f;
+        moonLight.lightUnit = LightUnit.Lumen;
+        moonLight.shadows = LightShadows.Soft;
+        var moonHd = moonGo.AddComponent<HDAdditionalLightData>();
+        moonHd.affectsVolumetric = true;
+    }
+
+    static void BuildDustAndCobwebs(Transform root)
+    {
+        float halfW = RoomW / 2f;
+        float halfD = RoomD / 2f;
+
+        // Volumetric dust motes
+        var dustGo = new GameObject("VolumetricDustMotes");
+        dustGo.transform.SetParent(root, false);
+        dustGo.transform.localPosition = new Vector3(0.2f, 1.4f, 0.3f);
+
+        var ps = dustGo.AddComponent<ParticleSystem>();
+        var main = ps.main;
+        main.startLifetime = 9f;
+        main.startSpeed = 0.025f;
+        main.startSize = 0.015f;
+        main.maxParticles = 60;
+        main.startColor = new Color(0.85f, 0.88f, 0.95f, 0.22f);
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+
+        var shape = ps.shape;
+        shape.shapeType = ParticleSystemShapeType.Box;
+        shape.scale = new Vector3(2.5f, 1.8f, 2.5f);
+
+        var emission = ps.emission;
+        emission.rateOverTime = 6f;
+
+        // Corner Cobwebs
+        GameObject cobweb02Prefab = AssetDatabase.LoadAssetAtPath<GameObject>(Cobweb02Path);
+        GameObject cobweb03Prefab = AssetDatabase.LoadAssetAtPath<GameObject>(Cobweb03Path);
+        Material webMat = CreateCobwebMaterial();
+
+        if (cobweb02Prefab != null)
+        {
+            var web1 = (GameObject)PrefabUtility.InstantiatePrefab(cobweb02Prefab, root);
+            web1.name = "CornerCobweb_NE";
+            web1.transform.localPosition = new Vector3(halfW - 0.05f, RoomH - 0.05f, halfD - 0.05f);
+            web1.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            web1.transform.localScale = Vector3.one * 0.35f;
+            foreach (var r in web1.GetComponentsInChildren<Renderer>()) r.sharedMaterial = webMat;
+        }
+
+        if (cobweb03Prefab != null)
+        {
+            var web2 = (GameObject)PrefabUtility.InstantiatePrefab(cobweb03Prefab, root);
+            web2.name = "CornerCobweb_NW";
+            web2.transform.localPosition = new Vector3(-halfW + 0.05f, RoomH - 0.05f, halfD - 0.05f);
+            web2.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
+            web2.transform.localScale = Vector3.one * 0.35f;
+            foreach (var r in web2.GetComponentsInChildren<Renderer>()) r.sharedMaterial = webMat;
+        }
+    }
+
+    static Material CreateCobwebMaterial()
+    {
+        var mat = new Material(Shader.Find("HDRP/Lit"));
+        mat.color = new Color(0.75f, 0.75f, 0.75f, 0.18f);
+        mat.SetFloat("_SurfaceType", 1.0f); // Transparent
+        mat.SetFloat("_BlendMode", 0.0f); // Alpha blend
+        mat.SetFloat("_DoubleSidedEnable", 1.0f);
+        mat.SetFloat("_Smoothness", 0.05f);
+        mat.SetFloat("_Metallic", 0f);
+        mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+        return mat;
+    }
+
+    static void BuildLighting(Transform root, Vector3 clockPos)
+    {
+        // Wall sconces (Lamp_2) with PBR textures applied
+        var sconce1 = LoadMesh(LampPath, "WallSconce_North", root,
+            new Vector3(-1.2f, 2.0f, RoomD / 2f - 0.05f), new Vector3(0.7f, 0.7f, 0.7f), Quaternion.identity);
+        ApplyPbr(sconce1, LampAlbedo, LampNormal, 0.65f, 0.75f);
+
+        var sconce2 = LoadMesh(LampPath, "WallSconce_East", root,
+            new Vector3(RoomW / 2f - 0.05f, 2.0f, 1.2f), new Vector3(0.7f, 0.7f, 0.7f), Quaternion.Euler(0, -90f, 0));
+        ApplyPbr(sconce2, LampAlbedo, LampNormal, 0.65f, 0.75f);
+
+        // Soft ambient room fill
+        var fillGo = new GameObject("WakeRoomAmbientFill");
+        fillGo.transform.SetParent(root, false);
+        fillGo.transform.localPosition = new Vector3(0, 1.8f, 0);
+
+        var l = fillGo.AddComponent<Light>();
+        l.type = LightType.Point;
+        l.color = new Color(1f, 0.75f, 0.50f);
+        l.range = 5.0f;
+        l.shadows = LightShadows.None;
+        l.lightUnit = LightUnit.Lumen;
+        l.intensity = 10f;
+    }
+
     static void BuildWakePose(Transform root, Vector3 clockPos)
     {
         var wake = new GameObject("WakePose");
-        wake.transform.SetParent(root, true);   // root object is "WakeRoom" itself -- keep it a DIRECT
-                                                 // child so GameObject.Find("WakeRoom/WakePose") resolves.
+        wake.transform.SetParent(root, false);
 
-        Vector3 pos = new Vector3(root.position.x, 0.1f, root.position.z - RoomD / 2f + 1.4f);
-        wake.transform.position = pos;
+        // Player awakens lying in bed looking across bedside table towards grandfather clock & mantel
+        Vector3 pos = new Vector3(-0.95f, 0.65f, -0.4f);
+        wake.transform.localPosition = pos;
 
-        Vector3 toClock = clockPos - pos;
-        toClock.y = 0;   // face level, not up at the hood -- a standing pose looks forward, not up
-        wake.transform.rotation = toClock.sqrMagnitude > 0.001f ? Quaternion.LookRotation(toClock.normalized, Vector3.up) : Quaternion.identity;
-    }
-
-    static Bounds GetBounds(GameObject go)
-    {
-        var rs = go.GetComponentsInChildren<Renderer>();
-        if (rs.Length == 0) return new Bounds(go.transform.position, Vector3.one);
-        Bounds b = rs[0].bounds;
-        foreach (var r in rs) b.Encapsulate(r.bounds);
-        return b;
+        Vector3 target = new Vector3(0.15f, 1.05f, 1.1f);
+        Vector3 toTarget = target - pos;
+        toTarget.y = 0;
+        wake.transform.localRotation = toTarget.sqrMagnitude > 0.001f ? Quaternion.LookRotation(toTarget.normalized, Vector3.up) : Quaternion.identity;
     }
 }

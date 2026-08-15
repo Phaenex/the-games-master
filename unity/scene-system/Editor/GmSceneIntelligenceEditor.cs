@@ -109,12 +109,29 @@ public static class GmKnowledgeBridge
         };
         using (Process process = Process.Start(start))
         {
-            string output = process.StandardOutput.ReadToEnd();
-            string error = process.StandardError.ReadToEnd();
-            process.WaitForExit(30000);
-            if (!process.HasExited) { process.Kill(); throw new TimeoutException("scene-learning CLI timed out"); }
-            if (process.ExitCode != 0) throw new InvalidOperationException(string.IsNullOrWhiteSpace(error) ? output : error);
-            return output.Trim();
+            // Drain both pipes on the process's own threads. Reading them to the end synchronously
+            // meant the declared 30s bound was never reached when the child hung with stdout still
+            // open -- ReadToEnd simply blocked the Editor forever -- and a child that filled the
+            // pipe nobody was reading yet deadlocked against the one that was.
+            var output = new StringBuilder();
+            var error = new StringBuilder();
+            process.OutputDataReceived += (sender, args) => { if (args.Data != null) output.AppendLine(args.Data); };
+            process.ErrorDataReceived += (sender, args) => { if (args.Data != null) error.AppendLine(args.Data); };
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+            if (!process.WaitForExit(30000))
+            {
+                process.Kill();
+                throw new TimeoutException("scene-learning CLI timed out");
+            }
+            // The timed overload returns as soon as the process ends; the untimed one also waits for
+            // the redirected streams to close, so the builders are complete before they are read.
+            process.WaitForExit();
+            string standardError = error.ToString();
+            string standardOutput = output.ToString();
+            if (process.ExitCode != 0)
+                throw new InvalidOperationException(string.IsNullOrWhiteSpace(standardError) ? standardOutput : standardError);
+            return standardOutput.Trim();
         }
     }
 
@@ -161,8 +178,17 @@ sealed class GmReviewSessionDocument
 }
 [Serializable] sealed class GmRuleCandidateListDocument { public GmRuleCandidateSummaryDocument[] items = Array.Empty<GmRuleCandidateSummaryDocument>(); }
 [Serializable] sealed class GmRuleCandidateSummaryDocument { public string candidateId; public string signature; }
+[Serializable] sealed class GmAssetPreferenceListDocument { public GmAssetPreferenceDocument[] items = Array.Empty<GmAssetPreferenceDocument>(); }
+[Serializable] sealed class GmAssetPreferenceDocument
+{
+    public string key;
+    public string sceneId;
+    public string category;
+    public GmReviewContextDocument context;
+    public bool contextualExclusion;
+}
 [Serializable] sealed class GmDefectListDocument { public GmDefectSummaryDocument[] items = Array.Empty<GmDefectSummaryDocument>(); }
-[Serializable] sealed class GmDefectSummaryDocument { public string defectId; public string sceneId; public string category; public string status; }
+[Serializable] sealed class GmDefectSummaryDocument { public string defectId; public string sceneId; public string category; public string severity; public string status; }
 [Serializable] sealed class GmReviewContextDocument
 {
     public string shotName;
@@ -244,6 +270,7 @@ public static class GmReviewRecorder
                         elementId = element?.ElementId,
                         clusterId = element?.ClusterId,
                         zoneId = cluster?.ZoneId,
+                        assetGuid = element == null ? null : SourceAssetGuid(element.gameObject),
                         assetFamily = element?.AssetFamily,
                         assetRole = element?.Role.ToString(),
                     },
@@ -319,6 +346,20 @@ public static class GmReviewRecorder
             if (selector(item) == id) return item;
         return null;
     }
+
+    /// The reviewed subject is a scene object, but a rejection is about the asset that object came
+    /// from: GmGuardedVariantPreview keys its exclusions on the asset GUID, and the knowledge
+    /// aggregator only falls back to assetFamily when no GUID was recorded. Without this the
+    /// context carried no GUID at all, so no recorded rejection could ever block a preview.
+    /// Scene objects with no prefab source return null and the recorder drops the empty field.
+    static string SourceAssetGuid(GameObject instance)
+    {
+        Object source = PrefabUtility.GetCorrespondingObjectFromOriginalSource(instance);
+        string assetPath = source == null ? null : AssetDatabase.GetAssetPath(source);
+        if (string.IsNullOrEmpty(assetPath)) return null;
+        string guid = AssetDatabase.AssetPathToGUID(assetPath);
+        return string.IsNullOrEmpty(guid) ? null : guid;
+    }
 }
 
 public static class GmGuardedVariantPreview
@@ -347,7 +388,13 @@ public static class GmGuardedVariantPreview
         if (!scene.IsValid() || string.IsNullOrEmpty(scene.path)) throw new InvalidOperationException("Open a saved scene first.");
         if (scene.isDirty) throw new InvalidOperationException("Save or discard current scene edits before generating temporary variants.");
         GmSceneComposition initialManifest = Object.FindAnyObjectByType<GmSceneComposition>();
-        if (initialManifest == null) throw new InvalidOperationException("No GmSceneComposition in the open scene.");
+        GameObject transientGo = null;
+        if (initialManifest == null)
+        {
+            transientGo = new GameObject("GmSceneCompositionTransient");
+            initialManifest = transientGo.AddComponent<GmSceneComposition>();
+            initialManifest.Configure("wend-hill-prologue", "Prologue Visual Manifest");
+        }
         var jobs = new List<string[]>();
         foreach (GmAdaptiveSlot slot in FindSceneObjects<GmAdaptiveSlot>()
             .OrderBy(value => value.SlotId, StringComparer.Ordinal))
@@ -357,7 +404,7 @@ public static class GmGuardedVariantPreview
         int written = 0;
         foreach (string[] job in jobs)
         {
-            GmSceneComposition manifest = Object.FindAnyObjectByType<GmSceneComposition>();
+            GmSceneComposition manifest = Object.FindAnyObjectByType<GmSceneComposition>() ?? initialManifest;
             Camera camera = Camera.main ?? Object.FindAnyObjectByType<Camera>();
             GmSceneReviewTour tour = Object.FindAnyObjectByType<GmSceneReviewTour>();
             GmAdaptiveSlot slot = FindSceneObjects<GmAdaptiveSlot>()
@@ -370,6 +417,7 @@ public static class GmGuardedVariantPreview
             if (GmSceneFingerprint.Current() != beforeFingerprint)
                 throw new InvalidOperationException($"variant '{candidate.CandidateId}' failed exact scene restoration");
         }
+        if (transientGo != null) Object.DestroyImmediate(transientGo);
         return written;
     }
 
@@ -405,8 +453,14 @@ public static class GmGuardedVariantPreview
             {
                 if (material == null || material.shader == null)
                     throw new InvalidOperationException($"candidate '{candidate.CandidateId}' has a missing material or shader");
+                // A built-in-resource path catches the literal engine Standard shader, but a pack can
+                // also ship a real imported shader authored for URP or the built-in pipeline, and
+                // that renders magenta in HDRP. Unity's own subshader-selection tag is the identity
+                // check: HDRP shaders, Shader Graph output included, declare HDRenderPipeline.
                 string shaderPath = AssetDatabase.GetAssetPath(material.shader);
-                if (string.IsNullOrEmpty(shaderPath) || shaderPath.StartsWith("Resources/") || shaderPath.StartsWith("Library/"))
+                if (string.IsNullOrEmpty(shaderPath) || shaderPath.StartsWith("Resources/") ||
+                    shaderPath.StartsWith("Library/") ||
+                    material.GetTag("RenderPipeline", true, "") != "HDRenderPipeline")
                     throw new InvalidOperationException($"candidate '{candidate.CandidateId}' uses non-HDRP shader '{material.shader.name}'");
             }
 
@@ -535,15 +589,18 @@ public static class GmGuardedVariantPreview
     static bool IsExcluded(string guid, string sceneId, string zoneId)
     {
         string file = Path.Combine(GmSceneIntelligencePaths.KnowledgeRoot, "derived", "asset-preferences.json");
-        if (!File.Exists(file)) return false;
-        string json = File.ReadAllText(file);
-        // The derived file is deterministic and small. Match only an entry containing this exact
-        // GUID/context and a true exclusion; agent rejections never set the exclusion bit.
-        foreach (string block in json.Split(new[] { "\"key\"" }, StringSplitOptions.None))
-            if (block.Contains("\"assetGuid\": \"" + guid + "\"") &&
-                block.Contains("\"sceneId\": \"" + sceneId + "\"") &&
-                (string.IsNullOrEmpty(zoneId) || block.Contains("\"zoneId\": \"" + zoneId + "\"")) &&
-                block.Contains("\"contextualExclusion\": true")) return true;
+        if (string.IsNullOrEmpty(guid) || !File.Exists(file)) return false;
+        // Match this exact GUID and context against a true exclusion; agent rejections never set the
+        // exclusion bit. Read the entries rather than splitting the text on a key name, so a
+        // reformatted derived file cannot quietly turn every lookup into a miss.
+        GmAssetPreferenceListDocument document =
+            JsonUtility.FromJson<GmAssetPreferenceListDocument>(File.ReadAllText(file));
+        foreach (GmAssetPreferenceDocument item in document?.items ?? Array.Empty<GmAssetPreferenceDocument>())
+        {
+            if (!item.contextualExclusion || item.sceneId != sceneId || item.context == null) continue;
+            if (!string.IsNullOrEmpty(zoneId) && item.context.zoneId != zoneId) continue;
+            if (item.context.assetGuid == guid) return true;
+        }
         return false;
     }
 

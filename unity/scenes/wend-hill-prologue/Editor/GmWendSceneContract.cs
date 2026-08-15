@@ -7,8 +7,10 @@
 // repoints the pack's own materials. A crashed run leaves a scene that has every root the purchased
 // pack ships, opens fine, builds fine, and is broad daylight.
 //
-// So this audits the night itself. Ten checks, each one a thing that a stale, half-built or
-// reverted-on-reload scene fails:
+// So this audits the night itself. Seventeen checks, each one a thing that a stale, half-built or
+// reverted-on-reload scene fails. Checks 1-10 are the night; 11-17 arrived with the canonical opening
+// and the first house chapter, and went undocumented here for long enough that the header said ten,
+// the PASS line said fifteen and the code numbered sixteen:
 //
 //   1. the player exists and has an eye to render from
 //   2. the lighting census still matches what the pack shipped
@@ -20,6 +22,16 @@
 //   8. the map edge is closed, by four walls and a configured catch height
 //   9. exactly one live AudioListener, and it is the player's
 //  10. the player actually has something wired into that listener
+//  11. the canonical estate opening is present, at route length, with a clear walk lane
+//  12. world anchors are unique, the required five resolve, and thirteen POIs are anchored
+//  13. the story runtime and the eight-shot review tour are wired into this scene
+//  14. one manor, a gate that can close, and a wake destination
+//  15. no negative-scale BoxCollider survives, and no purchased collider seals the route
+//  16. the first house chapter: portraits, clues, interactions and textured Victorian art
+//  17. every story POI carries owned rendered evidence, and the arrival car is the authored car
+//
+// The numbered comments in Audit() run in build order rather than in this order, because each check
+// runs where the scene state it reads is cheapest to gather.
 //
 // Check 7 is the one that catches the specific way this could silently regress. The foliage fix
 // repoints scene renderers and terrain tree prototypes in memory; if either failed to serialize, the
@@ -55,7 +67,7 @@ public static class GmWendSceneContract
         UnityEditor.SceneManagement.EditorSceneManager.OpenScene(
             GmWendBuilder.ScenePath, UnityEditor.SceneManagement.OpenSceneMode.Single);
         List<string> failures = Audit();
-        if (failures.Count == 0) Debug.Log($"[{LogTag}] PASS: all 15 checks green");
+        if (failures.Count == 0) Debug.Log($"[{LogTag}] PASS: all 17 checks green");
         else Debug.LogError($"[{LogTag}] FAIL:\n  - {string.Join("\n  - ", failures)}");
         EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
     }
@@ -240,6 +252,7 @@ public static class GmWendSceneContract
                 failures.Add($"{falseRouteObstacles} purchased wall/prop collider(s) still seal the semantic route");
         }
 
+        // 17. Every story POI carries owned rendered evidence, and the arrival car is the authored one.
         foreach (GmWorldAnchor poi in Object.FindObjectsByType<GmWorldAnchor>(FindObjectsInactive.Include,
                      FindObjectsSortMode.None).Where(anchor => anchor.name.StartsWith("POI_")))
         {
@@ -387,13 +400,14 @@ public static class GmWendSceneContract
         }
 
         if (failures.Count == 0)
-            Debug.Log($"[{LogTag}] 15/15 checks pass: player, census ({census}), moon " +
+            Debug.Log($"[{LogTag}] 17/17 checks pass: player, census ({census}), moon " +
                       $"{GmWendNight.MoonLux} lux, owned profile, fixed EV " +
                       $"{GmWendNight.CommittedExposureEV}, one live camera, zero foliage emitters, " +
                       "closed map edge, one live ear, ambience wired " +
                       $"({ambience.footstepPool.Length} footstep clips, " +
                       $"{ambience.cricketAnchors.Length} cricket anchors), canonical estate opening, " +
-                      $"semantic anchors, story runtime, manor/gate/wake, collider proxies");
+                      "semantic anchors, story runtime, manor/gate/wake, collider proxies, " +
+                      "house beginning chapter, POI evidence props");
 
         return failures;
     }

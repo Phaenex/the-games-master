@@ -49,7 +49,8 @@ public sealed class GmAdaptiveSlot : MonoBehaviour
         allowedSwapElementIds = swapElementIds == null ? Array.Empty<string>() : (string[])swapElementIds.Clone();
         maximumLocalOffset = new Vector3(Mathf.Abs(maxOffset.x), Mathf.Abs(maxOffset.y), Mathf.Abs(maxOffset.z));
         maximumYawOffset = Mathf.Clamp(Mathf.Abs(maxYaw), 0f, 180f);
-        scaleRange = new Vector2(Mathf.Max(0.05f, allowedScaleRange.x), Mathf.Max(allowedScaleRange.x, allowedScaleRange.y));
+        float minimumScale = Mathf.Max(0.05f, allowedScaleRange.x);
+        scaleRange = new Vector2(minimumScale, Mathf.Max(minimumScale, allowedScaleRange.y));
         groundingTolerance = Mathf.Max(0.01f, groundTolerance);
         collisionPadding = Mathf.Max(0f, padding);
         deterministicSeed = seed;

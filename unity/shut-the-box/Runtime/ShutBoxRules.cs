@@ -75,6 +75,16 @@ namespace GamesMaster.ShutTheBox
         {
             return new MoveResult(false, sum, reason, tile);
         }
+
+        /// <summary>
+        /// Rejection raised by a caller outside this assembly -- a turn or phase gate, not a rules
+        /// verdict. Kept separate from <see cref="Failure"/> so only the rules engine authors rule
+        /// outcomes, while a consumer can still return a first-class negative instead of faking one.
+        /// </summary>
+        public static MoveResult Rejected(string reason, int sum)
+        {
+            return new MoveResult(false, sum, reason, null);
+        }
     }
 
     public enum HoldKind

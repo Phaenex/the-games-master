@@ -34,22 +34,24 @@ public static class GmWendAmbience
 
     /// How far apart cricket anchors sit along the route. Crickets read as a near, local call, so
     /// spacing them tighter than the owl means more than one patch of insects across a long walk
-    /// instead of one source doing service for the whole route.
-    public const float CricketSpacingMetres = 70f;
+    /// instead of one source doing service for the whole route. Authored on GmFeelConfig, with the
+    /// mix volumes it goes with, because how often a place chirps is a feel call and not a geometry
+    /// one.
+    public static float CricketSpacingMetres => GmFeelConfig.Active.cricketSpacingMetres;
 
     /// Owls are rare and read as distant, so they can sit much sparser than crickets without the walk
     /// ever crossing two anchors close enough together to sound like a chorus.
-    public const float OwlSpacingMetres = 180f;
+    public static float OwlSpacingMetres => GmFeelConfig.Active.owlSpacingMetres;
 
     /// How far off the walked line an anchor sits. On the route itself a spatial source would be
     /// loudest standing still on top of it, which reads as the player walking INTO the sound rather
     /// than past it.
-    public const float LateralOffsetMetres = 8f;
+    public static float LateralOffsetMetres => GmFeelConfig.Active.ambienceLateralOffsetMetres;
 
     /// Owl anchors sit up in whatever canopy is nearby rather than at head height, because every call
     /// in real use comes from a tree, not from the ground.
-    public const float OwlHeightMetres = 6f;
-    const float CricketHeightMetres = 0.4f;
+    public static float OwlHeightMetres => GmFeelConfig.Active.owlHeightMetres;
+    static float CricketHeightMetres => GmFeelConfig.Active.cricketHeightMetres;
 
     static readonly string[] FootstepPrefixes = { "dirt", "grass", "gravel", "leaves", "stone" };
     const int FootstepClipsPerSurface = 8;
