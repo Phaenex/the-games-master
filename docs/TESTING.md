@@ -471,6 +471,36 @@ If a rule has an exemption, apply it to **every** signal the exempted thing emit
 you thought of. And when a gate fails while its own summary says everything passed, that gap is the
 bug.
 
+## Change an input by 20x. If the output does not move, you are tuning the wrong thing (2026-08-15)
+
+**Symptom:** six rooms rendered as white boxes while the drive outside was a moonlit night.
+
+**Three wrong answers**, each plausible, each carefully reasoned, each tuning something that
+contributed a rounding error: add a fixed exposure; fix the fog colour mode; clamp the chandelier
+from 800 lumens to the prologue's 200.
+
+**What ended it was not thinking harder.** Cutting every practical in the Entry Hall from
+800/200/200/150 lumens to 35 — between **6x and 23x** — changed the render almost not at all.
+
+> A room whose appearance does not respond to a 23x cut in its own lights is not being lit by its
+> lights.
+
+**Root cause:** a volume profile carrying `Exposure` and `Fog` but no `VisualEnvironment` leaves
+HDRP's **default sky** switched on, and it was lighting windowless interiors through ambient. A
+windowless room has no sky; turning it off removes a light source that is not physically there.
+
+**The technique, generalised.** When a fix does not land, stop refining it and instead move one
+input by an absurd amount — 10x, 20x, to zero. The output either moves, which confirms you have hold
+of the right lever, or it does not, which is far more informative than another careful adjustment.
+It is the fastest way to find out that the thing you have been tuning does not matter, and it costs
+one run.
+
+Corollary, learned the same night: **two systems that share a constant cannot also share a budget.**
+Interiors and exteriors share a fixed 0.3 EV deliberately, so the crossing does not read as a cut to
+another film — which is precisely why they need *different* light budgets. The prologue's 200-lumen
+practical ceiling is right at tens of metres and is a modern LED bulb at arm's length. Interiors cap
+at 35: a paraffin lamp is 10-40 lumens, a candle about 12.
+
 ## Known coverage boundaries (honest)
 
 - **Court / Shut the Box**: boot + phase screenshots only. Their gameplay is Phase 1/2 work,
