@@ -307,6 +307,34 @@ Between-build spread is still larger than within-run spread (a freshly rebuilt a
 against 21ms for the previous binary), so a cross-build comparison still needs repeats. The failure
 itself is real and reproducible: p95 exceeds the 16.7ms budget in every observation taken.
 
+## Run the build. The test suite cannot see the player build (2026-08-15)
+
+**Symptom:** none. Every suite green, 371 EditMode and 17 PlayMode, and the title screen threw
+**9,906 NullReferenceExceptions in a twenty-second run** of the real macOS app.
+
+**Root cause:** Unity 6 `PanelSettings` created at runtime with `CreateInstance` carry no ICU
+payload. UI Toolkit's *advanced* text generator needs it, so `UITKTextHandle.ShapeText` throws inside
+a job once per text element per frame and draws nothing. No crash, no visible error, no failing
+test — the text is simply absent.
+
+**The fix that worked:** `element.style.unityTextGenerator = TextGeneratorType.Standard`, applied
+across a whole subtree by `GmUiText.UseStandardGenerator`.
+
+**The part worth carrying:** this defect class had already been beaten. `GmPrologueHud` and
+`GmHouseHud` each found it independently and each fixed it *on their own labels, with a comment
+explaining it*. The boot scene written months later reintroduced it, and `GmCreditsUI` had it the
+whole time. **A fix that lives in a comment in one file is not a fix for the next file.** When a
+defect class is beaten, the fix belongs in a shared, callable thing, or the next file re-earns it.
+
+Two habits this justifies:
+
+1. **Build and run it, then read the whole log — not just for your own tag.** I found this by
+   grepping the player log for exceptions after checking my own line was there. Had I grepped only
+   for `[GmBoot]`, the run would have "passed."
+2. **Do not dismiss a broad-pattern hit as noise.** The check that caught this was a loose
+   `^\w*Exception:|^\s*Error` regex that looked like it would false-positive. It returned `True`,
+   and the honest move was to go read what matched rather than tighten the pattern.
+
 ## Known coverage boundaries (honest)
 
 - **Court / Shut the Box**: boot + phase screenshots only. Their gameplay is Phase 1/2 work,
