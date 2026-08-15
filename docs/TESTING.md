@@ -335,6 +335,30 @@ Two habits this justifies:
    `^\w*Exception:|^\s*Error` regex that looked like it would false-positive. It returned `True`,
    and the honest move was to go read what matched rather than tighten the pattern.
 
+## A gate going green is not the defect going away (2026-08-15)
+
+Chasing the prologue's orange cast produced two lessons worth more than the fix.
+
+**1. A metric can improve while the defect survives.** Raising the moon took the worst frame's
+red:blue from 2.94 to 2.09 and moved it under the new gate threshold. The ground in that frame is
+*still* blown orange. The number improved because the cool background became visible, not because
+the foreground got fixed — the metric was dominated by the part that was already fine. When a fix
+moves a number, check that it moved the thing the number was standing in for.
+
+**2. Sweep the suspect before rewriting it.** 2000K lamps read as sodium vapour on paper and looked
+like the obvious cause. Swept it: 2000K gave 2.03, 2700K gave 2.13. Innocent. It stays at 2000
+rather than being "improved" for nothing, and it is now overridable so the next person re-sweeps
+instead of re-arguing. Two suspects eliminated with evidence beats one plausible story.
+
+The bisect flags exist for exactly this: `-gmMoonLux`, `-gmSkyExposureDrop`, `-gmPracticalScale`,
+`-gmIndirectDiffuse`, `-gmLampKelvin`, `-gmExposureEV`, passed straight through `unity-cli.mjs`
+after the task name. Rebuild, tour, measure, compare. Never argue about a look you can render twice.
+
+**Read the bisect line from the log the run actually wrote.** `rebuild wend-hill-prologue` writes
+`cli-rebuild.log`, with no scene prefix, because the prologue is the default scene — every other
+scene gets `cli-<scene>-rebuild.log`. Reading the prefixed file showed a two-hour-old line with the
+default values and nearly cost a correct result its attribution.
+
 ## Known coverage boundaries (honest)
 
 - **Court / Shut the Box**: boot + phase screenshots only. Their gameplay is Phase 1/2 work,
