@@ -14,7 +14,8 @@
 // is satisfied by a script that always fails, which is its own kind of broken -- it trains people to
 // ignore the gate. Both directions, or the case proves nothing.
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync, copyFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { deflateSync } from 'node:zlib';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -23,7 +24,64 @@ const REPO_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const sandbox = mkdtempSync(path.join(tmpdir(), 'gm-harness-integrity-'));
 
 let passed = 0;
+let attempted = 0;
 const failures = [];
+
+/**
+ * A real, decodable PNG built here rather than borrowed from disk.
+ *
+ * The first version of this gate took its "accept good input" frame from
+ * unity-project/Screens/, which is gitignored -- so on the ONLY CI job that runs today
+ * (ubuntu-latest, no Unity, fresh checkout) that file never exists, two cases silently skipped, and
+ * the run still printed a clean pass. The skipped pair included the case this gate exists for: a
+ * good target masking an empty one, which is the exact defect that shipped. A meta-gate that
+ * quietly covers less on the machine that matters most is the thing it was written to prevent.
+ *
+ * A horizontal grey ramp, so it clears every defect rule in scan-frame-defects deliberately rather
+ * than by luck: not near-black (p90 well above 3), not blown (median far below 235), not flat
+ * (p90-p5 spread far above 4), and no magenta (r == g == b can never satisfy g < r * 0.55).
+ */
+function writeGradientPng(file, size = 32) {
+  const crcTable = Array.from({ length: 256 }, (_, n) => {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    return c >>> 0;
+  });
+  const crc32 = (buf) => {
+    let c = 0xffffffff;
+    for (const byte of buf) c = crcTable[(c ^ byte) & 0xff] ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+  };
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(type, 'ascii'), data]);
+    const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(body));
+    return Buffer.concat([len, body, crc]);
+  };
+
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(size, 0); ihdr.writeUInt32BE(size, 4);
+  ihdr[8] = 8;    // bit depth
+  ihdr[9] = 2;    // colour type 2 = RGB, which the scanner accepts
+  ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;   // deflate / adaptive filtering / no interlace
+
+  const raw = Buffer.alloc(size * (size * 3 + 1));
+  let at = 0;
+  for (let y = 0; y < size; y++) {
+    raw[at++] = 0;   // filter type 0 (None) for this scanline
+    for (let x = 0; x < size; x++) {
+      const v = Math.round(12 + (x / (size - 1)) * 200);   // 12..212
+      raw[at++] = v; raw[at++] = v; raw[at++] = v;
+    }
+  }
+
+  writeFileSync(file, Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', ihdr),
+    chunk('IDAT', deflateSync(raw)),
+    chunk('IEND', Buffer.alloc(0)),
+  ]));
+}
 
 function run(script, args, env = {}) {
   const result = spawnSync('node', [path.join(REPO_ROOT, 'scripts', script), ...args], {
@@ -34,6 +92,7 @@ function run(script, args, env = {}) {
 
 /** The guard must REJECT this input. A zero exit here means the check has gone blind. */
 function mustFail(label, script, args, env) {
+  attempted++;
   const { code, out } = run(script, args, env);
   if (code !== 0) { passed++; console.log(`  ✓ ${label} — correctly rejected`); return; }
   failures.push(`${label}: ${script} exited 0 on input it must reject — the check is blind here\n      ${out.trim().split('\n').slice(-3).join('\n      ')}`);
@@ -42,6 +101,7 @@ function mustFail(label, script, args, env) {
 
 /** The guard must ACCEPT this input. Without this direction, "always fails" would score as healthy. */
 function mustPass(label, script, args, env) {
+  attempted++;
   const { code, out } = run(script, args, env);
   if (code === 0) { passed++; console.log(`  ✓ ${label} — correctly accepted`); return; }
   failures.push(`${label}: ${script} exited ${code} on input it must accept — the check cries wolf\n      ${out.trim().split('\n').slice(-3).join('\n      ')}`);
@@ -54,9 +114,6 @@ function mustPass(label, script, args, env) {
 // ---------------------------------------------------------------------------------------------
 console.log('\nscan-frame-defects.mjs');
 
-const realFrame = path.join(REPO_ROOT, 'unity-project/Screens/WendHill_Prologue/tour-01-arrival.png');
-const haveRealFrame = existsSync(realFrame);
-
 const emptyDir = path.join(sandbox, 'exists-but-empty');
 mkdirSync(emptyDir, { recursive: true });
 const corruptDir = path.join(sandbox, 'corrupt');
@@ -64,18 +121,15 @@ mkdirSync(corruptDir, { recursive: true });
 writeFileSync(path.join(corruptDir, 'truncated.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x01]));
 const goodDir = path.join(sandbox, 'good');
 mkdirSync(goodDir, { recursive: true });
-if (haveRealFrame) copyFileSync(realFrame, path.join(goodDir, 'frame-01.png'));
+writeGradientPng(path.join(goodDir, 'frame-01.png'));
 
 mustFail('missing target directory', 'scan-frame-defects.mjs', [path.join(sandbox, 'nope')]);
 mustFail('directory that exists but captured nothing', 'scan-frame-defects.mjs', [emptyDir]);
 mustFail('undecodable PNG counted as scanned', 'scan-frame-defects.mjs', [corruptDir]);
-if (haveRealFrame) {
-  mustPass('a real captured frame', 'scan-frame-defects.mjs', [goodDir]);
-  // The regression that shipped: one good target masking a silent one.
-  mustFail('good target paired with an empty one', 'scan-frame-defects.mjs', [goodDir, emptyDir]);
-} else {
-  console.log('  … skipped 2 positive cases — no captured frame on disk; run the tour first');
-}
+mustPass('a clean, decodable frame', 'scan-frame-defects.mjs', [goodDir]);
+// The regression that shipped: one good target masking a silent one. This is the case the whole
+// gate exists for, so it must run everywhere, not only where a prior tour left frames behind.
+mustFail('good target paired with an empty one', 'scan-frame-defects.mjs', [goodDir, emptyDir]);
 
 // ---------------------------------------------------------------------------------------------
 // test-attribution.mjs — gate 0. A licence check that cannot fail is a legal exposure, not a gate.
@@ -98,8 +152,13 @@ const unresolved = attributionSandbox('attr-unresolved',
   'gavel.glb\n  Sourced for the Court scene. License unknown.\n');
 const unnamed = attributionSandbox('attr-unnamed',
   'mirror.glb\n  Sourced from Poly Pizza, CC-BY.\n');
+// Deliberately CC-BY, wrapped across lines, with the author's name on a DIFFERENT line from the
+// licence token. A CC0 fixture here proved nothing: /CC[-\s]?BY/ never matches "CC0", so the
+// entry-scoping and author-detection code -- the exact path that once wrongly rejected a complete
+// record in CREDITS.txt -- went unexercised by the gate meant to keep it honest.
 const clean = attributionSandbox('attr-clean',
-  'lantern.glb\n  "Lantern" by Kay Lousberg, via Poly Pizza. License: CC0 (Public Domain).\n');
+  'lantern.glb  (drive lampposts)\n  "Lantern" by Kay Lousberg, via Poly Pizza.\n'
+  + '  License: CC-BY 3.0.\n');
 const missing = attributionSandbox('attr-missing', null);
 
 mustFail('an unresolved "credit here when landed" promise', 'test-attribution.mjs', [], { GM_REPO_ROOT: unresolved });
@@ -127,5 +186,7 @@ if (failures.length) {
   rmSync(sandbox, { recursive: true, force: true });
   process.exit(1);
 }
-console.log(`✓ harness integrity: ${passed} guard case(s) proven — each rejects bad input and accepts good`);
+// Report attempted as well as passed: a run that silently covered fewer cases must not read the
+// same as a full one. That is precisely how the first version of this file hid its own gap.
+console.log(`✓ harness integrity: ${passed}/${attempted} guard case(s) proven — each rejects bad input and accepts good`);
 rmSync(sandbox, { recursive: true, force: true });
