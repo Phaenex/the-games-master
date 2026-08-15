@@ -48,7 +48,7 @@ const failures = [];
  * than by luck: not near-black (p90 well above 3), not blown (median far below 235), not flat
  * (p90-p5 spread far above 4), and no magenta (r == g == b can never satisfy g < r * 0.55).
  */
-function writeGradientPng(file, size = 32) {
+function writeGradientPng(file, size = 32, tint = [1, 1, 1]) {
   const crcTable = Array.from({ length: 256 }, (_, n) => {
     let c = n;
     for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
@@ -77,8 +77,10 @@ function writeGradientPng(file, size = 32) {
   for (let y = 0; y < size; y++) {
     raw[at++] = 0;   // filter type 0 (None) for this scanline
     for (let x = 0; x < size; x++) {
-      const v = Math.round(12 + (x / (size - 1)) * 200);   // 12..212
-      raw[at++] = v; raw[at++] = v; raw[at++] = v;
+      const v = 12 + (x / (size - 1)) * 200;   // 12..212
+      raw[at++] = Math.min(255, Math.round(v * tint[0]));
+      raw[at++] = Math.min(255, Math.round(v * tint[1]));
+      raw[at++] = Math.min(255, Math.round(v * tint[2]));
     }
   }
 
@@ -137,6 +139,26 @@ mustPass('a clean, decodable frame', 'scan-frame-defects.mjs', [goodDir]);
 // The regression that shipped: one good target masking a silent one. This is the case the whole
 // gate exists for, so it must run everywhere, not only where a prior tour left frames behind.
 mustFail('good target paired with an empty one', 'scan-frame-defects.mjs', [goodDir, emptyDir]);
+
+// Colour cast. Every one of the eight real prologue frames passed this scanner while the drive's
+// ground rendered as glowing orange, because brightness percentiles cannot see hue and the magenta
+// rule only looks for a suppressed GREEN channel. Both directions, because a cast rule that fires
+// on any warm frame would condemn every candlelit room in the game and get switched off.
+const orangeDir = path.join(sandbox, 'cast-orange');
+mkdirSync(orangeDir, { recursive: true });
+writeGradientPng(path.join(orangeDir, 'furnace.png'), 32, [1, 0.42, 0.22]);
+const blueDir = path.join(sandbox, 'cast-blue');
+mkdirSync(blueDir, { recursive: true });
+writeGradientPng(path.join(blueDir, 'aquarium.png'), 32, [0.2, 0.45, 1]);
+const warmDir = path.join(sandbox, 'cast-warm-ok');
+mkdirSync(warmDir, { recursive: true });
+// Warm enough to be obviously lamplit, inside the band on purpose: the real porch frame measures
+// 2.23 and is a good shot. A threshold that failed it would be tuning taste, not catching defects.
+writeGradientPng(path.join(warmDir, 'lamplit.png'), 32, [1, 0.72, 0.55]);
+
+mustFail('a frame lit only by orange', 'scan-frame-defects.mjs', [orangeDir]);
+mustFail('a frame lit only by blue', 'scan-frame-defects.mjs', [blueDir]);
+mustPass('a warm lamplit frame that is still balanced', 'scan-frame-defects.mjs', [warmDir]);
 
 // ---------------------------------------------------------------------------------------------
 // test-attribution.mjs — gate 0. A licence check that cannot fail is a legal exposure, not a gate.

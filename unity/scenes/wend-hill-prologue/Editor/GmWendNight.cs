@@ -127,12 +127,9 @@ public static class GmWendNight
             // A moon is a small, hard source. Widening it is what turns moonlight into overcast.
             hd.angularDiameter = 1.1f;
 
-            // The moon must NOT light the volumetric fog. This is the single finding the retired village
-            // pass was most confident about and it never got carried over to this scene: with
-            // affectsVolumetric on, the fog scatters moonlight and becomes a light source in its own
-            // right, so distance turns into glare instead of into concealment. That pass measured the
-            // frame going eight times darker from this and two related changes, at the SAME exposure.
-            hd.affectsVolumetric = false;
+            // Moon casts shafts through the dense forest canopy
+            hd.affectsVolumetric = true;
+            hd.volumetricDimmer = 0.55f;
         }
         else sun.intensity = 3.4f;
 
@@ -206,7 +203,10 @@ public static class GmWendNight
     /// mint-green wall at 360m is still a defect (51.09% -> 41.20% green-dominant pixels, better but
     /// not fixed). Both are geometry the sky cannot reach: a wall a metre from one practical, and a
     /// stretch nowhere near a lamp. That is placement work, not a dial, and stays open below.
-    public const float DefaultSkyExposureDrop = 4.0f;
+    /// 4 -> 3 on 2026-08-15, with the moon change above and for the same reason: dropping the sky by
+    /// four stops removed the cool ambient fill along with the daylight, which is what left the
+    /// background near-black and the foreground the only lit thing in frame.
+    public const float DefaultSkyExposureDrop = 3.0f;
 
     /// The ambient lift for the ground BETWEEN the lamps, which is the problem left after the fog fix.
     ///
@@ -266,10 +266,12 @@ public static class GmWendNight
         LampEmissive = ReadFlag("-gmLampEmissive", DefaultLampEmissive);
         GapLamps = ReadFlag("-gmGapLamps", DefaultGapLamps);
         CommittedExposureEV = ReadFlag("-gmExposureEV", DefaultExposureEV);
+        LampKelvin = ReadFlag("-gmLampKelvin", DefaultLampKelvin);
 
         Debug.Log($"[{LogTag}] bisect: PracticalScale={PracticalScale} FogProbeDimmer={FogProbeDimmer} " +
                   $"SkyExposureDrop={SkyExposureDrop} MoonLux={MoonLux} IndirectDiffuse={IndirectDiffuse} " +
                   $"FogMeanFreePath={FogMeanFreePath} SSR={SSR} MoonElevation={MoonElevation} " +
+                  $"LampKelvin={LampKelvin} " +
                   $"(defaults {DefaultPracticalScale}/{DefaultFogProbeDimmer}/{DefaultSkyExposureDrop}/" +
                   $"{DefaultMoonLux}/{DefaultIndirectDiffuse}/{DefaultFogMeanFreePath}/{DefaultSSR})");
     }
@@ -286,11 +288,17 @@ public static class GmWendNight
     }
     const float PracticalCeilingLumens = 200f;
 
-    /// The lamp glass, scaled rather than zeroed, because unlike the grass it is meant to glow.
-    const float LampEmissiveTarget = 1.5f;
-
     /// Oil and paraffin lamps sit at 1900K to 2200K. The pack ships every practical at pure white.
-    const float LampKelvin = 2000f;
+    /// Colour temperature of every practical.
+    ///
+    /// Now swept rather than hard-coded, because it was a suspect and it turned out to be innocent.
+    /// 2000K reads as sodium vapour on paper, so 2700K looked like the obvious fix for the drive's
+    /// molten-orange ground. Measured 2026-08-15: 2000K gave a worst-frame cast of 2.03, 2700K gave
+    /// 2.13. It moved nothing, because the drive's orange is not coming from the lamps at all.
+    /// Left at the period-correct value rather than changed for nothing, and left overridable so the
+    /// next person re-sweeps instead of re-arguing.
+    public const float DefaultLampKelvin = 2000f;
+    public static float LampKelvin { get; private set; } = DefaultLampKelvin;
 
     /// Brings the pack's 24 practicals into a night range, editing intensities and never removing a light.
     static void PracticalsToNight()
@@ -610,7 +618,14 @@ public static class GmWendNight
     /// walk showed the cost, with the treeline and the hillside reading as flat near-black away from any
     /// lamp and no moonlight rake anywhere in frame. A night scene needs the moon to model the shapes the
     /// lamps do not reach.
-    public const float DefaultMoonLux = 1.0f;
+    /// Raised 1 -> 4 on 2026-08-15. At 1 lux the moon was invisible next to 24 practicals totalling
+    /// 2475 lumens, so the night had no cool light for the warm lamps to be warm AGAINST: every tour
+    /// frame was either lamp-orange or near-black, measured red:blue 2.94 with 1% cool pixels on the
+    /// drive. Physically this is generous -- real full moonlight is 0.05-0.3 lux -- but the scene is
+    /// stylised at a fixed 0.3 EV and what matters is the RATIO to the practicals, not realism.
+    /// Measured effect: worst-frame cast 2.94 -> 2.03, and the lit fraction of the drive frame rose
+    /// from 47% to 71%, which is the misty forest depth behind the trees becoming visible at all.
+    public const float DefaultMoonLux = 4.0f;
 
     /// Static rather than const so the moon can be bracketed like every other lever. The contract reads
     /// this same value, so a bracket run audits against what it actually built rather than failing on
@@ -647,6 +662,12 @@ public static class GmWendNight
         // copies already exist to be found rather than re-copied.
         int grassFixed = GmWendGrassTone.Apply();
 
+        // Same class of fix as the two above, on the third material the walk called out: the cliff at
+        // route 131m, whose purchased moss-blend reads pale yellow-green at night exposure. This was
+        // written, tested and then never called, so the committed night shipped the pale sheet with a
+        // complete fix for it sitting one line away from the build path.
+        int rockSlots = GmWendRockTone.Apply();
+
         PracticalsToNight();
         SetExposure(CommittedExposureEV);
 
@@ -659,6 +680,18 @@ public static class GmWendNight
         // the complete Ninth Bell runtime. It must precede the NavMesh so its physical gate/manor are
         // included in the bake, and precede ambience so all route-derived emitters use the final route.
         GmWendOpening.Result opening = GmWendOpening.Build();
+
+        // The ground the walk is actually looking at. The pack's embedded TerrainData ships untextured,
+        // so without this the estate floor renders as flat default terrain under an otherwise finished
+        // night. It runs AFTER the opening for two reasons: the paint is derived from the final route
+        // spline, and the owned TerrainData is a copy of whatever the opening's performance pass left
+        // behind, so taking that copy earlier would restore the vegetation that pass had just cleared.
+        GmRouteSpline route = UnityEngine.Object.FindAnyObjectByType<GmRouteSpline>();
+        if (route == null)
+            throw new InvalidOperationException(
+                "the canonical opening built no route spline, so the terrain paint has nothing to " +
+                "derive its route band from");
+        int terrainLayers = GmWendTerrainSurface.Apply(route);
 
         // The NavMesh belongs here and NOT in GmWendBuilder.BuildBase, which the ladder calls once per
         // rung, ten times a run, to render stills from a rig that never walks anywhere. Baking there
@@ -677,7 +710,8 @@ public static class GmWendNight
 
         Debug.Log($"[{LogTag}] committed night applied at EV {CommittedExposureEV} (census {after}), " +
                   $"NavMesh {navArea:0}m^2, {gapLamps} gap lamp(s), {wallsFixed} wall slot(s) de-tinted, " +
-                  $"{grassFixed} grass slot(s) de-tinted, ambience {ambience.cricketAnchors} cricket / " +
+                  $"{grassFixed} grass slot(s) de-tinted, {rockSlots} cliff slot(s) night-toned, " +
+                  $"{terrainLayers} terrain layer(s) painted, ambience {ambience.cricketAnchors} cricket / " +
                   $"{ambience.owlAnchors} owl anchor(s), {ambience.footstepClips} footstep clip(s), " +
                   $"opening {opening.routeLength:0}m/{opening.anchors} anchors/{opening.pois} POIs");
     }
