@@ -21,7 +21,6 @@
   @keyframes gmflicker { 0%,100% { opacity: 1; } 47% { opacity: 0.92; } 50% { opacity: 0.7; } 53% { opacity: 0.95; } }
   @keyframes tellglint { 0%,100% { color: #F2C759; text-shadow: none; } 46% { color: #F2C759; } 50% { color: #40F259; text-shadow: 0 0 14px rgba(64,242,89,0.55); } 54% { color: #F2C759; } }
   @keyframes slowbreathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.035); } }
-  @keyframes emberdrift { 0% { background-position: 0 0; } 100% { background-position: 0 -1400px; } }
   @keyframes candlesway { 0%,100% { transform: rotate(-0.6deg) scaleY(1); } 50% { transform: rotate(0.7deg) scaleY(0.96); } }
 </style>
 </helmet>
@@ -1162,10 +1161,13 @@ class Component extends DCLogic {
       'filter:saturate(' + (gm.desat ? 0.45 : 1) + ');' +
       'box-shadow:inset 0 0 160px 40px rgba(0,0,0,' + gm.dark + ');' +
       (gm.shake ? 'animation:gmflicker 2.2s infinite;' : '');
+    // greenGold (IRRITATED only): box-shadow reads currentColor so the already-defined
+    // tellglint keyframe (gold -> green -> gold, the same "tell" flicker used on the tell
+    // icon above) drives the rim directly, instead of sitting on a flag no style ever read.
     const gmSilStyle = 'position:absolute;left:50%;bottom:0;transform:translateX(-50%);z-index:2;width:120px;height:220px;' +
       'background:linear-gradient(180deg,#040302,#0c0a07);border-radius:60px 60px 12px 12px;' +
-      'box-shadow:' + gm.rim + ';' +
-      (gm.sway ? 'animation:candlesway 2.4s ease-in-out infinite;' : '');
+      (gm.greenGold ? 'color:#F2C759;box-shadow:0 0 30px currentColor;animation:tellglint 3.5s infinite' + (gm.sway ? ',candlesway 2.4s ease-in-out infinite' : '') + ';'
+        : 'box-shadow:' + gm.rim + ';' + (gm.sway ? 'animation:candlesway 2.4s ease-in-out infinite;' : ''));
 
     // Corruption demo
     const corrOrder = [0,1,2,3,4];

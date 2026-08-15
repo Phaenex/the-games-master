@@ -158,7 +158,7 @@ PREMISE: An engraved invitation arrives that knows your debts to the cent. It dr
 
 CORE LOOP: a trick-taking card game with four custom suits (Flames, Eyes, Bones, Teeth); Flames trump. EARNED VERB: at first you CANNOT accuse him — he is simply too good, and you lose tricks you know you should have won. A Suspicion meter rises as you feel something is off. Only once you have felt it do you EARN "the Read" — the ability to slow the table and catch a specific cheat. Catching cheats, not winning tricks, is the real game.
 
-TWO GAUGES: Corruption (0–4) — the house's grip; as it climbs, the UI, the cards, and Aldric distort and glitch and the language curdles. Sanity — your grip; low sanity tints and warps the room.
+TWO GAUGES: Corruption (tiers 1–4; a run opens at tier 1, never 0, and it only ever rises) — the house's grip; as it climbs, the UI, the cards, and Aldric distort and glitch and the language curdles. Sanity — your grip; low sanity tints and warps the room.
 
 STRUCTURE: Prologue (a quiet cold open of a life coming apart — missed calls, a hospital's Friday deadline, Mara, an envelope under the door — then a first-person foggy walk up to a huge mansion, the doors swing open, and a hand pulls you in as everything goes black). Entry Hall (explore a lived-in mansion — library, drawing room, dining room, study, grand staircase, portraits — with examine points that murmur to you). The Parlor (home base; the card table). Later rooms escalate: the Court, the Gallery, the Labyrinth. Six endings. A save-file-aware "house remembers" system (Inscryption-like): a hidden ledger records your habits and Aldric references them; it survives New Game and even save deletion.
 
@@ -255,6 +255,7 @@ CURRENT PLAYABLE BUILD: a playable Prologue (WASD + mouse-look, cold open, an in
       return Object.assign({}, x, {
         sevStyle:sevStyle(x.severity),
         planned,
+        onPlan: ()=>this.togglePlanned(x.key),
         checkMark: planned?'✓':'',
         checkStyle:'flex:0 0 auto;width:20px;height:20px;border:1px solid '+(planned?'#5FA88B':'rgba(242,199,89,0.35)')+';background:'+(planned?'rgba(95,168,139,0.18)':'transparent')+';color:#5FA88B;display:flex;align-items:center;justify-content:center;font-family:\'JetBrains Mono\',monospace;font-size:12px;cursor:pointer;margin-top:2px;',
         rowStyle:'display:grid;grid-template-columns:20px 1fr;gap:13px;align-items:start;padding:14px 2px;border-bottom:1px solid rgba(242,199,89,0.08);opacity:'+(planned?'0.62':'1')+';'

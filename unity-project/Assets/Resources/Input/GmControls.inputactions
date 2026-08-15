@@ -1,0 +1,246 @@
+{
+    "name": "GmControls",
+    "maps": [
+        {
+            "name": "Gameplay",
+            "id": "7e131f7c-d93f-42e4-9bc6-99c894076adc",
+            "actions": [
+                {
+                    "name": "Move",
+                    "type": "Value",
+                    "id": "c2c5c91f-92a0-45a6-93ee-651f74e24e02",
+                    "expectedControlType": "Vector2"
+                },
+                {
+                    "name": "Look",
+                    "type": "Value",
+                    "id": "c4163bcc-6f63-40b7-8d51-6fba6ea92039",
+                    "expectedControlType": "Vector2"
+                },
+                {
+                    "name": "Interact",
+                    "type": "Button",
+                    "id": "f39e5307-38dd-48b6-b85b-aa0dd55081f6",
+                    "expectedControlType": "Button"
+                },
+                {
+                    "name": "Cancel",
+                    "type": "Button",
+                    "id": "44701621-91c5-472a-ae9b-2917058b93d6",
+                    "expectedControlType": "Button"
+                },
+                {
+                    "name": "Pause",
+                    "type": "Button",
+                    "id": "6aa7f365-926d-4bbf-901d-14c37fbad34e",
+                    "expectedControlType": "Button"
+                },
+                {
+                    "name": "ReviewWind",
+                    "type": "Button",
+                    "id": "d25f384f-59b6-41da-aed8-b67ae40bc39c",
+                    "expectedControlType": "Button"
+                },
+                {
+                    "name": "Quit",
+                    "type": "Button",
+                    "id": "6c2e1c83-fbc8-4aae-940e-8312de6928b8",
+                    "expectedControlType": "Button"
+                },
+                {
+                    "name": "BrightnessDown",
+                    "type": "Button",
+                    "id": "1904a3dc-4d4a-47c7-8509-8e27b8371be0",
+                    "expectedControlType": "Button"
+                },
+                {
+                    "name": "BrightnessUp",
+                    "type": "Button",
+                    "id": "62a39832-fdd1-41a8-b787-08e3599e2e44",
+                    "expectedControlType": "Button"
+                },
+                {
+                    "name": "CallTell",
+                    "type": "Button",
+                    "id": "b1c7f0e2-0a11-4d3e-9c55-7f2a10cc0011",
+                    "expectedControlType": "Button"
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "WASD",
+                    "id": "56ba4897-50db-4a98-ac5e-45c06458281c",
+                    "path": "2DVector",
+                    "action": "Move",
+                    "isComposite": true
+                },
+                {
+                    "name": "up",
+                    "id": "03418954-b0f6-423e-9f32-fc039863135d",
+                    "path": "<Keyboard>/w",
+                    "action": "Move",
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "down",
+                    "id": "aa16382f-33f6-454d-944d-762cff130701",
+                    "path": "<Keyboard>/s",
+                    "action": "Move",
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "left",
+                    "id": "a7381d24-3cc5-4b77-9ae6-431eaa09d57f",
+                    "path": "<Keyboard>/a",
+                    "action": "Move",
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "right",
+                    "id": "56ff509d-93bb-4cbc-9c6b-54a89a72b201",
+                    "path": "<Keyboard>/d",
+                    "action": "Move",
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "Arrows",
+                    "id": "9530c816-a913-4f64-83f5-73cb4653cbac",
+                    "path": "2DVector",
+                    "action": "Move",
+                    "isComposite": true
+                },
+                {
+                    "name": "up",
+                    "id": "fab414c8-e58d-45dc-ab07-c57545281528",
+                    "path": "<Keyboard>/upArrow",
+                    "action": "Move",
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "down",
+                    "id": "76719646-9b9c-48fe-93fd-807c9d128e23",
+                    "path": "<Keyboard>/downArrow",
+                    "action": "Move",
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "left",
+                    "id": "2ad4aa32-fc6e-492d-8aaa-9bc1917a55e1",
+                    "path": "<Keyboard>/leftArrow",
+                    "action": "Move",
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "right",
+                    "id": "fbb56bcf-df85-45ec-bba3-6958bca9cbbb",
+                    "path": "<Keyboard>/rightArrow",
+                    "action": "Move",
+                    "isPartOfComposite": true
+                },
+                {
+                    "id": "506a852e-0ca9-4dfc-aade-737dbad2d9cd",
+                    "path": "<Gamepad>/leftStick",
+                    "action": "Move",
+                    "processors": "StickDeadzone(min=0.15,max=0.95)"
+                },
+                {
+                    "id": "0edcb8fd-8bea-48ca-a147-2003839ba147",
+                    "path": "<Gamepad>/dpad",
+                    "action": "Move"
+                },
+                {
+                    "id": "ee78e06f-7d71-4205-9d7f-a100cf1c99f7",
+                    "path": "<Mouse>/delta",
+                    "action": "Look"
+                },
+                {
+                    "id": "aaffd6d2-8c25-4b2d-8eaa-9370a0fb45af",
+                    "path": "<Gamepad>/rightStick",
+                    "action": "Look",
+                    "processors": "StickDeadzone"
+                },
+                {
+                    "id": "a852711a-ebf3-4e8c-a40b-c5b414b403ba",
+                    "path": "<Keyboard>/e",
+                    "action": "Interact"
+                },
+                {
+                    "id": "ea7522e9-e4e1-4c11-a790-b8baa7fc7835",
+                    "path": "<Gamepad>/buttonSouth",
+                    "action": "Interact"
+                },
+                {
+                    "id": "b1c7f0e2-0a11-4d3e-9c55-7f2a10cc0012",
+                    "path": "<Keyboard>/f",
+                    "action": "CallTell"
+                },
+                {
+                    "id": "b1c7f0e2-0a11-4d3e-9c55-7f2a10cc0013",
+                    "path": "<Gamepad>/buttonWest",
+                    "action": "CallTell"
+                },
+                {
+                    "id": "27996cc1-ad2b-4f54-8552-f47b4e1dfec5",
+                    "path": "<Keyboard>/escape",
+                    "action": "Cancel"
+                },
+                {
+                    "id": "5595ce86-601d-426b-a95c-8a503732fab8",
+                    "path": "<Gamepad>/buttonEast",
+                    "action": "Cancel"
+                },
+                {
+                    "id": "837f9ad3-687f-4725-8d60-109b0f930eea",
+                    "path": "<Keyboard>/escape",
+                    "action": "Pause"
+                },
+                {
+                    "id": "f3fd9452-2fa8-4421-8f0b-9d882dd82bea",
+                    "path": "<Gamepad>/start",
+                    "action": "Pause"
+                },
+                {
+                    "id": "ce3bbcbf-7a93-452a-bb47-7b2df45da687",
+                    "path": "<Keyboard>/f8",
+                    "action": "ReviewWind"
+                },
+                {
+                    "id": "96bab205-1182-47c2-b96d-2172f74abc58",
+                    "path": "<Gamepad>/rightShoulder",
+                    "action": "ReviewWind"
+                },
+                {
+                    "id": "402b5bcd-29e1-49b1-83c9-4076cf14926f",
+                    "path": "<Keyboard>/q",
+                    "action": "Quit"
+                },
+                {
+                    "id": "a95f4b7c-32f6-4ae0-a759-d9f21b086cff",
+                    "path": "<Gamepad>/buttonNorth",
+                    "action": "Quit"
+                },
+                {
+                    "id": "6aa7cc34-c7ac-45ac-879c-e84fcab5d128",
+                    "path": "<Keyboard>/leftArrow",
+                    "action": "BrightnessDown"
+                },
+                {
+                    "id": "46bf1f12-4f8e-46a9-ad17-416317c811c1",
+                    "path": "<Gamepad>/dpad/left",
+                    "action": "BrightnessDown"
+                },
+                {
+                    "id": "0cab435e-3319-4fb0-ae27-60f9c8a8587b",
+                    "path": "<Keyboard>/rightArrow",
+                    "action": "BrightnessUp"
+                },
+                {
+                    "id": "a4d6915c-58e5-40bd-bb47-f49c4aa6be2a",
+                    "path": "<Gamepad>/dpad/right",
+                    "action": "BrightnessUp"
+                }
+            ]
+        }
+    ],
+    "controlSchemes": []
+}

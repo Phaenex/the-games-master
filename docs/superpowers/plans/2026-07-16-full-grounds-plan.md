@@ -63,7 +63,13 @@ becomes the feature.
 
 ### Chapel forecourt (W2b — G1)
 - Chapel (exists as landmark): becomes reachable. SM_Door_01 plank door mounted shut on its
-  entrance + examine ("locked long before I was born"). Interior = never (window glow only, maybe).
+  entrance + examine ("locked long before I was born"). Interior = never — **deliberately, and
+  reaffirmed 2026-08-13 when the coach house was opened** (see
+  `docs/superpowers/specs/2026-08-13-the-reckoning.md`). The chapel is the ninth bell's own
+  diegetic sound source, and its shipped examine line ("scratches around the lock... not from
+  picking it. From under the door.") is worth more shut than any room is worth open. Whether
+  it opens in a later phase — including a mode where pulling the rope answers a toll early — is
+  an explicit open question, not decided here (window glow only, maybe).
 - Lychgate at the cemetery's east wall (G1): timber posts + SM_DoorFrame or procedural.
 - Bell? (Sorcerers Hut / Witch Village payloads have bells — G2 candidate; wind-caught single toll.)
 
@@ -73,9 +79,19 @@ becomes the feature.
 - Shed (exists): SM_Door_02 mounted shut + examine; bucket/shovel dressing placed.
 
 ### Coach-house yard (W3b — G1)
-- Coach house (exists): reachable; big doors stay shut (examine — "wheel ruts, decades old").
+- Coach house (exists): reachable **and enterable as of 2026-08-13**
+  (`docs/superpowers/specs/2026-08-13-the-reckoning.md`) — the doors open, and the interior is
+  one authored room built in code, not a purchased shell. The existing examine ("wheel ruts,
+  decades old") survives as the approach beat rather than the whole interaction.
 - Cart (exists): dressing. Lantern on a post (G2).
-- History payoff: this is the coaching-inn layer made physical (spec: house-history.md).
+- History payoff: this is the coaching-inn layer made physical (spec: house-history.md) — which
+  is exactly why this building, and not the chapel, is the first one opened.
+
+### G4 — enterable outbuildings, slice 1 (2026-08-13)
+- Coach house opens. The Reckoning (contextual bell pacing keyed to grounds exploration) ships
+  alongside it, dark by default (see the addendum to `2026-07-17-the-ninth-bell.md`). Chapel,
+  shed, and a possible new icehouse remain candidates for a later slice, decided after this one
+  is walked — see `2026-08-13-the-reckoning.md`'s open questions.
 
 ### Audio POIs (G2)
 - Crow burst when first entering the cemetery plot (one-shot, Horror Elements has candidates).

@@ -1,0 +1,32 @@
+Sourced 3D model credits
+=========================
+
+RETIRED — car_model_t.glb / old_car.glb (2026-07-14)
+  Replaced by Realistic Car HD 03 (PolyCraft) under
+  assets/models/unity/realistic-car-hd-03/ — Unity Standard EULA.
+  See assets/models/unity/CREDITS.txt.
+
+lantern.glb  (drive lampposts)
+  "Lantern" by Kay Lousberg, via Poly Pizza. License: CC0 (Public Domain).
+
+wall_sconce.glb  (porch entrance sconces)
+  Kenney wall sconce pack, via Poly Pizza. License: CC0 (Public Domain).
+
+  Origin unconfirmed low-poly single-mesh car.
+
+ruins_pack.glb
+  Quaternius "Ruins" / graveyard pack — Public Domain (CC0).
+
+iron_fence/  (scene.gltf + textures)
+  See assets/models/sourced/iron_fence/license.txt for its own attribution.
+
+Other sourced GLBs in this folder (globe, dice, coat_rack, candelabra, piano,
+mirror, lantern, desk_quaternius, etc.) are Quaternius / CC0 / Poly Pizza CC-BY
+low-poly assets unless a per-model license file says otherwise. Check
+asset-catalog.html for the per-room license badges.
+
+PENDING — Court gavel
+  Prefer procedural gavel+block in the Court scene (matches low-poly manor).
+  Optional download later: Poly by Google "Gavel" on Poly Pizza
+  (https://poly.pizza/m/bHoENWgzIn6), CC BY 3.0 — credit here when landed.
+  CDN fetch failed 2026-07-14 (403); do not invent a file.

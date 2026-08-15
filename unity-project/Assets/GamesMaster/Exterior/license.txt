@@ -1,0 +1,11 @@
+Model Information:
+* title:	Haunted Victorian House
+* source:	https://sketchfab.com/3d-models/haunted-victorian-house-07d00daba8ea42608cc0c1f440507705
+* author:	gravyart (https://sketchfab.com/gravyart)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Haunted Victorian House" (https://sketchfab.com/3d-models/haunted-victorian-house-07d00daba8ea42608cc0c1f440507705) by gravyart (https://sketchfab.com/gravyart) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

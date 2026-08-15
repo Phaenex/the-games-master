@@ -1,23 +1,23 @@
 {
-  "when": "2026-07-23T01:13:31.368Z",
+  "when": "2026-08-12T19:01:46.158Z",
   "sections": {
     "perf": {
-      "calls": 3774,
-      "tris": 1041644,
+      "calls": 3847,
+      "tris": 1046820,
       "textures": 21
     },
     "geometry": {
-      "objectCount": 1489,
+      "objectCount": 1487,
       "kinds": {
         "outerPier": 8,
         "outerGate": 1,
         "sidePath": 4,
         "gatePlaque": 1,
-        "tuft": 548,
+        "tuft": 552,
         "rock": 161,
         "log": 24,
         "mound": 14,
-        "litter": 544,
+        "litter": 539,
         "porchSideDark": 4,
         "envOuterFence": 28,
         "sidePathFence": 12,
@@ -26,18 +26,18 @@
         "estateBench": 1,
         "estateGravePit": 1,
         "estateShovel": 1,
-        "estateBucket": 1,
         "estateChapelDoor": 1,
+        "estateBucket": 1,
         "estateWell": 1,
-        "estateBrasier": 2,
         "estateTrough": 1,
+        "estateBrasier": 2,
         "estateHandLantern": 1,
         "chapelBaseWall": 3,
         "estateCart": 1,
         "carDress": 5,
         "estateCoachHouse": 1,
         "estateChapel": 1,
-        "tree": 18,
+        "tree": 19,
         "arch": 1,
         "ivy": 14,
         "headstone": 26,
@@ -45,8 +45,7 @@
         "ownedDeadTree": 10,
         "leartesDeadWillow": 20,
         "leartesGraveCross": 12,
-        "leartesCemeteryWall": 13,
-        "envPorchLamp": 2
+        "leartesCemeteryWall": 13
       },
       "pois": 13
     },
@@ -106,27 +105,10 @@
       }
     ]
   },
-  "findings": [
-    {
-      "severity": "MED",
-      "section": "geometry",
-      "what": "floating",
-      "where": "envPorchLamp(-2.35,-51.82)",
-      "detail": "min.y=3.05 (bottom hangs in the air)",
-      "suggest": "ground it: y offset or re-seat"
-    },
-    {
-      "severity": "MED",
-      "section": "geometry",
-      "what": "floating",
-      "where": "envPorchLamp(2.35,-51.82)",
-      "detail": "min.y=3.05 (bottom hangs in the air)",
-      "suggest": "ground it: y offset or re-seat"
-    }
-  ],
+  "findings": [],
   "counts": {
     "HIGH": 0,
-    "MED": 2,
+    "MED": 0,
     "LOW": 0
   }
 }

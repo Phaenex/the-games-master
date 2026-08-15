@@ -17,3 +17,20 @@ assets/models/exterior/fbx/
 
 # Screen recordings of built games -- large binaries, not source, not repeatable byte-for-byte.
 recordings/
+
+# Unity Project ephemeral caches, logs, and build artifacts
+unity-project/[Ll]ibrary/
+unity-project/[Tt]emp/
+unity-project/[Oo]bj/
+unity-project/[Bb]uild/
+unity-project/[Bb]uilds/
+unity-project/[Ll]ogs/
+unity-project/[Mm]emoryCaptures/
+unity-project/[Uu]serSettings/
+unity-project/Screens/
+unity-project/Recordings/
+
+# Third-party Unity Asset Store packs inside unity-project (re-derivable / manifested in docs/ASSET-PACKS-MANIFEST.md)
+unity-project/Assets/LeartesStudios/
+unity-project/Assets/ThirdParty/
+

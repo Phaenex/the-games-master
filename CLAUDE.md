@@ -6,7 +6,7 @@
 - Input: **new Input System** (keyboard/mouse + full gamepad surface)
 - Review platform: **macOS** standalone build (unsigned local app)
 - Layout: authored source lives in this repo (`unity/` for scene system + C#);
-  it syncs into the local Unity project at `~/GamesMaster-Unity`
+  it syncs into the local Unity project at `./unity-project`
   (`npm run unity:scene:sync`; `npm run unity:scene:check` detects drift).
   **Edit the repo copy, never the synced copy.**
 - Unity must be **closed** for every `unity-cli.mjs` / batchmode run.
@@ -80,8 +80,12 @@ leave the loop and go to Nick's queue with evidence attached.
 - **No push. No commit unless Nick explicitly authorizes it.**
 - No asset or tool purchases without asking first.
 - No second mansion. The coaching-inn history is canon — never call it a saloon.
-- Threshold Refusal stays closed-door: drive → gate lock → porch → doors remain
-  shut → porch dark/KO → Entry Hall.
+- Threshold Refusal stays closed-door: the house's own front doors never open — drive →
+  gate lock → porch → doors remain shut → the ninth bell takes you wherever you stand →
+  Entry Hall (`docs/superpowers/specs/2026-07-17-the-ninth-bell.md`). The count is always
+  nine; as of the 2026-08-13 addendum its spacing is contextual
+  (`docs/superpowers/specs/2026-08-13-the-reckoning.md`). Grounds outbuildings may be
+  enterable; the estate house itself is not entered on foot.
 - Never edit or delete unrelated dirty worktree files.
 - Court work is gated behind Nick's Phase 0 walk.
 

@@ -1,0 +1,187 @@
+{
+  "pois": [
+    {
+      "id": "arrival-car",
+      "verb": "Examine",
+      "radius": 3.2,
+      "text": "The keys are still in it. Nobody took them. Nobody needed to.",
+      "text2": "In the glovebox: Nora’s drawing. A house with too many windows. I never showed her this place.",
+      "anchorId": "arrival-car"
+    },
+    {
+      "id": "gate-plaque",
+      "verb": "Read",
+      "radius": 2.6,
+      "text": "WEND HILL — the letters cut deep. The stone around them has gone soft with moss.",
+      "text2": "Below the name, half polished away: tally strokes. Grouped in sevens. A lot of sevens.",
+      "anchorId": "gate-plaque"
+    },
+    {
+      "id": "open-grave",
+      "verb": "Examine",
+      "radius": 2.8,
+      "text": "Fresh-dug. No stone, no name. Waiting.",
+      "text2": "Dry on top, damp an arm down. Dug slowly. Or kept ready.",
+      "anchorId": "open-grave"
+    },
+    {
+      "id": "stag-plinth",
+      "verb": "Examine",
+      "radius": 3.9,
+      "text": "A stag — the crest from the invitation’s wax. One antler snapped clean off. Deliberate, by the cut.",
+      "text2": "The plinth names no family. Just: FOR THE HOUSE, FROM ITS WINNERS.",
+      "anchorId": "stag-plinth"
+    },
+    {
+      "id": "weathered-marker",
+      "verb": "Read",
+      "radius": 2.8,
+      "text": "Most of the names are weather-eaten. One date reads clear — older than this house admits to being.",
+      "text2": "Same mason’s hand on every legible stone. A century apart. The same hand.",
+      "anchorId": "weathered-marker"
+    },
+    {
+      "id": "chapel-door",
+      "verb": "Examine",
+      "radius": 3.0,
+      "text": "A chapel, locked long before I was born. The hinges say it intends to stay that way.",
+      "text2": "Scratches around the lock. Not from picking it. From under the door.",
+      "anchorId": "chapel-door"
+    },
+    {
+      "id": "garden-scarecrow",
+      "verb": "Examine",
+      "radius": 2.8,
+      "text": "Someone dressed the scarecrow in a dinner coat. The tailoring is better than mine.",
+      "text2": "There’s a watch chain under the coat. Gold. The watch is gone.",
+      "anchorId": "garden-scarecrow"
+    },
+    {
+      "id": "garden-basin",
+      "verb": "Examine",
+      "radius": 3.5,
+      "text": "Dry for years. Coins fused to the basin — wishes nobody ever collected.",
+      "text2": "All the coins are heads-down. Every one.",
+      "anchorId": "garden-basin"
+    },
+    {
+      "id": "garden-shed",
+      "verb": "Examine",
+      "radius": 3.4,
+      "text": "Groundskeeper’s shed. The padlock is new. That bothers me more than the graves do.",
+      "text2": "Boot prints to the door. None coming back. Small boots.",
+      "anchorId": "garden-shed"
+    },
+    {
+      "id": "coach-doors",
+      "verb": "Examine",
+      "radius": 3.6,
+      "text": "Coach doors. Wheel ruts under the moss — decades old and deep as trenches.",
+      "text2": "Chalked inside the frame, old as the moss: 41. 9. A third number, scratched out hard.",
+      "anchorId": "coach-doors"
+    },
+    {
+      "id": "garden-well",
+      "verb": "Examine",
+      "radius": 2.6,
+      "text": "The rope is gone. The bucket too. The dark down there has a smell.",
+      "text2": "I dropped a pebble. I waited. I’m choosing to believe it landed.",
+      "anchorId": "garden-well"
+    },
+    {
+      "id": "fallen-marker",
+      "verb": "Read",
+      "radius": 2.6,
+      "text": "This one fell face-down, and nobody turned it back over. Kinder not to read it, maybe.",
+      "text2": "Fine. I read it. The surname was mine. It’s a common name. It’s a common name.",
+      "anchorId": "fallen-marker"
+    },
+    {
+      "id": "child-marker",
+      "verb": "Read",
+      "radius": 2.6,
+      "text": "A child’s marker — smaller, whiter, newer than the rest. I stopped doing the arithmetic.",
+      "text2": "No dates. An epitaph, two words: COUNTED OUT.",
+      "anchorId": "child-marker"
+    }
+  ],
+  "beats": [
+    {
+      "main": "The gate was open. It shouldn\\u2019t have been.",
+      "sub": "No lights on the road in. No cars. A house this size lit up like a birthday, and not one sound coming off it. I kept walking. I\\u2019ve always been good at walking toward the wrong thing.",
+      "anchorId": "beat-01"
+    },
+    {
+      "main": "Forty-one thousand, to men who don\\u2019t take excuses.",
+      "sub": "Nine thousand more to the bank. There was a version of me that paid on time \\u2014 Mara married that one. Now there\\u2019s a stack of envelopes by the door I stopped opening in March.",
+      "anchorId": "beat-02"
+    },
+    {
+      "main": "The rest \\u2014 all of it \\u2014 is for Nora.",
+      "sub": "Eight years old. A heart that skips a beat, then forgets to catch up. A man in Z\\u00fcrich can fix it, for a number on his letterhead I can\\u2019t say out loud without laughing. Or worse.",
+      "anchorId": "beat-03"
+    },
+    {
+      "main": "It wasn\\u2019t always me against the odds.",
+      "sub": "Mara kept the books. Kept me honest. Kept me. Four months from the word \\u201cmalignant\\u201d to the quiet \\u2014 and in the quiet I found a table where the noise finally stopped. I called that peace. I was wrong about a lot that year.",
+      "anchorId": "beat-04"
+    },
+    {
+      "main": "Two years, chasing one good night.",
+      "sub": "I lied to my brother. Lied to Nora\\u2019s doctors about money that was always almost here. Tonight the lying stops. I leave with everything, or I don\\u2019t leave. Either way it ends.",
+      "anchorId": "beat-05"
+    }
+  ],
+  "coldOpen": [
+    "Three calls before sunrise. Men like that don\\u2019t leave messages.",
+    "The hospital wants an answer by Friday. The only answer is money \\u2014 the one thing I\\u2019ve never learned how to keep.",
+    "Her side of the bed is still made. Two years, and I still sleep on top of the covers, like a guest.",
+    "Then it was there \\u2014 slid under the door sometime before dawn. No stamp, no sender. Only a crest in red wax: a stag, one antler snapped.",
+    "THE HOUSE ON WEND HILL\n\nNine o'clock.\n\nTake the old road. It will turn you.\nCome as you are. Bring nothing.\n\n— a friend"
+  ],
+  "branchBeats": [
+    {
+      "main": "A gravel path, going right.",
+      "sub": "Toward the stones. I told myself I was being thorough. I was being slow.",
+      "anchorId": "branch-01",
+      "radius": 7
+    },
+    {
+      "main": "They buried people here. They still are.",
+      "sub": "One hole open and waiting, and no name cut for it yet. I did the arithmetic I always do: how much, and who for.",
+      "anchorId": "branch-02",
+      "radius": 7
+    },
+    {
+      "main": "The bell is right above me.",
+      "sub": "Close enough to touch the door it hangs behind. It rang anyway. It did not care that I was here to hear it.",
+      "anchorId": "branch-03",
+      "radius": 7
+    },
+    {
+      "main": "A path left, into the dark of the garden.",
+      "sub": "Mara would have known what half of it used to be. She knew the names of things. I only ever learned the odds.",
+      "anchorId": "branch-04",
+      "radius": 7
+    },
+    {
+      "main": "Someone kept this garden once.",
+      "sub": "Then stopped, and nobody came after. There is a version of my house that looks like this in about a year.",
+      "anchorId": "branch-05",
+      "radius": 7
+    },
+    {
+      "main": "The long way round the flank.",
+      "sub": "Every step out here is a step I am not taking toward that door. I noticed. I kept doing it.",
+      "anchorId": "branch-06",
+      "radius": 7
+    },
+    {
+      "main": "Coach doors, and chalk under the moss.",
+      "sub": "Numbers. Forty-one. Nine. A third one scratched out so hard it tore the wood. Somebody else's arithmetic, or mine, written before I got here.",
+      "anchorId": "branch-07",
+      "radius": 7
+    }
+  ],
+  "version": 2
+}

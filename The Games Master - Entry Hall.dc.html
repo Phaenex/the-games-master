@@ -6,6 +6,7 @@
 <script src="./support.js"></script>
 <script src="./gm-doubt.js"></script>
 <script src="./gm-settings.js"></script>
+<script src="./gm-unity-props.js"></script>
 </head>
 <body>
 <x-dc>
@@ -14,6 +15,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Spectral:ital,wght@0,400;1,400;1,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: #000; overflow: hidden; }
@@ -61,13 +63,13 @@
       </div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:0.14em;color:#8a7a5e;margin-bottom:6px;">JUMP TO</div>
       <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px;">
-        <sc-for list="{{ devPhases }}" as="p" hint-placeholder-count="6">
+        <sc-for list="{{ devPhases }}" as="p" hint-placeholder-count="7">
           <span onClick="{{ p.on }}" style="{{ p.style }}">{{ p.label }}</span>
         </sc-for>
       </div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:0.14em;color:#8a7a5e;margin-bottom:6px;">STATE</div>
       <div style="display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-family:'JetBrains Mono',monospace;font-size:10px;line-height:1.5;">
-        <sc-for list="{{ devRows }}" as="r" hint-placeholder-count="6">
+        <sc-for list="{{ devRows }}" as="r" hint-placeholder-count="10">
           <span style="color:#8a7a5e;">{{ r.k }}</span><span style="color:#EBE0D1;text-align:right;">{{ r.v }}</span>
         </sc-for>
       </div>
@@ -138,7 +140,7 @@ class Component extends DCLogic {
     this.setState({ fade:1, isArrival:false, hintOn:false, promptOn:false, beatOn:true,
       beatMain:'A door boomed shut behind me.', beatSub:'Then a bolt, thrown home \u2014 and after that, nothing worth keeping.' });
     const T=(ms,fn)=>this._wt.push(setTimeout(fn,ms));
-    T(2500, ()=> this.setState({ fade:0.6, beatMain:'Cold. The marble had my cheek.', beatSub:'My skull kept a slow, enormous pulse. Somewhere far off, a fire cracked and settled.' }));
+    T(2500, ()=> this.setState({ fade:0.6, beatMain:'Cold. The marble had my cheek.', beatSub:'No memory of a doorway. My skull kept a slow, enormous pulse. Somewhere far off, a fire cracked and settled.' }));
     T(4700, ()=> this.setState({ fade:0.82 }));
     T(5500, ()=> this.setState({ fade:0.2, beatMain:'How long had I been under?', beatSub:'Long enough to be arranged. Set down facing the room \u2014 the way you pose a thing you mean to use.' }));
     T(7800, ()=> { this.setState({ fade:0 }); this.rising = true; this._riseStart = Date.now(); });
@@ -224,18 +226,25 @@ class Component extends DCLogic {
 
     // ---- painted portrait ----
     const portrait=(empty)=>{ const c=cv(256,340), g=c.getContext('2d');
-      const bg=g.createRadialGradient(120,120,15,128,180,230); bg.addColorStop(0,'#3c3126'); bg.addColorStop(1,'#0c0906'); g.fillStyle=bg; g.fillRect(0,0,256,340);
+      const bg=g.createRadialGradient(120,120,20,128,180,210); bg.addColorStop(0, empty?'#7a6850':'#5a4a36'); bg.addColorStop(1, empty?'#4a3c2c':'#241810'); g.fillStyle=bg; g.fillRect(0,0,256,340);
+      if(empty){
+        // primed canvas waiting — warm linen, never a black void
+        g.fillStyle='#8a7560'; g.fillRect(24,28,208,280);
+        g.fillStyle='rgba(210,190,150,0.35)'; g.fillRect(36,40,184,256);
+        g.strokeStyle='rgba(40,30,18,0.35)'; g.strokeRect(36,40,184,256);
+      }
       if(!empty){
-        g.fillStyle='#1e222a'; g.beginPath(); g.moveTo(30,340); g.quadraticCurveTo(128,206,226,340); g.fill();           // shoulders / coat
-        g.fillStyle='#6a5240'; g.fillRect(114,176,30,42);                                                                 // neck
-        g.fillStyle='#7c6249'; g.beginPath(); g.ellipse(134,150,42,52,0.08,0,7); g.fill();                                // face, turned
-        g.fillStyle='rgba(0,0,0,0.32)'; g.beginPath(); g.ellipse(152,150,24,52,0.08,0,7); g.fill();                       // shadow side
-        g.fillStyle='#251a11'; g.beginPath(); g.ellipse(128,120,47,34,0,0,7); g.fill();                                   // hair
-        g.fillStyle='#0c0a08'; g.beginPath(); g.ellipse(118,150,5,3,0,0,7); g.fill(); g.beginPath(); g.ellipse(142,151,5,3,0,0,7); g.fill(); // eyes, back over shoulder
+        g.fillStyle='#2a3040'; g.beginPath(); g.moveTo(30,340); g.quadraticCurveTo(128,206,226,340); g.fill();           // shoulders / coat
+        g.fillStyle='#9a7a58'; g.fillRect(114,176,30,42);                                                                 // neck
+        g.fillStyle='#c8a878'; g.beginPath(); g.ellipse(134,150,42,52,0.08,0,7); g.fill();                                // face — bright so Soft lit halls still read sitters
+        g.fillStyle='rgba(0,0,0,0.18)'; g.beginPath(); g.ellipse(152,150,24,52,0.08,0,7); g.fill();                       // shadow side
+        g.fillStyle='#2e2014'; g.beginPath(); g.ellipse(128,120,47,34,0,0,7); g.fill();                                   // hair
+        g.fillStyle='#1a120a'; g.beginPath(); g.ellipse(118,150,5,3,0,0,7); g.fill(); g.beginPath(); g.ellipse(142,151,5,3,0,0,7); g.fill(); // eyes, back over shoulder
+        g.fillStyle='rgba(255,220,160,0.18)'; g.beginPath(); g.ellipse(130,155,28,34,0.08,0,7); g.fill();                  // cheek warmth
         g.strokeStyle='rgba(0,0,0,0.3)'; g.lineWidth=1; g.beginPath(); g.moveTo(120,168); g.quadraticCurveTo(132,174,144,168); g.stroke();
       }
       g.strokeStyle='rgba(0,0,0,0.22)'; for(let i=0;i<50;i++){ g.globalAlpha=rnd(0.02,0.08); g.beginPath(); const x=rnd(0,256),y=rnd(0,340); g.moveTo(x,y); g.lineTo(x+rnd(-16,16),y+rnd(-16,16)); g.stroke(); } // craquelure
-      g.globalAlpha=1; const vg=g.createRadialGradient(128,150,55,128,175,205); vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,0.6)'); g.fillStyle=vg; g.fillRect(0,0,256,340);
+      g.globalAlpha=1; const vg=g.createRadialGradient(128,150,70,128,175,210); vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,0.22)'); g.fillStyle=vg; g.fillRect(0,0,256,340);
       return tex(c);
     };
 
@@ -244,7 +253,7 @@ class Component extends DCLogic {
     wallTex.repeat.set(3,2.4); ceilTex.repeat.set(5,7); carpTex.repeat.set(1,6);
     const plankTex=tex(woodC('#2e2012','#150c05')); plankTex.repeat.set(4,4);
     return {
-      floor: M(floorTex,0.34,{ metalness:0.18 }),
+      floor: M(floorTex,0.62,{ metalness:0.04 }),
       wood: M(tex(woodC('#3a2814','#180d05')),0.58),
       woodDark: M(tex(woodC('#241608','#100904')),0.62),
       wall: M(wallTex,0.92),
@@ -270,7 +279,6 @@ class Component extends DCLogic {
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#0a0703');
-    scene.fog = new THREE.FogExp2('#0b0805', 0.028);
     this.scene = scene;
 
     const cam = new THREE.PerspectiveCamera(70, W/H, 0.1, 300);
@@ -279,8 +287,8 @@ class Component extends DCLogic {
     this.cam = cam;
 
     scene.fog = new THREE.Fog('#08070c', 15, 76);
-    scene.add(new THREE.AmbientLight('#463019', 0.5));
-    const warm = new THREE.HemisphereLight('#41301a', '#0a0806', 0.58); scene.add(warm);
+    scene.add(new THREE.AmbientLight('#463019', 0.78));
+    const warm = new THREE.HemisphereLight('#5a4430', '#0a0806', 0.72); scene.add(warm);
     const fill = new THREE.DirectionalLight('#5a4222', 0.22); fill.position.set(0,8,20); scene.add(fill);
 
     const mat = (c,r)=> new THREE.MeshStandardMaterial({ color:c, roughness: r==null?1:r });
@@ -341,12 +349,13 @@ class Component extends DCLogic {
 
     // ===== LIBRARY (front-left) =====
     roomShell(-24,-8.5,-1,14,'R');
-    shelf(-23.2,2.5,Math.PI/2); shelf(-23.2,6.5,Math.PI/2); shelf(-23.2,10.5,Math.PI/2); shelf(-11,13.2,Math.PI); shelf(-20,13.2,Math.PI);
-    fireplace(-16,-0.6,0); armchair(-14,3.5,2.6,'#3a1518'); armchair(-18,3.5,-2.6,'#3a1518'); lowTable(-16,3.2); rug(-16,4,8,9,'#280e0e'); roomLight(-16,6,1.0);
+    // corner/back shelves stay procedural; mid bay + study shelf upgrade via Unity Shelf_Large below
+    shelf(-23.2,2.5,Math.PI/2); shelf(-23.2,10.5,Math.PI/2); shelf(-11,13.2,Math.PI); shelf(-20,13.2,Math.PI);
+    fireplace(-16,-0.6,0); rug(-16,4,8,9,'#280e0e'); roomLight(-16,6,1.0);
 
     // ===== DRAWING ROOM (front-right) =====
     roomShell(8.5,24,-1,14,'L');
-    sofa(16,1.4,0,'#243040'); armchair(12.5,6,-0.6,'#243040'); armchair(19.5,6,0.6,'#243040'); lowTable(16,4.5); fireplace(23.2,7,-Math.PI/2); piano(13.5,12.4,Math.PI); rug(16,5,9,9,'#101a24'); roomLight(16,6,1.0);
+    fireplace(23.2,7,-Math.PI/2); piano(13.5,12.4,Math.PI); rug(16,5,9,9,'#101a24'); roomLight(16,6,1.0);
 
     // ===== DINING ROOM (back-left) =====
     roomShell(-24,-8.5,-24,-5,'R');
@@ -354,10 +363,101 @@ class Component extends DCLogic {
 
     // ===== STUDY (back-right, the clue room) =====
     roomShell(8.5,24,-24,-5,'L');
-    desk(20,-14,-Math.PI/2); chair(17.6,-14,Math.PI/2); shelf(23.2,-20,-Math.PI/2); globe(21,-9); armchair(13,-19,0.4,'#2a1c14'); sideboard(15,-23.2,0); rug(18,-15,9,10,'#1a1408'); roomLight(18,-15,0.95);
+    desk(20,-14,-Math.PI/2); chair(17.6,-14,Math.PI/2); globe(21,-9); sideboard(15,-23.2,0); rug(18,-15,9,10,'#1a1408'); roomLight(18,-15,0.95);
+
+    // Owned Unity props — dressModular only for Modular wall kits (furniture/frames keep their mats)
+    const placeUnity = (url, spots, targetH, onFail) => {
+      if (!THREE.GLTFLoader) { if (onFail) onFail(); return; }
+      const loader = new THREE.GLTFLoader();
+      const isModWall = /modular-victorian|Wall_01|Wall_Wooden/i.test(url);
+      loader.load(url, (gltf) => {
+        const proto = gltf.scene;
+        if (isModWall && window.GMUnityProps && GMUnityProps.dressModular) GMUnityProps.dressModular(proto, THREE);
+        // GhostMan / picture frames: warm gilt + ensure canvas isn't void-black
+        if (/PictureFrame|GhostMan|picture/i.test(url)) {
+          proto.traverse((o) => {
+            if (!o.isMesh || !o.material) return;
+            const ms = Array.isArray(o.material) ? o.material : [o.material];
+            const n = String(o.name || '').toLowerCase();
+            const isFrame = /frame|wood|border|trim/.test(n);
+            ms.forEach((m, mi) => {
+              if (!m) return;
+              if (isFrame) {
+                const nm = m.clone();
+                nm.color.setHex(0x7a5a28);
+                if ('metalness' in nm) nm.metalness = 0.45;
+                if ('roughness' in nm) nm.roughness = 0.55;
+                nm.needsUpdate = true;
+                if (Array.isArray(o.material)) o.material[mi] = nm; else o.material = nm;
+              } else {
+                // canvas / ghost — Basic so hall fog never blank them to voids
+                const warm = new THREE.MeshBasicMaterial({
+                  map: m.map || null,
+                  color: m.map ? 0xddc8a0 : 0x6a5840,
+                });
+                if (Array.isArray(o.material)) o.material[mi] = warm; else o.material = warm;
+              }
+            });
+          });
+        }
+        spots.forEach(([x, z, ry]) => {
+          const c = proto.clone(true);
+          let b = new THREE.Box3().setFromObject(c); let sz = new THREE.Vector3(); b.getSize(sz);
+          if (sz.y < 0.5 && Math.max(sz.x, sz.z) > sz.y) {
+            c.rotation.x = -Math.PI / 2;
+            c.updateMatrixWorld(true);
+            b = new THREE.Box3().setFromObject(c); b.getSize(sz);
+          }
+          c.scale.setScalar((targetH || 1.1) / Math.max(sz.y, 0.001));
+          c.rotation.y += (ry || 0);
+          c.updateMatrixWorld(true);
+          const b2 = new THREE.Box3().setFromObject(c);
+          c.position.set(x - (b2.min.x + b2.max.x) / 2, -b2.min.y, z - (b2.min.z + b2.max.z) / 2);
+          scene.add(c);
+        });
+      }, undefined, () => { if (onFail) onFail(); });
+    };
+    // Modular Victorian Interior (SimViz) — dress hall spine walls over procedural shells
+    const MOD = 'assets/models/unity/modular-victorian-interior-mansion/Victorian Asset Pack/Resources/Models/';
+    placeUnity(MOD + 'Wall_01_NoLedge.glb', [
+      // park slightly INTO the wall shell so Modular doesn't eat the hall portraits
+      [-HALLW/2 - 0.05, 12, Math.PI / 2], [HALLW/2 + 0.05, 12, -Math.PI / 2],
+      [-HALLW/2 - 0.05, -5, Math.PI / 2], [HALLW/2 + 0.05, -5, -Math.PI / 2],
+      [-HALLW/2 - 0.05, -24, Math.PI / 2], [HALLW/2 + 0.05, -24, -Math.PI / 2],
+    ], 8.5);
+    // MetalMan Victorian (preferred) → UltimateHouse/Study fallback → procedural boxes
+    placeUnity('assets/models/unity/metalman/Chair_2.glb', [
+      [-14, 3.5, 2.6], [-18, 3.5, -2.6], [12.5, 6, -0.6], [19.5, 6, 0.6], [13, -19, 0.4],
+    ], 1.15, () => {
+      placeUnity('assets/models/unity/study/Soft_Chair.glb', [
+        [-14, 3.5, 2.6], [-18, 3.5, -2.6], [12.5, 6, -0.6], [19.5, 6, 0.6], [13, -19, 0.4],
+      ], 1.15, () => {
+        armchair(-14,3.5,2.6,'#3a1518'); armchair(-18,3.5,-2.6,'#3a1518');
+        armchair(12.5,6,-0.6,'#243040'); armchair(19.5,6,0.6,'#243040'); armchair(13,-19,0.4,'#2a1c14');
+      });
+    });
+    placeUnity('assets/models/unity/metalman/Couch_1.glb', [[16, 1.4, 0]], 1.1, () => {
+      placeUnity('assets/models/unity/furniture/Couch_Large1.glb', [[16, 1.4, 0]], 1.05, () => sofa(16,1.4,0,'#243040'));
+    });
+    placeUnity('assets/models/unity/metalman/Table_2.glb', [[-16, 3.2, 0], [16, 4.5, 0]], 0.78, () => {
+      placeUnity('assets/models/unity/furniture/Table_RoundSmall.glb', [[-16, 3.2, 0], [16, 4.5, 0]], 0.75, () => { lowTable(-16,3.2); lowTable(16,4.5); });
+    });
+    placeUnity('assets/models/unity/metalman/BookShelf_1.glb', [[-23.2, 6.5, Math.PI / 2], [23.2, -20, -Math.PI / 2]], 2.9, () => {
+      placeUnity('assets/models/unity/furniture/Shelf_Large.glb', [[-23.2, 6.5, Math.PI / 2], [23.2, -20, -Math.PI / 2]], 2.8, () => {
+        shelf(-23.2,6.5,Math.PI/2); shelf(23.2,-20,-Math.PI/2);
+      });
+    });
+    placeUnity('assets/models/unity/metalman/Plant_1.glb', [[-10.5, 2, 0], [10.5, 2, Math.PI], [-12, -12, 0.4]], 1.4);
+    placeUnity('assets/models/unity/metalman/Cupboard.glb', [[15, -23.2, 0]], 1.6);
+    placeUnity('assets/models/unity/metalman/Clock.glb', [[0.0, -3, Math.PI]], 1.8);
+    placeUnity('assets/models/unity/haunted/PictureFrame_GhostMan.glb', [[-7.8, 8, Math.PI / 2], [7.8, -10, -Math.PI / 2]], 1.6);
 
     // ===== walkable regions (hall + doorway connectors + rooms) =====
-    this.walk=[[-6.5,6.5,-29,16],[-9,-6.3,4,9],[6.3,9,4,9],[-9,-6.3,-17,-12],[6.3,9,-17,-12],[-23.5,-6.3,0,13],[6.3,23.5,0,13],[-23.5,-6.3,-23,-6],[6.3,23.5,-23,-6]];
+    // The second rect is the parlor-door approach lane. The main corridor stops at z=-29, one unit
+    // short of arrivalZ (-30), so a walking player could never fire the arrival trigger at all — the
+    // door prompt showed and nothing ever happened. The lane is half-width 2.9 so it sits inside the
+    // trigger's own |x|<3 window: anything that gets past -29 is guaranteed to cross -30 on-centre.
+    this.walk=[[-6.5,6.5,-29,16],[-2.9,2.9,-30.5,-29],[-9,-6.3,4,9],[6.3,9,4,9],[-9,-6.3,-17,-12],[6.3,9,-17,-12],[-23.5,-6.3,0,13],[6.3,23.5,0,13],[-23.5,-6.3,-23,-6],[6.3,23.5,-23,-6]];
     this.inWalk=(x,z)=>{ let ok=false; for(const r of this.walk){ if(x>=r[0]&&x<=r[1]&&z>=r[2]&&z<=r[3]){ ok=true; break; } } if(!ok) return false; const B=this.blocks; if(B){ for(const b of B){ if(x>=b[0]&&x<=b[1]&&z>=b[2]&&z<=b[3]) return false; } } return true; };
     // ===== solid props you can't walk through (world footprints) =====
     this.blocks = [
@@ -379,10 +479,15 @@ class Component extends DCLogic {
     // newel post + balusters + sloped handrail on the open side
     const railX = stairX + stairW/2 - 0.25;
     addBox(0.34,2.6,0.34, railX, 1.3, -20.6, woodDark);
-    for (let i=0;i<10;i++){ addCyl(0.05,0.05,1.5, railX, 1.0+i*0.66, -21.2 - i*1.05, brass); }
-    const rail = addBox(0.14,0.16,12.6, railX, 3.0, -26.6, woodDark); rail.rotation.x = -0.56;
+    // balusters thick enough to actually read in the dim hall — at 0.05 they vanished and the
+    // handrail floated as a bodiless diagonal rod in the wake-path shots
+    for (let i=0;i<10;i++){ addCyl(0.09,0.11,1.5, railX, 1.0+i*0.66, -21.2 - i*1.05, brass); }
+    // rail rides the baluster TOPS: they run (z -21.2, y 1.75) → (z -30.65, y 7.69). The old
+    // center (y 3.0, z -26.6) cut through the balusters' waists and read as a rod floating
+    // diagonally across the staircase (caught by the wake-path screenshot audit).
+    const rail = addBox(0.14,0.16,11.6, railX, 4.72, -25.93, woodDark); rail.rotation.x = -0.56;
 
-    // ---- twin parlor doors at the far end (hinged; they swing open into the firelight) ----
+    // ---- twin parlor doors — Unity Door_Double (same pack as Prologue front doors) ----
     const doorMat = mat('#0c0806');
     const brassDr = new THREE.MeshStandardMaterial({ color:'#7a5a24', metalness:0.6, roughness:0.5 });
     const doorZ = HALLBACK+0.3;
@@ -393,6 +498,48 @@ class Component extends DCLogic {
       return g; };
     this.doorL = mkLeaf(-2.6, 1);
     this.doorR = mkLeaf( 2.6, -1);
+    if (THREE.GLTFLoader) {
+      const loader = new THREE.GLTFLoader();
+      loader.load('assets/models/unity/doors/Door_Double.glb', (gltf) => {
+        const root = gltf.scene;
+        const holder = new THREE.Group(); scene.add(holder); holder.add(root);
+        // cm-scale Unity export — identity often already tall-Y after FBX→GLB
+        holder.updateMatrixWorld(true);
+        let box = new THREE.Box3().setFromObject(holder);
+        let size = new THREE.Vector3(); box.getSize(size);
+        if (size.y < size.z * 0.5) { root.rotation.x = -Math.PI / 2; holder.updateMatrixWorld(true); box = new THREE.Box3().setFromObject(holder); box.getSize(size); }
+        const targetW = 5.1, targetH = 6.9;
+        holder.scale.setScalar(Math.min(targetW / Math.max(size.x, 0.001), targetH / Math.max(size.y, 0.001)));
+        holder.updateMatrixWorld(true);
+        box = new THREE.Box3().setFromObject(holder);
+        holder.position.set(-((box.min.x+box.max.x)/2), 0 - box.min.y, doorZ - ((box.min.z+box.max.z)/2));
+        holder.updateMatrixWorld(true);
+        holder.traverse((o) => {
+          if (!o.isMesh) return;
+          const mats = Array.isArray(o.material) ? o.material : [o.material];
+          o.material = mats.map((m) => new THREE.MeshLambertMaterial({ color: 0x1c1610, map: m && m.map ? m.map : null, emissive: 0x080604, emissiveIntensity: 0.12 }));
+          if (!Array.isArray(o.material) || o.material.length === 1) o.material = o.material[0];
+        });
+        const leftMesh = holder.getObjectByName('Door_DoubleLeft');
+        const rightMesh = holder.getObjectByName('Door_DoubleRight');
+        if (!leftMesh || !rightMesh) return;
+        if (this.doorL) this.doorL.visible = false;
+        if (this.doorR) this.doorR.visible = false;
+        const hingeFrom = (mesh, sign) => {
+          mesh.updateWorldMatrix(true, true);
+          const lb = new THREE.Box3().setFromObject(mesh);
+          const hinge = new THREE.Group();
+          scene.add(hinge);
+          hinge.position.set(sign < 0 ? lb.min.x : lb.max.x, (lb.min.y + lb.max.y) / 2, (lb.min.z + lb.max.z) / 2);
+          hinge.attach(mesh);
+          return hinge;
+        };
+        this.doorL = hingeFrom(leftMesh, -1);
+        this.doorR = hingeFrom(rightMesh, 1);
+        scene.remove(holder);
+        this._unityParlorDoors = true;
+      }, undefined, () => {});
+    }
     const seam = new THREE.Mesh(new THREE.PlaneGeometry(5.0, 0.5), basic('#F2C75A')); seam.position.set(0,0.4,HALLBACK+0.55); seam.material.transparent=true; seam.material.opacity=0.0; scene.add(seam); this.parlorSeam=seam;
     const parlorLight = new THREE.PointLight('#F2C75A', 0.6, 22, 2); parlorLight.position.set(0,2.5,HALLBACK+3); scene.add(parlorLight); this.parlorLight=parlorLight;
     const doorGlow = new THREE.Mesh(new THREE.PlaneGeometry(5.4,7.2), basic('#F2C75A')); doorGlow.position.set(0,3.5,HALLBACK+0.52); doorGlow.material.transparent=true; doorGlow.material.opacity=0.08; scene.add(doorGlow); this.doorGlow=doorGlow;
@@ -425,16 +572,20 @@ class Component extends DCLogic {
       });
     });
 
-    // ---- portraits: gilt frame + painted canvas, figure turned over its shoulder ----
+    // ---- portraits: gilt frame + painted canvas (BasicMaterial so mood never eats the sitters) ----
     const addPortrait = (x,z,faceless)=>{
       const dir = x<0?1:-1; const ry = x<0 ? Math.PI/2 : -Math.PI/2;
-      addBox(0.16, 2.4, 1.8, x, 4.3, z, TX.brassDim);                                 // gilt frame
-      addBox(0.2, 2.06, 1.5, x + dir*0.03, 4.3, z, mat('#120c07',0.8));               // inner lip
-      const canv = new THREE.Mesh(new THREE.PlaneGeometry(1.38,1.9), new THREE.MeshStandardMaterial({ map: TX.portrait(faceless), roughness:0.85 }));
-      canv.position.set(x + dir*0.12, 4.3, z); canv.rotation.y = ry; scene.add(canv);
+      addBox(0.18, 2.5, 1.9, x, 4.3, z, TX.brassDim);                                 // gilt frame
+      addBox(0.22, 2.12, 1.58, x + dir*0.04, 4.3, z, mat('#4a3824',0.75));               // inner lip (warm)
+      const canv = new THREE.Mesh(new THREE.PlaneGeometry(1.42,1.95), new THREE.MeshBasicMaterial({ map: TX.portrait(faceless), toneMapped: false }));
+      canv.position.set(x + dir*0.18, 4.3, z); canv.rotation.y = ry; scene.add(canv);
+      // soft picture light so each canvas stays readable without flattening the hall
+      const pl = new THREE.PointLight(faceless ? '#c9b080' : '#F0D090', 0.85, 6.5, 2);
+      pl.position.set(x + dir*0.7, 5.1, z);
+      scene.add(pl);
     };
-    [10,3,-4,-13,-21].forEach(z=>{ addPortrait(-HALLW/2+0.32, z, false); });
-    [12,5,-2,-11,-19].forEach((z,i)=>{ addPortrait(HALLW/2-0.32, z, i===2); }); // one empty frame
+    [10,3,-4,-13,-21].forEach(z=>{ addPortrait(-HALLW/2+0.55, z, false); });
+    [12,5,-2,-11,-19].forEach((z,i)=>{ addPortrait(HALLW/2-0.55, z, i===2); }); // one empty frame
 
     // ---- console table (turned legs), decanter, candelabra ----
     const tX = HALLW/2-1.15, tZ = 8;
@@ -497,7 +648,8 @@ class Component extends DCLogic {
     })();
 
     // ===== DUST-SHEETED FURNITURE (abandoned) =====
-    const sheet=(x,z,w,h,d,rot)=>{ const m=mat('#867f70',0.98); const g=new THREE.Group(); g.position.set(x,0,z); g.rotation.y=rot||0; scene.add(g);
+    // dust-sheeted furniture — keep linen dark so sconces don't bleach them into white Styrofoam blocks
+    const sheet=(x,z,w,h,d,rot)=>{ const m=mat('#3a3428',0.98); const g=new THREE.Group(); g.position.set(x,0,z); g.rotation.y=rot||0; scene.add(g);
       const add=(gw,gh,gd,py,pz)=>{ const me=new THREE.Mesh(new THREE.BoxGeometry(gw,gh,gd),m); me.position.set(0,py,pz||0); g.add(me); };
       add(w,h,d,h/2); add(w+0.16,0.16,d+0.16,h+0.02); add(0.12,h*0.8,d+0.12,h*0.4,-d/2); add(0.12,h*0.8,d+0.12,h*0.4,0); };
     sheet(-6.7,14.6,1.6,1.15,1.5); sheet(6.7,15.4,2.0,0.85,1.0); sheet(6.9,-2,1.3,1.5,1.3,0.3);
@@ -715,6 +867,10 @@ class Component extends DCLogic {
         m:'A fire lit, in a house no one seemed to live in.', s:'Wherever I walked, the warmth had already gone on ahead of me.' },
       { x:-16, z:-14.5, r:5.4, type:'murmur',
         m:'A long table, laid for a dozen guests.', s:'Every place set, every chair pushed in \u2014 as if the party had ended the instant I opened the door.' },
+      { x:-16, z:-18.2, r:3.6, type:'examine', verb:'Take the hearing',
+        em:'The chairs had been pulled for a kind of court.',
+        es:'Same mahogany. Same empty places. At the far end of the table something brass waited under the candelabra — as if the house had already moved the gavel into position.',
+        nav:'The Games Master - Court.dc.html' },
       { x:13.8, z:12, r:4.4, type:'examine', verb:'Press a key',
         em:'I touched one key of the piano.', es:'The note hung in the air a beat too long \u2014 as though the room were holding it open, waiting for me to finish the phrase.' },
       { x:19.5, z:-13, r:5.4, type:'both', verb:'Read the open ledger',
@@ -762,7 +918,8 @@ class Component extends DCLogic {
   tryExamine() {
     const p=this._active; if(!p||this.mode!=='hall'||!this.walkEnabled) return;
     const text = p.esFn ? p.esFn() : p.es;
-    if (p.em) { this.speak(p.em, text, 6800); this.trackDoubtProgress(p); }
+    if (p.em) { this.speak(p.em, text, p.nav ? 1800 : 6800); this.trackDoubtProgress(p); }
+    if (p.nav && !this._suppressNav) setTimeout(()=>{ window.location.href = p.nav; }, 900);
   }
 
   trackDoubtProgress(p) {
@@ -779,6 +936,7 @@ class Component extends DCLogic {
   toggleDev() { const open=!this.state.devOpen; this.setState({ devOpen:open }); if(open){ this._devTick=setInterval(()=>this.forceUpdate(),250); } else if(this._devTick){ clearInterval(this._devTick); this._devTick=null; } }
   devSnapshot() { const c=this.cam, st=this.state; const phase=st.isArrival?'card':(this.mode==='arrival'?'door':'explore'); return { phase, mode:this.mode||'?', walk:!!this.walkEnabled, camZ:c?+c.position.z.toFixed(1):null, camX:c?+c.position.x.toFixed(1):null, yaw:+(this.yaw||0).toFixed(2), beat:this._beat, pois:(this.pois||[]).length, sceneReady:!!this.scene, errors:(this._errs||[]).length }; }
   devGoTo(name) {
+    if (this._t0) { clearTimeout(this._t0); this._t0 = null; }
     (this._wt||[]).forEach(clearTimeout); this._wt=[];
     this.waking=false; this.rising=false; this.standY=1.7; this.wakeRoll=0; this.wakePitch=0;
     if (this._pulseTick) { clearInterval(this._pulseTick); this._pulseTick=null; }
@@ -791,6 +949,14 @@ class Component extends DCLogic {
       if(this.doorGlow) this.doorGlow.material.opacity=0.08;
       this.setState({ fade:0, isArrival:false, beatOn:false, promptOn:false, gold:0, hintOn:(name==='start') });
       tp(name==='hall'?2:name==='portraits'?-9:name==='stairs'?-19:name==='door'?this.arrivalZ:16);
+    // isArrival stays true here: devSnapshot() reads it to report phase:'card' for this exact jump,
+    // and the harness asserts that contract (Test Harness "goTo(card) -> parlor-door card"). A real,
+    // separate bug remains: beatStyle hides every beat while isArrival is true, so if the arrival
+    // sequence is left running after this jump, its two walk-through beats show no text. Clearing
+    // isArrival from inside the arrival update loop was tried and reverted -- in the headless
+    // harness it fired within the phase-check's own wait window and broke the phase contract this
+    // jump exists to test. Fixing the hidden-beat case needs a signal that can't race that check;
+    // left as a known dev-tool-only cosmetic gap rather than ship an unverified guess at one.
     } else if(name==='card'||name==='arrive'){ this.mode='arrival'; this.walkEnabled=false; this.arriving=true; this.arrDoor=0; this._arrBeat=0; this._navigated=false; if(this.doorL) this.doorL.rotation.y=0; if(this.doorR) this.doorR.rotation.y=0; if(this.cam) this.cam.position.set(0,1.7,this.arrivalZ+3.5); this.setState({ fade:0, isArrival:true, beatOn:false, promptOn:false, gold:0 }); }
   }
 
@@ -810,7 +976,7 @@ class Component extends DCLogic {
       promptText: st.promptText,
       fadeStyle: 'position:fixed;inset:0;z-index:45;background:#000;transition:opacity 0.9s ease;opacity:'+st.fade+';pointer-events:'+(st.fade>0.02?'auto':'none')+';',
       goldStyle: 'position:fixed;inset:0;z-index:44;pointer-events:none;background:radial-gradient(60% 55% at 50% 52%, rgba(255,226,150,0.96), rgba(240,176,82,0.5) 45%, rgba(120,70,20,0) 78%);opacity:'+(st.gold||0)+';transition:opacity .5s ease;',
-      vignetteStyle: 'position:fixed;inset:0;z-index:43;pointer-events:none;box-shadow:inset 0 0 '+((st.headachePulse||0)*230)+'px '+((st.headachePulse||0)*70)+'px rgba(0,0,0,'+((st.headachePulse||0)*0.7)+');',
+      vignetteStyle: 'position:fixed;inset:0;z-index:43;pointer-events:none;box-shadow:inset 0 0 '+((st.headachePulse||0)*160)+'px '+((st.headachePulse||0)*48)+'px rgba(0,0,0,'+((st.headachePulse||0)*0.48)+');',
       parlorHref: 'The Parlor - Playable Prototype.dc.html'
     };
   }

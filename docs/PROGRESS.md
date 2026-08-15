@@ -43,6 +43,50 @@ bed: its deep-space/rumble textures would recreate the exact "spaceship" problem
 
 ## Status
 
+### 2026-08-13 - Claude session: Reckoning/coach-house work, PAUSED — read `docs/CLAUDE-FABLE-HANDOFF.md` first
+
+Session paused on Nick's explicit instruction after he manually found a serious defect the
+automated gates never caught: **the estate gate has no physical enforcement and can be walked
+around** — full root cause, why every prior test missed it, and the full punch list of
+everything open (blocking, deferred, Nick's calls, and pre-existing unrelated items) are all in
+`docs/CLAUDE-FABLE-HANDOFF.md`'s top section, dated 2026-08-13. Read that before touching this
+project again. Short version: don't trust green EditMode/PlayMode/gate numbers as proof the game
+physically works — they proved code executes and scripted paths complete, not that objects
+collide/block/sit the way their narrative claims. A dedicated audit for that whole defect class
+is the next priority, ahead of any new content.
+
+### 2026-08-13 - Claude session: full ground-up audit; EditMode taken from non-compiling to 294/296
+
+- **Unity EditMode compiles and passes 294/296**, up from not compiling at all at session start.
+  The six Phase 1-7 scene folders (`entry-hall`, `court`, `parlor`, `shut-the-box`, `hidden-room`,
+  `labyrinth`) had never once been compiled in-engine; the opening blocker was 47 CS0117 errors, all
+  `GmCompositionAuthoring.ReviewClaim(...)`, a method that existed nowhere in the repo. Fixed with a
+  documented interim adapter (`docs/audit/F1-review-claim-decision.md`) plus real geometry/camera
+  fixes verified against a from-scratch replica of the audit's `WorldToViewportPoint` math for 5 of
+  the 6 scenes. **The remaining 2 failures are Court's, left failing on purpose** — Court's
+  composition wiring is content work, and Court stays hard-locked behind Nick's Phase 0 walk.
+  TASKBOARD **F1/F1b**. Gates 3-12 have never run against a compiling build — no evidence exists
+  past gate 2 yet.
+- **262-agent source audit: 294 raw findings → 196 confirmed** (94 HIGH, 102 MED) after adversarial
+  verification, 9 refuted, 89 LOW unverified. `docs/audit/2026-08-13-findings.md`.
+- **The dominant theme was wiring, not bugs.** ~50 confirmed findings were one class: built,
+  unit-tested, green, and never called by gameplay. Partially closed this session: the audio
+  manager now actually plays clips, the pause menu's tabs now render real content, `GmCreditsUI`
+  now reads the real credits catalog, and `GmRunStore`/`GmHouseProgress` are bridged (a corruption-
+  tier ceiling conflict surfaced in the process — house caps at 4, run-store at 5 — and needs
+  Nick's canon call). Save/load and scene-transition wiring are still open: there is no boot/title
+  scene to call them from yet, and that's a UX decision, not a bug fix.
+- **Fixed and re-verified: 18 compile errors across 6 classes** (duplicate `GmParlorRules`,
+  `GmShutTheBoxController` calling nonexistent rules methods, a missing `RoadSurfaceY` helper, an
+  HDRP `LightUnit` namespace move affecting 6 call sites, `System.Linq` missing in 3 test files,
+  6 `BuildTests.cs` files missing scene teardown that was corrupting an unrelated ground-detection
+  test). Also corrected `NICK-NEEDED.md`, which pointed Nick's Phase 0 walk at a deleted directory,
+  and reverted a copy edit that introduced a fresh self-contradiction in `Art Direction.dc.html`.
+- **Harness trap worth remembering:** background gate/test runs repeatedly reported "exit code 0"
+  while their own captured logs ended in a real failure. Every result here was read from the log,
+  not the notification. Recorded in `docs/TESTING.md`.
+- No commit, no push, no purchase.
+
 ### 2026-08-03 - Claude session: gates re-baselined; performance regression found and root-caused
 
 - **The opening gates had not actually been runnable.** `node_modules` was absent, so gate 1 crashed

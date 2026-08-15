@@ -226,7 +226,7 @@
   </sc-if>
   <div onClick="{{ onDevToggle }}" style="position:fixed;bottom:8px;left:10px;z-index:93;font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:0.18em;color:#5c5344;cursor:pointer;">` DEV</div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1060,&quot;height&quot;:900},&quot;startCorruption&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:1,&quot;min&quot;:0,&quot;max&quot;:4,&quot;step&quot;:1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Tuning&quot;,&quot;unit&quot;:&quot; tier&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1060,&quot;height&quot;:900},&quot;startCorruption&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:1,&quot;min&quot;:1,&quot;max&quot;:4,&quot;step&quot;:1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Tuning&quot;,&quot;unit&quot;:&quot; tier&quot;}}">
 class Component extends DCLogic {
   SUITS = {
     flames: { glyph: '✦', accent: '#F2C759', name: 'FLAMES' },
@@ -234,6 +234,10 @@ class Component extends DCLogic {
     eyes:   { glyph: '◉', accent: '#8a92a0', name: 'EYES' },
     bones:  { glyph: '❖', accent: '#cdbfa6', name: 'BONES' }
   };
+  // Index === corruption tier. Corruption starts at Tier 1 and only ever climbs, so index 0 is
+  // unreachable: the range prop floors at 1, freshGame() floors at 1, and renderVals() floors the
+  // tier it displays. The slot stays only to keep this table index-aligned with TELL_RELIABILITY
+  // and the felt/frame tables below.
   CORR = [
     { name: 'Honest', color: '#EBE0D1' },
     { name: 'Unease', color: '#E6B86B' },
@@ -291,7 +295,7 @@ class Component extends DCLogic {
   }
 
   freshGame() {
-    const start = Math.max(0, Math.min(4, (this.props && this.props.startCorruption != null) ? this.props.startCorruption : 1));
+    const start = Math.max(1, Math.min(4, (this.props && this.props.startCorruption != null) ? this.props.startCorruption : 1));
     // cheatsCaught seeds from the persisted cross-scene/cross-session total (gm-progress.js)
     // rather than 0, so the "8 for the truth" count keeps accumulating across reloads and
     // new games instead of losing everything the moment a fresh hand is dealt.
@@ -320,7 +324,7 @@ class Component extends DCLogic {
   dealInto(g, leader) {
     const d = this.buildDeck();
     g.playerHand = d.slice(0,7); g.gmHand = d.slice(7,14);
-    g.trickP = 0; g.trickG = 0; g.leader = leader;
+    g.trickP = 0; g.trickG = 0;
     g.table = { player:null, gm:null, leadSuit:null, gmCheated:false, cheatType:null, tellShown:false };
     g.revealed = {}; g.peek = false; g.bonesUsed = false;
     if (leader === 'gm') { this.gmLead(g); g.phase='gmLead'; g.status='He leads. You must follow.'; }
@@ -365,7 +369,6 @@ class Component extends DCLogic {
     g.gmHand = hand.filter(c=>c.id!==card.id);
     g.table.gm = card; g.table.gmCheated = cheated; g.table.cheatType = ctype;
     g.effWinner = cheated ? 'gm' : this.winner(pc, card, lead);
-    g.legitWinner = this.winner(pc, card, lead);
     // The visual tell is a probabilistic proxy for `cheated`, not a direct mirror of it.
     // Reliability rises with corruption tier; the scripted test (force) is always accurate.
     const reliability = force ? 1 : (this.TELL_RELIABILITY[g.corruption] != null ? this.TELL_RELIABILITY[g.corruption] : 0.5);
@@ -398,7 +401,7 @@ class Component extends DCLogic {
       if (hasLead && card.suit!==lead) return;
       g.playerHand = g.playerHand.filter(c=>c.id!==card.id);
       g.table = { ...g.table, player:card };
-      g.effWinner = this.winner(card, g.table.gm, lead); g.legitWinner = g.effWinner;
+      g.effWinner = this.winner(card, g.table.gm, lead);
       this.settle(g, false, false);
       this.setState(g);
     }
@@ -481,7 +484,11 @@ class Component extends DCLogic {
   nextTrick() {
     const g = { ...this.state, table:{ ...this.state.table }, revealed:{ ...this.state.revealed } };
     g.flash = null;
-    if (g.playerHand.length===0 && g.gmHand.length===0) {
+    // A returned Bones card leaves the player holding one more card than the GM for the rest of
+    // the round, so "both hands empty" never comes true again — the old guard fell through and
+    // dealt from an empty gmHand. Seven tricks are played either way; the round is over the
+    // moment either side runs out, and an unplayed Bones card is simply left in hand.
+    if (g.playerHand.length===0 || g.gmHand.length===0) {
       const pWin = g.trickP >= 4;
       if (pWin) g.roundsP += 1; else g.roundsG += 1;
       if (g.roundsP===2 || g.roundsG===2) {
@@ -501,7 +508,7 @@ class Component extends DCLogic {
       this.dealInto(g, 'player'); this.setState(g); return;
     }
     const lead = g.lastWinner || 'player';
-    g.leader = lead; g.table = { player:null, gm:null, leadSuit:null, gmCheated:false, cheatType:null, tellShown:false };
+    g.table = { player:null, gm:null, leadSuit:null, gmCheated:false, cheatType:null, tellShown:false };
     if (g.sanity < 25) g.gmState='PREDATORY';
     else if (g.gmState==='IRRITATED' && g.testState!=='done') g.gmState = g.round>=3?'HOSTILE':(g.round===2?'COLD':'CHARMING');
     if (lead==='gm') { this.gmLead(g); g.phase='gmLead'; g.status='He leads. You must follow.'; g.line=this.pick(g.gmState); }
@@ -528,7 +535,11 @@ class Component extends DCLogic {
   }
 
   renderVals() {
-    const g = this.state, S = this.SUITS, corr = this.CORR[g.corruption];
+    const g = this.state, S = this.SUITS;
+    // Everything the frame shows reads through `tier`, never raw state, so no path can render a
+    // Tier 0 / honest table: corruption is a 1-4 scale that starts at 1 and only climbs.
+    const tier = Math.max(1, Math.min(4, g.corruption));
+    const corr = this.CORR[tier];
     const _snap=this.devSnapshot(); const _cur=_snap.phase;
     const _phStyle=(n)=>'font-family:\'JetBrains Mono\',monospace;font-size:9px;letter-spacing:0.05em;padding:4px 7px;border:1px solid '+(n===_cur?'#F2C759':'rgba(242,199,89,0.25)')+';color:'+(n===_cur?'#FFFFF2':'#A69980')+';background:'+(n===_cur?'rgba(242,199,89,0.14)':'transparent')+';cursor:pointer;';
     const devPhases=this.devPhaseList().map(n=>({label:n,on:()=>this.devGoTo(n),style:_phStyle(n)}));
@@ -562,7 +573,7 @@ class Component extends DCLogic {
 
     const tellShown = g.phase==='awaitRead' && !!g.table.tellShown;
     let tell = 0;
-    if (tellShown) tell = testActive ? 3.6 : (g.readUnlocked ? (1.2 + g.corruption*1.1) : 0.0);
+    if (tellShown) tell = testActive ? 3.6 : (g.readUnlocked ? (1.2 + tier*1.1) : 0.0);
     const gmc = g.table && g.table.gm;
     const tableGm = gmc ? { shown:true, rank:gmc.rank, glyph:S[gmc.suit].glyph,
       style:'position:relative;width:74px;height:104px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:linear-gradient(155deg,#EBE0D1,#d3c6ad);color:'+S[gmc.suit].accent+';border:1px solid rgba(0,0,0,0.25);'+
@@ -573,13 +584,13 @@ class Component extends DCLogic {
     const tablePlayer = pc ? { shown:true, rank:pc.rank, glyph:S[pc.suit].glyph,
       style:'position:relative;width:74px;height:104px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:linear-gradient(155deg,#EBE0D1,#d3c6ad);color:'+S[pc.suit].accent+';border:1px solid '+(winFlashP?'rgba(64,242,89,0.7)':'rgba(0,0,0,0.25)')+';box-shadow:0 8px 20px rgba(0,0,0,0.5);' } : { shown:false };
 
-    const feltColor = ['#14210F','#152110','#1a1c0d','#241610','#0c0c08'][g.corruption] || '#14210F';
+    const feltColor = ['#14210F','#152110','#1a1c0d','#241610','#0c0c08'][tier] || '#14210F';
     let warp = '';
     if (g.sanity<=25) warp = 'animation:breathe 5s ease-in-out infinite;transform:rotate(1deg);';
     else if (g.sanity<=50) warp = 'animation:breathe 6s ease-in-out infinite;';
 
-    const frameColor = ['rgba(242,199,89,0.55)','rgba(242,199,89,0.45)','rgba(199,107,100,0.5)','rgba(143,47,42,0.7)','rgba(143,47,42,0.85)'][g.corruption];
-    const tarnish = g.corruption>=3 ? '#8f2f2a' : (g.corruption>=2? '#c76b64':'#F2C759');
+    const frameColor = ['rgba(242,199,89,0.55)','rgba(242,199,89,0.45)','rgba(199,107,100,0.5)','rgba(143,47,42,0.7)','rgba(143,47,42,0.85)'][tier];
+    const tarnish = tier>=3 ? '#8f2f2a' : (tier>=2? '#c76b64':'#F2C759');
 
     const candleStyle = 'height:'+Math.max(4, g.sanity*0.34)+'px;transition:height .4s ease;'+ (g.sanity<=25?'filter:hue-rotate(-20deg);':'');
     const sanityNote = g.sanity>50?'steady':(g.sanity>25?'fraying':'hollowing');
@@ -594,7 +605,7 @@ class Component extends DCLogic {
       else { continueVisible=true; }
     }
     const nextVisible = g.phase==='trickDone' || g.phase==='gameDone';
-    const nextLabel = g.phase==='gameDone' ? 'Play again' : (g.playerHand.length===0 && g.gmHand.length===0 ? 'End the round' : 'Next trick');
+    const nextLabel = g.phase==='gameDone' ? 'Play again' : ((g.playerHand.length===0 || g.gmHand.length===0) ? 'End the round' : 'Next trick');
     const onNext = g.phase==='gameDone' ? (()=>this.newGame()) : (()=>this.nextTrick());
     const readStyle = 'font-family:\'JetBrains Mono\',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;padding:11px 22px;cursor:pointer;border:1px solid #F2C759;background:rgba(242,199,89,0.14);color:#FFFFF2;animation:glint 1.8s infinite;';
     const flashStyle = g.flash ? ('position:fixed;inset:0;z-index:70;pointer-events:none;animation:flashfade .62s ease forwards;background:radial-gradient(circle at 50% 45%,'+ (g.flash==='green'?'rgba(64,242,89,0.4)':'rgba(143,47,42,0.45)') +' 0%,transparent 60%);') : 'display:none;';
@@ -627,8 +638,8 @@ class Component extends DCLogic {
     return {
       playerCards, gmCards, tableGm, tablePlayer,
       feltColor, tableWarp:warp, frameColor,
-      pip1: g.corruption>=3?tarnish:'#F2C759', pip2: g.corruption>=2?tarnish:'rgba(242,199,89,0.4)', pip3: 'rgba(242,199,89,0.4)', pip4: tarnish,
-      corrTier:g.corruption, corrName:corr.name, corrColor:corr.color,
+      pip1: tier>=3?tarnish:'#F2C759', pip2: tier>=2?tarnish:'rgba(242,199,89,0.4)', pip3: 'rgba(242,199,89,0.4)', pip4: tarnish,
+      corrTier:tier, corrName:corr.name, corrColor:corr.color,
       dlgColor: (g.gmState==='IRRITATED'||g.gmState==='VULNERABLE')?'#2f7a3a':(g.gmState==='HOSTILE'?'#8f2f2a':'#8a6a1e'),
       gmStateLabel: g.gmState, gmLine: g.line,
       status: g.status, leadInfo, gmHandNote, playerHint,
@@ -638,7 +649,7 @@ class Component extends DCLogic {
       hudSuspicion: !g.readUnlocked, hudCaught: !!g.readUnlocked,
       testActive, testLine,
       readVisible, standVisible, continueVisible, nextVisible, nextLabel, readLabel, readStyle, flashStyle,
-      onRead:()=>this.onRead(), onStand:()=>this.onStand(), onContinue:()=>this.onContinue(), onNext, onNewGame:()=>this.newGame(), roundLabel,
+      onRead:()=>this.onRead(), onStand:()=>this.onStand(), onContinue:()=>this.onContinue(), onNext, roundLabel,
       devOpen:g.devOpen, devPhases, devRows, onDevToggle:()=>this.toggleDev(), onDevClose:()=>this.toggleDev(),
       intro: !!g.intro,
       catchActive, catchKicker, catchBig, catchSub, catchShowCard, catchBtn,

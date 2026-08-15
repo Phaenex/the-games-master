@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>The Games Master — Asset Sourcing Catalog</title>
+<title>The Games Master — Full Game Asset Plan (by stage)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js" integrity="sha384-Ftcjj/GNLxPvzNDftO/oryXB9aGxsGZY9JGqsXG0uUKgQDl9RfDgsx9NJ/4IVNPe" crossorigin="anonymous"></script>
 <style>
@@ -54,40 +54,426 @@
   .attr-box { background:var(--panel); border:1px solid var(--panel-line); border-radius:6px; padding:20px 24px; font-family:var(--mono); font-size:13px; line-height:1.9; color:var(--ink-dim); white-space:pre-wrap; }
   .attr-box strong { color:var(--ink); }
   footer { padding:24px 6vw 60px; color:var(--ink-dim); font-family:var(--mono); font-size:11px; }
+  .buy-tier { background:var(--panel); border:1px solid var(--panel-line); border-radius:6px; padding:20px 22px; margin-bottom:16px; }
+  .buy-tier.best { border-color:rgba(242,199,89,0.55); box-shadow:inset 0 0 0 1px rgba(242,199,89,0.12); }
+  .buy-tier h3 { font-size:20px; color:#FFFFF2; margin:0 0 6px; font-weight:500; }
+  .buy-tier .price { font-family:var(--mono); font-size:12px; color:var(--gold); letter-spacing:0.06em; }
+  .buy-tier .why { margin:10px 0 12px; color:var(--ink); font-size:16px; max-width:78ch; }
+  .buy-tier .gap { font-family:var(--mono); font-size:11px; color:var(--ink-dim); margin-bottom:10px; }
+  .rank { font-family:var(--mono); font-size:10px; letter-spacing:0.1em; text-transform:uppercase; padding:2px 8px; border-radius:3px; margin-right:8px; }
+  .rank.s { background:rgba(242,199,89,0.2); color:var(--gold); }
+  .rank.a { background:rgba(120,140,200,0.2); color:#9ab0e0; }
+  .rank.b { background:rgba(166,153,128,0.18); color:var(--ink-dim); }
+  .rank.skip { background:rgba(220,60,60,0.14); color:#e05a5a; }
+  .buy-grid { display:grid; grid-template-columns:1fr; gap:14px; }
+  @media (min-width:900px) { .buy-grid.two { grid-template-columns:1fr 1fr; } }
+  .cart-box { background:#120f0b; border:1px dashed rgba(242,199,89,0.35); border-radius:6px; padding:18px 20px; margin:18px 0 8px; }
+  .cart-box ol { margin:8px 0 0; padding-left:22px; }
+  .cart-box li { margin-bottom:6px; }
+  .store { font-family:var(--mono); font-size:10px; color:var(--ink-dim); letter-spacing:0.08em; text-transform:uppercase; }
+  .lane { background:var(--panel); border:1px solid var(--panel-line); border-radius:6px; padding:18px 20px; margin-bottom:12px; }
+  .lane.pick { border-color:rgba(242,199,89,0.55); box-shadow:inset 0 0 0 1px rgba(242,199,89,0.12); }
+  .lane-head { display:flex; flex-wrap:wrap; align-items:baseline; gap:10px 14px; margin-bottom:8px; }
+  .lane-head h3 { font-size:19px; color:#FFFFF2; margin:0; font-weight:500; }
+  .lane-tag { font-family:var(--mono); font-size:10px; letter-spacing:0.1em; text-transform:uppercase; padding:2px 8px; border-radius:3px; background:rgba(242,199,89,0.16); color:var(--gold); }
+  .lane-tag.alt { background:rgba(120,140,200,0.18); color:#9ab0e0; }
+  .lane-tag.budget { background:rgba(166,153,128,0.18); color:var(--ink-dim); }
+  .lane-tag.cinema { background:rgba(180,80,120,0.2); color:#e090b0; }
+  .lane-tag.style { background:rgba(90,160,140,0.18); color:#8dcebc; }
+  .lane .total { font-family:var(--mono); font-size:12px; color:var(--gold); }
+  .lane .gets { margin:8px 0 10px; color:var(--ink); font-size:15px; max-width:78ch; }
+  .lane ul.pack-list { margin:0; padding-left:18px; }
+  .lane ul.pack-list li { margin-bottom:5px; color:var(--ink); font-size:15px; }
+  .lane ul.pack-list a { font-size:14px; }
+  .swap-table { width:100%; border-collapse:collapse; font-size:14px; margin-top:8px; }
+  .swap-table th, .swap-table td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--panel-line); vertical-align:top; }
+  .swap-table th { font-family:var(--mono); font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink-dim); font-weight:400; }
+  .swap-table td { color:var(--ink); }
+  .lane-grid { display:grid; grid-template-columns:1fr; gap:12px; }
+  @media (min-width:960px) { .lane-grid.two { grid-template-columns:1fr 1fr; } }
+  .cut { border:1px solid rgba(242,199,89,0.55); background:linear-gradient(180deg,#1a1510 0%,#120f0b 100%); border-radius:8px; padding:22px 24px; margin:16px 0 20px; }
+  .cut h3 { margin:0 0 8px; font-size:22px; color:#FFFFF2; font-weight:500; }
+  .cut .verdict { font-size:17px; color:var(--ink); max-width:72ch; margin:0 0 14px; }
+  .podium { list-style:none; padding:0; margin:0; counter-reset:pod; }
+  .podium > li { counter-increment:pod; position:relative; padding:12px 14px 12px 52px; margin-bottom:10px; background:rgba(255,255,255,0.02); border:1px solid var(--panel-line); border-radius:6px; }
+  .podium > li::before { content:counter(pod); position:absolute; left:14px; top:14px; width:28px; height:28px; border-radius:50%; background:rgba(242,199,89,0.18); color:var(--gold); font-family:var(--mono); font-size:12px; display:flex; align-items:center; justify-content:center; }
+  .podium > li.gold { border-color:rgba(242,199,89,0.5); }
+  .podium .role { font-family:var(--mono); font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--gold); display:block; margin-bottom:4px; }
+  .podium code { font-size:12px; color:#c4b49a; }
+  .tiny { font-size:13px; color:var(--ink-dim); margin-top:6px; }
+  .buy-one { margin-top:18px; }
+  .need-table { width:100%; border-collapse:collapse; font-size:14px; margin:10px 0 22px; }
+  .need-table th, .need-table td { text-align:left; padding:9px 10px; border-bottom:1px solid var(--panel-line); vertical-align:top; }
+  .need-table th { font-family:var(--mono); font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink-dim); font-weight:400; }
+  .need-table td { color:var(--ink); }
+  .need-table tr.hole { background:rgba(220,60,60,0.07); }
+  .need-table tr.buy { background:rgba(242,199,89,0.06); }
+  .st { font-family:var(--mono); font-size:10px; letter-spacing:0.06em; text-transform:uppercase; padding:2px 7px; border-radius:3px; white-space:nowrap; }
+  .st.have { background:rgba(64,242,89,0.14); color:var(--ok); }
+  .st.own { background:rgba(120,140,200,0.2); color:#9ab0e0; }
+  .st.buy { background:rgba(242,199,89,0.2); color:var(--gold); }
+  .st.proc { background:rgba(166,153,128,0.18); color:var(--ink-dim); }
+  .st.open { background:rgba(220,60,60,0.14); color:#e05a5a; }
+  .st.write { background:rgba(180,80,120,0.18); color:#e090b0; }
+  .layer { font-family:var(--mono); font-size:11px; color:var(--gold-dim); }
+  .shop-grid { display:grid; grid-template-columns:1fr; gap:12px; }
+  @media (min-width:900px) { .shop-grid { grid-template-columns:1fr 1fr; } }
+  .shop-card { background:var(--panel); border:1px solid rgba(242,199,89,0.4); border-radius:6px; padding:16px 18px; }
+  .shop-card.critical { border-color:rgba(220,60,60,0.45); }
+  .shop-card h4 { margin:0 0 6px; font-size:18px; color:#FFFFF2; font-weight:500; }
+  .shop-card .pri { font-family:var(--mono); font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--gold); margin-bottom:8px; }
+  .shop-card ul { margin:8px 0 0; padding-left:18px; font-size:14px; }
+  .shop-card li { margin-bottom:5px; }
+  .toc { display:flex; flex-wrap:wrap; gap:8px 14px; margin:4px 0 18px; font-family:var(--mono); font-size:12px; }
+  .toc a { text-decoration:none; border-bottom:1px solid rgba(242,199,89,0.35); }
+  .stage { background:var(--panel); border:1px solid var(--panel-line); border-radius:8px; padding:18px 20px; margin-bottom:16px; }
+  .stage.now { border-color:rgba(64,242,89,0.45); }
+  .stage h3 { margin:0 0 6px; font-size:20px; color:#FFFFF2; font-weight:500; }
+  .stage .when { font-family:var(--mono); font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold); margin-bottom:8px; }
+  .stage .blurb { color:var(--ink-dim); font-size:15px; margin:0 0 12px; max-width:78ch; }
+  .stage .budget { font-family:var(--mono); font-size:12px; color:var(--gold); margin:0 0 10px; }
+  .money-bar { display:flex; flex-wrap:wrap; gap:10px; margin:12px 0 0; }
+  .money-bar span { font-family:var(--mono); font-size:11px; padding:4px 10px; border-radius:4px; border:1px solid var(--panel-line); }
+  .money-bar .buy { border-color:rgba(242,199,89,0.45); color:var(--gold); }
+  .money-bar .own { border-color:rgba(64,242,89,0.35); color:var(--ok); }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>The Games Master — Asset Sourcing Catalog</h1>
-  <div class="sub">Generated this session · all links live-checked · 3D previews render in-page, no download needed to inspect</div>
+  <h1>The Games Master — Full Game Asset Plan</h1>
+  <div class="sub">Stages 0–8 · buy / own / build · commercial OK · updated 2026-07-14</div>
 </header>
 
 <main>
 
   <section>
-    <h2>✓ Downloaded &amp; Ready <span class="count">27 models</span></h2>
-    <p class="note">Organized by where each one is meant to go. Click any thumbnail to load and rotate it — previews load one at a time on purpose, since loading them all simultaneously hits a hard WebGL limit in some browsers.</p>
-
-    <h3 style="font-family:var(--serif);font-size:20px;color:#FFFFF2;margin:28px 0 4px;">Exterior &amp; Grounds</h3>
-    <div class="grid">
-      <div class="card">
-        <div class="preview-wrap" data-src="assets/models/exterior/scene.gltf"><div class="preview-placeholder"><span class="play-icon">&#9654;</span><span class="play-label">Click to preview</span></div></div>
-        <div class="card-body">
-          <div class="card-title">Mansion Exterior <span style="color:var(--ink-dim);font-size:13px;">(the house itself)</span></div>
-          <div class="meta-row"><span class="license ccby">CC-BY</span><span>gravyart · Sketchfab</span></div>
-          <div class="path">assets/models/exterior/scene.gltf</div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="preview-wrap" data-src="assets/models/sourced/iron_fence/scene.gltf"><div class="preview-placeholder"><span class="play-icon">&#9654;</span><span class="play-label">Click to preview</span></div></div>
-        <div class="card-body">
-          <div class="card-title">Iron Fence <span style="color:var(--ink-dim);font-size:13px;">(gate/grounds boundary)</span></div>
-          <div class="meta-row"><span class="license ccby">CC-BY</span><span>plaggy · Sketchfab</span></div>
-          <div class="path">assets/models/sourced/iron_fence/scene.gltf</div>
-        </div>
-      </div>
+    <h2>How to use this</h2>
+    <p class="note">This is the shopping + build list to <strong>finish the whole game</strong>. Each stage is a ship slice. Money only hits the gold <span class="st buy">BUY</span> rows — almost everything else is already on disk or code. Packs do <em>not</em> ship minigames, endings, or Host AI. Those are PROC / WRITE rows.</p>
+    <div class="money-bar">
+      <span class="buy">TRIO DONE · Modular + Env + HD 03 bought</span>
+      <span class="own">WIRED: car · Modular walls · Env fence LOD0 · Door_Double facade · Env lamps</span>
+      <span>Canon: house-history + story bible</span>
     </div>
+    <div class="toc" style="margin-top:16px;">
+      <a href="#trio-done">Trio status</a>
+      <a href="#buy-next">Purchased bundle intake</a>
+      <a href="#stage-0">0 Opening</a>
+      <a href="#stage-1">1 Hall</a>
+      <a href="#stage-2">2 Parlor</a>
+      <a href="#stage-3">3 Court</a>
+      <a href="#stage-4">4 STB</a>
+      <a href="#stage-5">5 Hidden</a>
+      <a href="#stage-6">6 Labyrinth</a>
+      <a href="#stage-7">7 Endings</a>
+      <a href="#stage-8">8 Host/tooling</a>
+      <a href="#stage-sfx">SFX / textures</a>
+      <a href="#buy-later">Later / never</a>
+      <a href="#on-disk">On-disk previews</a>
+      <a href="#history">History layers</a>
+    </div>
+  </section>
+
+  <section id="trio-done">
+    <h2>★ Trio status — DONE <span class="count">~$145 spent · wired</span></h2>
+    <div class="cut">
+      <h3>What you bought · what is live · what Env could not do</h3>
+      <p class="verdict">Money was not wasted. Car + Modular earned keep day one. Env sat underused because full Modular GLBs are <strong>31–45MB each</strong> (boot stall) — agent now strips LOD0 → <code>assets/models/unity/victorian-mansion-environment/web/*_LOD0.glb</code> (~0.2–0.4MB).</p>
+      <ol class="podium">
+        <li class="gold" style="border-color:rgba(64,242,89,0.45);">
+          <span class="role">1 · $35 · WIRED</span>
+          <strong>Modular Victorian Interior</strong> — Hall / Court / STB wall dress.<br>
+          <span class="tiny">Status: <span class="st have">HAVE</span> · shells live</span>
+        </li>
+        <li class="gold" style="border-color:rgba(64,242,89,0.45);">
+          <span class="role">2 · $80 · PARTIAL wire</span>
+          <strong>Victorian Mansion Environment</strong> — lamps + outer fence LOD0 live. No hinged front doors in kit → gravyart shell kept.<br>
+          <span class="tiny">Wired: <code>SM_MansionLamp</code> · <code>web/SM_FenceSmall_LOD0</code> · <code>web/SM_Fence_LOD0</code> · strip script <code>scripts/strip-env-lod0.mjs</code><br>
+          Rejected: <code>SM_Wall_Door</code> (solid plate buried the opening)</span>
+        </li>
+        <li class="gold" style="border-color:rgba(64,242,89,0.45);">
+          <span class="role">3 · $30 · WIRED</span>
+          <strong>Realistic Car HD 03</strong> — modern arrival · secret ending path.<br>
+          <span class="tiny">Status: <span class="st have">HAVE</span> · <code>Exterior_LOD0</code> · Model T deleted</span>
+        </li>
+      </ol>
+      <p style="margin:12px 0 0;font-size:16px;color:#FFFFF2;"><strong>Also live on Prologue:</strong> <code>Door_Double.glb</code> hinged facade leaves + lowpoly handles · plaggy iron fence · procedural gate · gravyart shell · ruins grounds (low-poly trees).</p>
+    </div>
+  </section>
+
+  <section id="buy-next">
+    <h2>★ Purchased next — mine the horror bundle <span class="count">$50 · no more buys yet</span></h2>
+    <p class="note"><strong>Current rule:</strong> Nick bought Leartes Studios' Horror Environments Bundle (9 Packs) for $50. Mine its grounds, trees, props and interiors before recommending anything else. Do not replace the mansion / facade shell. Opening canon remains <a href="#opening-threshold">Threshold Refusal</a> (closed front doors → KO on porch → wake in Hall).</p>
+    <div class="cut" id="opening-threshold">
+      <h3>Opening canon (no mansion buy)</h3>
+      <p class="verdict">Front doors stay shut on purpose. The house does not admit you as a caller — it takes you on the porch. You wake on Entry Hall marble. Spec: <code>docs/superpowers/specs/2026-07-14-opening-threshold.md</code>.</p>
+      <p class="tiny">Side path (servant flank) = optional later polish only if the porch beat feels short after Nick’s walk. Not a second mansion.</p>
+    </div>
+    <div class="cut" style="margin-top:16px;">
+      <h3>Purchased intake — use the nine packs as a parts library</h3>
+      <ol class="podium">
+        <li class="gold">
+          <span class="role">1 · BOUGHT · WITCH / HAUNTED / ABANDONED VILLAGES</span>
+          <strong>Dead / bare trees</strong> — mine the bundle for the drive + outer look-back before any separate tree pack.<br>
+          <div class="tiny" style="margin-top:8px;">
+            <a href="https://assetstore.unity.com/packages/3d/vegetation/trees/dead-tree-pack-239578" target="_blank" rel="noopener">Dead Tree Pack (59 meshes · LODs) →</a>
+            · alt <a href="https://assetstore.unity.com/packages/3d/vegetation/trees/realistic-winter-forest-tree-pack-182611" target="_blank" rel="noopener">Realistic Winter Forest Tree Pack →</a><br>
+            Previous separate tree-pack links are retained only as reference. Do not buy them unless the bundle fails a measured visual gate.
+          </div>
+        </li>
+        <li class="gold">
+          <span class="role">2 · BOUGHT · NINE-PACK LIBRARY</span>
+          <strong>Graveyard / cemetery dress</strong> — mine village, prison, aftermath and demonic props plus owned Flooded/Asylum. No cemetery purchase now.<br>
+          <div class="tiny">Inventory real filenames and LODs first; wire only the strongest matching pieces.</div>
+        </li>
+        <li class="gold">
+          <span class="role">3 · BOUGHT + CC0</span>
+          <strong>Ground + weed dress</strong> — bundle ground/grass/branch assets first; Poly Haven CC0 remains the texture fallback.<br>
+          <div class="tiny">Already have brick/stone/wood in <code>assets/tex/</code>. Fill soft foliage gaps only.</div>
+        </li>
+        <li>
+          <span class="role">4 · DONE</span>
+          <strong>Gate slam / lock / KO SFX</strong> — project-authored Opus files are wired and licensed.<br>
+          <span class="tiny">See <code>assets/sfx/license.txt</code>.</span>
+        </li>
+        <li>
+          <span class="role">5 · INTAKE GATE</span>
+          <strong>Download all nine payload packages separately</strong> — the cached bundle file is only a 5.4 KB entitlement wrapper.<br>
+          <span class="tiny"><code>npm run assets:horror:check</code> · map: <code>docs/playtest/horror-bundle-intake.md</code></span>
+        </li>
+      </ol>
+      <p style="margin:14px 0 0;font-size:16px;color:#FFFFF2;"><strong>Do not buy:</strong> Modular English Mansion · KitBash · Synty Horror Mansion · another Victorian Env · sealed-slab house packs · extra door megapacks · 30MB flower columns.</p>
+      <p style="margin:8px 0 0;font-size:15px;color:var(--ink);"><strong>Target additional cart:</strong> <strong>$0</strong> until the purchased $50 bundle is downloaded, mined and tested. Interiors keep MetalMan + Modular where they beat new candidates.</p>
+    </div>
+  </section>
+
+  <section id="stages">
+    <h2>Full game by stage <span class="count">get → buy → build</span></h2>
+    <p class="note">Status: <span class="st have">HAVE</span> wired · <span class="st own">OWN</span> GLB on disk · <span class="st buy">BUY</span> purchase · <span class="st proc">PROC</span> build · <span class="st write">WRITE</span> prose · <span class="st open">OPEN</span> undecided. Sources: <code>docs/superpowers/plans/2026-07-14-full-game-asset-book.md</code>, house-history + story bible.</p>
+
+    <div class="stage now" id="stage-0">
+      <div class="when">Stage 0 · Opening / Prologue · HORROR BUNDLE BOUGHT · payload intake next</div>
+      <h3>Drive · gate · facade · KO · leave-before-gate</h3>
+      <p class="budget">Spent: Env + Car + $50 horror bundle · Next: download, mine, test · no facade swap</p>
+      <p class="blurb">Modern guest arrives. Victorian face stays. Closed-door KO. Secret ending uses the car.</p>
+      <table class="need-table">
+        <thead><tr><th>What</th><th>Get</th><th>Status</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Victorian Mansion Environment</td><td>Unity Store</td><td><span class="st have">HAVE</span> partial</td><td>Lamps + fence LOD0 wired · no hinged front doors · gravyart shell kept</td></tr>
+          <tr><td>Env outer fence (web LOD0)</td><td>OWN strip</td><td><span class="st have">HAVE</span> WIRED</td><td><code>web/SM_FenceSmall_LOD0</code> + <code>SM_Fence_LOD0</code> · replaces box outer walls</td></tr>
+          <tr><td>Realistic Car HD 03</td><td>Unity Store</td><td><span class="st have">HAVE</span> WIRED</td><td>Model T deleted · secret ending</td></tr>
+          <tr><td>gravyart mansion shell</td><td>Keep</td><td><span class="st have">HAVE</span></td><td>Cube043 hidden · balustrade darkened</td></tr>
+          <tr><td>Front doors (Door_Double + handles)</td><td>OWN Unity</td><td><span class="st have">HAVE</span> WIRED</td><td>Facade hinged · Hall parlor also Door_Double</td></tr>
+          <tr><td>Procedural gate + plaggy iron fence + ruins grounds</td><td>Keep</td><td><span class="st have">HAVE</span></td><td>Trees still low-poly — see Buy next</td></tr>
+          <tr class="buy"><td>Horror bundle vegetation / grounds</td><td>Unity Store</td><td><span class="st own">OWN</span> download pending</td><td>Mine Witch/Haunted/Abandoned villages first · no mansion replacement</td></tr>
+          <tr class="buy"><td>Cemetery / ruin dress</td><td>Horror bundle + OWN</td><td><span class="st own">OWN</span> intake</td><td>No separate cemetery buy until bundle visual gate</td></tr>
+          <tr><td>Threshold Refusal KO</td><td>Canon</td><td><span class="st have">HAVE</span></td><td>Closed front doors → porch KO → wake Hall · <code>opening-threshold.md</code></td></tr>
+          <tr><td>Side path / servant flank</td><td>Optional polish</td><td><span class="st open">OPEN</span></td><td>Only if porch feels short after Nick walk · not a mansion buy</td></tr>
+          <tr><td>Invitation letter (3-stage doubt)</td><td>Keep</td><td><span class="st have">HAVE</span></td><td></td></tr>
+          <tr><td>SFX wind / dark / owl / steps / door</td><td>Keep</td><td><span class="st have">HAVE</span></td><td><code>assets/sfx/</code> · gate/KO project-authored and licensed</td></tr>
+          <tr><td>Tire wet / leaf polish</td><td>Code</td><td><span class="st have">HAVE</span></td><td>Leaves + reduce-motion verified</td></tr>
+          <tr><td>Porch hitch / coach-lamp scar (L4)</td><td>Code + OWN</td><td><span class="st proc">PROC</span></td><td>Inn archaeology</td></tr>
+          <tr><td>Nick opening playtest</td><td>Human</td><td><span class="st open">OPEN</span></td><td>Phase 0 gate</td></tr>
+          <tr><td>Model T / old_car.glb</td><td>Retired</td><td><span class="st have">HAVE</span> deleted</td><td>Replaced by HD 03</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="stage" id="stage-1">
+      <div class="when">Stage 1 · Entry Hall · BUY Modular ($35 shared)</div>
+      <h3>Ledger · 9 portraits · examine · parlor doors</h3>
+      <p class="budget">Spend: Modular (also stages 3–5) · Furniture: OWN MetalMan</p>
+      <table class="need-table">
+        <thead><tr><th>What</th><th>Get</th><th>Status</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Modular Victorian Interior shell</td><td>Unity Store</td><td><span class="st have">HAVE</span> WIRED</td><td>Hall/Court/STB walls dressed</td></tr>
+          <tr><td>MetalMan furniture / portraits / ledger / plants</td><td>Wire</td><td><span class="st have">HAVE</span></td><td>Live</td></tr>
+          <tr><td>Door_Double (Hall parlor + Prologue facade)</td><td>Keep</td><td><span class="st have">HAVE</span> WIRED</td><td>Both scenes · night MeshBasic wood</td></tr>
+          <tr><td>Clock / shelves / chandelier / armor…</td><td>Keep</td><td><span class="st have">HAVE</span></td><td>See on-disk previews</td></tr>
+          <tr><td>Wallpaper → brass “3” (L3 club)</td><td>Code</td><td><span class="st proc">PROC</span></td><td>Scar</td></tr>
+          <tr><td>Filled arch / older brick (L2/L4)</td><td>OWN + code</td><td><span class="st own">OWN</span>/<span class="st proc">PROC</span></td><td>alchemist / flooded</td></tr>
+          <tr><td>Mirror shard behind Percival</td><td>Code</td><td><span class="st proc">PROC</span></td><td>Labyrinth prep</td></tr>
+          <tr><td>Mud print at carpet (L0)</td><td>Code</td><td><span class="st proc">PROC</span></td><td>Optional</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="stage" id="stage-2">
+      <div class="when">Stage 2 · Parlor · $0 packs</div>
+      <h3>Cards · Read · cheat · host era slips</h3>
+      <p class="budget">Spend: none · Systems + writing</p>
+      <table class="need-table">
+        <thead><tr><th>What</th><th>Get</th><th>Status</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Card table / chairs / UI / meters / Read</td><td>Keep</td><td><span class="st have">HAVE</span></td><td>Shipped</td></tr>
+          <tr><td>Host era-slip lines (inn/club vocab)</td><td>Write</td><td><span class="st write">WRITE</span></td><td>History spec</td></tr>
+          <tr><td>Floor scratch under rug (L4)</td><td>Code</td><td><span class="st proc">PROC</span></td><td>Optional examine</td></tr>
+          <tr><td>Card deal / flip SFX</td><td>CC later</td><td><span class="st open">OPEN</span></td><td>Small free packs</td></tr>
+          <tr><td>Modular wall polish (optional)</td><td>From $35</td><td><span class="st buy">BUY</span> wire</td><td>Not required for play</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="stage" id="stage-3">
+      <div class="when">Stage 3 · Court (Assize) · Modular redress</div>
+      <h3>Evidence · seals · gavel · jury · encounter AI</h3>
+      <p class="budget">Spend: Modular share · Rules = PROC · Props = HAVE/PROC</p>
+      <table class="need-table">
+        <thead><tr><th>What</th><th>Get</th><th>Status</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Court shell + evidence fan + seals + tarnish</td><td>Polish</td><td><span class="st have">HAVE</span></td><td>Shell live</td></tr>
+          <tr><td>Table_Large / Chair_1 / candelabra</td><td>Keep</td><td><span class="st have">HAVE</span></td><td></td></tr>
+          <tr><td>Gavel (procedural RAF)</td><td>Keep</td><td><span class="st proc">PROC</span></td><td><code>gm-court-props.js</code></td></tr>
+          <tr><td>Modular room walls/ceilings</td><td>Wired</td><td><span class="st have">HAVE</span></td><td>Trio #1</td></tr>
+          <tr><td>Witness bar-rail scar (L4)</td><td>OWN mine + code</td><td><span class="st proc">PROC</span></td><td>Inn scar</td></tr>
+          <tr><td>Floor join / raised public end (L4)</td><td>Code</td><td><span class="st proc">PROC</span></td><td></td></tr>
+          <tr><td>Role lights / pressure clock / full match AI</td><td>Code</td><td><span class="st proc">PROC</span></td><td>Systems not a pack</td></tr>
+          <tr><td>Evidence copy / shard card</td><td>Write + code</td><td><span class="st write">WRITE</span>/<span class="st proc">PROC</span></td><td>Draft exists</td></tr>
+          <tr><td>Gavel knock SFX</td><td>CC later</td><td><span class="st open">OPEN</span></td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="stage" id="stage-4">
+      <div class="when">Stage 4 · Shut the Box · Modular hall</div>
+      <h3>Dice · tiles · Hold · tile-9 door · Aldric seat</h3>
+      <p class="budget">Spend: Modular share · Board = PROC · Dice = HAVE</p>
+      <table class="need-table">
+        <thead><tr><th>What</th><th>Get</th><th>Status</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>STB shell + hinged tiles + dice.glb</td><td>Polish</td><td><span class="st have">HAVE</span></td><td>Logic tests green</td></tr>
+          <tr><td>Full match AI + Hold UI + tile→ledger</td><td>Code</td><td><span class="st proc">PROC</span></td><td>After Court</td></tr>
+          <tr><td>Modular hall redress</td><td>Wired</td><td><span class="st have">HAVE</span></td><td></td></tr>
+          <tr><td>Hidden panel door (tile-9)</td><td>Code + OWN wall</td><td><span class="st proc">PROC</span></td><td></td></tr>
+          <tr><td>Brass # + club notice under sheet (L3)</td><td>Code / 2D</td><td><span class="st proc">PROC</span></td><td>Not a beer poster</td></tr>
+          <tr><td>Dust-sheet frames</td><td>Code</td><td><span class="st proc">PROC</span></td><td></td></tr>
+          <tr><td>Seated Aldric silhouette → better</td><td>Code</td><td><span class="st proc">PROC</span></td><td>Full body later</td></tr>
+          <tr><td>Dice / tile slap SFX</td><td>CC later</td><td><span class="st open">OPEN</span></td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="stage" id="stage-5">
+      <div class="when">Stage 5 · Hidden room · Modular chamber</div>
+      <h3>Older invitation · journal · cork ring</h3>
+      <p class="budget">Spend: Modular share · Props OWN · Prose WRITE</p>
+      <table class="need-table">
+        <thead><tr><th>What</th><th>Get</th><th>Status</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Small chamber shell</td><td>Wire Modular</td><td><span class="st buy">BUY</span></td><td></td></tr>
+          <tr><td>dark_book.glb + desk/chair</td><td>Keep</td><td><span class="st have">HAVE</span></td><td></td></tr>
+          <tr><td>Older invitation + journal fragments</td><td>Write</td><td><span class="st write">WRITE</span></td><td>Story bible §5 · never names inn</td></tr>
+          <tr><td>Cork / bottle ring (L4)</td><td>Mine OWN first</td><td><span class="st own">OWN</span></td><td>Tiny buy only if thin</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="stage" id="stage-6">
+      <div class="when">Stage 6 · Labyrinth · $0 trio spend</div>
+      <h3>House Between · mirrors · shards · Huntsman</h3>
+      <p class="budget">Spend: none of the trio · OWN asylum/flooded + PROC</p>
+      <table class="need-table">
+        <thead><tr><th>What</th><th>Get</th><th>Status</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>7×7 maze → underside dress</td><td>OWN + code</td><td><span class="st own">OWN</span>/<span class="st proc">PROC</span></td><td>asylum · flooded · wall_modular</td></tr>
+          <tr><td>mirror.glb + variants</td><td>Keep + variants</td><td><span class="st have">HAVE</span></td><td></td></tr>
+          <tr><td>Shards ×2 + Turn / Sanity UI</td><td>Code</td><td><span class="st proc">PROC</span></td><td></td></tr>
+          <tr><td>Huntsman shadow / SFX only</td><td>Code</td><td><span class="st proc">PROC</span></td><td>Never buy full body</td></tr>
+          <tr><td>L5 drip / rumble bed</td><td>CC later</td><td><span class="st open">OPEN</span></td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="stage" id="stage-7">
+      <div class="when">Stage 7 · Persistence · six endings · secret exit</div>
+      <h3>Escape · Replacement · Pact · Collection · Cheat · Hollow + pre-gate</h3>
+      <p class="budget">Spend: uses Stage 0 car · No new env pack</p>
+      <table class="need-table">
+        <thead><tr><th>What</th><th>Get</th><th>Status</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Shared save / cheatsCaught / Continue</td><td>Code</td><td><span class="st proc">PROC</span></td><td></td></tr>
+          <tr><td>Six ending result screens + copy</td><td>Code + write</td><td><span class="st proc">PROC</span>/<span class="st write">WRITE</span></td><td>Story bible §7</td></tr>
+          <tr><td>Collection tenth tile / portrait</td><td>Code</td><td><span class="st proc">PROC</span></td><td></td></tr>
+          <tr><td>Secret ending drive-away</td><td>Wire HD 03</td><td><span class="st have">HAVE</span> path</td><td>Needs buy-now car</td></tr>
+          <tr><td>Credits + pack attribution screen</td><td>Code</td><td><span class="st proc">PROC</span></td><td></td></tr>
+          <tr><td>“The Mirror” NG+</td><td>Decide</td><td><span class="st open">OPEN</span></td><td>Art Direction</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="stage" id="stage-8">
+      <div class="when">Stage 8 · Host · scars · Nick tooling · polish</div>
+      <h3>Aldric presence · 9 history clues · placement editor</h3>
+      <p class="budget">Spend: $0 · Optional small prop if OWN thin</p>
+      <table class="need-table">
+        <thead><tr><th>What</th><th>Get</th><th>Status</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Hands / silhouette / coat</td><td>Code</td><td><span class="st proc">PROC</span></td><td>Full body defer</td></tr>
+          <tr><td>Young-Aldric portrait</td><td>Decide</td><td><span class="st open">OPEN</span></td><td></td></tr>
+          <tr><td>Full L3/L4 scar set (history clues)</td><td>Code + OWN</td><td><span class="st proc">PROC</span></td><td>9-clue list in history spec</td></tr>
+          <tr><td><code>assets/placements/*.json</code> + <code>?place=1</code></td><td>Code</td><td><span class="st proc">PROC</span></td><td>Nick tweak harness</td></tr>
+          <tr><td>Menu ambience bed</td><td>CC optional</td><td><span class="st open">OPEN</span></td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="stage" id="stage-sfx">
+      <div class="when">Cross-cutting · SFX · textures · tooling</div>
+      <h3>Already covered vs buy later CC</h3>
+      <table class="need-table">
+        <thead><tr><th>What</th><th>Get</th><th>Status</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Opening ambience + FOOT + door</td><td>Keep</td><td><span class="st have">HAVE</span></td><td><code>assets/sfx/license.txt</code></td></tr>
+          <tr><td>Ground / wall / wood textures</td><td>Keep</td><td><span class="st have">HAVE</span></td><td>No buy</td></tr>
+          <tr><td>Unity extract → GLB pipeline</td><td>Keep</td><td><span class="st have">HAVE</span></td><td>5023 GLB proven</td></tr>
+          <tr><td>Gavel / dice / card / drip SFX</td><td>CC0/CC-BY later</td><td><span class="st open">OPEN</span></td><td>Per-stage polish · free</td></tr>
+          <tr><td>Ship CREDITS screen sync</td><td>Code</td><td><span class="st proc">PROC</span></td><td>Stage 7</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="buy-later">
+    <h2>Buy later / never</h2>
+    <table class="swap-table">
+      <thead><tr><th>Item</th><th>When</th><th>Call</th></tr></thead>
+      <tbody>
+        <tr><td>Winter / dead trees (~$15–25)</td><td>Only after bundle failure</td><td><strong>Hold</strong> · mine purchased packs first</td></tr>
+        <tr><td>Cemetery props (~$10–20)</td><td>Only after bundle failure</td><td><strong>Hold</strong> · mine purchased packs first</td></tr>
+        <tr><td>Mysterious Mansion Level ~$15</td><td>Layout ref only</td><td>Optional · not a shell</td></tr>
+        <tr><td>Taproom rail / bottle (only if OWN thin)</td><td>Stage 3–5 scars</td><td>Mine unity/ first</td></tr>
+        <tr><td>CC SFX (gavel, dice, drip, gate slam, KO thud)</td><td>Per-stage polish</td><td>Free / cheap</td></tr>
+        <tr><td>KitBash ~$290</td><td>—</td><td>Never for this budget</td></tr>
+        <tr><td>Modular English / any 2nd mansion shell</td><td>—</td><td><strong>Locked out</strong> · Threshold Refusal</td></tr>
+        <tr><td>Western Saloon megapacks</td><td>—</td><td>Wrong costume</td></tr>
+        <tr><td>Synty Horror Mansion</td><td>—</td><td>Style reboot</td></tr>
+        <tr><td>Mystery Room + Modular both</td><td>—</td><td>Overlap · Modular already owned</td></tr>
+        <tr><td>Free toy cars (Quaternius etc.)</td><td>—</td><td>Quality bar fail · HD 03 live</td></tr>
+        <tr><td>Another Victorian Env / fence mega</td><td>—</td><td>Owned · fence LOD0 already wired</td></tr>
+      </tbody>
+    </table>
+    <div class="cart-box" style="margin-top:14px;">
+      <div class="store">Honest completion math</div>
+      <p style="margin:8px 0 0;font-size:15px;"><strong>~$145 trio + $50 horror bundle (spent) + owned Unity + PROC/WRITE stages 2–8</strong> = current asset path. Packs alone are not Court rules, STB AI, labyrinth, or six endings.</p>
+    </div>
+  </section>
+
+  <section id="history">
+    <h2>⏱ House history layers <span class="count">canon</span></h2>
+    <p class="note">Guest = now. Face = frozen games house. Site: underside → coaching inn → club → failed manor → games house. Spec: <code>docs/superpowers/specs/2026-07-14-house-history.md</code>.</p>
+    <ol class="podium">
+      <li><span class="role">L5</span> Underside / House Between — labyrinth</li>
+      <li><span class="role">L4</span> Coaching inn — bar rail, hitch, public-room join</li>
+      <li><span class="role">L3</span> Private club — brass numbers, notices</li>
+      <li><span class="role">L2</span> Failed manor — filled arches, sealed chamber</li>
+      <li class="gold"><span class="role">L1</span> Invitation games house — what you walk tonight</li>
+      <li class="gold"><span class="role">L0</span> Modern guest — car, mud, letter stock</li>
+    </ol>
+  </section>
+
+  <section id="on-disk">
+    <h2>✓ On disk — click to preview <span class="count">already owned</span></h2>
+    <p class="note">Live / sourced / Unity meshes already in the repo. Not the shopping list — proof of what you already have. Stage tables above say when each is enough vs needs Modular redress.</p>
 
     <h3 style="font-family:var(--serif);font-size:20px;color:#FFFFF2;margin:28px 0 4px;">Entry Hall</h3>
     <div class="grid">
@@ -248,7 +634,35 @@
         </div>
       </div>
     </div>
-    <p class="note" style="margin-top:8px;">Court reuses the Entry Hall's table, chairs, and portraits per Art Direction's own build-order guidance ("re-dressed dining hall, not new geometry") — the candelabra above is the one new piece it needs.</p>
+    <p class="note" style="margin-top:8px;">Court shell now wires <code>Table_Large</code> / <code>Chair_1</code> / <code>candelabra.glb</code> + procedural gavel (<code>gm-court-props.js</code>). Plan: <code>docs/superpowers/plans/2026-07-14-court-and-shut-the-box.md</code>.</p>
+
+    <h3 style="font-family:var(--serif);font-size:20px;color:#FFFFF2;margin:28px 0 4px;">Hall pack (Court / Entry upgrades)</h3>
+    <div class="grid">
+      <div class="card">
+        <div class="preview-wrap" data-src="assets/models/hall/Table_Large.gltf"><div class="preview-placeholder"><span class="play-icon">&#9654;</span><span class="play-label">Click to preview</span></div></div>
+        <div class="card-body">
+          <div class="card-title">Table Large</div>
+          <div class="meta-row"><span class="license cc0">CC0</span><span>hall pack</span></div>
+          <div class="path">assets/models/hall/Table_Large.gltf</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="preview-wrap" data-src="assets/models/hall/Chair_1.gltf"><div class="preview-placeholder"><span class="play-icon">&#9654;</span><span class="play-label">Click to preview</span></div></div>
+        <div class="card-body">
+          <div class="card-title">Chair 1</div>
+          <div class="meta-row"><span class="license cc0">CC0</span><span>hall pack</span></div>
+          <div class="path">assets/models/hall/Chair_1.gltf</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="preview-wrap" data-src="assets/models/hall/Chandelier.gltf"><div class="preview-placeholder"><span class="play-icon">&#9654;</span><span class="play-label">Click to preview</span></div></div>
+        <div class="card-body">
+          <div class="card-title">Chandelier</div>
+          <div class="meta-row"><span class="license cc0">CC0</span><span>hall pack</span></div>
+          <div class="path">assets/models/hall/Chandelier.gltf</div>
+        </div>
+      </div>
+    </div>
 
     <h3 style="font-family:var(--serif);font-size:20px;color:#FFFFF2;margin:28px 0 4px;">The Labyrinth</h3>
     <div class="grid">
@@ -279,6 +693,7 @@
     </div>
     <p class="note" style="margin-top:8px;">Per Art Direction, the maze itself should be grey-boxed with this modular kit long before dressing it — matches the project's own "prototype first" recommendation.</p>
 
+    <p class="note" style="margin-top:4px;color:#A69980;">Inventory (2026-07-14): see <code>docs/playtest/phase1-2-asset-inventory.md</code> · evidence draft <code>docs/superpowers/specs/2026-07-14-court-evidence-draft.md</code></p>
     <h3 style="font-family:var(--serif);font-size:20px;color:#FFFFF2;margin:28px 0 4px;">Shut the Box</h3>
     <div class="grid">
       <div class="card">
@@ -307,10 +722,354 @@
   </section>
 
   <section>
-    <h2>✓ Resolved this session</h2>
-    <p class="note">Both manually downloaded, compared side-by-side, and decided:</p>
-    <div class="attr-box"><strong>Mansion exterior</strong> — chose "Haunted Victorian House" by gravyart over "HAUNTED MANSION" by n-malmberg. Both were CC-BY and similarly licensed, but a direct visual comparison settled it: n-malmberg's model rendered dark and murky with visible geometry gaps in the porch area, while gravyart's has real clapboard siding, window/shutter detail, a wraparound porch and staircase, and a widow's-walk tower — it actually reads as a Victorian mansion. The extra triangle count (216.9k vs 68.6k) earns its keep.
-<strong>Fence/gate</strong> — swapped the generic Quaternius "Metal Fence" (a flat industrial guardrail, wrong style entirely) for plaggy's ornate wrought-iron picket fence with spear-tip finials — genuinely period-appropriate, not just technically available.</div>
+    <h2>★ Owned dress stack <span class="count">reference · buy is above</span></h2>
+    <p class="note">After converting <strong>all 106 earlier Unity packs → 5023 GLB</strong>, this is the owned dressing stack. Trio (~$145) + horror bundle ($50) are bought. Next action is bundle intake, not more spending — see <a href="#buy-next">Purchased next</a>.</p>
+
+    <div class="cut">
+      <h3><span class="lane-tag">Tier 0 · owned dress · $0 more mesh</span> Best owned grouping</h3>
+      <p class="verdict">Own these for the <em>trapped house</em> (L1). Arrival car + Mod walls + Env fence/lamps + Door_Double are live. Trees are the soft spot.</p>
+      <ol class="podium">
+        <li class="gold" style="border-color:rgba(64,242,89,0.45);">
+          <span class="role">0 · Snap interiors · WIRED</span>
+          <strong>Modular Victorian Interior</strong> — Hall / Court / STB shells.<br>
+          <code>Unity Asset Store · $35 · bought</code>
+        </li>
+        <li class="gold" style="border-color:rgba(64,242,89,0.45);">
+          <span class="role">0b · Env · PARTIAL wire</span>
+          <strong>Victorian Mansion Environment</strong> — lamps + fence LOD0 · no hinged front doors.<br>
+          <code>web/SM_Fence*_LOD0 · SM_MansionLamp · strip-env-lod0.mjs</code>
+        </li>
+        <li class="gold" style="border-color:rgba(64,242,89,0.45);">
+          <span class="role">car · WIRED</span>
+          <strong>Realistic Car HD 03</strong> — modern arrival.<br>
+          <code>Exterior_LOD0 · Model T deleted</code>
+        </li>
+        <li class="gold">
+          <span class="role">1 · Facade shell (keep · L1)</span>
+          <strong>gravyart Haunted Victorian House</strong> — best silhouette/porch of everything on disk.<br>
+          <code>assets/models/exterior/scene.gltf</code>
+          <div class="tiny">Keep until a door-capable owned shell beats it in eye-level shots. House staying “old” is correct for host trap.</div>
+        </li>
+        <li class="gold">
+          <span class="role">2 · Front doors · WIRED</span>
+          <strong>Door_Double + handles</strong> — hinged Unity leaves + lowpoly handles on Prologue facade (Hall parlor same pack).<br>
+          <code>assets/models/unity/doors/Door_Double.glb</code> · painted stand-in until GLB mounts
+        </li>
+        <li class="gold">
+          <span class="role">3 · Victorian furniture (live)</span>
+          <strong>MetalMan Victorian Interior</strong> — chairs, couches, tables, shelves, lamps.<br>
+          <code>assets/models/unity/metalman/</code> (+ full tree <code>metalman-victorian-interior/</code>)
+        </li>
+        <li>
+          <span class="role">4 · Best owned modular architecture</span>
+          <strong>Alchemist House</strong> — walls, door frames, stairs, wood floors (119 GLB).<br>
+          <code>assets/models/unity/alchemist-house/BK_AlchemistHouse/Models/Architecture/</code>
+          <div class="tiny">Use to thicken porch / vestibule / side wing — not a full Victorian silhouette by itself.</div>
+        </li>
+        <li>
+          <span class="role">5 · Best owned Victorian modules</span>
+          <strong>IV Art LOWPOLY Victorian Mansion</strong> — columns, rails, Door_01, handles (porch dress live).<br>
+          <code>assets/models/unity/lowpoly-victorian-mansion/LOWPOLY-Victorian_Mansion_Pack/Models/</code>
+        </li>
+        <li>
+          <span class="role">6 · Best owned horror decay</span>
+          <strong>Abandoned Asylum</strong> — full building mesh + doors, chairs, chandelier, shelves (109 GLB).<br>
+          <code>.../Asylum.glb</code>, <code>MainDoor.glb</code>, <code>Chandelier.glb</code>, sofas/tables
+          <div class="tiny">Tone is institutional decay, not parlor Victorian — mix for Court/lab/underside, not Entry Hall polish.</div>
+        </li>
+        <li>
+          <span class="role">7 · Best owned estate brick / grounds kit</span>
+          <strong>Flooded Grounds</strong> — BrickHouse Ext/door/stairs + barns/church props (342 GLB).<br>
+          <code>.../mBrickHouse/BrickHouse_Ext_A.glb</code> / <code>_Ext_B.glb</code> / <code>BrickHouse_Door_A.glb</code>
+        </li>
+        <li>
+          <span class="role">8 · Set dressing (lights / books / chest / bloody door)</span>
+          <code>customizable-lights-and-candles/</code> · <code>books-essentials/</code> · <code>animated-old-chest/</code> · <code>tims-horror-assets-the-bloody-door/</code> · <code>props/</code> (key, knife, frame, shackles) · <code>study/</code>
+        </li>
+        <li>
+          <span class="role">9 · Inn / club scars (mine first · L4/L3)</span>
+          Bottles, glasses, wood rails, frames from asylum / flooded / props — then tiny tavern buy only if thin.<br>
+          <div class="tiny"><span class="rank skip">Retired</span> Western Saloon as house identity. History = coaching inn → club → manor → games house.</div>
+        </li>
+      </ol>
+      <p class="tiny" style="margin-top:12px;"><span class="rank skip">Do not spend time on</span> Synty starter, furniture mega dump, city pack, Viking village, Book of the Dead, hospital beds, fantasy armory — unless a specific prop is missing after the stack above.</p>
+    </div>
+
+    <h3 style="font-family:var(--serif);font-size:20px;color:#FFFFF2;margin:28px 0 10px;">Asset stack <span class="store">trio + horror bundle DONE · intake next</span></h3>
+    <p class="note" style="margin-top:0;">Trio and horror bundle purchased. Next action: <a href="#buy-next">download and mine the nine payloads</a>. Leave KitBash alone.</p>
+    <div class="lane-grid" style="margin-top:8px;">
+      <div class="lane pick buy-one">
+        <div class="lane-head">
+          <span class="lane-tag">DONE · $35</span>
+          <h3>Modular Victorian Interior</h3>
+          <span class="total">WIRED</span>
+        </div>
+        <p class="gets">Hall / Court / STB / hidden snap shells.</p>
+      </div>
+      <div class="lane pick buy-one">
+        <div class="lane-head">
+          <span class="lane-tag">DONE · $80</span>
+          <h3>Victorian Mansion Environment</h3>
+          <span class="total">partial wire</span>
+        </div>
+        <p class="gets">Fence LOD0 + lamps live. No hinged front doors — gravyart shell kept.</p>
+      </div>
+      <div class="lane">
+        <div class="lane-head">
+          <span class="lane-tag">DONE · $30</span>
+          <h3>Realistic Car HD 03</h3>
+          <span class="total">WIRED</span>
+        </div>
+        <p class="gets">Modern arrival · secret ending path.</p>
+      </div>
+      <div class="lane pick buy-one">
+        <div class="lane-head">
+          <span class="lane-tag">BOUGHT · $50 BUNDLE</span>
+          <h3>Horror bundle grounds + dressing</h3>
+          <span class="total">download pending</span>
+        </div>
+        <p class="gets">Replace ruins_pack hero silhouettes and dress later rooms. See <a href="#buy-next">#buy-next</a>.</p>
+      </div>
+      <div class="lane">
+        <div class="lane-head">
+          <span class="lane-tag cinema">Out of budget</span>
+          <h3>KitBash Victorian + Horror</h3>
+          <span class="total">~$290</span>
+        </div>
+        <p class="gets">Skip.</p>
+      </div>
+    </div>
+
+    <div class="cart-box" style="margin-top:16px;">
+      <div class="store">Demoted / already owned</div>
+      <table class="swap-table">
+        <thead><tr><th>Pack</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>Western Saloon megapacks</td><td>Wrong costume — inn scars only</td></tr>
+          <tr><td>Victorian Mystery Room (~$35)</td><td>Overlaps Modular — already owned</td></tr>
+          <tr><td>$30 Horror Modular / Asylum interiors</td><td>Already own decay kits</td></tr>
+          <tr><td>Synty Horror Mansion / Gothic megas</td><td>Style clash / cathedral</td></tr>
+          <tr><td>Extra door / furniture packs</td><td>Already owned · Door_Double live</td></tr>
+          <tr><td>Another Env fence mega</td><td>Fence LOD0 already wired</td></tr>
+        </tbody>
+      </table>
+      <p style="margin:14px 0 0;font-size:15px;color:var(--ink);"><strong>Rule:</strong> download bundle → mine selectively → walk the opening → never buy another mansion. Threshold Refusal owns the door beat.</p>
+    </div>
+
+    <h2 style="margin-top:40px;">★ Marketplace pack details <span class="count">reference · not the shopping list</span></h2>
+    <p class="note">Older sweep, kept for links. Follow <strong>The cut</strong> above. Tier 0 owned beats most of these.</p>
+
+    <h3 style="font-family:var(--serif);font-size:20px;color:#FFFFF2;margin:28px 0 12px;">Exterior / mansion shell <span class="store">shell locked · bundle grounds intake</span></h3>
+    <div class="buy-grid">
+      <div class="buy-tier best">
+        <h3><span class="rank s">S · OWNED</span> Victorian Mansion Environment</h3>
+        <div class="price">~$79.99 · bought · Befour · PARTIAL wire</div>
+        <div class="gap">Live: porch lamps + outer fence LOD0. Gap: no hinged front doors · gravyart shell kept</div>
+        <p class="why">Do not re-buy. Strip LOD0 for more modular pieces as needed. Wall_Door rejected (solid plate).</p>
+        <a href="https://assetstore.unity.com/packages/3d/environments/victorian-mansion-environment-269740" target="_blank" rel="noopener">Open on Unity Asset Store →</a>
+      </div>
+      <div class="buy-tier">
+        <h3><span class="rank a">A · Modular build</span> Modular English Mansion Environment</h3>
+        <div class="price">~$59.99 · Unity · Leartes Studios (5.4 GB)</div>
+        <div class="gap">Fills: assemble your own facade / wings with 218 unique meshes</div>
+        <p class="why">Cheaper than Victorian Mansion Environment; more “kitbash your own house” than a ready estate. Good if you want control over door openings.</p>
+        <a href="https://assetstore.unity.com/packages/3d/environments/historic/modular-english-mansion-environment-295813" target="_blank" rel="noopener">Open on Unity Asset Store →</a>
+      </div>
+      <div class="buy-tier">
+        <h3><span class="rank a">A · Horror modular</span> Horror Modular Environment Pack</h3>
+        <div class="price">~$29.99 · Unity · mansion + barn + gothic props</div>
+        <div class="gap">Fills: modular haunted mansion + graveyard-adjacent props</div>
+        <p class="why">This is almost certainly the $30 pack under discussion. Solid mid-tier if budget is hard; not the absolute ceiling of quality vs the S/A Victorian packs above.</p>
+        <a href="https://assetstore.unity.com/packages/3d/environments/horror-modular-environment-pack-mansion-barn-creepy-props-329583" target="_blank" rel="noopener">Open on Unity Asset Store →</a>
+      </div>
+      <div class="buy-tier">
+        <h3><span class="rank a">A · Occult modular</span> Horror Mansion</h3>
+        <div class="price">~$44.99 · Unity · multi-storey modular + basement</div>
+        <div class="gap">Fills: custom mansion footprint, occult-ruin vibe</div>
+        <p class="why">Fully modular levels including basement modules. Strong if labyrinth / underside rooms matter soon.</p>
+        <a href="https://assetstore.unity.com/packages/3d/environments/horror-mansion-254104" target="_blank" rel="noopener">Open on Unity Asset Store →</a>
+      </div>
+      <div class="buy-tier">
+        <h3><span class="rank b">B · Stylized kit</span> POLYGON Horror Mansion (Synty)</h3>
+        <div class="price">~$99.99–$109.99 · Unity / Synty Store · 600+ prefabs + FBX</div>
+        <div class="gap">Fills: entire mansion kit (attic, basement, greenhouse) with characters</div>
+        <p class="why">Best <em>complete horror mansion kit</em> if you commit to Synty low-poly. Risk: style clash with current gravyart + MetalMan realism. Watch trailer before cart.</p>
+        <a href="https://assetstore.unity.com/packages/3d/environments/fantasy/polygon-horror-mansion-pack-art-by-synty-213346" target="_blank" rel="noopener">Unity Asset Store →</a>
+        · <a href="https://syntystore.com/products/polygon-horror-mansion" target="_blank" rel="noopener">Synty Store →</a>
+      </div>
+      <div class="buy-tier">
+        <h3><span class="rank b">B · Stylized Victorian</span> Stylized Victorian Mansion</h3>
+        <div class="price">~$49.99 · Unity · 267 models · URP/HDRP/Built-in</div>
+        <div class="gap">Fills: mystery/detective mansion if you want softer stylized look</div>
+        <p class="why">Furnished modular set aimed at mystery/horror/detective. Style call — not photoreal.</p>
+        <a href="https://assetstore.unity.com/packages/3d/environments/stylized-victorian-mansion-344386" target="_blank" rel="noopener">Open on Unity Asset Store →</a>
+      </div>
+      <div class="buy-tier">
+        <h3><span class="rank s">S · Cinema budget</span> KitBash3D Victorian</h3>
+        <div class="price">$145 · KitBash3D · film/TV grade landmarks &amp; blocks</div>
+        <div class="gap">Fills: iconic Victorian architecture for hero shots / overview</div>
+        <p class="why">Absolute top exterior kitbash quality. Heavier import (FBX/UE) then export GLB. Pair with House of Horror for interiors.</p>
+        <a href="https://kitbash3d.com/products/victorian" target="_blank" rel="noopener">Open KitBash3D Victorian →</a>
+        · <a href="https://kitbash3d.com/products/house-of-horror" target="_blank" rel="noopener">House of Horror ($145) →</a>
+        · <a href="https://kitbash3d.com/products/lovecraft" target="_blank" rel="noopener">Lovecraft kit ($245) →</a>
+      </div>
+      <div class="buy-tier">
+        <h3><span class="rank a">A · Gothic megakit</span> Gothic Exterior + Interior Megapack</h3>
+        <div class="price">~$140 exterior · ~€156 interior · Unity · cathedral/gothic, not soft Victorian</div>
+        <div class="gap">Fills: grounds tombs, cloisters, megapack rooms — only if tone skews castle/cathedral</div>
+        <p class="why">Highest mesh-count gothic library on the Unity Store (~272 exterior / 380+ interior). Overkill and stylistically wider than parlor Victorian — buy only if you want crypt/wing scale.</p>
+        <a href="https://assetstore.unity.com/packages/3d/environments/gothic-exterior-271511" target="_blank" rel="noopener">Gothic Exterior →</a>
+        · <a href="https://assetstore.unity.com/packages/3d/environments/historic/gothic-interior-megapack-248169" target="_blank" rel="noopener">Gothic Interior Megapack →</a>
+      </div>
+      <div class="buy-tier">
+        <h3><span class="rank a">A · Unreal route</span> Fab — Victorian Mansions (combo)</h3>
+        <div class="price">Fab · exterior+interior combo · 4 mansion scenes · UE5</div>
+        <div class="gap">Fills: full horror/mystery mansions if you’re ok exporting via Unreal/Blender → GLB</div>
+        <p class="why">268 meshes, 4K textures, 4 demo mansions (2 with interiors). Also see Fab Old Horror Mansion (310 assets, Nanite).</p>
+        <a href="https://www.fab.com/listings/0e1c743e-c175-4ef1-84e7-ba7838bcd7f0" target="_blank" rel="noopener">Victorian Mansions on Fab →</a>
+        · <a href="https://www.fab.com/listings/f171b3b5-da11-48d4-aa9a-265762a37180" target="_blank" rel="noopener">Old Horror Mansion →</a>
+        · <a href="https://www.fab.com/listings/2be59457-cf89-4edf-a0bd-a034fbe9ef5a" target="_blank" rel="noopener">Victorian Elegance Modular →</a>
+      </div>
+    </div>
+
+    <h3 style="font-family:var(--serif);font-size:20px;color:#FFFFF2;margin:36px 0 12px;">Interiors — Entry Hall / Court / STB / Parlor</h3>
+    <div class="buy-grid two">
+      <div class="buy-tier best">
+        <h3><span class="rank s">S · Grand hall</span> Victorian Grand Mansion Interior</h3>
+        <div class="price">~€64 · Unity · 116 prefabs · 2K–4K · all pipelines</div>
+        <div class="gap">Fills: grand staircase, lounges, corridors, library — Entry Hall ceiling</div>
+        <p class="why">Newest AAA-style Victorian interior pack (Jul 2026 listing). Best Unity path to replace box kit + mid MetalMan look in the hall.</p>
+        <a href="https://assetstore.unity.com/packages/3d/environments/victorian-grand-mansion-interior-environment-pack-384606" target="_blank" rel="noopener">Open on Unity Asset Store →</a>
+      </div>
+      <div class="buy-tier best">
+        <h3><span class="rank s">S · Horror interior</span> Abandoned Horror Mansion Interior</h3>
+        <div class="price">~$79.99 · Unity · Leartes · 160 meshes</div>
+        <div class="gap">Fills: Court / STB / parlor tone — abandoned Victorian furniture + rooms</div>
+        <p class="why">Often bundled mentally with Modular English Mansion (same publisher). Decay + gothic furniture leap past what we exported from MetalMan.</p>
+        <a href="https://assetstore.unity.com/packages/3d/environments/abandoned-horror-mansion-interior-272231" target="_blank" rel="noopener">Open on Unity Asset Store →</a>
+      </div>
+      <div class="buy-tier">
+        <h3><span class="rank a">A · Modular AAA</span> Modular Victorian Interior Mansion</h3>
+        <div class="price">~$35 · Unity · 4K textures · 69 modular parts + 27 props</div>
+        <div class="gap">Fills: snap rooms for Hall / Court / clue rooms</div>
+        <p class="why">Long-standing quality benchmark (Szymon Styrczula). Best value modular interior under $40 if Grand Mansion feels too new/unproven.</p>
+        <a href="https://assetstore.unity.com/packages/3d/environments/modular-victorian-interior-mansion-167750" target="_blank" rel="noopener">Unity Asset Store →</a>
+        · <a href="https://simonscat.artstation.com/projects/48baP8" target="_blank" rel="noopener">ArtStation trailer →</a>
+      </div>
+      <div class="buy-tier">
+        <h3><span class="rank a">A · Value horror</span> The Manor (HDRP)</h3>
+        <div class="price">~$19.99 · Unity · Deezl · 109 models · needs HDRP project</div>
+        <div class="gap">Fills: fully furnished abandoned manor prop dump</div>
+        <p class="why">Cheap atmosphere win. Must open in HDRP Unity to export GLBs cleanly.</p>
+        <a href="https://assetstore.unity.com/packages/3d/props/furniture/the-manor-hdrp-181900" target="_blank" rel="noopener">Open on Unity Asset Store →</a>
+      </div>
+      <div class="buy-tier">
+        <h3><span class="rank a">A · Clue room</span> Victorian Mystery Room</h3>
+        <div class="price">~€15–16 · Unity · gramophone, spirit board, modular walls</div>
+        <div class="gap">Fills: Parlor / Shut the Box / Hidden Room dressing</div>
+        <p class="why">Tone-perfect for this game’s table scenes. Small and targeted.</p>
+        <a href="https://assetstore.unity.com/packages/3d/props/furniture/victorian-mystery-room-342034" target="_blank" rel="noopener">Open on Unity Asset Store →</a>
+      </div>
+      <div class="buy-tier">
+        <h3><span class="rank s">S · Cinema interiors</span> KitBash3D House of Horror</h3>
+        <div class="price">$145 · KitBash3D · game-ready + Nanite</div>
+        <div class="gap">Fills: kitchen / attic / basement horror rooms at film quality</div>
+        <p class="why">Best interior horror kit money can buy in this sweep. Overkill unless you want cinematic stills and trailers.</p>
+        <a href="https://kitbash3d.com/products/house-of-horror" target="_blank" rel="noopener">Open KitBash3D →</a>
+      </div>
+    </div>
+
+    <h3 style="font-family:var(--serif);font-size:20px;color:#FFFFF2;margin:36px 0 12px;">Doors (only if you want more variety)</h3>
+    <p class="note" style="margin-top:0;">Prologue facade uses <code>Door_Double.glb</code> hinged leaves (night wood). Hall parlor uses the same pack. No more door buys needed unless you want variety.</p>
+    <div class="buy-grid two">
+      <div class="buy-tier">
+        <h3><span class="rank a">A</span> OWA Hinged Doors 01</h3>
+        <div class="price">Unity · 69 hinged/animated door prefabs · Victorian-friendly</div>
+        <p class="why">Pivots + open/close animations ready. Good corridor inventory.</p>
+        <a href="https://assetstore.unity.com/packages/3d/props/owa-hinged-doors-01-296326" target="_blank" rel="noopener">Open on Unity Asset Store →</a>
+      </div>
+      <div class="buy-tier">
+        <h3><span class="rank a">A</span> Five Old Doors</h3>
+        <div class="price">Unity · gothic/Victorian · latches/bolts animate · pivots correct</div>
+        <p class="why">Period front-door candidates if Door_Double ever feels too “kit furniture.”</p>
+        <a href="https://assetstore.unity.com/packages/3d/props/exterior/five-old-doors-372512" target="_blank" rel="noopener">Open on Unity Asset Store →</a>
+        · arches variant: <a href="https://assetstore.unity.com/packages/3d/props/exterior/five-old-doors-with-arches-272768" target="_blank" rel="noopener">with arches</a>
+      </div>
+    </div>
+
+    <h3 style="font-family:var(--serif);font-size:20px;color:#FFFFF2;margin:36px 0 12px;">Free / already on disk — do not rebuy</h3>
+    <div class="buy-grid">
+      <div class="buy-tier">
+        <h3><span class="rank skip">Skip / Own</span> What you already have</h3>
+        <p class="why" style="margin-bottom:0;">MetalMan Victorian Interior · IV Art LOWPOLY Victorian Mansion · UltimateHouseInterior doors · Victorian Study · FreeHorrorKit house · Stealth Haunted House demo · Door Free packs · Synty POLYGON <em>Starter</em> (not Horror Mansion) · gravyart shell + ruins_pack grounds. Full export status in <code>assets/models/unity/CREDITS.txt</code> + OWNED-PACKS.md.</p>
+      </div>
+    </div>
+
+    <p class="note" style="margin-top:22px;"><strong>Checkout rule:</strong> before buying any exterior, confirm store video shows <em>separate door meshes</em> (left/right or hinged leaf), not a sealed slab. Then Unity → export GLB with our <code>scripts/fbx-to-glb.mjs</code> / UnityGLTF path into <code>assets/models/</code>.</p>
+  </section>
+
+  <section>
+    <h2>✓ Unity bulk — all packs extracted + GLB <span class="count">5023 glb · 0 fbx orphaned</span></h2>
+    <p class="note"><strong>Done 2026-07-14.</strong> Every Asset Store <code>.unitypackage</code> on this machine is extracted under <code>assets/models/unity-import/&lt;slug&gt;/</code> (~36GB, gitignored) and every FBX has a matching GLB under <code>assets/models/unity/&lt;slug&gt;/…</code> (~2GB, 92 folders). Index: <code>assets/models/unity/BULK-MANIFEST.md</code> + <code>OWNED-PACKS.md</code>. Re-run: <code>node scripts/unity-bulk-convert.mjs</code>. Legacy ASCII/FBX6.1 went through Unity OBJ → Blender GLB.</p>
+    <p class="note">Browse first for the opening: <code>alchemist-house/</code>, <code>abandoned-asylum/</code>, <code>flooded-grounds/</code>, <code>stylized-house-interior/</code>, <code>lowpoly-victorian-mansion/</code>, <code>fps-horror-game-starter-pack/</code>.</p>
+  </section>
+
+  <section>
+    <h2>✓ Unity assets you already own (wired subset)</h2>
+    <p class="note">Earlier curated wiring (still live). Full bulk trees are siblings under <code>assets/models/unity/</code>.</p>
+    <ul class="todo-list">
+      <li class="todo-item">
+        <input type="checkbox" data-key="export_lowpoly_victorian" checked>
+        <div>
+          <div class="todo-title">LOWPOLY — Victorian Mansion Pack <span class="verify-badge ok">OWNED · PARTIAL</span></div>
+          <div class="todo-meta">~/Library/Unity/Asset Store-5.x/IV Art/…/LOWPOLY - Victorian Mansion Pack.unitypackage</div>
+          <ol class="steps">
+            <li>Extracted; Door_01 / Wall_Door_* / modular exterior pieces converted under <code>assets/models/unity/</code>.</li>
+            <li>Still open: assemble full exterior shell from modules (or buy Victorian Mansion Environment instead).</li>
+          </ol>
+        </div>
+      </li>
+      <li class="todo-item">
+        <input type="checkbox" data-key="export_victorian_interior" checked>
+        <div>
+          <div class="todo-title">Victorian Interior — MetalMan3D <span class="verify-badge ok">OWNED · WIRED</span></div>
+          <div class="todo-meta">~/Library/Unity/Asset Store-5.x/MetalMan3D/…/Victorian Interior.unitypackage (~780MB)</div>
+          <ol class="steps">
+            <li><strong>Done 2026-07-14:</strong> chairs/tables/couches/shelves/doors/lamps → <code>assets/models/unity/metalman/</code>, live in Entry Hall + Court + STB.</li>
+          </ol>
+        </div>
+      </li>
+      <li class="todo-item">
+        <input type="checkbox" data-key="use_victorian_study" checked>
+        <div>
+          <div class="todo-title">Victorian Study + UltimateHouse + Stealth Haunted House <span class="verify-badge ok">OWNED · WIRED</span></div>
+          <div class="todo-meta"><code>assets/models/unity/{study,furniture,haunted,doors}/</code></div>
+          <ol class="steps">
+            <li>Prologue = gravyart shell + Door_Double facade + Env fence/lamps. Court/STB/Hall use Unity furniture + Modular walls.</li>
+          </ol>
+        </div>
+      </li>
+      <li class="todo-item">
+        <input type="checkbox" data-key="audit_haunted_zips" checked>
+        <div>
+          <div class="todo-title">Downloads zips (gravyart + n-malmberg)</div>
+          <div class="todo-meta"><code>~/Downloads/haunted_victorian_house.zip</code> (= current gravyart) · <code>haunted_mansion.zip</code> (rejected murky porch)</div>
+          <ol class="steps">
+            <li>Don't re-download. gravyart shell + Door_Double leaves + Env porch lamps on Prologue.</li>
+          </ol>
+        </div>
+      </li>
+    </ul>
+    <p class="note"><strong>Pipeline:</strong> <code>node scripts/extract-unitypackage.mjs</code> → <code>node scripts/fbx-to-glb.mjs</code> → scene load via <code>GLTFLoader</code>.</p>
+  </section>
+
+  <section>
+    <h2>✓ Resolved earlier</h2>
+    <p class="note">Trio bought and mostly wired; $50 horror bundle bought with payload download pending. No remaining buy is approved. See <a href="#buy-next">Purchased next</a>.</p>
+    <div class="attr-box"><strong>Mansion exterior</strong> — gravyart kept. Cube043 hidden. Front leaves = Unity Door_Double (wired). Env fence LOD0 + SM_MansionLamp live. n-malmberg still rejected.
+<strong>Fence/gate</strong> — plaggy wrought-iron drive fence CC-BY. Procedural swinging double gate live. Env SM_Fence* on outer entrance (web LOD0).
+<strong>Interiors</strong> — MetalMan + Modular walls in Hall/Court/STB.
+<strong>Money truth</strong> — Env underuse was file size (31–45MB modular), not “didn’t buy enough fence.”</div>
   </section>
 
   <section>
@@ -335,7 +1094,7 @@
 
 </main>
 
-<footer>The Games Master — internal asset tracking, generated this session. Checkbox state saves locally in this browser only.</footer>
+<footer>The Games Master — full game by stage · TRIO + HORROR BUNDLE BOUGHT · payload intake next · commercial OK</footer>
 
 <script>
   document.querySelectorAll('.todo-item input[type=checkbox]').forEach(cb => {

@@ -1,0 +1,720 @@
+// Walks the REAL player down the REAL road in a BUILT PLAYER, capturing the backbuffer as it goes.
+//
+// This exists because of two lessons that each cost a round of wrong conclusions:
+//
+//   1. Editor frames do not prove what the player renders. Every review rig in this project renders a
+//      camera it creates and aims itself, so none of them went through a scene camera. The first
+//      prologue app shipped rendering the pack's showcase camera instead of the player's and nothing
+//      in the editor could have shown it.
+//   2. macOS `screencapture` cannot capture this app's window content in the automation environment.
+//      ScreenCapture.CaptureScreenshot reads the app's own backbuffer and needs no screen-recording
+//      permission, which is the same reason GmVillageSelfProbe exists.
+//
+// It drives the actual CharacterController rather than teleporting a free camera, so the frames prove
+// the route is WALKABLE and not merely photogenic. A free camera passes straight through the mansion,
+// the gate and 189 scattered props, and every one of those frames looks correct.
+//
+// Opt-in via -gmWendWalk <outputDirectory>; inert on a normal launch, including Nick's.
+// -gmWendWalkMaxMetres <n> stops the walk early, for fast tuning iteration -- see Start().
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using UnityEngine;
+using UnityEngine.AI;
+using UnityEngine.Rendering;
+
+public sealed class GmWendWalkProbe : MonoBehaviour
+{
+    const float Speed = 3.4f;
+    const float Gravity = -18f;
+    const float TurnDegreesPerSecond = 220f;
+    const float ArriveRadius = 3.0f;
+    const float CaptureEveryMeters = 15f;
+    const float SettleSeconds = 4f;     // HDRP volumetrics and the sky need real frames before shot 1
+
+    // 15m spacing over a 580m route needs 39 shots. The old 32 silently truncated at 465m, which is
+    // the kind of cap that reads as "the walk covered everything" in a directory listing. It was not
+    // the binding constraint while stalls capped the walk at 188m, and it becomes the binding one the
+    // moment the route is actually walkable, so it is raised now and reported when it is reached.
+    const int MaxCaptures = 48;
+    const float MaxSeconds = 480f;      // sidesteps cost time; the old 300s cut the walk short
+    const float StallSeconds = 5f;
+    const float SidestepSeconds = 1.6f;
+    // Raised from 2 after the waypoint-6 clutter finding: the blind alternating strafe reliably beat
+    // a smarter obstacle-aware direction (see the reverted attempt above), which means the two tries
+    // it already gets are the right STRATEGY, just possibly not enough of them for a wide prop
+    // cluster. More attempts at the same proven strategy is a distinct hypothesis from a cleverer
+    // strategy, not a repeat of the one that already failed twice.
+    const int MaxSidesteps = 4;
+    const float StallDistance = 0.75f;
+    const float FellOutOfWorld = 25f;   // metres below the spawn means the floor stopped existing
+
+    // Road matching, waypoint spacing and the max-hop limit used to be duplicated here to feed a second
+    // route builder. GmWendRoute owns all of that now, and it is the only place that should.
+
+    /// How far off a waypoint may be from the baked mesh and still be reachable. Route waypoints are
+    /// road-mesh bounding-box centres, so they sit near the surface rather than exactly on it.
+    const float NavSampleRadius = 6f;
+
+    string outputDirectory;
+    int captures;
+    int stalls;
+    int pathed;         // waypoints reached via a real NavMesh path
+    int straightLined;  // waypoints the mesh could not path to, walked as a straight line instead
+    int missingScreenshots;
+    int waypointsVisited;
+    int expectedWaypoints;
+    static int runtimeDefects;
+    static string firstRuntimeDefect;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    static void WatchLoadLogWhenRequested()
+    {
+        string[] args = System.Environment.GetCommandLineArgs();
+        if (System.Array.IndexOf(args, "-gmWendWalk") < 0) return;
+        runtimeDefects = 0;
+        firstRuntimeDefect = null;
+        Application.logMessageReceived += ObserveRuntimeLog;
+    }
+
+    static void ObserveRuntimeLog(string condition, string stackTrace, LogType type)
+    {
+        bool defect = type == LogType.Error || type == LogType.Exception || type == LogType.Assert ||
+            GmRuntimeIntegrityPolicy.IsRenderFailure(condition) ||
+            condition.Contains("BoxCollider does not support negative scale or size");
+        if (!defect || condition.Contains("[GmWendWalkProbe] WALK FAIL")) return;
+        runtimeDefects++;
+        firstRuntimeDefect ??= condition;
+    }
+
+    // Frame pacing, sampled WHILE WALKING.
+    //
+    // GmStandaloneReviewProbe already measures steady-state pacing from a fixed pose, which answers a
+    // different question. This scene carries 4997 renderers and nothing had ever measured it in
+    // motion, where streaming, culling and the volumetric fog's temporal accumulation actually cost
+    // something. Traversal is the case the prologue is made of.
+    readonly List<float> frameMilliseconds = new List<float>();
+    double lastFrameAt;
+    bool discardNextInterval;
+
+    /// Active renderers in the scene, sampled at each capture. This is a SCENE SIZE figure, not a
+    /// culling figure: it counts what exists and is enabled, not what the engine drew. Reported so the
+    /// memory numbers have something to be read against.
+    int peakRenderers;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    static void Install()
+    {
+        string[] args = System.Environment.GetCommandLineArgs();
+        int flag = System.Array.IndexOf(args, "-gmWendWalk");
+        if (flag < 0 || flag + 1 >= args.Length) return;
+
+        var host = new GameObject("GmWendWalkProbe");
+        DontDestroyOnLoad(host);
+        host.AddComponent<GmWendWalkProbe>().outputDirectory = args[flag + 1];
+    }
+
+    IEnumerator Start()
+    {
+        Application.runInBackground = true;
+        Directory.CreateDirectory(outputDirectory);
+
+        // vSync clamps every interval to a multiple of the display's refresh, so a pacing run with it
+        // on reports DELIVERED CADENCE and cannot see the difference between a frame that cost 17ms and
+        // one that cost 32ms. Both land on the same step. Opt in to turning it off when the question is
+        // what the scene actually costs rather than what the player actually saw.
+        if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-gmWendNoVSync") >= 0)
+        {
+            QualitySettings.vSyncCount = 0;
+            Application.targetFrameRate = 120;
+            Debug.Log("[GmWendWalkProbe] vSync OFF, 120 fps cap: this run measures high-refresh frame pacing");
+        }
+
+        // Opt-in short walk, for tuning. A full walk to the water is ~8 minutes; testing one lever
+        // against the first few captures does not need the other 400m paid for every single time.
+        // Unlimited (float.MaxValue) on a normal launch, so the full walk stays the default and this
+        // can never silently shorten what a verification run measures.
+        float maxMetres = float.MaxValue;
+        string[] args = System.Environment.GetCommandLineArgs();
+        int metresFlag = System.Array.IndexOf(args, "-gmWendWalkMaxMetres");
+        if (metresFlag >= 0 && metresFlag + 1 < args.Length &&
+            float.TryParse(args[metresFlag + 1], System.Globalization.NumberStyles.Float,
+                            System.Globalization.CultureInfo.InvariantCulture, out float parsed))
+        {
+            maxMetres = parsed;
+            Debug.Log($"[GmWendWalkProbe] SHORT WALK: stopping after {maxMetres:0}m for fast iteration; " +
+                      "this run is not a full-route measurement");
+        }
+
+        yield return null;
+
+        GameObject playerGo = GameObject.Find("Player");
+        if (playerGo == null) { Finish("no Player in the scene", 1); yield break; }
+
+        var cc = playerGo.GetComponent<CharacterController>();
+        if (cc == null) { Finish("Player has no CharacterController", 1); yield break; }
+
+        // Drive the controller directly rather than fighting the input handler.
+        var human = playerGo.GetComponent<GmPlayer>();
+        if (human != null) human.enabled = false;
+        // Route evidence must show the route. A fresh player otherwise spends the first five 15m
+        // milestones behind cold-open cards even though traversal continues correctly underneath.
+        // Complete the real intro state transition, then clear only review UI before frame zero;
+        // story beats reached during the walk remain visible and are still exercised.
+        GmColdOpen coldOpen = FindAnyObjectByType<GmColdOpen>();
+        if (coldOpen != null && coldOpen.IsRunning) coldOpen.SkipIntroForReview();
+        FindAnyObjectByType<GmPrologueHud>()?.HideTransientForReview();
+        // This probe isolates physical traversal from the authored 285-second abduction clock. A
+        // blocked diagnostic run can exceed that cadence; without this guard toll nine teleports the
+        // probe into the wake room and turns every later "stall" into evidence about the wrong space.
+        GmBellSummons bell = FindAnyObjectByType<GmBellSummons>();
+        if (bell != null) bell.enabled = false;
+
+        // Follow the exact scene spline in short ordered legs. The raw road-mesh waypoints loop across
+        // themselves in the dense village; asking NavMesh for a path across a 70m raw leg can take a
+        // valid but story-skipping shortcut at an intersection. Ten-metre spline legs cannot jump to
+        // a later loop and therefore prove the authored 435m sequence rather than merely its endpoints.
+        GmRouteSpline spline = FindAnyObjectByType<GmRouteSpline>();
+        var route = new List<Vector3>();
+        if (spline != null)
+        {
+            for (float metres = 0f; metres < spline.Length; metres += 10f)
+                route.Add(spline.PointAt(metres));
+            route.Add(spline.PointAt(spline.Length));
+        }
+        expectedWaypoints = route.Count;
+        if (route.Count == 0) { Finish("no canonical route spline to walk", 1); yield break; }
+        Debug.Log($"[GmWendWalkProbe] canonical spline: {spline.Length:0}m over " +
+                  $"{route.Count} ordered waypoint(s) at <=10m spacing");
+        Debug.Log($"[GmWendWalkProbe] START at {playerGo.transform.position} over {route.Count} waypoint(s)");
+
+        yield return new WaitForSecondsRealtime(SettleSeconds);
+        yield return Capture(playerGo.transform.position, 0f);
+
+        // The world-floor test comes from GmWendCatchPlane so the probe and the gameplay failsafe
+        // cannot disagree about what falling means. The old test here was "25m below the SPAWN", which
+        // is wrong for a route that legitimately descends: this one drops 22m from its first waypoint
+        // to its last, so a clean walk to the end would have tripped it with 3m to spare.
+        var catcher = FindFirstObjectByType<GmWendCatchPlane>();
+        Terrain terrain = Terrain.activeTerrain;
+        float catchHeight = catcher != null ? catcher.CatchHeight : playerGo.transform.position.y - FellOutOfWorld;
+        if (catcher == null)
+            Debug.LogWarning("[GmWendWalkProbe] no GmWendCatchPlane in the scene; falling back to a " +
+                             "spawn-relative floor test, which a descending route can trip on its own");
+
+        // Where the water is, and what the player sees with. Submersion is judged at the EYE, not at
+        // the feet: wading is not drowning, and the player root sits on the ground. Held rather than
+        // re-scanned, because finding the water means walking every renderer in a 4997-renderer scene.
+        float? waterSurface = GmWendRoute.WaterSurfaceY();
+        Transform eye = playerGo.transform.Find("PlayerCamera");
+        if (waterSurface.HasValue)
+            Debug.Log($"[GmWendWalkProbe] water surface at y={waterSurface.Value:0.00}; the walk stops " +
+                      "if the eye goes under it");
+        if (eye == null)
+            Debug.LogWarning("[GmWendWalkProbe] no PlayerCamera to measure submersion at; the walk " +
+                             "cannot tell whether it ends underwater");
+
+        float began = Time.realtimeSinceStartup;
+        lastFrameAt = Time.realtimeSinceStartupAsDouble;
+        float nextCaptureAt = CaptureEveryMeters;
+        float vertical = 0f;
+        float walked = 0f;
+        bool submerged = false;
+        float spawnY = playerGo.transform.position.y;
+
+        float coveredRouteMetres = 0f;
+        for (int i = 0; i < route.Count && captures < MaxCaptures && !submerged && walked < maxMetres; i++)
+        {
+            // Route to the waypoint through the NavMesh, so a building in the way becomes a path
+            // around it instead of five seconds spent walking into it. With no baked mesh this
+            // returns the waypoint itself and the walk behaves exactly as it did before.
+            List<Vector3> corners = StepsToward(playerGo.transform.position, route[i]);
+            bool abandonWaypoint = false;
+
+            bool waypointComplete = true;
+            foreach (Vector3 target in corners)
+            {
+                if (abandonWaypoint || submerged || captures >= MaxCaptures || walked >= maxMetres) break;
+
+                float stallTimer = 0f;
+                float bestDistance = float.MaxValue;
+                int sidesteps = 0;
+                bool cornerReached = false;
+
+                while (Time.realtimeSinceStartup - began < MaxSeconds && captures < MaxCaptures &&
+                       walked < maxMetres)
+                {
+                    SampleFrameInterval();
+
+                    Vector3 here = playerGo.transform.position;
+
+                    // Falling out of the world is a real defect, and it silently produced two black
+                    // frames that a luma check alone would have read as "the night got darker". Stop
+                    // and say so. GmWendCatchPlane now recovers the player in a normal run; this stays
+                    // fatal here because a probe exists to report the hole, not to survive it.
+                    float? surfaceHere = SurfaceUnder(terrain, here);
+                    if (GmWendCatchPlane.IsBelowWorld(here.y, catchHeight, surfaceHere, 10f))
+                    {
+                        Debug.LogError($"[GmWendWalkProbe] FELL OUT OF THE WORLD at {here}. " +
+                                       (surfaceHere.HasValue
+                                           ? $"The terrain surface here is {surfaceHere.Value:0}, so the " +
+                                             $"player is {surfaceHere.Value - here.y:0}m under it."
+                                           : $"Off the terrain entirely, below the catch height {catchHeight:0}."));
+                        yield return Capture(here, walked, "fell");
+                        Finish($"walked {walked:0}m before falling out of the world", 1);
+                        yield break;
+                    }
+
+                    // Underwater ends the walk. This replaces three attempts at predicting it from the
+                    // route at build time, all of which picked a surface signal that was wrong on this
+                    // scene: waypoints are mesh bounding-box centres, and the terrain dips below the
+                    // water plane while the player walks on meshes above it. At runtime there is
+                    // nothing to predict. The eye is either under the surface or it is not.
+                    //
+                    // It matters for the NUMBERS as much as for the walk. The previous run captured its
+                    // last four frames submerged, and those frames are a golden band of refracted light
+                    // that went straight into the luma statistics as if they were views of a village.
+                    if (waterSurface.HasValue && eye != null && eye.position.y < waterSurface.Value)
+                    {
+                        submerged = true;
+                        Debug.LogWarning($"[GmWendWalkProbe] SUBMERGED at {here} after {walked:0}m: the " +
+                                         $"eye is {waterSurface.Value - eye.position.y:0.0}m below the " +
+                                         $"water surface at y={waterSurface.Value:0.00}. Stopping here. " +
+                                         "The route runs into the lake, which is a route problem and not " +
+                                         "a lighting one; frames past this point measure water.");
+                        yield return Capture(here, walked, "submerged");
+                        break;
+                    }
+
+                    Vector3 flat = new Vector3(target.x - here.x, 0f, target.z - here.z);
+                    float distance = flat.magnitude;
+                    if (distance <= ArriveRadius) { cornerReached = true; break; }
+
+                    // Face where we are going, so the frames look down the road rather than sideways.
+                    Quaternion want = Quaternion.LookRotation(flat.normalized, Vector3.up);
+                    playerGo.transform.rotation = Quaternion.RotateTowards(
+                        playerGo.transform.rotation, want, TurnDegreesPerSecond * Time.deltaTime);
+
+                    vertical = cc.isGrounded ? -1f : vertical + Gravity * Time.deltaTime;
+                    Vector3 step = flat.normalized * Speed * Time.deltaTime;
+                    step.y = vertical * Time.deltaTime;
+                    cc.Move(step);
+
+                    float moved = Vector3.Distance(new Vector3(here.x, 0f, here.z),
+                        new Vector3(playerGo.transform.position.x, 0f, playerGo.transform.position.z));
+                    walked += moved;
+
+                    // Fire on fixed distance MILESTONES, and name the frame after the milestone rather
+                    // than after the distance actually reached. An accumulator that resets to zero
+                    // drifts by whatever fraction of a frame overshot each threshold, so two runs would
+                    // land on 45.2m and 45.9m and produce filenames that do not line up. Milestones
+                    // make walk-0045m mean the same place in every run, which is the point.
+                    // Stuck detection. A wall, a prop or a ledge the controller cannot climb is a real
+                    // finding about the route, not a reason to abandon the rest of the walk, so it is
+                    // recorded and the walk moves on.
+                    if (distance < bestDistance - StallDistance) { bestDistance = distance; stallTimer = 0f; }
+                    else stallTimer += Time.deltaTime;
+
+                    if (stallTimer >= StallSeconds)
+                    {
+                        // Sidesteps predate the NavMesh and are kept deliberately. The mesh routes
+                        // around what it knows about at bake time; it does not know about anything the
+                        // pack placed without a collider, or about the controller's own skin width. A
+                        // stall AFTER a path was returned is the interesting case, because it means the
+                        // mesh and the body that walks it disagree.
+                        //
+                        // TRIED AND REVERTED, recorded because it is a real dead end rather than an
+                        // untried idea: stepping off the actual CapsuleCast hit normal on the first
+                        // attempt, diagnosed against a real stall this session (GmWendStallDiagnostic
+                        // found real colliders -- barrels, wood props, a fence -- 0.3-0.4m from the
+                        // stall position at a yard clutter cluster the mesh's own COMPLETE path still
+                        // ran through). It sounded strictly better than a blind guess and measured
+                        // strictly worse, twice, on the same route: 4 stalls over 350m and then 3 over
+                        // 373m, against this blind alternating strafe's 2 over 379m. The obstacle-aware
+                        // reading is not wrong exactly, it is just no better informed than the blind
+                        // guess turns out to need to be for THIS scene's clutter -- and it cost the
+                        // direction diversity that made two blind attempts already effective at finding
+                        // an opening on whichever side actually has one. Left unrepeated rather than
+                        // retried a third way without a new hypothesis for why it would work this time.
+                        if (sidesteps < MaxSidesteps)
+                        {
+                            sidesteps++;
+                            Debug.Log($"[GmWendWalkProbe] blocked {distance:0.0}m short of waypoint {i}, " +
+                                      $"sidestep {sidesteps} of {MaxSidesteps}");
+                            yield return Sidestep(cc, flat, sidesteps % 2 == 1 ? 1f : -1f);
+                            stallTimer = 0f;
+                            bestDistance = float.MaxValue;
+                            continue;
+                        }
+
+                        stalls++;
+                        Debug.LogWarning($"[GmWendWalkProbe] STALLED {stalls} at {playerGo.transform.position} " +
+                                         $"{distance:0.0}m short of waypoint {i} after {MaxSidesteps} sidestep(s); " +
+                                         "skipping to the next");
+                        yield return Capture(playerGo.transform.position, walked, "stall");
+
+                        // Abandon the whole waypoint, not just this corner. The remaining corners were
+                        // computed from a position the player never reached, so steering at them walks
+                        // a path that no longer starts where it was planned from.
+                        abandonWaypoint = true;
+                        break;
+                    }
+
+                    yield return null;
+                }
+                if (!cornerReached) waypointComplete = false;
+            }
+
+            if (abandonWaypoint || submerged || captures >= MaxCaptures || walked >= maxMetres ||
+                Time.realtimeSinceStartup - began >= MaxSeconds)
+                waypointComplete = false;
+            if (!waypointComplete) continue;
+
+            waypointsVisited = i + 1;
+            coveredRouteMetres = i == route.Count - 1 ? spline.Length : Mathf.Min(i * 10f, spline.Length);
+            while (coveredRouteMetres >= nextCaptureAt && captures < MaxCaptures)
+            {
+                yield return Capture(playerGo.transform.position, nextCaptureAt);
+                nextCaptureAt += CaptureEveryMeters;
+            }
+        }
+
+        // Name the reason the walk ended. Hitting a cap and finishing the route produce the same
+        // cheerful summary otherwise, and "walked 465m, 48 frames" reads as coverage rather than as
+        // truncation. Whatever bounded the walk gets said out loud.
+        string why = "";
+        if (submerged)
+            why = $"; STOPPED AT THE WATER, the route past {walked:0}m runs into the lake and is unmeasured";
+        else if (walked >= maxMetres)
+            why = $"; STOPPED AT THE {maxMetres:0}m SHORT-WALK CAP (-gmWendWalkMaxMetres), " +
+                  "this is NOT a full-route measurement";
+        else if (captures >= MaxCaptures)
+            why = $"; STOPPED AT THE {MaxCaptures}-FRAME CAP, the route past {walked:0}m is unmeasured";
+        else if (Time.realtimeSinceStartup - began >= MaxSeconds)
+            why = $"; STOPPED AT THE {MaxSeconds:0}s LIMIT, the route past {walked:0}m is unmeasured";
+
+        // Say whether the NavMesh was actually doing anything. Without this a run with no baked mesh
+        // and a run where the mesh pathed every waypoint produce identical summaries.
+        string nav = pathed + straightLined == 0
+            ? ""
+            : $", {pathed} waypoint(s) pathed on the NavMesh and {straightLined} walked straight" +
+              (pathed == 0 ? " (NO NAVMESH REACHED THE ROUTE: this walk had no pathfinding at all)" : "");
+
+        float p95 = WritePacing(walked, coveredRouteMetres);
+        bool partial = submerged || walked >= maxMetres || captures >= MaxCaptures ||
+            Time.realtimeSinceStartup - began >= MaxSeconds || waypointsVisited < route.Count;
+        bool performanceGate = System.Array.IndexOf(args, "-gmWendPerformanceGate") >= 0;
+        bool performanceFailed = performanceGate &&
+            (Screen.width != 1920 || Screen.height != 1080 || QualitySettings.vSyncCount != 0 ||
+             float.IsNaN(p95) || p95 > 16.7f);
+        bool failed = partial || stalls > 0 || straightLined > 0 || missingScreenshots > 0 ||
+            runtimeDefects > 0 || performanceFailed;
+        string verdict = performanceGate ? $", p95={p95:F2}ms/16.70ms" : "";
+        if (runtimeDefects > 0) verdict += $", runtimeDefects={runtimeDefects} first='{firstRuntimeDefect}'";
+        Finish($"covered {coveredRouteMetres:0}/{spline.Length:0} route metres " +
+               $"({walked:0}m controller travel), {captures} frame(s), {stalls} stall(s)" +
+               $"{nav}{why}{verdict}", failed ? 1 : 0);
+    }
+
+    // A private BuildRoute lived here: an unreferenced second route builder using a global principal
+    // axis. GmWendRoute's own header records that exact approach being tried and rejected, because a
+    // global axis through scattered clusters describes none of them and left 177m to 944m gaps between
+    // consecutive waypoints. Keeping a superseded copy of the route logic inside the walker is the
+    // setup for the bug this file's header already warns about, the spawn and the walk describing two
+    // different places, so it is deleted rather than left for someone to call by accident.
+
+    /// Terrain surface height under a point, or null when there is no terrain or the point is off it.
+    static float? SurfaceUnder(Terrain terrain, Vector3 at)
+    {
+        if (terrain == null || terrain.terrainData == null) return null;
+
+        Vector3 origin = terrain.transform.position;
+        Vector3 size = terrain.terrainData.size;
+        if (at.x < origin.x || at.x > origin.x + size.x ||
+            at.z < origin.z || at.z > origin.z + size.z) return null;
+
+        return terrain.SampleHeight(at) + origin.y;
+    }
+
+    /// Records the time since the previous sampled frame.
+    ///
+    /// Intervals spanning a screenshot or a sidestep are DISCARDED, because both are instrumentation:
+    /// ScreenCapture stalls on readback and file IO, and a sidestep yields across many frames inside
+    /// its own coroutine. Measuring those would report the harness rather than the game.
+    ///
+    /// Genuine hitches are deliberately NOT filtered out by magnitude. A 400ms frame caused by the
+    /// scene streaming something is exactly the finding a perf pass is for, and dropping outliers to
+    /// make a mean look better is how a scene ships stuttering with a clean report.
+    void SampleFrameInterval()
+    {
+        double now = Time.realtimeSinceStartupAsDouble;
+        float elapsed = (float)((now - lastFrameAt) * 1000d);
+        lastFrameAt = now;
+
+        if (discardNextInterval) { discardNextInterval = false; return; }
+        if (elapsed > 0f) frameMilliseconds.Add(elapsed);
+    }
+
+    [System.Serializable]
+    struct WalkPacingDocument
+    {
+        public int schemaVersion;
+        public string sceneId;
+        public string buildVersion;
+        public bool completedFlow;
+        public int stalls;
+        public int navFallbacks;
+        public int missingScreenshots;
+        public int runtimeDefects;
+        public int width;
+        public int height;
+        public float internalRenderScale;
+        public int internalWidth;
+        public int internalHeight;
+        public string upscaleFilter;
+        public float lodBias;
+        public bool lodCrossFade;
+        public int maxQueuedFrames;
+        public float walkedMetres;
+        public float coveredRouteMetres;
+        public float routeLengthMetres;
+        public int sampleFrames;
+        public float meanMilliseconds;
+        public float p50Milliseconds;
+        public float p95Milliseconds;
+        public float p99Milliseconds;
+        public float maximumMilliseconds;
+        public int vSyncCount;
+        public int targetFrameRate;
+        public long managedHeapBytes;
+        public long totalAllocatedBytes;
+        public long totalReservedBytes;
+        public long graphicsDriverBytes;
+        public int peakRendererCount;
+    }
+
+    /// Writes the traversal pacing next to the frames. Evidence, not a verdict: this is one Mac, and
+    /// the numbers say what this machine did on this route, not what a Steam target will do.
+    float WritePacing(float walked, float coveredRoute)
+    {
+        if (frameMilliseconds.Count == 0)
+        {
+            Debug.LogWarning("[GmWendWalkProbe] no frame intervals sampled; perf not measured");
+            return float.NaN;
+        }
+
+        float[] sorted = frameMilliseconds.ToArray();
+        System.Array.Sort(sorted);
+
+        float Percentile(float p)
+        {
+            int index = Mathf.Clamp(Mathf.CeilToInt((sorted.Length - 1) * p), 0, sorted.Length - 1);
+            return sorted[index];
+        }
+
+        double total = 0d;
+        foreach (float ms in sorted) total += ms;
+
+        var document = new WalkPacingDocument
+        {
+            schemaVersion = 4,
+            sceneId = "wend-hill-prologue",
+            buildVersion = Application.version,
+            completedFlow = expectedWaypoints > 0 && waypointsVisited >= expectedWaypoints,
+            stalls = stalls,
+            navFallbacks = straightLined,
+            missingScreenshots = missingScreenshots,
+            runtimeDefects = runtimeDefects,
+            width = Screen.width,
+            height = Screen.height,
+            internalRenderScale = GmWendRenderBudget.LastResolvedScale,
+            internalWidth = Mathf.CeilToInt(Screen.width * GmWendRenderBudget.LastResolvedScale),
+            internalHeight = Mathf.CeilToInt(Screen.height * GmWendRenderBudget.LastResolvedScale),
+            upscaleFilter = GmWendRenderBudget.LastResolvedFilter.ToString(),
+            lodBias = QualitySettings.lodBias,
+            lodCrossFade = QualitySettings.enableLODCrossFade,
+            maxQueuedFrames = QualitySettings.maxQueuedFrames,
+            walkedMetres = walked,
+            coveredRouteMetres = coveredRoute,
+            routeLengthMetres = FindAnyObjectByType<GmRouteSpline>()?.Length ?? 0f,
+            sampleFrames = sorted.Length,
+            meanMilliseconds = (float)(total / sorted.Length),
+            p50Milliseconds = Percentile(0.50f),
+            p95Milliseconds = Percentile(0.95f),
+            p99Milliseconds = Percentile(0.99f),
+            maximumMilliseconds = sorted[sorted.Length - 1],
+            vSyncCount = QualitySettings.vSyncCount,
+            targetFrameRate = Application.targetFrameRate,
+
+            // Memory, sampled at the end of the walk rather than at the start, so it reflects a scene
+            // that has actually streamed 500m of village rather than one that just loaded.
+            //
+            // These are Unity's own runtime counters and they are honest about what they are: reserved
+            // is what Unity has taken from the OS, allocated is what is in use inside that. Neither is
+            // the process RSS, and neither includes what the graphics driver holds beyond the figure it
+            // reports. Culling is deliberately NOT reported: a shipped player exposes no visible-object
+            // count without a profiler connection, and a renderer count I computed by hand here would be
+            // my own frustum test rather than the one the engine actually ran.
+            managedHeapBytes = System.GC.GetTotalMemory(false),
+            totalAllocatedBytes = UnityEngine.Profiling.Profiler.GetTotalAllocatedMemoryLong(),
+            totalReservedBytes = UnityEngine.Profiling.Profiler.GetTotalReservedMemoryLong(),
+            graphicsDriverBytes = UnityEngine.Profiling.Profiler.GetAllocatedMemoryForGraphicsDriver(),
+            peakRendererCount = peakRenderers,
+        };
+
+        File.WriteAllText(Path.Combine(outputDirectory, "walk-performance.json"),
+            JsonUtility.ToJson(document, true));
+
+        Debug.Log($"[GmWendWalkProbe] PERF over {walked:0}m: output={document.width}x{document.height} " +
+                  $"internal={document.internalWidth}x{document.internalHeight} " +
+                  $"scale={document.internalRenderScale:P0} filter={document.upscaleFilter} " +
+                  $"frames={document.sampleFrames} mean={document.meanMilliseconds:F2}ms " +
+                  $"p50={document.p50Milliseconds:F2}ms p95={document.p95Milliseconds:F2}ms " +
+                  $"p99={document.p99Milliseconds:F2}ms max={document.maximumMilliseconds:F2}ms " +
+                  $"vSync={document.vSyncCount}");
+        Debug.Log($"[GmWendWalkProbe] MEMORY: reserved={document.totalReservedBytes / (1024 * 1024)}MB " +
+                  $"allocated={document.totalAllocatedBytes / (1024 * 1024)}MB " +
+                  $"managed={document.managedHeapBytes / (1024 * 1024)}MB " +
+                  $"gfxDriver={document.graphicsDriverBytes / (1024 * 1024)}MB " +
+                  $"over {document.peakRendererCount} active renderer(s)");
+        return document.p95Milliseconds;
+    }
+
+    /// The corners to steer through to reach `to`, from the baked NavMesh when there is one.
+    ///
+    /// Falls back to the destination itself, which reproduces the old straight-line behaviour exactly.
+    /// The fallback is COUNTED and reported rather than taken quietly: a walk that silently reverted to
+    /// straight lines would report the same stall count as before while looking like the NavMesh had
+    /// been tried, and "the fix did nothing" and "the fix was never running" are different findings.
+    ///
+    /// PathPartial is kept rather than discarded. A partial path still crosses most of the gap, and
+    /// walking it reaches somewhere nearer the waypoint than refusing to move at all does. It is
+    /// counted as a straight line because it did not fully connect.
+    List<Vector3> StepsToward(Vector3 from, Vector3 to)
+    {
+        var corners = new List<Vector3>();
+
+        // Already there. The player spawns AT route[0], so the first leg is zero length and the
+        // NavMesh correctly returns a single corner: where you are. Counting that as "walked straight"
+        // reported a pathfinding failure for standing still, and inflated the straight-line count by
+        // one in every run. Nothing to steer at, nothing to count.
+        if (Vector2.Distance(new Vector2(from.x, from.z), new Vector2(to.x, to.z)) <= ArriveRadius)
+            return corners;
+
+        // Each failure is named rather than lumped into one counter. "4 of 11 walked straight" does not
+        // say whether the mesh failed to reach the waypoint, failed to reach the PLAYER, or reached
+        // both and could not connect them, and those are three different fixes.
+        bool fromOn = NavMesh.SamplePosition(from, out NavMeshHit fromHit, NavSampleRadius, NavMesh.AllAreas);
+        bool toOn = NavMesh.SamplePosition(to, out NavMeshHit toHit, NavSampleRadius, NavMesh.AllAreas);
+
+        if (!fromOn || !toOn)
+        {
+            straightLined++;
+            Debug.LogWarning($"[GmWendWalkProbe] NAVMESH MISS: " +
+                             (!fromOn ? $"the player at {from} is not within {NavSampleRadius}m of the mesh. " : "") +
+                             (!toOn ? $"the waypoint at {to} is not within {NavSampleRadius}m of the mesh. " : "") +
+                             "The bake did not cover this, so this leg is walked in a straight line.");
+            corners.Add(to);
+            return corners;
+        }
+
+        var path = new NavMeshPath();
+        bool built = NavMesh.CalculatePath(fromHit.position, toHit.position, NavMesh.AllAreas, path);
+
+        if (!built || path.status == NavMeshPathStatus.PathInvalid || path.corners.Length <= 1)
+        {
+            straightLined++;
+            Debug.LogWarning($"[GmWendWalkProbe] NAVMESH DISCONNECTED: both ends are on the mesh " +
+                             $"({fromHit.position} -> {toHit.position}) but no path connects them " +
+                             $"(built={built}, status={path.status}, corners={path.corners.Length}). " +
+                             "That means two separate mesh islands, not missing coverage.");
+            corners.Add(to);
+            return corners;
+        }
+
+        // corners[0] is where the player already stands, so steering at it does nothing.
+        for (int i = 1; i < path.corners.Length; i++) corners.Add(path.corners[i]);
+
+        if (path.status == NavMeshPathStatus.PathComplete) pathed++;
+        else
+        {
+            straightLined++;
+            Debug.LogWarning($"[GmWendWalkProbe] NAVMESH PARTIAL: the path to {to} stops short at " +
+                             $"{path.corners[path.corners.Length - 1]}, {path.corners.Length} corner(s). " +
+                             "Walking it anyway gets nearer than refusing to move.");
+        }
+        return corners;
+    }
+
+    /// Strafes perpendicular to the blocked direction, to get out from behind a prop.
+    IEnumerator Sidestep(CharacterController cc, Vector3 forward, float sign)
+    {
+        Vector3 side = Vector3.Cross(Vector3.up, forward.normalized).normalized * sign;
+        float until = Time.realtimeSinceStartup + SidestepSeconds;
+        while (Time.realtimeSinceStartup < until)
+        {
+            Vector3 step = side * Speed * Time.deltaTime;
+            step.y = -1f * Time.deltaTime;   // stay pinned to the ground while strafing
+            cc.Move(step);
+            yield return null;
+        }
+
+        discardNextInterval = true;
+        lastFrameAt = Time.realtimeSinceStartupAsDouble;
+    }
+
+    /// Frames are named by DISTANCE, not by capture index, so that walk-0045m is the same place on the
+    /// road in every run. Index naming made two walks of different length impossible to compare
+    /// frame-to-frame: shot 05 of a stalling run and shot 05 of a clean run are hundreds of metres
+    /// apart, and a table built by pairing them off had to be retracted.
+    ///
+    /// Only "walk" frames are milestone-aligned, so only they get bare distance names. A stall or a
+    /// fall happens wherever it happens, there can be several, and they are not comparable across runs
+    /// anyway, so those keep an index to stay unique.
+    /// The naming contract, public and static so it can be tested without walking anything. The defect
+    /// it replaced was invisible in any single run and only showed up when two runs were compared,
+    /// which is the kind of thing a test should catch rather than a person reading a contact sheet.
+    public static string FrameName(string tag, float metreMark, int index)
+    {
+        int metres = Mathf.RoundToInt(metreMark);
+        return tag == "walk" ? $"walk-{metres:D4}m.png" : $"{tag}-{metres:D4}m-{index:D2}.png";
+    }
+
+    IEnumerator Capture(Vector3 at, float metreMark, string tag = "walk")
+    {
+        string path = Path.Combine(outputDirectory, FrameName(tag, metreMark, captures));
+        ScreenCapture.CaptureScreenshot(path, 1);
+
+        float deadline = Time.realtimeSinceStartup + 10f;
+        while (!File.Exists(path) && Time.realtimeSinceStartup < deadline) yield return null;
+
+        if (File.Exists(path))
+        {
+            captures++;
+            int active = 0;
+            foreach (Renderer r in FindObjectsByType<Renderer>(FindObjectsSortMode.None))
+                if (r.enabled && r.gameObject.activeInHierarchy) active++;
+            if (active > peakRenderers) peakRenderers = active;
+            Debug.Log($"[GmWendWalkProbe] shot {Path.GetFileName(path)} at {at} after {metreMark:0}m " +
+                      $"bytes={new FileInfo(path).Length}");
+        }
+        else
+        {
+            missingScreenshots++;
+            Debug.LogError($"[GmWendWalkProbe] screenshot never appeared at {path}");
+        }
+
+        // A screenshot costs a readback and a file write. Charging that to the scene would make the
+        // walk look like it stutters every 15m when what stutters is the camera taking the picture.
+        discardNextInterval = true;
+        lastFrameAt = Time.realtimeSinceStartupAsDouble;
+    }
+
+    void Finish(string summary, int code)
+    {
+        Application.logMessageReceived -= ObserveRuntimeLog;
+        if (code == 0) Debug.Log($"[GmWendWalkProbe] WALK PASS: {summary}");
+        else Debug.LogError($"[GmWendWalkProbe] WALK FAIL: {summary}");
+        Application.Quit(code);
+    }
+}

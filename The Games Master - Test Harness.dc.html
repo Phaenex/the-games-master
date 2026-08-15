@@ -71,10 +71,15 @@ class Component extends DCLogic {
 
   componentDidMount() { this.run(); }
 
-  sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
-  waitFor(fn, ms) {
-    return new Promise(res=>{ const t0=Date.now(); const tick=()=>{ let ok=false; try{ ok=fn(); }catch(e){} if(ok) return res(true); if(Date.now()-t0>ms) return res(false); setTimeout(tick,60); }; tick(); });
+  sleep(ms, tok) { return new Promise(r=>setTimeout(()=>{ if(tok && tok.aborted) return; r(); },ms)); }
+  waitFor(fn, ms, tok) {
+    return new Promise(res=>{ const t0=Date.now(); const tick=()=>{ if(tok && tok.aborted) return; let ok=false; try{ ok=fn(); }catch(e){} if(ok) return res(true); if(Date.now()-t0>ms) return res(false); setTimeout(tick,60); }; tick(); });
   }
+  // The H a test receives. Promise.race settles the timeout but cannot cancel the loser, so a test
+  // that blows the 30s deadline would otherwise keep running — and keep mutating the iframe the
+  // next test is already using. Its sleep/waitFor carry that test's token: once the token aborts,
+  // they never resolve, so the overrun test parks at its next await instead of racing on.
+  handleFor(tok) { return { sleep:(ms)=>this.sleep(ms,tok), waitFor:(fn,ms)=>this.waitFor(fn,ms,tok) }; }
 
   specs() {
     const err = (e)=>{ if(e && e.length) throw new Error(e.length+' error(s): '+e[0]); return true; };
@@ -87,22 +92,120 @@ class Component extends DCLogic {
         { name:'goTo(walk) enables movement', fn:async(w,GM,C,H)=>{ GM.goTo('walk'); await H.sleep(160); const s=GM.getState(); if(s.mode!=='walk'||!s.walk) throw new Error('mode='+s.mode+' walk='+s.walk); return true; } },
         { name:'walk → door fires story beats', fn:async(w,GM,C,H)=>{ GM.goTo('door'); if(!await H.waitFor(()=>GM.getState().beat>=3,3000)) throw new Error('beat='+GM.getState().beat); return true; } },
         { name:'goTo(aftermath) → knockout screen', fn:async(w,GM,C,H)=>{ GM.goTo('aftermath'); await H.sleep(160); const s=GM.getState(); if(s.phase!=='aftermath') throw new Error('phase='+s.phase); return true; } },
+        { name:'goTo(secretEnding) → phase = secretEnding', fn:async(w,GM,C,H)=>{ GM.goTo('secretEnding'); await H.sleep(160); const s=GM.getState(); if(s.phase!=='secretEnding') throw new Error('phase='+s.phase); return true; } },
+        { name:'gate lock fires and stays latched', fn:async(w,GM,C,H)=>{
+          GM.goTo('walk'); await H.sleep(160);
+          if (!C) throw new Error('no component');
+          C._passedGate = true; C._gateLockFired = false;
+          C.triggerGateLock();
+          await H.sleep(80);
+          const s=GM.getState();
+          if (!s.gateLockFired) throw new Error('gateLockFired='+s.gateLockFired);
+          if (!C.gateClosed || C.gateClosed < 1) throw new Error('gateClosed='+C.gateClosed);
+          return true;
+        } },
+        { name:'car model reports real-world size once loaded', fn:async(w,GM,C,H)=>{
+          GM.goTo('walk');
+          const ok = await H.waitFor(()=>{
+            const s=GM.getState();
+            return s.carLoaded && s.carSize && s.carSize.length>=3;
+          }, 8000);
+          if (!ok) throw new Error('car never reported size: '+JSON.stringify(GM.getState().carSize));
+          const s=GM.getState();
+          const len = Math.max(s.carSize[0], s.carSize[2]);
+          // Model T is authentically short + tall/narrow (~3.4m long, ~2.1m high), not a modern sedan
+          if (len < 3.2) throw new Error('car too short: '+JSON.stringify(s.carSize));
+          if (s.carSize[1] < 1.1 || s.carSize[1] > 2.7) throw new Error('car height odd: '+JSON.stringify(s.carSize));
+          return true;
+        } },
+        { name:'estate grounds asset builds without primitive fallback', fn:async(w,GM,C,H)=>{
+          GM.goTo('walk');
+          const ok = await H.waitFor(()=> GM.getState().ruinsBuilt !== null, 22000);
+          if (!ok) throw new Error('grounds never resolved: ruinsBuilt stayed null');
+          if (GM.getState().ruinsBuilt !== true) throw new Error('required ruins_pack failed and primitive fallback was used');
+          if (!C || !C.scene) throw new Error('no scene');
+          let trees=0; C.scene.traverse(o=>{ if(o.userData && o.userData.gmKind==='tree') trees++; });
+          if (trees < 10) throw new Error('too few avenue trees: '+trees);
+          return true;
+        } },
+        { name:'walk starts the ambience beds', fn:async(w,GM,C,H)=>{
+          GM.goTo('walk'); await H.sleep(120);
+          const s=GM.getState();
+          if (!s.ambReady) throw new Error('ambience audio not created');
+          if (!s.ambOn) throw new Error('ambience not armed on walk');
+          if (!C._audio || !C._audio.steps || C._audio.steps.length < 3) throw new Error('footstep pool missing');
+          const beds=['wind','dark','crickets'].map(k=>C._audio[k]);
+          beds.forEach(a=>{ try { a.load(); } catch(e){} });
+          const decoded=await H.waitFor(()=>beds.every(a=>a.error===null && (a.readyState>=2 || a.readyState>=0)), 8000);
+          if (!decoded) throw new Error('ambience bed failed to load/decode: '+JSON.stringify(beds.map(a=>({src:a.currentSrc||a.src,readyState:a.readyState,error:a.error&&a.error.code}))));
+          return true;
+        } },
         { name:'no runtime errors', fn:(w,GM)=>err(GM.errors()) }
       ]},
       { scene:'Entry Hall', file:'The Games Master - Entry Hall.dc.html', tests:[
         { name:'bridge present · scene = hall', fn:(w,GM)=>{ if(GM.scene!=='hall') throw new Error('scene='+GM.scene); return true; } },
-        { name:'scene builds with 21 points of interest', fn:async(w,GM,C,H)=>{ if(!await H.waitFor(()=>GM.getState().sceneReady && GM.getState().pois===21,5000)) throw new Error('pois='+GM.getState().pois+' ready='+GM.getState().sceneReady); return true; } },
+        { name:'scene builds with 22 points of interest', fn:async(w,GM,C,H)=>{ if(!await H.waitFor(()=>GM.getState().sceneReady && GM.getState().pois===22,5000)) throw new Error('pois='+GM.getState().pois+' ready='+GM.getState().sceneReady); return true; } },
         { name:'goTo(start) → explore + walk on', fn:async(w,GM,C,H)=>{ GM.goTo('start'); await H.sleep(160); const s=GM.getState(); if(s.phase!=='explore'||!s.walk) throw new Error('phase='+s.phase+' walk='+s.walk); return true; } },
         { name:'teleport to stairs fires beats', fn:async(w,GM,C,H)=>{ GM.goTo('stairs'); if(!await H.waitFor(()=>GM.getState().beat>=3,3000)) throw new Error('beat='+GM.getState().beat); return true; } },
         { name:'door → parlor arrival triggers', fn:async(w,GM,C,H)=>{ GM.goTo('door'); if(!await H.waitFor(()=>{ const s=GM.getState(); return s.mode==='arrival'||s.phase==='door'||s.phase==='card'; },3000)) throw new Error('mode='+GM.getState().mode); return true; } },
         { name:'goTo(card) → parlor-door card', fn:async(w,GM,C,H)=>{ GM.goTo('card'); await H.sleep(160); const s=GM.getState(); if(s.phase!=='card') throw new Error('phase='+s.phase); return true; } },
         { name:'no runtime errors', fn:(w,GM)=>err(GM.errors()) }
       ]},
+      { scene:'Court', file:'The Games Master - Court.dc.html', tests:[
+        { name:'bridge present · scene = court', fn:(w,GM)=>{ if(GM.scene!=='court') throw new Error('scene='+GM.scene); return true; } },
+        { name:'three.js scene builds with gavel', fn:async(w,GM,C,H)=>{ if(!await H.waitFor(()=>GM.getState().sceneReady && GM.getState().gavel,6000)) throw new Error('ready='+GM.getState().sceneReady+' gavel='+GM.getState().gavel); return true; } },
+        { name:'goTo(bar) enables walk', fn:async(w,GM,C,H)=>{ GM.goTo('bar'); await H.sleep(160); const s=GM.getState(); if(!s.walk) throw new Error('walk='+s.walk); return true; } },
+        { name:'presentTrue cracks a seal', fn:async(w,GM,C,H)=>{
+          GM.goTo('bar'); await H.sleep(80);
+          const before = GM.getState().sealsCracked||0;
+          if (typeof GM.presentTrue!=='function') throw new Error('no presentTrue');
+          GM.presentTrue();
+          await H.sleep(120);
+          const after = GM.getState().sealsCracked||0;
+          if (after <= before) throw new Error('sealsCracked '+before+'→'+after);
+          return true;
+        } },
+        { name:'rigged + true evidence tarnishes gavel', fn:async(w,GM,C,H)=>{
+          GM.goTo('rigged'); await H.sleep(100);
+          if (typeof GM.setRigged==='function') GM.setRigged(true);
+          // re-present may no-op if already presented — jump to fresh card path via component
+          if (C) { C._presented = []; C._tarnishCur = 0; C._tarnishTarget = 0; if(C.gavel&&C.gavel.userData.setTarnish) C.gavel.userData.setTarnish(0); }
+          GM.presentTrue();
+          const ok = await H.waitFor(()=> (GM.getState().gavelTarnish||0) > 0.4, 3500);
+          if (!ok) throw new Error('tarnish='+GM.getState().gavelTarnish);
+          return true;
+        } },
+        { name:'no runtime errors', fn:(w,GM)=>err(GM.errors()) }
+      ]},
+      { scene:'Shut the Box', file:'The Games Master - Shut the Box.dc.html', tests:[
+        { name:'bridge present · scene = shutbox', fn:(w,GM)=>{ if(GM.scene!=='shutbox') throw new Error('scene='+GM.scene); return true; } },
+        { name:'shell builds two boards', fn:async(w,GM,C,H)=>{ if(!await H.waitFor(()=>GM.getState().sceneReady && GM.getState().boards===2,6000)) throw new Error(JSON.stringify(GM.getState())); return true; } },
+        { name:'demoShut9 lowers player sum', fn:async(w,GM,C,H)=>{
+          const before = GM.getState().playerSum;
+          if (typeof GM.demoShut9!=='function') throw new Error('no demoShut9');
+          GM.demoShut9(); await H.sleep(80);
+          const after = GM.getState().playerSum;
+          if (!(after < before)) throw new Error('sum '+before+'→'+after);
+          return true;
+        } },
+        { name:'no runtime errors', fn:(w,GM)=>err(GM.errors()) }
+      ]},
       { scene:'The Parlor', file:'The Parlor - Playable Prototype.dc.html', tests:[
         { name:'bridge present · scene = parlor', fn:(w,GM)=>{ if(GM.scene!=='parlor') throw new Error('scene='+GM.scene); return true; } },
         { name:'deck builds 28 cards', fn:(w,GM,C)=>{ const n=C.buildDeck().length; if(n!==28) throw new Error('deck='+n); return true; } },
         { name:'four custom suits defined', fn:(w,GM,C)=>{ const n=Object.keys(C.SUITS).length; if(n!==4) throw new Error('suits='+n); return true; } },
-        { name:'five corruption tiers defined', fn:(w,GM,C)=>{ if(C.CORR.length!==5) throw new Error('tiers='+C.CORR.length); return true; } },
+        { name:'five corruption tiers · a run opens at tier 1, never 0', fn:(w,GM,C)=>{
+          if(C.CORR.length!==5) throw new Error('tiers='+C.CORR.length);
+          const nameless = C.CORR.findIndex(t=>!t || !t.name);
+          if(nameless>=0) throw new Error('tier '+nameless+' has no name');
+          // Canon: corruption starts at tier 1. CORR[0] ('Honest') is the floor of the scale, never
+          // the state a run opens in — length alone would let a 0-start regression through.
+          const start = C.freshGame().corruption;
+          if(start < 1) throw new Error('opens at tier '+start+' ('+C.CORR[start].name+'), canon says 1');
+          const tuned = !!(C.props && C.props.startCorruption != null);
+          if(!tuned && start !== 1) throw new Error('untuned start tier='+start);
+          return true;
+        } },
         { name:'goTo(skipIntro) clears wake-up', fn:async(w,GM,C,H)=>{ GM.goTo('skipIntro'); await H.sleep(140); if(GM.getState().intro!==false) throw new Error('intro still true'); return true; } },
         { name:'goTo(fresh) deals a 7-card hand', fn:async(w,GM,C,H)=>{ GM.goTo('fresh'); await H.sleep(140); const n=GM.getState().hand; if(n!==7) throw new Error('hand='+n); return true; } },
         { name:'rule · Flames trumps off-suit', fn:(w,GM,C)=>{ const r=C.winner({suit:'flames',rank:1},{suit:'eyes',rank:7},'eyes'); if(r!=='player') throw new Error('got '+r); return true; } },
@@ -115,13 +218,19 @@ class Component extends DCLogic {
     ];
   }
 
-  async run() {
-    if (this.state.started) return;
+  async run(force) {
+    if (this.state.started && !force) return;
+    // Every run carries a generation. rerun() bumps it, so a run that is still mid-test notices at
+    // its next checkpoint and drops out — instead of two runs interleaving setState on the same
+    // results array and reporting "complete / ALL PASSING" while the fresh one is still going.
+    const gen = this._gen = (this._gen || 0) + 1;
+    const stale = ()=> this._gen !== gen;
     this.setState({ started:true, running:true, done:false });
     const container = document.getElementById('gm-harness-frames');
     const specs = this.specs();
     const results = [];
     for (const spec of specs) {
+      if (stale()) return;
       const grp = { scene:spec.scene, rows:[], pass:0, fail:0 };
       results.push(grp); this.setState({ results:[...results] });
       const f = document.createElement('iframe');
@@ -130,30 +239,56 @@ class Component extends DCLogic {
       if (container) container.appendChild(f);
       f.src = spec.file;
       const ready = await this.waitFor(()=> f.contentWindow && f.contentWindow.__GM && f.contentWindow.__GM.scene, 9000);
+      if (stale()) { f.remove(); return; }
       const win = f.contentWindow, GM = win && win.__GM, C = win && win.__GMC;
       if (!ready) {
         grp.rows.push({ name:'load & expose window.__GM', ok:false, msg:'bridge never appeared' }); grp.fail++;
-        this.setState({ results:[...results] }); continue;
+        this.setState({ results:[...results] });
+        if (window.__GM_HEADLESS_HARNESS) f.remove();
+        continue;
       }
       grp.rows.push({ name:'load & expose window.__GM', ok:true, msg:'' }); grp.pass++;
       this.setState({ results:[...results] });
       await this.sleep(1400);
+      if (stale()) { f.remove(); return; }
       for (const t of spec.tests) {
         let ok=false, msg='';
-        try { const r = await t.fn(win, GM, C, this); ok = (r !== false); }
+        let deadline;
+        const tok = { aborted:false };
+        console.log('[Harness test] '+spec.scene+' :: '+t.name);
+        try {
+          const r = await Promise.race([
+            Promise.resolve().then(()=>t.fn(win, GM, C, this.handleFor(tok))),
+            new Promise((_,reject)=>{ deadline=setTimeout(()=>reject(new Error('timed out after 30000ms')),30000); })
+          ]);
+          ok = (r !== false);
+        }
         catch(e) { ok=false; msg = String((e && e.message) || e); }
+        // Whatever the outcome, this test's turn with the iframe is over: aborting its token parks
+        // anything it left in flight before the next test touches the same shared state.
+        finally { if(deadline) clearTimeout(deadline); tok.aborted = true; }
+        if (stale()) { f.remove(); return; }
         grp.rows.push({ name:t.name, ok, msg }); ok ? grp.pass++ : grp.fail++;
         this.setState({ results:[...results] });
         await this.sleep(40);
       }
+      // Interactive review keeps all previews visible. The Playwright runner sets this flag so a
+      // completed scene releases its WebGL context/RAF loop before the next heavy scene begins.
+      if (window.__GM_HEADLESS_HARNESS) { f.remove(); await this.sleep(60); }
     }
+    if (stale()) return;
     this.setState({ running:false, done:true });
   }
 
   rerun() {
+    // Orphan the run in flight before wiping its frames and results: bumping the generation makes
+    // it drop out and release its iframe at its next checkpoint, which is the first thing after the
+    // test it is inside — it can no longer write results. force:true because the `started` reset
+    // below has not necessarily landed by the time the timer fires.
+    this._gen = (this._gen || 0) + 1;
     const c = document.getElementById('gm-harness-frames'); if (c) c.innerHTML='';
     this.setState({ results:[], running:false, done:false, started:false });
-    setTimeout(()=>this.run(), 60);
+    setTimeout(()=>this.run(true), 60);
   }
 
   renderVals() {

@@ -1,5 +1,182 @@
 # Claude's Fable Handoff — The Games Master
 
+## Current override - 2026-08-13 Reckoning/outbuildings session, paused on Nick's instruction
+
+Nick stopped this session mid-work to get a full handoff after finding a real, serious defect by
+hand that automated verification never caught (below). **Do not inherit any grade or "green"
+claim from this session or from anything dated 2026-08-13 without re-verifying it yourself** —
+that includes this session's own 319/319 EditMode and 12/12 PlayMode numbers, which are real and
+reproduced, but which the section below proves are not sufficient evidence that the game works.
+
+### Read this first: the estate gate has no physical enforcement, and green tests hid it
+
+Nick manually noticed the front gate can be walked around. Root-cause confirmed by reading the
+actual code, not assumed:
+
+- `GmThreshold.cs`'s gate-lock logic fires purely off **route-spline projection distance**
+  (`route.ProjectDistance`) — did the player's projected position pass the gate's route-metre
+  mark, then come back. There is no proximity check and no collision check against the gate mesh
+  at all.
+- When it fires: a sound plays, a narrative beat shows, and `GmGateLeaves.Close()` runs — which is
+  **a cosmetic rotation of two leaf props**, nothing else.
+- The gate geometry itself (`GmWendOpening.BuildGate`) is two 0.65m-wide pier posts ~5.4m apart in
+  open space. **Nothing connects them to a fence, wall, or any boundary** — confirmed by grep,
+  there is no fence-building call anywhere near the gate. The walk deck is a uniform 4.8m-wide
+  ribbon (`halfWidth = 2.4f`, `GmWendOpening.cs:372`) for the entire 435m route; it never narrows
+  to funnel the player through the opening. The only real boundary walls in the scene
+  (`GmWendBounds.cs`, the "4 walls" the contract checks) are the outer map-edge perimeter, nowhere
+  near the gate.
+
+**A player can walk 4-5m to either side of the gate and bypass it, before or after it "locks."**
+And because the lock trigger is route-progress-based rather than proximity-based, the narrative
+("Something slammed shut behind me") fires correctly-looking even if the player never went near
+the physical gate mesh — the illusion is internally consistent and completely hollow.
+
+**Why this passed "1000 walkthroughs" and every automated gate:** `GmWendWalkProbe` follows
+scripted waypoints down the center of the authored route — it has no reason to ever try walking
+wide around an obstacle. `GmWendWallProbe` ("walks into each of the four boundary walls") only
+tests the far outer map edge. Neither tool was ever designed to adversarially test "can I bypass
+this specific chokepoint," and no test in this repo does that for ANY object. This is not a
+one-off bug — it is a **defect class**: narrative/logical state (`gateLocked`, beat text, sound)
+completely decoupled from physical world state (colliders, geometry that actually blocks
+movement). The gate is the confirmed instance; nothing has audited whether it is the only one.
+
+**Nick's own words, verbatim, because they set the priority for the next session:** *"i know the
+engine is badly broken and not working right still and needs to be reworked and fixed and
+understand game logic, world logic, physics logic, logic for how objects sit and look and are all
+that."* Read that as a standing instruction, not a one-time complaint. Before more content work:
+
+1. **Do not trust green EditMode/PlayMode/gate results as proof of physical correctness.** They
+   prove code executes and scripted paths complete. They do not prove an object physically does
+   what its narrative claims, or that geometry sits/collides/looks right. Treat "tests pass" and
+   "the game works" as two separate claims until proven otherwise, per this project's own Evidence
+   Before Claims rule — this session is the concrete example of why.
+2. **A dedicated adversarial pass is owed**, scoped to exactly this class: for every object whose
+   logic implies a physical constraint (locks, walls, closed doors, "you can't get past this"),
+   verify the physical enforcement actually exists and actually matches the logical state — not
+   just that the logic flag flips and a sound plays. Start with every other `GmThreshold`-adjacent
+   system and every other "closed/locked/blocked" narrative beat in `docs/superpowers/specs/` and
+   confirm each one has a real collider doing the work, not just a state machine and an animation.
+3. **Fix the gate itself** once that audit tells you the right fix (a fence tying the piers to
+   real boundary, an invisible blocking volume, narrowing the walk deck near the gate approach —
+   Nick has not picked one; don't pick for him without asking, this is core-mechanic surface).
+4. **Build a real adversarial test for it**: a probe that deliberately tries to walk around/through
+   things the game claims are blocked, not just down the scripted centerline. Retrofit this
+   pattern to whatever the audit in item 2 finds.
+
+### This session's actual work (Reckoning + coach house) — status, not a verdict
+
+Full plan: `/Users/damato/.claude/plans/estate-property-gameplay-modular-zephyr.md`. Started from a
+pasted external-tool ("Gemini Antigravity IDE") plan with fabricated completion claims and canon
+violations (a "Manor House," open outbuildings contradicting the locked Ninth Bell spec) — that
+plan was discarded, not built. What actually shipped this session, all **uncommitted**:
+
+```
+Cleanup (discard scaffold, revert perf edits)   [██████████] verified clean, unity:scene:check green
+Canon docs (5 files)                            [██████████] written
+Phase A — Reckoning schedule core               [██████████] built; 285s regression PROVEN in real PlayMode run
+Phase B — coach house core                      [████████░░] built, compiles, EditMode/PlayMode green, BUT:
+  Phase B plumbing (probe/registry/tour/gate)   [░░░░░░░░░░] not built — explicitly deferred
+  Phase B perf/visual verification              [██░░░░░░░░] real numbers below; not clean
+```
+
+**Real perf/stability evidence from a fresh standalone build on a quiet host (2.37 load/core,
+trustworthy per this project's own host-load rule)**:
+
+```
+[GmWendWalkProbe] WALK FAIL: covered 435/435m, 32 frames, 2 stall(s), p95=17.42ms/16.70ms budget
+```
+
+- **The coach house causes a real stall**: `STALLED 2 at (-23.85, -1.47, -9.36), 4.5m short of
+  waypoint 32` — right at "Coach doors, and chalk under the moss," the beat next to the new
+  interior. This is my new geometry (`GmWendOutbuildings.cs`) blocking the walk path — I placed
+  the trigger volume / room bounds by math against the route spline, with no way to render and
+  look at it in this session. **This needs a visual pass in the actual editor before it ships**,
+  not just a code review.
+- **A second, pre-existing stall** at `STALLED 1 (-23.96, 0.57, -39.52)`, ~158m in, well past the
+  gate (route-metre 18) — not something I introduced, not yet root-caused, not yet reported to
+  Nick before this session paused. Needs the same "actually look at it" treatment.
+- **p95 = 17.42ms vs 16.70ms budget — a real regression**, small but real, on top of an
+  **already-open, pre-existing, unrelated regression**: TASKBOARD lane A1 (`GmWendRuntimeCulling`
+  exempting `HouseBeginning`'s ~12 soft-shadow lights from culling) was RED at 0% before this
+  session touched anything. My plan's own risk section said not to build new interior content
+  until A1 has a measured number — I built anyway (judgment call, reversible) and did get a
+  number, and it's over budget. **Do not read the 17.42ms figure as "the coach house's cost"** —
+  it's the coach house PLUS the pre-existing A1 regression, unseparated. Isolating them needs the
+  A1 fix landing first.
+- I have not looked at a single screenshot of the coach house. Zero visual verification exists.
+  Do not describe this content as done, shippable, or even "probably fine" until someone (agent or
+  Nick) has actually looked at it rendered.
+
+**What's solid**: Phase A (the bell's contextual-cadence *mechanism*, zero new geometry) has real
+evidence behind it — an actual Unity PlayMode run confirms the shipped 285s cadence is unchanged
+at default config, and 16 new unit tests cover the schedule math's bounds/monotonicity/determinism
+directly. That part is in good shape independent of everything above.
+
+### Everything still open, consolidated in one place
+
+**Blocking, in priority order (per Nick's instruction above, do the audit before more content):**
+
+1. Defect-class audit: narrative/logical state vs. physical enforcement, gate first, then sweep
+   for siblings (see above).
+2. Fix the gate itself, once Nick picks an approach.
+3. Visually inspect the coach house in-editor; fix the stall at waypoint 32; re-measure perf in
+   isolation once TASKBOARD lane A1 is actually fixed (not before — the numbers are entangled).
+4. Root-cause the second, unrelated stall near waypoint 16 (~158m, well before the coach house).
+
+**Deferred by explicit scope decision this session (designed, not built):**
+
+5. `-gmOutbuildingProof` player probe (modeled on `GmHouseProbe.cs`).
+6. `scene-registry.json` `probes.outbuildings` entry + two matching `unity-cli.mjs` wiring edits.
+7. `GmWendStoryTour` +2 shots for the coach house; `GmWendSceneContract`'s shot-count assert stays
+   at whatever the real current count is until this lands (I did not touch shot-count contracts
+   this session — confirm current count before assuming 8 or 10).
+8. New gate row in `scripts/run-opening-gates.mjs` for the outbuilding probe.
+
+**Nick's calls, not decided by this session (see `2026-08-13-the-reckoning.md` and
+`docs/NICK-NEEDED.md` §2c for full framing):**
+
+9. Does exploring make the bell hurry, or buy time? (`reckoningPressureAuthority` direction)
+10. How much toll-jitter, concretely?
+11. The chapel question — leave shut (it's the bell's own diegetic source) or make it interactive
+    (pulling the rope answers a toll early)? Two real, opposed arguments written up in the plan.
+12. Should entering an outbuilding raise corruption at all? Ships off by default.
+13. TASKBOARD lane F6 — corruption ceiling 4 (`GmHouseProgress`) vs 5 (`GmRunStore`), still open,
+    now also gates the Reckoning's dormant corruption bridge.
+14. Should the 13 existing grounds POI examines start banking persistent clues too? Default: no.
+
+**Pre-existing, unrelated, found sitting in the tree this session, not touched (do not silently
+resolve any of these without Nick — see hard lock "never edit unrelated dirty worktree files"):**
+
+15. A large amount of uncommitted work already existed before this session touched anything:
+    `GmRunStore.cs`, `GmEndingManager.cs`, modified `GmHouseProgress.cs`, and new `RaiseCorruption`
+    call sites in the Court/Parlor/Shut-the-Box controllers, plus nearly all of `unity/scenes/`
+    outside `wend-hill-prologue` and most of `unity/scene-system/`. None of it was touched, edited,
+    or reverted by this session. `git status` on `unity/` shows the true current scope.
+16. TASKBOARD LANE F (audit blockers) items F7 (partial — save/load and scene-transition wiring
+    still have no boot/title-scene caller), F8 (attribution gate not wired into `npm run gates`),
+    F9 (the verification harness itself has 86 confirmed findings, `verify-unity-full.mjs` has
+    never once passed), F10 (`scan-frame-defects.mjs` miscounts corrupt/missing frames as clean) —
+    all still open, all still real, none touched this session.
+
+### Verification commands that actually produced the numbers above
+
+```bash
+npm run unity:scene:check                 # sync/registry drift check
+node scripts/unity-cli.mjs test            # EditMode: 319/319 this session
+node scripts/unity-cli.mjs playtest        # PlayMode: 12/12 this session, incl. the 285s regression test
+node scripts/unity-cli.mjs rebuild wend-hill-prologue
+node scripts/unity-cli.mjs audit wend-hill-prologue
+npm run unity:build:mac                    # fresh standalone app — required before any perf number means anything
+npm run unity:proof:walk                   # REFUSES to run above ~3.0 load/core; check `uptime` first, wait for real quiet
+```
+
+The host-load gate in `unity:proof:walk`/etc. is doing its job, not being obstructive — this
+session watched it correctly block two runs on an overloaded host (this machine runs multiple
+concurrent sessions) and then produce a trustworthy, damning number the moment the host quieted.
+Don't bypass it (`GM_UNITY_IGNORE_HOST_LOAD=1`) to make a number appear faster; the whole point of
+this session's perf finding is that a number obtained the honest way is worth more than a fast one.
+
 ## Current override - 2026-07-22 A-candidate review
 
 Codex has completed a post-B+ prevention/readability pass and now self-grades Phase 0 as an **A

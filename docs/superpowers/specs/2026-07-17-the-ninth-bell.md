@@ -231,3 +231,41 @@ Ordered by dependency. Detail in `docs/superpowers/plans/2026-07-17-the-ninth-be
    split is acceptable rather than waiting to do both at once.
 3. **Whispers**: placeholder processed audio now, real VO deferred to Phase 9 with Aldric. Confirm.
 4. The old "3 tolls knocks you back" rare event is **retired**. Confirm it is not missed.
+
+---
+
+## Addendum, 2026-08-13 — the count is contextual (Owner decision)
+
+Supersedes **"Fixed real-time cadence, unaffected by route or action"** (§The nine tolls) and the
+literal reading of *"no matter what you do, you are counted in at nine"* as timing-independent.
+Full mechanism in `2026-08-13-the-reckoning.md`.
+
+**What survives, unchanged:**
+- The count is nine, always. The ninth toll takes you wherever you stand.
+- The crossing sequence — cut, dead air, whispers, iris, the ninth chime — is untouched.
+- Symptoms remain monotonic. Nothing recovers between tolls.
+- The only escape remains retreating to the car before the gate locks (the secret ending).
+
+**What changes:** the *spacing* between tolls now reads what happened on the grounds — which
+outbuildings were entered, what was found, how long the player lingered — inside a bounded,
+config-asserted window (`reckoningMinimumGroundsSeconds`–`reckoningMaximumGroundsSeconds`). The
+inevitability claim is not weakened, it's enforced numerically instead of by a constant: the
+ninth toll always lands inside that window, for any player behavior. What the player did decides
+how long they get first, never whether they're counted in.
+
+**Why this is better, not weaker.** This spec's own argument against the old porch-KO was that
+the ending should be inevitable rather than triggered by walking to a specific spot. A cadence
+that ignores the player entirely is inevitable, but also inert — a countdown timer wearing a
+bell. A cadence that visibly notices what the player did, and still cannot be escaped, is worse
+for the player, which is the actual point of the house. The unnatural spacing was always the
+tell ("a real bell does not take five minutes to ring nine"); spacing that shifts with what you
+were doing is a louder tell, and still just as deniable.
+
+**Ships dark.** `reckoningPressureAuthority` defaults to `0` and jitter defaults to `0`, so the
+schedule collapses to exactly `45 + 8×30 = 285s` — bit-for-bit today's shipped cadence — until
+Nick turns the dial on a walk. Open question 1 above ("4m45s — right, or too long?") is now a
+*range* the player's own actions move inside, not a single number to approve.
+
+The estate's outbuildings becoming genuinely enterable (starting with the coach house) is the
+reason this exists — see `2026-08-13-the-reckoning.md` and the implementation plan for scope,
+which outbuildings, and what's still explicitly undecided (the chapel in particular).
