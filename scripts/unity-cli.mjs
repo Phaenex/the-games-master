@@ -135,6 +135,7 @@ const TASKS = {
     // written. EditMode tests never render, so unlike the tour this stays headless.
     args: ['-runTests', '-testPlatform', 'EditMode', '-testResults', TEST_RESULTS],
     quit: false,
+    ownsVerdict: true,
     done: /\[GmTest\] never-matches/,   // completion is the results file, not a log line
     artifacts: () => (existsSync(TEST_RESULTS) ? [{ name: 'results.xml', bytes: statSync(TEST_RESULTS).size }] : []),
     clean: () => rmSync(TEST_RESULTS, { force: true }),
@@ -144,6 +145,7 @@ const TASKS = {
     gui: false,
     args: ['-runTests', '-testPlatform', 'PlayMode', '-testResults', PLAYTEST_RESULTS],
     quit: false,
+    ownsVerdict: true,
     done: /\[GmTest\] never-matches/,
     artifacts: () => (existsSync(PLAYTEST_RESULTS) ? [{ name: 'playmode-results.xml', bytes: statSync(PLAYTEST_RESULTS).size }] : []),
     clean: () => rmSync(PLAYTEST_RESULTS, { force: true }),
@@ -428,9 +430,17 @@ function run(name, attempt = 1, attempts = 1) {
 
       // Match only real aborts. Don't pattern-match loose words like "missing" — the builders
       // print benign tallies ("15 placed, 0 missing") that would read as failures.
-      const failure = log.match(
-        /^.*(?:\[Gm\w+\][^\r\n]*\bFAILED\b|Compilation failed|error CS\d+|Aborting batchmode due to failure|^\w*Exception: ).*$/m
-      );
+      //
+      // A TEST run is different in kind and must not use the [Gm*] FAILED half of this. Tests
+      // deliberately drive failure paths -- GmBootMenuTests proves a corrupt save is REFUSED, and
+      // the refusal logs "[GmBoot] FAILED: ..." because a player losing a run deserves a reason in
+      // the log. Scanning for that killed the run mid-flight and reported the passing test's own
+      // evidence as the failure. For tests, NUnit's XML is the verdict (verifyTests reads it and
+      // already treats zero tests as a failure); compile errors and batchmode aborts still abort
+      // early here, because those produce no XML to read at all.
+      const abortOnly = /^.*(?:Compilation failed|error CS\d+|Aborting batchmode due to failure|^\w*Exception: ).*$/m;
+      const anyReportedFailure = /^.*(?:\[Gm\w+\][^\r\n]*\bFAILED\b|Compilation failed|error CS\d+|Aborting batchmode due to failure|^\w*Exception: ).*$/m;
+      const failure = log.match(task.ownsVerdict ? abortOnly : anyReportedFailure);
       if (failure) {
         child.kill('SIGTERM');
         return finish(reject, new UnityRunError(

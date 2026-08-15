@@ -12,7 +12,7 @@
       "scenePath": "Assets/Scenes/WendHill.unity",
       "build": {
         "method": "GmEstateBuilderV2.Build",
-        "success": "[GmV2] DONE"
+        "success": "[GmV2] LEGACY SNAPSHOT OPENED"
       },
       "audit": {
         "method": "GmEstateQualityAudit.Run",
@@ -80,6 +80,167 @@
         "vSync": 0,
         "warmupSeconds": 10,
         "p95Milliseconds": 16.7
+      }
+    },
+    {
+      "id": "entry-hall",
+      "displayName": "Entry Hall",
+      "phase": 1,
+      "status": "scaffold",
+      "sceneName": "EntryHall",
+      "scenePath": "Assets/Scenes/EntryHall.unity",
+      "sourceDir": "unity/scenes/entry-hall",
+      "build": {
+        "method": "GmEntryHallBuilder.Build",
+        "success": "[GmEntryHall] BUILD PASS"
+      },
+      "audit": {
+        "method": "GmEntryHallQualityAudit.Run",
+        "success": "[GmEntryHallAudit] PASS"
+      },
+      "tour": {
+        "method": "GmEntryHallShotTourMenu.ArmAndPlay",
+        "success": "[GmSceneReviewTour] TOUR COMPLETE",
+        "logTag": "GmSceneReviewTour",
+        "shots": 8
+      }
+    },
+    {
+      "id": "parlor",
+      "displayName": "Parlor",
+      "phase": 2,
+      "status": "scaffold",
+      "sceneName": "Parlor",
+      "scenePath": "Assets/Scenes/Parlor.unity",
+      "sourceDir": "unity/scenes/parlor",
+      "build": {
+        "method": "GmParlorBuilder.Build",
+        "success": "[GmParlor] BUILD PASS"
+      },
+      "audit": {
+        "method": "GmParlorQualityAudit.Run",
+        "success": "[GmParlorAudit] PASS"
+      },
+      "tour": {
+        "method": "GmParlorShotTourMenu.ArmAndPlay",
+        "success": "[GmSceneReviewTour] TOUR COMPLETE",
+        "logTag": "GmSceneReviewTour",
+        "shots": 10
+      }
+    },
+    {
+      "id": "shut-the-box",
+      "displayName": "Shut The Box",
+      "phase": 4,
+      "status": "scaffold",
+      "sceneName": "ShutTheBox",
+      "scenePath": "Assets/Scenes/ShutTheBox.unity",
+      "sourceDir": "unity/scenes/shut-the-box",
+      "build": {
+        "method": "GmShutTheBoxBuilder.Build",
+        "success": "[GmShutTheBox] BUILD PASS"
+      },
+      "audit": {
+        "method": "GmShutTheBoxQualityAudit.Run",
+        "success": "[GmShutTheBoxAudit] PASS"
+      },
+      "tour": {
+        "method": "GmShutTheBoxShotTourMenu.ArmAndPlay",
+        "success": "[GmSceneReviewTour] TOUR COMPLETE",
+        "logTag": "GmSceneReviewTour",
+        "shots": 8
+      }
+    },
+    {
+      "id": "court",
+      "displayName": "Court",
+      "phase": 3,
+      "status": "scaffold",
+      "sceneName": "Court",
+      "scenePath": "Assets/Scenes/Court.unity",
+      "sourceDir": "unity/scenes/court",
+      "build": {
+        "method": "GmCourtBuilder.Build",
+        "success": "[GmCourt] BUILD PASS"
+      },
+      "audit": {
+        "method": "GmCourtQualityAudit.Run",
+        "success": "[GmCourtAudit] PASS"
+      },
+      "tour": {
+        "method": "GmCourtShotTourMenu.ArmAndPlay",
+        "success": "[GmSceneReviewTour] TOUR COMPLETE",
+        "logTag": "GmSceneReviewTour",
+        "shots": 8
+      }
+    },
+    {
+      "id": "hidden-room",
+      "displayName": "Hidden Room",
+      "phase": 6,
+      "status": "scaffold",
+      "sceneName": "HiddenRoom",
+      "scenePath": "Assets/Scenes/HiddenRoom.unity",
+      "sourceDir": "unity/scenes/hidden-room",
+      "build": {
+        "method": "GmHiddenRoomBuilder.Build",
+        "success": "[GmHiddenRoom] BUILD PASS"
+      },
+      "audit": {
+        "method": "GmHiddenRoomQualityAudit.Run",
+        "success": "[GmHiddenRoomAudit] PASS"
+      },
+      "tour": {
+        "method": "GmHiddenRoomShotTourMenu.ArmAndPlay",
+        "success": "[GmSceneReviewTour] TOUR COMPLETE",
+        "logTag": "GmSceneReviewTour",
+        "shots": 6
+      }
+    },
+    {
+      "id": "labyrinth",
+      "displayName": "Labyrinth",
+      "phase": 7,
+      "status": "scaffold",
+      "sceneName": "Labyrinth",
+      "scenePath": "Assets/Scenes/Labyrinth.unity",
+      "sourceDir": "unity/scenes/labyrinth",
+      "build": {
+        "method": "GmLabyrinthBuilder.Build",
+        "success": "[GmLabyrinth] BUILD PASS"
+      },
+      "audit": {
+        "method": "GmLabyrinthQualityAudit.Run",
+        "success": "[GmLabyrinthAudit] PASS"
+      },
+      "tour": {
+        "method": "GmLabyrinthShotTourMenu.ArmAndPlay",
+        "success": "[GmSceneReviewTour] TOUR COMPLETE",
+        "logTag": "GmSceneReviewTour",
+        "shots": 8
+      }
+    },
+    {
+      "id": "boot",
+      "displayName": "Boot",
+      "phase": 0,
+      "status": "scaffold",
+      "sceneName": "Boot",
+      "scenePath": "Assets/Scenes/Boot.unity",
+      "sourceDir": "unity/scenes/boot",
+      "build": {
+        "method": "GmBootBuilder.Build",
+        "success": "[GmBoot] BUILD PASS"
+      },
+      "audit": {
+        "method": "GmBootQualityAudit.Run",
+        "success": "[GmBootAudit] PASS"
+      },
+      "tour": {
+        "method": "GmBootShotTourMenu.ArmAndPlay",
+        "success": "[GmSceneReviewTour] TOUR COMPLETE",
+        "logTag": "GmSceneReviewTour",
+        "shots": 3
       }
     }
   ]

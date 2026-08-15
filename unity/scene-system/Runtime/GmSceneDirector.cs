@@ -33,6 +33,16 @@ public sealed class GmSceneDirector : MonoBehaviour
         DontDestroyOnLoad(gameObject);
     }
 
+    /// Clears the static when this director goes away. Without it a destroyed director leaves
+    /// _instance pointing at a dead object, and the danger is subtle: Unity's == operator reports a
+    /// destroyed object as null, but C#'s ?. and NUnit's Assert.IsNull do NOT. So
+    /// `Instance?.TransitionTo(...)` would happily call into the corpse and throw
+    /// MissingReferenceException, while `Instance == null` right beside it said everything was fine.
+    void OnDestroy()
+    {
+        if (_instance == this) _instance = null;
+    }
+
     public void TransitionTo(string sceneId, string scenePath)
     {
         if (IsTransitioning) return;
