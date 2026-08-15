@@ -50,6 +50,10 @@ public static class GmParlorBuilder
         // drapes are at -3.70, so this sits in the clear band with room on both sides.
         GmPlayerRig.Build(null, new Vector3(0f, 0f, -2f), new Vector3(0f, 1.0f, 0f));
 
+        // Arriving from the Entry Hall happens behind the same curtain the ninth bell uses, so the
+        // player never watches a room dissolve. Does nothing when the room is entered any other way.
+        composition.AddComponent<GmSceneArrival>();
+
         GmSceneBuildUtility.SaveScene(scene, ScenePath);
         Debug.Log("[GmParlor] BUILD PASS: " + ScenePath);
     }

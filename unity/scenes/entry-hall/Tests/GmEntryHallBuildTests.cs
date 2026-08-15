@@ -52,4 +52,39 @@ public class GmEntryHallBuildTests
         Assert.IsNotNull(arrival,
             "EntryHall has no GmSceneArrival — the ninth bell would strand the player behind black");
     }
+
+    [Test]
+    public void TheHallHasAWayToTheTable()
+    {
+        // Phase A's last missing link. Every scene was in the build and every room had a player, and
+        // there was still no way from this room into a single game -- GmSceneTransitionTrigger existed,
+        // was unit-tested, and was placed in ZERO scenes.
+        var trigger = Object.FindAnyObjectByType<GmSceneTransitionTrigger>(FindObjectsInactive.Include);
+        Assert.IsNotNull(trigger, "the Entry Hall has no exit — the player wakes in the house and stays there");
+
+        Assert.AreEqual(GmParlorBuilder.SceneId, trigger.TargetSceneId,
+            "the hall's exit does not lead to the first game");
+        // Compared against the builder's own constant rather than a literal, so renaming the scene
+        // cannot leave a path string here that loads nothing.
+        Assert.AreEqual(GmParlorBuilder.ScenePath, trigger.TargetScenePath,
+            "the hall's exit names a scene path the Parlor builder does not write");
+
+        var box = trigger.GetComponent<Collider>();
+        Assert.IsNotNull(box, "the transition has no collider, so nothing can enter it");
+        Assert.IsTrue(box.isTrigger, "the transition volume is SOLID — it would block the doorway it is in");
+    }
+
+    [Test]
+    public void TheDoorwayVolumeIsInsideTheOpeningAndNotAcrossTheRoom()
+    {
+        // A transition volume big enough to catch someone crossing the hall would take the player out
+        // of the room on the way to the staircase, which reads as the game hijacking a walk.
+        var trigger = Object.FindAnyObjectByType<GmSceneTransitionTrigger>(FindObjectsInactive.Include);
+        Assert.IsNotNull(trigger);
+        Bounds bounds = trigger.GetComponent<Collider>().bounds;
+
+        Assert.Less(bounds.size.x, 1.5f, "the exit volume reaches out into the hall");
+        Assert.Greater(bounds.center.x, 4.5f, "the exit volume is not against the east wall");
+        Assert.Less(bounds.min.y, 1f, "the volume floats above the floor — a walking player passes under it");
+    }
 }

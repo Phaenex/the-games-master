@@ -39,11 +39,19 @@ public sealed class GmSceneTransitionTrigger : MonoBehaviour
         return true;
     }
 
+    /// Identified by component, not by tag.
+    ///
+    /// This used to read CompareTag("Player") and NOTHING in the project ever set that tag --
+    /// GmPlayerRig tags the camera MainCamera and leaves the body untagged. So the only way this
+    /// component could ever fire was a test calling TriggerTransition() directly, which every test
+    /// did. Written, covered, and dead on the one path a human uses.
+    ///
+    /// A tag is a string that silently is not there. A component is the identity that actually
+    /// matters here, and GetComponentInParent finds it whether the collider hit is the body's own
+    /// CharacterController or a child.
     void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag("Player"))
-        {
-            TriggerTransition();
-        }
+        if (other.GetComponentInParent<GmPlayer>() == null) return;
+        TriggerTransition();
     }
 }

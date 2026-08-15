@@ -47,6 +47,7 @@ public static class GmEntryHallBuilder
         // it because the load that carries the player here destroys GmCrossing. Does nothing at all
         // unless the curtain is raised, so entering the hall any other way starts normally.
         systems.AddComponent<GmSceneArrival>();
+        BuildParlorDoorway(environment.transform, authored);
 
         GmSceneBuildUtility.SaveScene(scene, ScenePath);
         Debug.Log("[GmEntryHall] BUILD PASS: " + ScenePath);
@@ -339,5 +340,63 @@ public static class GmEntryHallBuilder
         mat.SetFloat("_Metallic", metallic);
         mat.SetFloat("_Smoothness", smoothness);
         r.sharedMaterial = mat;
+    }
+
+    /// The way to the table.
+    ///
+    /// Canon puts this on the east wall at the north end, and the geometry is the argument: the nine
+    /// portraits hang on the WEST wall and the staircase closes the north, so walking the hall means
+    /// passing the nine who came before on your left before you turn right to the table. The front
+    /// doors stay behind you and stay shut -- Threshold Refusal is not undone by being indoors.
+    ///
+    /// A walk-through volume rather than an examine prompt because this room has no interaction
+    /// stack at all yet: no GmInteractable, no GmDesignRuntime. Inventing one here to hang a single
+    /// transition off would be room content smuggled in as plumbing. The player still chooses when
+    /// to leave, which is the part that matters.
+    static void BuildParlorDoorway(Transform parent, Dictionary<string, GameObject> authored)
+    {
+        const float WallX = 6f;          // east wall centre
+        const float DoorZ = 6f;          // north end, past the portrait run
+        const float Opening = 2.2f;
+
+        var doorway = new GameObject("ParlorDoorway");
+        doorway.transform.SetParent(parent, false);
+
+        // Frame, so the opening reads as a door and not a hole in the panelling.
+        GameObject lintel = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        lintel.name = "ParlorDoorLintel";
+        lintel.transform.SetParent(doorway.transform, false);
+        lintel.transform.position = new Vector3(WallX - 0.12f, 3.05f, DoorZ);
+        lintel.transform.localScale = new Vector3(0.28f, 0.35f, Opening + 0.5f);
+        ApplyMaterial(lintel, "HDRP/Lit", new Color(0.26f, 0.16f, 0.10f), 0.06f, 0.35f);
+        authored["parlor-door-lintel"] = lintel;
+
+        // Both leaves, standing open. The house does not open its front doors; it has no reservation
+        // whatsoever about the ones that lead further in, and an open door is an invitation the
+        // player can decline by not walking through it.
+        for (int side = -1; side <= 1; side += 2)
+        {
+            GameObject leaf = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            leaf.name = side < 0 ? "ParlorDoorLeafSouth" : "ParlorDoorLeafNorth";
+            leaf.transform.SetParent(doorway.transform, false);
+            leaf.transform.position = new Vector3(WallX - 0.55f, 1.45f, DoorZ + side * (Opening * 0.5f + 0.25f));
+            leaf.transform.localScale = new Vector3(0.9f, 2.9f, 0.08f);
+            leaf.transform.rotation = Quaternion.Euler(0f, side * 24f, 0f);
+            ApplyMaterial(leaf, "HDRP/Lit", new Color(0.20f, 0.11f, 0.07f), 0.10f, 0.35f);
+        }
+
+        // The volume itself, set INSIDE the opening rather than across the hall, so brushing past the
+        // doorway on the way to the staircase does not take the player out of the room.
+        var volume = new GameObject("ParlorTransition");
+        volume.transform.SetParent(doorway.transform, false);
+        volume.transform.position = new Vector3(WallX - 0.15f, 1.2f, DoorZ);
+        var box = volume.AddComponent<BoxCollider>();
+        box.isTrigger = true;
+        box.size = new Vector3(0.6f, 2.4f, Opening);
+
+        var trigger = volume.AddComponent<GmSceneTransitionTrigger>();
+        trigger.TargetSceneId = GmParlorBuilder.SceneId;
+        trigger.TargetScenePath = GmParlorBuilder.ScenePath;
+        trigger.InteractionPrompt = "Through the double doors, to the table";
     }
 }
