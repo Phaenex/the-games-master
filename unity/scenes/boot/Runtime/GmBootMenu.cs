@@ -67,6 +67,10 @@ public sealed class GmBootMenu : MonoBehaviour
 
         var host = new GameObject("GmSceneDirector");
         var director = host.AddComponent<GmSceneDirector>();
+        // The curtain rides on the same object so it inherits DontDestroyOnLoad. It is the only
+        // thing that can hold the black across a load, which is what makes the ninth-bell crossing
+        // survive being a scene change rather than a teleport.
+        host.AddComponent<GmSceneCurtain>();
         Debug.Log("[GmBoot] scene director instantiated — transitions and endings are now reachable");
         return director;
     }
@@ -121,6 +125,10 @@ public sealed class GmBootMenu : MonoBehaviour
         note.style.marginTop = 26;
         note.style.unityTextAlign = TextAnchor.MiddleCenter;
         root.Add(note);
+
+        // Sweep the tree built so far. AddRow sweeps its own row because rows are created after this
+        // returns; this covers the title, the rule and the note.
+        GmUiText.UseStandardGenerator(root);
     }
 
     (VisualElement, Label) AddRow(string text, string name)
@@ -146,6 +154,10 @@ public sealed class GmBootMenu : MonoBehaviour
         row.Add(label);
 
         root.Add(row);
+        // Runtime-created PanelSettings carry no ICU payload, so the advanced text generator throws
+        // once per element per frame and draws nothing. Measured on the real macOS build before this
+        // line existed: 9,906 NullReferenceExceptions in a twenty-second run of this screen.
+        GmUiText.UseStandardGenerator(row);
         return (marker, label);
     }
 

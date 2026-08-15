@@ -49,7 +49,50 @@ public class GmCrossing : MonoBehaviour
         // 1. CUT. Runs synchronously before the first yield -- same frame as the ninth toll.
         fade = 1f;
         AudioListener.volume = 0f;
+        // If the player is inside an outbuilding when toll nine lands, its lit interior must not
+        // survive into the crossing -- costing frames through the black, or visible through a gap
+        // when the iris opens in the WakeRoom.
+        GmOutbuilding.CloseAllForCrossing();
         Debug.Log($"[GmCrossing] t={Time.time:F2} CUT — black, sound killed");
+
+        // 1a. If a scene director exists, the room he wakes in is the REAL Entry Hall, and the black
+        // is the window the load happens inside. The ninth-bell spec calls this scene's wake room
+        // "the Entry Hall's STUB, not the Entry Hall" -- nine portraits, the ledger and shard #1 were
+        // deferred to the room that now exists. Showing the stub and then loading the hall would be
+        // two interiors for one waking.
+        //
+        // The curtain has to be raised BEFORE the load, and cannot be this component's own `fade`,
+        // because the load destroys this object and the HUD that draws it. GmSceneArrival in the
+        // arriving scene opens it. Everything below this block is the fallback for the prologue
+        // review app, which is deliberately built with one scene and no director -- that build is
+        // what Nick walks for the Phase 0 gate and its experience is unchanged.
+        GmSceneDirector director = GmSceneDirector.Instance;
+        if (director != null)
+        {
+            GmSceneCurtain curtain = GmSceneCurtain.Instance;
+            if (curtain == null)
+            {
+                // Loud, not silent. A director without a curtain would load the Entry Hall behind a
+                // black that does not exist, so the player would watch the house dissolve -- the one
+                // thing Threshold Refusal cannot survive.
+                Debug.LogError("[GmCrossing] FAILED: a scene director exists but no GmSceneCurtain — " +
+                    "the crossing would be visible. Staying in the prologue's wake room.");
+            }
+            else
+            {
+                curtain.Raise();
+                GmOutbuilding.CloseAllForCrossing();
+                yield return new WaitForSeconds(deadAir);
+                Debug.Log($"[GmCrossing] t={Time.time:F2} dead air over — crossing into the Entry Hall");
+                var handoffLowPass = EnsureListenerLowPass();
+                if (handoffLowPass != null) handoffLowPass.cutoffFrequency = 22000f;
+                AudioListener.volume = 1f;
+                Play("clock_chime", 0.9f, false);
+                director.TransitionToEntryHallFromKO();
+                Debug.Log($"[GmCrossing] t={Time.time:F2} HANDOFF — GmSceneArrival owns the waking now");
+                yield break;
+            }
+        }
 
         // 1b. Move him while there is nothing to see -- he never saw a door, so he must never be seen
         // crossing one either. CharacterController fights a direct Transform set (its own collision
@@ -91,6 +134,7 @@ public class GmCrossing : MonoBehaviour
         Play("clock_chime", 0.9f, false);
         AudioListener.volume = 1f;
         if (whisper != null) StartCoroutine(FadeOut(whisper, 2f));
+        if (player != null) player.SetPitch(-45f);
 
         for (float t = 0; t < irisTime; t += Time.deltaTime)
         {
@@ -98,9 +142,12 @@ public class GmCrossing : MonoBehaviour
             fade = Mathf.SmoothStep(1f, 0f, k);            // sight, easing back badly, not snapping
             if (lp != null)
                 lp.cutoffFrequency = Mathf.Lerp(700f, 22000f, k * k);  // hearing opens slower than sight
+            if (player != null)
+                player.SetPitch(Mathf.Lerp(-45f, 0f, Mathf.SmoothStep(0f, 1f, k)));
             yield return null;
         }
         fade = 0f;
+        if (player != null) player.SetPitch(0f);
         if (lp != null) lp.cutoffFrequency = 22000f;
         Debug.Log($"[GmCrossing] t={Time.time:F2} vision resolved — the ninth chime finished");
 

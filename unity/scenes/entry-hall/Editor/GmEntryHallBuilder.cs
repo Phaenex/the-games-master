@@ -42,6 +42,12 @@ public static class GmEntryHallBuilder
         GmPlayerRig.Build(null, new Vector3(0f, 0f, -6f), new Vector3(0f, 1.6f, 0f));
         systems.AddComponent<GmEntryHallShotTour>();
 
+        // This is the room the ninth bell delivers you to, so it owns the second half of that
+        // crossing: sight returning, the closing card, control coming back. GmCrossing cannot own
+        // it because the load that carries the player here destroys GmCrossing. Does nothing at all
+        // unless the curtain is raised, so entering the hall any other way starts normally.
+        systems.AddComponent<GmSceneArrival>();
+
         GmSceneBuildUtility.SaveScene(scene, ScenePath);
         Debug.Log("[GmEntryHall] BUILD PASS: " + ScenePath);
     }
