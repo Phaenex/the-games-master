@@ -17,25 +17,50 @@ if (!sceneName) {
   console.error(`✗ scene '${scene}' has no sceneName in the registry — gate 12 has nothing to scan`);
   process.exit(1);
 }
+// Whether a failure here makes every LATER gate's evidence worthless.
+//
+// The pipeline used to stop dead at the first failure, on the reasoning that every later gate
+// depends on the earlier artifact. That is true of the gates that BUILD things and false of the
+// gates that JUDGE them, and the difference costs real coverage: gate 8's perf budget has been
+// missed all day, so gates 9, 10, 11 and 12 have not run once. The house-entry proof, the
+// full-route proof, the boundary-wall proof and the render-defect scan produced no evidence at all,
+// because a frame-time percentile was 4ms high.
+//
+// This project has already paid for this exact shape once. Court's tests failed by design behind a
+// content lock, gate 2 broke on first failure, and gates 3-12 were structurally unreachable for
+// weeks -- recorded in TESTING.md as "the gate-2 deadlock". Same trap, one gate along.
+//
+// BLOCKING stays the default and every non-blocking gate carries its reason. The run still FAILS,
+// loudly, on any failure; it just stops throwing away the evidence that would have followed.
+const BLOCKING = true;
+const CONTINUES = false;
+
 const gates = [
-  ['portable source and archive checks', 'npm', ['run', 'verify:portable']],
-  ['Unity EditMode', 'npm', ['run', 'test:unity']],
-  ['canonical Unity PlayMode', 'node', ['scripts/unity-cli.mjs', 'playtest']],
-  ['canonical scene rebuild', 'node', ['scripts/unity-cli.mjs', 'rebuild', scene]],
-  ['saved-scene contract', 'node', ['scripts/unity-cli.mjs', 'audit', scene]],
-  ['player-camera visual tour', 'node', ['scripts/unity-cli.mjs', 'tour', scene]],
-  ['canonical macOS build', 'node', ['scripts/unity-cli.mjs', 'build-mac', scene]],
-  ['standalone story/input/audio proof', 'node', ['scripts/unity-cli.mjs', 'standalone-proof', scene]],
-  ['house entry and first-game proof', 'node', ['scripts/unity-cli.mjs', 'house-proof', scene]],
-  ['full-route 1080p performance proof', 'node', ['scripts/unity-cli.mjs', 'walk-proof', scene]],
-  ['standalone boundary-wall proof', 'node', ['scripts/unity-cli.mjs', 'wall-proof', scene]],
+  ['portable source and archive checks', 'npm', ['run', 'verify:portable'], BLOCKING],
+  ['Unity EditMode', 'npm', ['run', 'test:unity'], BLOCKING],
+  ['canonical Unity PlayMode', 'node', ['scripts/unity-cli.mjs', 'playtest'], BLOCKING],
+  // Builds the scene every gate below reads. A stale or half-written scene poisons all of them.
+  ['canonical scene rebuild', 'node', ['scripts/unity-cli.mjs', 'rebuild', scene], BLOCKING],
+  // A verdict ON the scene, not a producer of anything. Its failure is worth knowing alongside the
+  // others rather than instead of them.
+  ['saved-scene contract', 'node', ['scripts/unity-cli.mjs', 'audit', scene], CONTINUES],
+  ['player-camera visual tour', 'node', ['scripts/unity-cli.mjs', 'tour', scene], CONTINUES],
+  // Produces the .app that gates 8-11 all run. Nothing below this means anything without it.
+  ['canonical macOS build', 'node', ['scripts/unity-cli.mjs', 'build-mac', scene], BLOCKING],
+  // These four run the app and each writes its own frames. They do not read each other's verdicts,
+  // and gate 12 scans whatever frames exist -- it already rejects a missing or empty directory, so
+  // a proof that died before writing anything is still caught, by the gate built to catch it.
+  ['standalone story/input/audio proof', 'node', ['scripts/unity-cli.mjs', 'standalone-proof', scene], CONTINUES],
+  ['house entry and first-game proof', 'node', ['scripts/unity-cli.mjs', 'house-proof', scene], CONTINUES],
+  ['full-route 1080p performance proof', 'node', ['scripts/unity-cli.mjs', 'walk-proof', scene], CONTINUES],
+  ['standalone boundary-wall proof', 'node', ['scripts/unity-cli.mjs', 'wall-proof', scene], CONTINUES],
   // Runs LAST because it reads what every gate above produced. Percentile luminance proves
   // brightness and nothing else: a magenta object survived every green gate run on 2026-08-03 by
   // hiding in screenshots behind an opaque UI panel, while black-void gate piers scored "ok".
   ['captured-frame render defects', 'node', ['scripts/scan-frame-defects.mjs',
     `${unityRoot}/Library/GmSceneIntelligence/standalone-proof/${scene}`,
     `${unityRoot}/Library/GmSceneIntelligence/player-probes/${scene}`,
-    `${unityRoot}/Screens/${sceneName}`]],
+    `${unityRoot}/Screens/${sceneName}`, '--night'], CONTINUES],
 ];
 
 function run(command, args) {
@@ -61,18 +86,35 @@ function run(command, args) {
 }
 
 const results = [];
-for (const [name, command, args] of gates) {
+let blockedBy = null;
+for (const [name, command, args, blocking] of gates) {
+  if (blockedBy) { results.push({ name, code: null, seconds: 0, tail: [] }); continue; }
   console.log(`\n══ ${name} ══`);
   const result = await run(command, args);
   results.push({ name, ...result });
-  if (result.code !== 0) break; // every later gate depends on this artifact being trustworthy
+  if (result.code !== 0 && blocking) {
+    blockedBy = name;
+    console.error(`\n✗ ${name} failed and every later gate reads what it produces — stopping here.`);
+  }
 }
 
 console.log('\nOpening verification summary');
-for (const result of results)
+for (const result of results) {
+  // "did not run" is a THIRD state and must never be printed as a pass or read as one. The old
+  // summary simply omitted the gates it never reached, so a run that covered seven of twelve looked
+  // the same as one that covered twelve minus one failure.
+  if (result.code === null) { console.log(`· ${result.name} — DID NOT RUN (blocked by ${blockedBy})`); continue; }
   console.log(`${result.code === 0 ? '✓' : '✗'} ${result.name} (${result.seconds}s)`);
-if (results.length !== gates.length || results.some((result) => result.code !== 0)) {
+}
+
+const ran = results.filter((result) => result.code !== null);
+const failed = ran.filter((result) => result.code !== 0);
+const skipped = results.length - ran.length;
+console.log(`\n${ran.length - failed.length}/${gates.length} gate(s) passed · ` +
+  `${failed.length} failed · ${skipped} did not run`);
+if (failed.length || skipped) {
   console.error('\nOPENING VERIFICATION FAILED — no release claim may be made from this run.');
+  for (const result of failed) console.error(`   ✗ ${result.name}`);
   process.exit(1);
 }
 console.log('\nOPENING VERIFIED: canonical scene, story flows, visual evidence, build, route, walls and 1080p/60 gate all passed.');

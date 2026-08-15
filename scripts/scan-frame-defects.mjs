@@ -34,6 +34,21 @@ const CAST_MIN_RED_BLUE = 0.35;
 // the cast back to neutral and the rule sees nothing.
 const CAST_FLOOR_SUM = 60;
 
+// Night frames that read as daylight. Added 2026-08-15 after a one-stop sky lift -- made to fix the
+// orange cast -- turned the drive into overcast dusk. The colour-cast rule could not see it by
+// construction: it measures HUE, and the frame had become correctly balanced and far too bright.
+// The eight posed tour shots stayed dark (median 18-54) so nothing flagged it; the wash showed up on
+// route frames (median 74) and map-edge views (122-164), which nothing was scanning until gates
+// 9-11 were unblocked the same night. Nick spotted it in a live window before any check did.
+//
+// Opt-in, because only a scene that has DECLARED itself night can be wrong for being bright. Pass
+// --night for those targets. Threshold is deliberately loose: a lamp-lit porch and a fogged hillside
+// are legitimately bright, and a rule that condemns them gets switched off.
+const NIGHT_SKY_MEDIAN_MAX = 90;
+/// Fraction of the frame, from the top, treated as sky and distant fog.
+const NIGHT_SKY_BAND = 0.45;
+const NIGHT_MODE = process.argv.includes('--night');
+
 function decodePng(file) {
   const buf = readFileSync(file);
   if (buf.readUInt32BE(0) !== 0x89504e47) throw new Error(`not a PNG: ${file}`);
@@ -96,6 +111,10 @@ function scan(file) {
     if (r + g + b > CAST_FLOOR_SUM) { redSum += r; blueSum += b; litPixels++; }
     lum[p] = (r * 77 + g * 150 + b * 29) >> 8;
   }
+  const skyRows = Math.max(1, Math.floor(height * NIGHT_SKY_BAND));
+  const skyBand = Uint8Array.from(lum.subarray(0, skyRows * width)).sort();
+  const skyMedian = skyBand[Math.floor(skyBand.length * 0.5)];
+
   const sorted = Uint8Array.from(lum).sort();
   const at = (q) => sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * q))];
   const p5 = at(0.05), median = at(0.5), p90 = at(0.9), max = sorted[sorted.length - 1];
@@ -106,6 +125,14 @@ function scan(file) {
   if (p90 < 3) defects.push(`NEAR-BLACK p90=${p90}`);
   if (median > BLOWN_MEDIAN) defects.push(`BLOWN median=${median}`);
   if (p90 - p5 < FLAT_SPREAD && max < 250) defects.push(`FLAT spread=${p90 - p5}`);
+  // Measured over the SKY BAND, not the whole frame. A night frame is mostly dark ground, which
+  // drags a whole-frame median down and hides exactly this defect: the before/after of the sky fix
+  // measured whole-frame median 63 vs 21, but the upper band -- where the wash actually was --
+  // measured 107 vs 39. Picking the statistic that mixes the broken region with the healthy one is
+  // how a rule ends up unable to see the thing it was written for.
+  if (NIGHT_MODE && skyMedian > NIGHT_SKY_MEDIAN_MAX)
+    defects.push(`NIGHT READS AS DAY sky=${skyMedian} (max ${NIGHT_SKY_MEDIAN_MAX}) — ` +
+      'the sky and fog are brighter than dusk, in a scene set at nine at night');
   if (litPixels > width * height * 0.02) {
     if (cast > CAST_MAX_RED_BLUE)
       defects.push(`ORANGE CAST red:blue=${cast.toFixed(2)} (max ${CAST_MAX_RED_BLUE}) — ` +
@@ -114,7 +141,7 @@ function scan(file) {
       defects.push(`BLUE CAST red:blue=${cast.toFixed(2)} (min ${CAST_MIN_RED_BLUE}) — ` +
         'the lit part of this frame has almost no warm light in it');
   }
-  return { magenta, p5, median, p90, max, cast, defects };
+  return { magenta, p5, median, p90, max, cast, skyMedian, defects };
 }
 
 function collect(target) {
@@ -124,7 +151,7 @@ function collect(target) {
     collect(path.join(target, entry.name)));
 }
 
-const targets = process.argv.slice(2);
+const targets = process.argv.slice(2).filter((arg) => !arg.startsWith('--'));
 if (targets.length === 0) {
   console.error('usage: scan-frame-defects.mjs <file-or-directory>...');
   process.exit(2);

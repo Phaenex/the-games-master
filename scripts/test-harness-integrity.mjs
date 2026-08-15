@@ -48,7 +48,7 @@ const failures = [];
  * than by luck: not near-black (p90 well above 3), not blown (median far below 235), not flat
  * (p90-p5 spread far above 4), and no magenta (r == g == b can never satisfy g < r * 0.55).
  */
-function writeGradientPng(file, size = 32, tint = [1, 1, 1]) {
+function writeGradientPng(file, size = 32, tint = [1, 1, 1], levelAt = null) {
   const crcTable = Array.from({ length: 256 }, (_, n) => {
     let c = n;
     for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
@@ -77,7 +77,7 @@ function writeGradientPng(file, size = 32, tint = [1, 1, 1]) {
   for (let y = 0; y < size; y++) {
     raw[at++] = 0;   // filter type 0 (None) for this scanline
     for (let x = 0; x < size; x++) {
-      const v = 12 + (x / (size - 1)) * 200;   // 12..212
+      const v = levelAt ? levelAt(x, y) : 12 + (x / (size - 1)) * 200;   // 12..212
       raw[at++] = Math.min(255, Math.round(v * tint[0]));
       raw[at++] = Math.min(255, Math.round(v * tint[1]));
       raw[at++] = Math.min(255, Math.round(v * tint[2]));
@@ -90,6 +90,11 @@ function writeGradientPng(file, size = 32, tint = [1, 1, 1]) {
     chunk('IDAT', deflateSync(raw)),
     chunk('IEND', Buffer.alloc(0)),
   ]));
+}
+
+/** Bright band over a dark band -- a sky over ground, which is where the night defect lives. */
+function writeSplitPng(file, topLevel, bottomLevel, size = 32) {
+  writeGradientPng(file, size, [1, 1, 1], (x, y) => (y < size * 0.45 ? topLevel : bottomLevel));
 }
 
 function run(script, args, env = {}) {
@@ -155,6 +160,24 @@ mkdirSync(warmDir, { recursive: true });
 // Warm enough to be obviously lamplit, inside the band on purpose: the real porch frame measures
 // 2.23 and is a good shot. A threshold that failed it would be tuning taste, not catching defects.
 writeGradientPng(path.join(warmDir, 'lamplit.png'), 32, [1, 0.72, 0.55]);
+
+// Night that reads as daylight. A one-stop sky lift turned the drive into overcast dusk and the
+// cast rule could not see it by construction -- the frame was correctly BALANCED and far too bright.
+// Bright half at the top, dark half at the bottom: the shape of a washed-out sky over dark ground,
+// which a whole-frame median would average away.
+const daylightDir = path.join(sandbox, 'night-as-day');
+mkdirSync(daylightDir, { recursive: true });
+writeSplitPng(path.join(daylightDir, 'dawn.png'), 150, 30);
+const properNightDir = path.join(sandbox, 'night-proper');
+mkdirSync(properNightDir, { recursive: true });
+writeSplitPng(path.join(properNightDir, 'night.png'), 40, 18);
+
+mustFail('a night scene whose sky reads as daylight', 'scan-frame-defects.mjs', [daylightDir, '--night']);
+mustPass('a real night sky over dark ground', 'scan-frame-defects.mjs', [properNightDir, '--night']);
+// Without --night the same daylight frame must pass: only a scene that DECLARED itself night can be
+// wrong for being bright, and a rule that fired on every daylit scene would be deleted within a week.
+mustPass('the same bright frame in a scene that never claimed to be night',
+  'scan-frame-defects.mjs', [daylightDir]);
 
 mustFail('a frame lit only by orange', 'scan-frame-defects.mjs', [orangeDir]);
 mustFail('a frame lit only by blue', 'scan-frame-defects.mjs', [blueDir]);

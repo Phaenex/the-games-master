@@ -203,10 +203,16 @@ public static class GmWendNight
     /// mint-green wall at 360m is still a defect (51.09% -> 41.20% green-dominant pixels, better but
     /// not fixed). Both are geometry the sky cannot reach: a wall a metre from one practical, and a
     /// stretch nowhere near a lamp. That is placement work, not a dial, and stays open below.
-    /// 4 -> 3 on 2026-08-15, with the moon change above and for the same reason: dropping the sky by
-    /// four stops removed the cool ambient fill along with the daylight, which is what left the
-    /// background near-black and the foreground the only lit thing in frame.
-    public const float DefaultSkyExposureDrop = 3.0f;
+    /// Back to 4 the same night it went to 3. Lifting the sky a stop DID add the cool fill the night
+    /// was missing, and it also lifted the fog -- which scatters the sky across the entire upper half
+    /// of every open frame. The drive read as overcast dusk instead of nine at night: route frames
+    /// measured median luminance 74 and the map-edge views 122-164, against 18-54 on the eight posed
+    /// tour shots that were the only ones checked at the time.
+    ///
+    /// The moon stays raised, because the two levers are not interchangeable. The moon lights
+    /// SURFACES, which is what the night actually needed. The sky lights FOG, which is what washed
+    /// it out.
+    public const float DefaultSkyExposureDrop = 4.0f;
 
     /// The ambient lift for the ground BETWEEN the lamps, which is the problem left after the fog fix.
     ///
