@@ -68,7 +68,14 @@ public class GmThreshold : MonoBehaviour
             rt?.ShowBeat("Something slammed shut behind me.",
                 "When I looked back, the gate was closed — and the lock, somehow, had already turned.");
             GmExperienceTelemetry.Record("gate-lock", "crossed house-ward");
-            bell?.Arm();
+            // This is the ONLY live call that starts the nine-count, and the nine-count is the
+            // prologue's entire ending. The null-conditional makes a missing bell a silent no-op: the
+            // gate would slam, the line would print, and the player would stand on the porch forever
+            // with nothing in the log to say why. That exact shape of bug -- an obedient player never
+            // reaching the Entry Hall -- is what this file was fixed for today. Say it out loud.
+            if (bell != null) bell.Arm();
+            else Debug.LogError("[GmThreshold] the gate locked but there is no GmBellSummons in the " +
+                "scene — the nine-count can never start and the prologue has no ending");
             FindFirstObjectByType<GmGateLeaves>()?.Close();
         }
 

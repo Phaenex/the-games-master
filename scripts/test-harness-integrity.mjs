@@ -23,6 +23,13 @@ import { fileURLToPath } from 'node:url';
 const REPO_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const sandbox = mkdtempSync(path.join(tmpdir(), 'gm-harness-integrity-'));
 
+// Cleanup on the way out, whatever the way out is. Both exit paths below used to call rmSync
+// themselves, which left the fixtures on disk for any THIRD path -- a spawn that throws, a bad
+// fixture write, an uncaught anything. Stale fixtures are worse here than elsewhere: the next run
+// finds a populated directory where it expected to build one, and a gate whose whole job is
+// detecting an existing-but-wrong directory is the last thing that should be fed one.
+process.on('exit', () => rmSync(sandbox, { recursive: true, force: true }));
+
 let passed = 0;
 let attempted = 0;
 const failures = [];
@@ -183,10 +190,8 @@ if (failures.length) {
   console.error(`✗ harness integrity: ${failures.length} guard(s) cannot do their job\n`);
   for (const f of failures) console.error(`    ${f}\n`);
   console.error('A check that cannot fail is not a check. Fix the guard, not this test.');
-  rmSync(sandbox, { recursive: true, force: true });
   process.exit(1);
 }
 // Report attempted as well as passed: a run that silently covered fewer cases must not read the
 // same as a full one. That is precisely how the first version of this file hid its own gap.
 console.log(`✓ harness integrity: ${passed}/${attempted} guard case(s) proven — each rejects bad input and accepts good`);
-rmSync(sandbox, { recursive: true, force: true });

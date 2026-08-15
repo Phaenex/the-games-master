@@ -438,7 +438,13 @@ function run(name, attempt = 1, attempts = 1) {
       // evidence as the failure. For tests, NUnit's XML is the verdict (verifyTests reads it and
       // already treats zero tests as a failure); compile errors and batchmode aborts still abort
       // early here, because those produce no XML to read at all.
-      const abortOnly = /^.*(?:Compilation failed|error CS\d+|Aborting batchmode due to failure|^\w*Exception: ).*$/m;
+      //
+      // An unhandled exception is NOT in that category and was the same mistake one clause over. The
+      // test framework catches it, fails that test, and names it in the XML. Killing the run on the
+      // raw log line throws away the better diagnosis -- which test, and why -- and replaces it with
+      // a stack frame. It also fires on a test that drives an exception path deliberately. Currently
+      // matches zero lines in a passing run, so this is closing a trap rather than fixing a symptom.
+      const abortOnly = /^.*(?:Compilation failed|error CS\d+|Aborting batchmode due to failure).*$/m;
       const anyReportedFailure = /^.*(?:\[Gm\w+\][^\r\n]*\bFAILED\b|Compilation failed|error CS\d+|Aborting batchmode due to failure|^\w*Exception: ).*$/m;
       const failure = log.match(task.ownsVerdict ? abortOnly : anyReportedFailure);
       if (failure) {
