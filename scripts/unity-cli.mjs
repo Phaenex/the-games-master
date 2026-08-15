@@ -272,10 +272,28 @@ function describeConditions(perf) {
     // Above 1.0/core the harness already warns the number is indicative; say so where it is quoted.
     parts.push(`${perf.hostLoadPerCore.toFixed(2)}/core${perf.hostLoadPerCore > 1 ? ' ⚠loaded' : ''}`);
   }
+  // The measurement's agreement with itself, which is a condition like any other and the one that
+  // actually decided this gate. Measured 2026-08-15: three back-to-back runs of one unchanged build
+  // gave p95 18.39 / 21.17 / 24.32ms, and all four values the tracker held as a performance TREND
+  // fell inside that band. The spread belongs next to the number every time it is quoted.
+  if (Number.isFinite(perf.p95HalfSpreadPercent)) {
+    parts.push(`halves ${perf.p95FirstHalfMilliseconds?.toFixed(1)}/${perf.p95SecondHalfMilliseconds?.toFixed(1)}ms` +
+      `${perf.p95HalfSpreadPercent > P95_CONVERGENCE_PERCENT ? ` ⚠${perf.p95HalfSpreadPercent.toFixed(0)}% apart` : ''}`);
+  }
   if (perf.graphicsDevice) parts.push(perf.graphicsDevice);
   if (perf.batchMode === true) parts.push('BATCHMODE');
   return parts.length ? `[${parts.join(' · ')}]` : '[conditions unrecorded]';
 }
+
+/**
+ * How far the two halves of one sample may disagree before its p95 stops being a verdict.
+ *
+ * Not a tuning knob for making the gate pass. A tail percentile estimated from too few frames is
+ * noise wearing a number's clothes, and this project spent two investigations arguing about which
+ * of two such numbers was real. If the halves disagree by more than this, the run says the
+ * measurement did not converge instead of reporting a failure it cannot reproduce.
+ */
+const P95_CONVERGENCE_PERCENT = 25;
 
 function stampHostState(reportPath) {
   if (!existsSync(reportPath)) return null;
@@ -597,6 +615,20 @@ async function runStandaloneProof() {
       performance.lodBias < 0.99 || performance.lodBias > 1.01 || performance.lodCrossFade !== false ||
       performance.maxQueuedFrames !== 1 || performance.targetFrameRate !== 120)
     throw new Error(`standalone internal-render contract drifted: ${JSON.stringify(performance)}`);
+  // A sample whose two halves disagree has not measured anything yet, and must not be reported as
+  // either a pass or a failure. This is deliberately checked BEFORE the budget: a non-converged run
+  // that happens to land under the budget is not a pass either, and treating it as one is how a
+  // flaky gate teaches people to re-run until it goes green.
+  if (Number.isFinite(performance.p95HalfSpreadPercent) &&
+      performance.p95HalfSpreadPercent > P95_CONVERGENCE_PERCENT) {
+    throw new Error('standalone frame pacing did not converge, so this run judges nothing: ' +
+      `first half p95=${performance.p95FirstHalfMilliseconds.toFixed(2)}ms, ` +
+      `second half p95=${performance.p95SecondHalfMilliseconds.toFixed(2)}ms ` +
+      `(${performance.p95HalfSpreadPercent.toFixed(0)}% apart, tolerance ${P95_CONVERGENCE_PERCENT}%) ` +
+      `${describeConditions(performance)}\n` +
+      '  Re-run on an idle machine. Do NOT raise the tolerance to make this pass — the number is ' +
+      'the problem, not the threshold.');
+  }
   if (performance.p95Milliseconds > budget.p95Milliseconds) {
     // A failing p95 quoted bare invites the reader to supply a cause, and the supplied cause is
     // usually wrong -- on 2026-08-15 the obvious suspect (216k triangles of new mansion collision)

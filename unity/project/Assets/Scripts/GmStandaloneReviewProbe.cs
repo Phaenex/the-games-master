@@ -417,6 +417,21 @@ public sealed class GmStandaloneReviewProbe : MonoBehaviour
         public int systemMemoryMegabytes;
         public string graphicsDevice;
         public bool batchMode;
+        // How well this run agrees with itself. See MeasureFramePacing for why a tail percentile
+        // needs this and a median does not.
+        public float p95FirstHalfMilliseconds;
+        public float p95SecondHalfMilliseconds;
+        public float p95HalfSpreadPercent;
+    }
+
+    /// Percentile over a half-open slice, without disturbing the caller's ordering.
+    static float PercentileOf(float[] values, int from, int to, float percentile)
+    {
+        int count = to - from;
+        var slice = new float[count];
+        System.Array.Copy(values, from, slice, 0, count);
+        System.Array.Sort(slice);
+        return slice[Mathf.Clamp(Mathf.CeilToInt((count - 1) * percentile), 0, count - 1)];
     }
 
     /// Measure the actual built player's steady-state backbuffer cadence after screenshots finish.
@@ -431,7 +446,16 @@ public sealed class GmStandaloneReviewProbe : MonoBehaviour
         if (flag >= 0 && flag + 1 < args.Length && float.TryParse(args[flag + 1],
                 System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture,
                 out float configured)) warmupSeconds = Mathf.Max(0f, configured);
-        const int sampleFrames = 240;
+        // 240 frames is roughly 2.5 seconds, which puts p95 at the twelfth-worst frame. Hitches are
+        // rare and clustered, so the twelfth-worst is dominated by whether a cluster happened to land
+        // inside the window. Measured 2026-08-15: three back-to-back runs of the SAME build on the
+        // same idle machine produced p95 of 18.39, 21.17 and 24.32ms -- a 34% spread. The four values
+        // this project had recorded as a performance TREND (19.25, 19.72, 20.83, 21.71) all sit
+        // inside that one build's noise. "Best on record" and "it regressed" were both unfalsifiable.
+        //
+        // p50 over the same runs was 8.44, 8.45, 8.48 -- so the median is stable and pinned to the
+        // 120fps limiter. Only the tail is noisy, and only the tail is what the budget tests.
+        const int sampleFrames = 1800;
         float warmUntil = Time.realtimeSinceStartup + warmupSeconds;
         while (Time.realtimeSinceStartup < warmUntil) yield return new WaitForEndOfFrame();
 
@@ -447,6 +471,14 @@ public sealed class GmStandaloneReviewProbe : MonoBehaviour
             milliseconds[i] = elapsed;
             total += elapsed;
         }
+
+        // Split-half agreement, computed BEFORE the sort destroys the ordering. Each half is an
+        // independent estimate of the same quantity, so the gap between them is this measurement's
+        // own reproducibility, measured in the run that produced it rather than assumed from a past
+        // one. A number that cannot say how repeatable it is has no business failing a build.
+        float p95First = PercentileOf(milliseconds, 0, sampleFrames / 2, 0.95f);
+        float p95Second = PercentileOf(milliseconds, sampleFrames / 2, sampleFrames, 0.95f);
+
         System.Array.Sort(milliseconds);
         float Percentile(float percentile)
         {
@@ -477,6 +509,10 @@ public sealed class GmStandaloneReviewProbe : MonoBehaviour
             systemMemoryMegabytes = SystemInfo.systemMemorySize,
             graphicsDevice = SystemInfo.graphicsDeviceName,
             batchMode = Application.isBatchMode,
+            p95FirstHalfMilliseconds = p95First,
+            p95SecondHalfMilliseconds = p95Second,
+            p95HalfSpreadPercent = Mathf.Approximately(Mathf.Min(p95First, p95Second), 0f) ? 0f :
+                100f * Mathf.Abs(p95First - p95Second) / Mathf.Min(p95First, p95Second),
         };
         string path = Path.Combine(outputDirectory, "performance.json");
         File.WriteAllText(path, JsonUtility.ToJson(document, true));
@@ -486,6 +522,8 @@ public sealed class GmStandaloneReviewProbe : MonoBehaviour
             $"mean={document.meanMilliseconds:F2}ms p50={document.p50Milliseconds:F2}ms " +
             $"p95={document.p95Milliseconds:F2}ms p99={document.p99Milliseconds:F2}ms " +
             $"max={document.maximumMilliseconds:F2}ms " +
+            $"p95halves={document.p95FirstHalfMilliseconds:F2}/{document.p95SecondHalfMilliseconds:F2}ms " +
+            $"(spread {document.p95HalfSpreadPercent:F0}%) " +
             $"cores={document.processorCount} ram={document.systemMemoryMegabytes}MB " +
             $"gpu='{document.graphicsDevice}' batch={document.batchMode}");
     }
