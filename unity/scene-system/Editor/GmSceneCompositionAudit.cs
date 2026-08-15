@@ -71,6 +71,22 @@ public static class GmSceneCompositionAudit
         var adaptiveSlots = FindInScene<GmAdaptiveSlot>(scene);
         var claims = FindInScene<GmReviewCompositionClaim>(scene);
 
+        // A UI-only scene took an explicit, declared exit from the geometry contract. Say so out
+        // loud on every run: an opt-out nobody can see is indistinguishable from a check that
+        // silently stopped working, and a room must never acquire this quietly.
+        if (manifest.ScreenSpaceOnly)
+        {
+            Debug.Log($"[GmComposition] '{manifest.SceneId}' is declared SCREEN-SPACE ONLY — " +
+                "zone/cluster/element floors, per-shot claims and light motivation are not applied. " +
+                "If this scene has real geometry, that declaration is wrong.");
+            if (zones.Count > 0 || clusters.Count > 0 || elements.Count > 0)
+            {
+                issues.Add($"scene is declared screen-space only but authored {zones.Count} zone(s), " +
+                    $"{clusters.Count} cluster(s) and {elements.Count} element(s) — it has real " +
+                    "composition, so drop the uiOnly declaration and give it real minimums");
+            }
+        }
+
         if (zones.Count < manifest.MinimumZones)
             issues.Add($"composition has {zones.Count} zone(s), needs at least {manifest.MinimumZones}");
         if (clusters.Count < manifest.MinimumClusters)

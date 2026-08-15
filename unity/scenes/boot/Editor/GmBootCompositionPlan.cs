@@ -21,6 +21,6 @@ public static class GmBootCompositionPlan
         GmCompositionAuthoring.Begin(owner, "boot",
             "A title plate and three rows on an empty stage. The scene's real job is structural, not "
             + "visual: it instantiates the scene director, so transitions and endings become reachable.",
-            minZones: 0, minClusters: 0, minElements: 0);
+            uiOnly: true);
     }
 }
