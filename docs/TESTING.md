@@ -213,6 +213,71 @@ For any system that must run during play, add one test that asserts a **producti
 exists — assert the caller, not just the callee. "Has tests" and "is wired" are different claims and
 this project has been reporting the first as if it were the second.
 
+## Ask the engine, don't do the arithmetic (2026-08-15)
+
+**Symptom:** a prop or a spawn is placed at a position that reads as correct in the source and is
+wrong in the scene — dice sunk 2.25cm into felt, a player capsule standing inside an armchair.
+
+**Root cause:** the position was derived by hand from other numbers in the file. Every one of these
+was produced *while carefully fixing the same class of defect somewhere else*. Hand-arithmetic does
+not get more reliable with practice on the same afternoon; it gets less reliable, because the
+attention has moved on to the next instance.
+
+**The fix that worked:** stop deriving and start querying. `Physics.OverlapCapsule` with the
+player's real capsule, inset by the controller's own skin width, plus a downward ray for the mirror
+defect (overlaps nothing, stands on nothing). It went red on four of six rooms, **two of which a
+careful manual read — an adversarial one, specifically looking for this — had called clean.**
+
+Corollary, and the reason this is a rule rather than a note: **a check that measures cannot be
+fooled by the confidence of the person who wrote the thing it measures.** Prefer a query over a
+calculation anywhere the engine already knows the answer.
+
+## Sweep the class in the same pass, or the gate teaches you the wrong lesson (2026-08-15)
+
+The spawn probe found three decorative floor overlays with colliders (two carpets, a gravel path).
+Fixing exactly those three would have passed the gate and left `HuntsmanPatrolTrack` — a fourth,
+identical, 6cm strip across the middle of the Labyrinth — in the tree, because no spawn sits on it
+and therefore no spawn test can ever see it.
+
+**A gate reports the instances it can reach. It never reports the size of the class.** After any
+gate goes red, grep for the shape of the defect before fixing the instances it named. Here that was
+a four-line script for "primitive, thin in Y, at floor height, wide footprint."
+
+Related: `GameObject.CreatePrimitive` attaches a collider to *everything*. A 2cm rug ships as a 2cm
+kerb and the player walks with their ankles inside it for the whole room, not just at spawn. Use
+`GmSceneBuildUtility.MakeDecorativeOverlay` for anything meant to be walked over.
+
+## Two rules for writing a guard that will not quietly stop working (2026-08-15)
+
+Both learned by writing guards that did exactly that, on the same day they were written.
+
+**1. A guard must be exercised where it runs, not only where you wrote it.** `test-harness-integrity`
+took its "accept good input" fixture from a gitignored Unity output directory. On the only CI job
+that runs (ubuntu-latest, no Unity, fresh checkout) that file never exists, two of ten cases silently
+skipped, and the summary still printed clean. Build fixtures in-process — the PNG in that file is
+now assembled byte by byte — and **report attempted alongside passed**, so 8/10 can never read the
+same as 10/10.
+
+**2. Check for the thing, not for the marker that is supposed to accompany the thing.** The
+composition contract's UI-only exit refuted itself by counting zones, clusters and elements. But a
+scene that quietly grows geometry grows it *without* markers — markers are the first thing anyone
+skips — so counting them to detect unmarked geometry is backwards. It now counts world-space
+renderers and lights. The commit that introduced it claimed "a room can never quietly acquire this
+and stop being checked"; that claim was false as written, and no test existed to contradict it.
+
+**The tell for both:** ask how the check could pass while the defect is present. If the answer is
+"the case never ran" or "the evidence it reads is optional," it is not a check yet.
+
+## Choose the invariant that must hold, not the one that first suggests itself (2026-08-15)
+
+Measuring Court's judge bench, the obvious assertion was "the chair must not overlap the desk." That
+would have been a false alarm on **every tucked-in chair in the project** — a chair overlapping a
+desk is what pushed-in furniture looks like. What actually has to be true is that a body fits: the
+chair stays out of the wall, and there is clear floor behind the bench to sit in.
+
+A guard that fires on correct work gets switched off, and then it protects nothing. Before asserting,
+name the failure the assertion is for, and check it would not also condemn the healthy case.
+
 ## Known coverage boundaries (honest)
 
 - **Court / Shut the Box**: boot + phase screenshots only. Their gameplay is Phase 1/2 work,

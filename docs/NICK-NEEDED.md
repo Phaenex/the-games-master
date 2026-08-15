@@ -121,6 +121,57 @@ build** if purchased doorway colliders still seal the route. So there is hard au
 remove collision and **no counterpart check anywhere that asserts anything is still solid**. That
 asymmetry is the machine that produces this bug, and it will keep producing it.
 
+## 2026-08-15 (later) — the tell verb has no risk, and it quietly decides which ending you get
+
+Not a bug. A balance hole I opened myself when I made the grounds discrepancies callable, and it
+needs a design call, not a fix I can pick.
+
+**What ships right now:** all **14** grounds POIs carry a tell. `GmDesignRuntime` binds every POI
+the same way — `BindTell(poi.text2)` — and every one of the 14 `text2` fields in
+`prologue-design.json` is non-empty, so `CarriesTell` is true everywhere. **There is no object on
+the grounds where calling a tell returns a false read.** The verb cannot be got wrong.
+
+**Why that matters beyond the grounds:** `CatchCheat` records both a catch and a defiance point.
+`CheatsCaughtCount >= 8` is the gate on **True Escape**, and `DefianceCount > ComplianceCount`
+decides **Defiant Sacrifice** vs **Host Succession**. A player who calls a tell on everything banks
+up to 14 free catches and 14 free defiance points before sitting down at a single card table. The
+8-catch threshold is met almost twice over on the walk in, by pressing a button on everything.
+
+**The tests did not and could not catch this.** `GmGroundsTellTests` does exercise the false-read
+path — against a *fabricated* interactable with an empty tell, using the id `arrival-car`. That id
+is real production data, and in production `arrival-car` carries a tell and returns Caught. The test
+passes; it is not testing what ships.
+
+**My read of the 14, against the game's own bar — "a discrepancy shaped exactly like a caught
+cheat":**
+
+- **Genuine tells (6):** `gate-card` (the debt written short in an unfamiliar hand), `weathered-marker`
+  (same mason's hand a century apart), `garden-basin` (every coin heads-down), `garden-shed` (boot
+  prints in, none out), `chapel-door` (scratches from *under* the door), `coach-doors` (a chalked
+  number scratched out hard).
+- **Borderline (2):** `open-grave` ("dug slowly. Or kept ready."), `child-marker` ("No dates.
+  COUNTED OUT.") — thematically loud, weak as *evidence*.
+- **Atmosphere, no wrongness to catch (6):** `arrival-car` (Nora's drawing), `gate-plaque` (tally
+  strokes grouped in sevens), `stag-plinth` (the plaque inscription), `garden-scarecrow` (a watch
+  chain with no watch), `garden-well` ("I'm choosing to believe it landed"), `fallen-marker` ("The
+  surname was mine.").
+
+**What I need from you — pick one:**
+
+1. **Mark the six atmosphere POIs innocent** (clear the `text2` field, or better, give them a
+   distinct "you were wrong" response). Leaves 8 real tells against a threshold of 8, which makes
+   the walk exactly sufficient and leaves no slack — probably still too generous.
+2. **Mark eight innocent** (the six plus both borderlines). Leaves 6 on the grounds, so the
+   remaining catches must come from the tables. This is the version where the verb has teeth.
+3. **Add a cost for a false call** rather than removing tells — a wrong call is heard, and Aldric
+   adjusts. More interesting, more work, and it makes reading the grounds a real risk.
+4. **Raise the True Escape threshold** and leave the grounds generous. Cheapest, but it makes the
+   walk a checklist.
+
+`garden-well` is the clearest innocent candidate in any of these — it is explicitly the character
+choosing an interpretation, not evidence. I did not change any of it, because which objects are
+innocent is a canon and taste call, and getting it wrong quietly rewrites the ending.
+
 ## 2026-08-15 — three small calls, each 30 seconds, each blocking a green test
 
 The 2026-08-15 EditMode run found 8 failures (the tracker claimed 2). Five were objective
