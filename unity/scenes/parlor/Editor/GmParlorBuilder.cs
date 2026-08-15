@@ -48,6 +48,11 @@ public static class GmParlorBuilder
         // first frame of this room was the inside of an armchair. Behind the chair instead, facing the
         // table across it -- the chair's rear face is z=-1.525, the capsule radius is 0.35, and the
         // drapes are at -3.70, so this sits in the clear band with room on both sides.
+        // No HDRP atmosphere at all until now: every room builder had zero Volume/Exposure
+        // references against the prologue's 31, so HDRP fell back to AUTOMATIC exposure and
+        // opened up until a lamp-lit room rendered as a white box.
+        GmInteriorAtmosphere.Apply(null, GmParlorBuilder.SceneId);
+
         GmPlayerRig.Build(null, new Vector3(0f, 0f, -2f), new Vector3(0f, 1.0f, 0f));
 
         // Arriving from the Entry Hall happens behind the same curtain the ninth bell uses, so the
@@ -66,7 +71,7 @@ public static class GmParlorBuilder
         floor.transform.SetParent(parent, false);
         floor.transform.position = new Vector3(0f, -0.1f, 0f);
         floor.transform.localScale = new Vector3(8f, 0.2f, 8f);
-        ApplyMaterial(floor, "HDRP/Lit", new Color(0.24f, 0.16f, 0.10f), 0.05f, 0.45f);
+        GmSceneBuildUtility.ApplyVictorianSurface(floor, "floor", 2.2f);
 
         // Carpet
         GameObject carpet = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -74,7 +79,7 @@ public static class GmParlorBuilder
         carpet.transform.SetParent(parent, false);
         carpet.transform.position = new Vector3(0f, 0.01f, 0f);
         carpet.transform.localScale = new Vector3(6f, 0.02f, 6f);
-        ApplyMaterial(carpet, "HDRP/Lit", new Color(0.40f, 0.12f, 0.12f), 0.0f, 0.15f);
+        GmSceneBuildUtility.ApplyVictorianSurface(carpet, "carpet", 3f);
         GmSceneBuildUtility.MakeDecorativeOverlay(carpet);
 
         // Walls (Mahogany paneling)
@@ -83,28 +88,28 @@ public static class GmParlorBuilder
         northWall.transform.SetParent(parent, false);
         northWall.transform.position = new Vector3(0f, 2f, 4f);
         northWall.transform.localScale = new Vector3(8f, 4f, 0.3f);
-        ApplyMaterial(northWall, "HDRP/Lit", new Color(0.20f, 0.12f, 0.08f), 0.05f, 0.4f);
+        GmSceneBuildUtility.ApplyVictorianSurface(northWall, "wall", 2.6f);
 
         GameObject southWall = GameObject.CreatePrimitive(PrimitiveType.Cube);
         southWall.name = "SouthWall";
         southWall.transform.SetParent(parent, false);
         southWall.transform.position = new Vector3(0f, 2f, -4f);
         southWall.transform.localScale = new Vector3(8f, 4f, 0.3f);
-        ApplyMaterial(southWall, "HDRP/Lit", new Color(0.20f, 0.12f, 0.08f), 0.05f, 0.4f);
+        GmSceneBuildUtility.ApplyVictorianSurface(southWall, "wall", 2.6f);
 
         GameObject eastWall = GameObject.CreatePrimitive(PrimitiveType.Cube);
         eastWall.name = "EastWall_Fireplace";
         eastWall.transform.SetParent(parent, false);
         eastWall.transform.position = new Vector3(4f, 2f, 0f);
         eastWall.transform.localScale = new Vector3(0.3f, 4f, 8f);
-        ApplyMaterial(eastWall, "HDRP/Lit", new Color(0.20f, 0.12f, 0.08f), 0.05f, 0.4f);
+        GmSceneBuildUtility.ApplyVictorianSurface(eastWall, "wall", 2.6f);
 
         GameObject westWall = GameObject.CreatePrimitive(PrimitiveType.Cube);
         westWall.name = "WestWall";
         westWall.transform.SetParent(parent, false);
         westWall.transform.position = new Vector3(-4f, 2f, 0f);
         westWall.transform.localScale = new Vector3(0.3f, 4f, 8f);
-        ApplyMaterial(westWall, "HDRP/Lit", new Color(0.20f, 0.12f, 0.08f), 0.05f, 0.4f);
+        GmSceneBuildUtility.ApplyVictorianSurface(westWall, "wall", 2.6f);
 
         // Ceiling
         GameObject ceiling = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -112,7 +117,7 @@ public static class GmParlorBuilder
         ceiling.transform.SetParent(parent, false);
         ceiling.transform.position = new Vector3(0f, 4.1f, 0f);
         ceiling.transform.localScale = new Vector3(8f, 0.2f, 8f);
-        ApplyMaterial(ceiling, "HDRP/Lit", new Color(0.18f, 0.12f, 0.09f), 0.0f, 0.2f);
+        GmSceneBuildUtility.ApplyVictorianSurface(ceiling, "ceiling", 2.6f);
     }
 
     static void BuildGameplayProps(Transform parent, Dictionary<string, GameObject> authored)

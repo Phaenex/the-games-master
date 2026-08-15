@@ -42,6 +42,37 @@ public static class GmSceneBuildUtility
         if (collider != null) UnityEngine.Object.DestroyImmediate(collider);
     }
 
+    /// Dresses a blockout primitive in the owned Victorian interior kit's real materials.
+    ///
+    /// The Parlor and the Entry Hall shipped as 21 and 24 CreatePrimitive cubes with FLAT COLOURS and
+    /// zero real meshes, while the prologue exterior runs on a purchased Victorian pack. They are the
+    /// first two rooms a player reaches after the crossing, and they did not look like they belonged
+    /// in the same game -- which is exactly what Nick said when he watched one.
+    ///
+    /// Tiling is derived from the object's real size rather than passed in, because a hand-tuned
+    /// number per surface is a texture stretched on the first wall somebody resizes. Texel density
+    /// stays constant across every surface in the house, which is most of what separates "a room"
+    /// from "a grey box with a brown box next to it".
+    public static void ApplyVictorianSurface(GameObject target, string family,
+        float metresPerTile = 2f, Color? tint = null)
+    {
+        if (target == null) throw new ArgumentNullException(nameof(target));
+        var renderer = target.GetComponent<Renderer>();
+        if (renderer == null) return;
+
+        // The two largest dimensions are the face the texture is seen on. A wall is thin in one axis
+        // and a floor is thin in Y, so this picks the right pair without the caller declaring which.
+        Vector3 size = target.transform.lossyScale;
+        float a = Mathf.Max(Mathf.Abs(size.x), Mathf.Abs(size.z));
+        float b = Mathf.Abs(size.y) > Mathf.Min(Mathf.Abs(size.x), Mathf.Abs(size.z))
+            ? Mathf.Max(Mathf.Abs(size.y), Mathf.Min(Mathf.Abs(size.x), Mathf.Abs(size.z)))
+            : Mathf.Max(Mathf.Abs(size.x), Mathf.Abs(size.z)) == Mathf.Abs(size.x)
+                ? Mathf.Abs(size.z) : Mathf.Abs(size.x);
+        var tiling = new Vector2(Mathf.Max(1f, a / metresPerTile), Mathf.Max(1f, b / metresPerTile));
+
+        renderer.sharedMaterial = GmVictorianInteriorKit.Surface(family, $"Gm_{family}_{target.name}", tiling, tint);
+    }
+
     public static void SaveScene(Scene scene, string scenePath)
     {
         if (!scene.IsValid()) throw new ArgumentException("cannot save an invalid scene", nameof(scene));

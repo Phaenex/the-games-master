@@ -46,6 +46,11 @@ public static class GmLabyrinthBuilder
         // it. Spawn is the viewpoint the ReviewCamera used to sit at -- the one vantage a
         // human already chose for this room -- so it is the least arbitrary spawn available,
         // and the review tour prefers the player's own camera when a player exists.
+        // No HDRP atmosphere at all until now: every room builder had zero Volume/Exposure
+        // references against the prologue's 31, so HDRP fell back to AUTOMATIC exposure and
+        // opened up until a lamp-lit room rendered as a white box.
+        GmInteriorAtmosphere.Apply(null, GmLabyrinthBuilder.SceneId);
+
         GmPlayerRig.Build(null, new Vector3(-15f, 0f, -15f), new Vector3(0f, 1.2f, 0f));
 
         GmSceneBuildUtility.SaveScene(scene, ScenePath);

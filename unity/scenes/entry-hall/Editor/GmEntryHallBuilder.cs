@@ -39,6 +39,11 @@ public static class GmEntryHallBuilder
         // it. Spawn is the viewpoint the ReviewCamera used to sit at -- the one vantage a
         // human already chose for this room -- so it is the least arbitrary spawn available,
         // and the review tour prefers the player's own camera when a player exists.
+        // No HDRP atmosphere at all until now: every room builder had zero Volume/Exposure
+        // references against the prologue's 31, so HDRP fell back to AUTOMATIC exposure and
+        // opened up until a lamp-lit room rendered as a white box.
+        GmInteriorAtmosphere.Apply(null, GmEntryHallBuilder.SceneId);
+
         GmPlayerRig.Build(null, new Vector3(0f, 0f, -6f), new Vector3(0f, 1.6f, 0f));
         systems.AddComponent<GmEntryHallShotTour>();
 
@@ -61,7 +66,7 @@ public static class GmEntryHallBuilder
         floor.transform.SetParent(parent, false);
         floor.transform.position = new Vector3(0f, -0.1f, 0f);
         floor.transform.localScale = new Vector3(12f, 0.2f, 20f);
-        ApplyMaterial(floor, "HDRP/Lit", new Color(0.85f, 0.85f, 0.85f), 0.1f, 0.7f);
+        GmSceneBuildUtility.ApplyVictorianSurface(floor, "floor", 2.2f);
 
         // Carpet Runner
         GameObject runner = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -69,7 +74,7 @@ public static class GmEntryHallBuilder
         runner.transform.SetParent(parent, false);
         runner.transform.position = new Vector3(0f, 0.01f, 0f);
         runner.transform.localScale = new Vector3(2.4f, 0.02f, 18f);
-        ApplyMaterial(runner, "HDRP/Lit", new Color(0.45f, 0.08f, 0.08f), 0.0f, 0.15f);
+        GmSceneBuildUtility.ApplyVictorianSurface(runner, "carpet", 3f);
         GmSceneBuildUtility.MakeDecorativeOverlay(runner);
 
         // Left Wall (Wood Panel)
@@ -78,7 +83,7 @@ public static class GmEntryHallBuilder
         leftWall.transform.SetParent(parent, false);
         leftWall.transform.position = new Vector3(-6f, 3f, 0f);
         leftWall.transform.localScale = new Vector3(0.3f, 6f, 20f);
-        ApplyMaterial(leftWall, "HDRP/Lit", new Color(0.22f, 0.14f, 0.09f), 0.05f, 0.4f);
+        GmSceneBuildUtility.ApplyVictorianSurface(leftWall, "wall", 2.6f);
 
         // Right Wall (Wood Panel)
         GameObject rightWall = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -86,7 +91,7 @@ public static class GmEntryHallBuilder
         rightWall.transform.SetParent(parent, false);
         rightWall.transform.position = new Vector3(6f, 3f, 0f);
         rightWall.transform.localScale = new Vector3(0.3f, 6f, 20f);
-        ApplyMaterial(rightWall, "HDRP/Lit", new Color(0.22f, 0.14f, 0.09f), 0.05f, 0.4f);
+        GmSceneBuildUtility.ApplyVictorianSurface(rightWall, "wall", 2.6f);
 
         // North Wall (Staircase wall)
         GameObject northWall = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -94,7 +99,7 @@ public static class GmEntryHallBuilder
         northWall.transform.SetParent(parent, false);
         northWall.transform.position = new Vector3(0f, 3f, 10f);
         northWall.transform.localScale = new Vector3(12f, 6f, 0.3f);
-        ApplyMaterial(northWall, "HDRP/Lit", new Color(0.25f, 0.16f, 0.10f), 0.05f, 0.4f);
+        GmSceneBuildUtility.ApplyVictorianSurface(northWall, "wall", 2.6f);
 
         // South Wall (Entrance / Wake wall)
         GameObject southWall = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -102,7 +107,7 @@ public static class GmEntryHallBuilder
         southWall.transform.SetParent(parent, false);
         southWall.transform.position = new Vector3(0f, 3f, -10f);
         southWall.transform.localScale = new Vector3(12f, 6f, 0.3f);
-        ApplyMaterial(southWall, "HDRP/Lit", new Color(0.25f, 0.16f, 0.10f), 0.05f, 0.4f);
+        GmSceneBuildUtility.ApplyVictorianSurface(southWall, "wall", 2.6f);
 
         // Ceiling
         GameObject ceiling = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -110,7 +115,7 @@ public static class GmEntryHallBuilder
         ceiling.transform.SetParent(parent, false);
         ceiling.transform.position = new Vector3(0f, 6.1f, 0f);
         ceiling.transform.localScale = new Vector3(12f, 0.2f, 20f);
-        ApplyMaterial(ceiling, "HDRP/Lit", new Color(0.3f, 0.25f, 0.2f), 0.0f, 0.2f);
+        GmSceneBuildUtility.ApplyVictorianSurface(ceiling, "ceiling", 2.6f);
     }
 
     static void BuildGameplayProps(Transform parent, Dictionary<string, GameObject> authored)

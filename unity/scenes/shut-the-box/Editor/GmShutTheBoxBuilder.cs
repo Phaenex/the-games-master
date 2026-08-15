@@ -65,6 +65,11 @@ public static class GmShutTheBoxBuilder
         // body. The old spawn (0, 0, -1.2) shared its exact XZ with PlayerChair and put the capsule
         // through PlayerNamePlate, the trim strip along the near edge of the box. Behind the chair
         // instead, facing the box across it.
+        // No HDRP atmosphere at all until now: every room builder had zero Volume/Exposure
+        // references against the prologue's 31, so HDRP fell back to AUTOMATIC exposure and
+        // opened up until a lamp-lit room rendered as a white box.
+        GmInteriorAtmosphere.Apply(null, GmShutTheBoxBuilder.SceneId);
+
         GmPlayerRig.Build(null, new Vector3(0f, 0f, -2f), new Vector3(0f, 0.9f, 0f));
 
         GmSceneBuildUtility.SaveScene(scene, ScenePath);
