@@ -1,3 +1,5 @@
+> **Continuing this project?** Start with `docs/HANDOFF-2026-08-15.md`, then `docs/TESTING.md`.
+
 # The Games Master
 
 > "Seven games. One host. He's never lost."
