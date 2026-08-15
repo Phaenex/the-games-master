@@ -34,8 +34,18 @@ public static class GmInteriorAtmosphere
     /// looks like a decal, which is most of what made these rooms read as boxes.
     public const float FogMeanFreePath = 28f;
 
-    /// The prologue's own ceiling for a practical, reused rather than re-picked.
-    public const float PracticalCeilingLumens = 200f;
+    /// Ceiling for an interior practical, in lumens.
+    ///
+    /// NOT the prologue's 200. That number is right outdoors, where a lamp is tens of metres away
+    /// and competing with a whole estate's worth of others; at arm's length in a 12x20 room it is a
+    /// modern LED bulb, and three of them at a fixed 0.3 EV render the Entry Hall as a white box.
+    /// Reusing it was attempt three of three and it failed for a reason worth writing down: the
+    /// exterior and the interior share an EXPOSURE, so they cannot also share a light budget --
+    /// holding one fixed is exactly what makes the other have to change.
+    ///
+    /// A paraffin lamp puts out roughly 10-40 lumens and a candle about 12. This is a house lit by
+    /// oil in 19xx, so the period answer and the render answer agree for once.
+    public const float PracticalCeilingLumens = 35f;
 
     /// Adds a global volume to the open scene and returns it.
     public static GameObject Apply(Transform parent, string sceneId)
@@ -99,6 +109,37 @@ public static class GmInteriorAtmosphere
         }
         exposure.mode.Override(ExposureMode.Fixed);
         exposure.fixedExposure.Override(InteriorExposureEV);
+
+        // The thing that was actually lighting these rooms.
+        //
+        // Cutting every practical from 800/200/200/150 down to 35 lumens -- a 6x to 23x reduction --
+        // changed the render almost not at all. That is proof the lamps were never lighting the
+        // room: HDRP's DEFAULT SKY was, through ambient, and a profile with Exposure and Fog but no
+        // VisualEnvironment leaves it switched on. Three earlier attempts all tuned things that were
+        // contributing a rounding error.
+        //
+        // A windowless interior has no sky. Turning it off is not a darkness trick, it is removing a
+        // light source that is not physically there -- and it is what finally lets the lamps be the
+        // only thing in the room, which is the entire look.
+        if (!profile.TryGet(out VisualEnvironment environment))
+        {
+            environment = profile.Add<VisualEnvironment>(true);
+            environment.hideFlags = HideFlags.HideInHierarchy;
+            AssetDatabase.AddObjectToAsset(environment, profile);
+        }
+        environment.skyType.Override(0);              // none
+        environment.cloudType.Override(0);
+        environment.skyAmbientMode.Override(SkyAmbientMode.Static);
+
+        if (!profile.TryGet(out IndirectLightingController indirect))
+        {
+            indirect = profile.Add<IndirectLightingController>(true);
+            indirect.hideFlags = HideFlags.HideInHierarchy;
+            AssetDatabase.AddObjectToAsset(indirect, profile);
+        }
+        // Bounce stays, ambient from a sky that does not exist does not.
+        indirect.indirectDiffuseLightingMultiplier.Override(1f);
+        indirect.reflectionLightingMultiplier.Override(0.35f);
 
         if (!profile.TryGet(out Fog fog))
         {
