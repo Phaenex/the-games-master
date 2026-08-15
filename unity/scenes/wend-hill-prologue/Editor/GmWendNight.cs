@@ -667,6 +667,11 @@ public static class GmWendNight
         // written, tested and then never called, so the committed night shipped the pale sheet with a
         // complete fix for it sitting one line away from the build path.
         int rockSlots = GmWendRockTone.Apply();
+        // The ground, for the same reason and by the same method as the cliffs. The pack's landscape
+        // material tints mud (0.576, 0.380, 0.000) -- blue exactly zero -- so the drive could not be
+        // lit cool by any amount of moon. Runs beside the rock pass so both owned surfaces are
+        // established before the exposure is committed below.
+        int groundSlots = GmWendGroundTone.Apply();
 
         PracticalsToNight();
         SetExposure(CommittedExposureEV);
