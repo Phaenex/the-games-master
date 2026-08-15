@@ -14,10 +14,10 @@ using UnityEngine;
 [DefaultExecutionOrder(-100)]
 public class GmDesignRuntime : MonoBehaviour
 {
-    [Serializable] public class Poi { public string id, verb, anchorId; public float x, z, radius; public string text, text2; [NonSerialized] public int seen; }
+    [Serializable] public class Poi { public string id, verb, anchorId; public float x, z, radius; public string text, text2; public bool tell; [NonSerialized] public int seen; }
     [Serializable] public class Beat { public float z; public string anchorId, main, sub; [NonSerialized] public bool fired; }
     [Serializable] public class BranchBeat { public float[] rect; public string anchorId, main, sub; public float radius = 6f; [NonSerialized] public bool fired; }
-    [Serializable] class PoiList { public Poi[] pois; public Beat[] beats; public string[] coldOpen; public BranchBeat[] branchBeats; }
+    [Serializable] public class PoiList { public Poi[] pois; public Beat[] beats; public string[] coldOpen; public BranchBeat[] branchBeats; }
 
     public List<Poi> pois = new List<Poi>();
     public List<Beat> beats = new List<Beat>();
@@ -38,6 +38,26 @@ public class GmDesignRuntime : MonoBehaviour
     /// purpose -- this script is shared, and changing the default would silently repoint the estate
     /// scene at data authored for somewhere else.
     public string designFile = "prologue-design.json";
+
+    /// Reads the shipped design file with no scene and no MonoBehaviour.
+    ///
+    /// Exists so a test can ask questions of the data players actually get. The balance hole that
+    /// let the grounds decide the ending survived because the one test covering the false-read path
+    /// built its own fixture and never opened this file.
+    public static PoiList LoadDesign(string file = "prologue-design.json")
+    {
+        string path = Path.Combine(Application.streamingAssetsPath, file);
+        if (!File.Exists(path)) return null;
+        string json = File.ReadAllText(path);
+        var wrapped = JsonUtility.FromJson<PoiList>(json.Replace("\"walkRects\"", "\"_walkRectsRaw\""));
+        if (wrapped?.pois != null)
+            foreach (var poi in wrapped.pois)
+            {
+                poi.text = DecodeAuthoredText(poi.text);
+                poi.text2 = DecodeAuthoredText(poi.text2);
+            }
+        return wrapped;
+    }
 
     void Start()
     {
@@ -263,14 +283,27 @@ public class GmDesignRuntime : MonoBehaviour
                 Debug.LogError($"[GmDesignRuntime] no visible interactable is bound to POI '{poi.id}'");
                 continue;
             }
-            // text2 is the discrepancy, and it now binds as a TELL rather than as a second Examine
-            // line. Every one of these is shaped like a caught cheat -- coins all heads-down, one
-            // mason's hand on stones a century apart, boots going to the shed and none coming back --
-            // and handing them over for a second button press meant the narrator played the game's
-            // core verb on the player's behalf for the whole opening. Examine now gives the
-            // observation; the player has to call the tell to earn the catch.
-            target.BindContent(poi.text, "");
-            target.BindTell(poi.text2);
+            // text2 is the second thing the object has to say, and whether it is a TELL or just an
+            // observation is now authored per POI rather than assumed for all of them.
+            //
+            // All fourteen used to bind as tells, which meant nothing on the grounds could return a
+            // false read and the core verb could not be got wrong. Worse, catching one records both
+            // a catch and a defiance point, and True Escape gates on eight catches -- so a player
+            // pressing the button on everything banked fourteen before sitting down at a single
+            // table. The seven games decided nothing.
+            //
+            // Six are a discrepancy shaped exactly like a caught cheat: something is WRONG and
+            // checkable. Coins all heads-down. One mason's hand on stones a century apart. Boots to
+            // the shed and none coming back. Those stay tells.
+            //
+            // The other eight are the character reading meaning INTO the place -- a daughter's
+            // drawing, tally strokes grouped in sevens, a watch chain with no watch. Real writing,
+            // and not evidence of anything. They keep their line as a second Examine, so nothing is
+            // lost, and calling a tell on them returns False: "I looked again. There is nothing
+            // wrong with it. I want there to be." That line was written for this and was
+            // unreachable.
+            target.BindContent(poi.text, poi.tell ? "" : poi.text2);
+            target.BindTell(poi.tell ? poi.text2 : "");
         }
     }
 

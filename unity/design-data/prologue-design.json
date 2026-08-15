@@ -57,7 +57,8 @@
       "z": 76.5,
       "radius": 3.2,
       "text": "The keys are still in it. Nobody took them. Nobody needed to.",
-      "text2": "In the glovebox: Nora’s drawing. A house with too many windows. I never showed her this place."
+      "text2": "In the glovebox: Nora’s drawing. A house with too many windows. I never showed her this place.",
+      "tell": false
     },
     {
       "id": "gate-plaque",
@@ -66,7 +67,8 @@
       "z": 66.3,
       "radius": 2.6,
       "text": "WEND HILL — the letters cut deep. The stone around them has gone soft with moss.",
-      "text2": "Below the name, half polished away: tally strokes. Grouped in sevens. A lot of sevens."
+      "text2": "Below the name, half polished away: tally strokes. Grouped in sevens. A lot of sevens.",
+      "tell": false
     },
     {
       "id": "gate-card",
@@ -75,7 +77,8 @@
       "z": 65.39999999999999,
       "radius": 3.2,
       "text": "A visiting card, wedged in the gate ironwork at eye height. Somebody put it where I could not walk past it.",
-      "text2": "The sum on the back is my debt, in a hand I have never seen, and it is two hundred short. In my favour. Nobody makes that mistake with a number they wrote down themselves."
+      "text2": "The sum on the back is my debt, in a hand I have never seen, and it is two hundred short. In my favour. Nobody makes that mistake with a number they wrote down themselves.",
+      "tell": true
     },
     {
       "id": "open-grave",
@@ -84,7 +87,8 @@
       "z": 23.0,
       "radius": 2.8,
       "text": "Fresh-dug. No stone, no name. Waiting.",
-      "text2": "Dry on top, damp an arm down. Dug slowly. Or kept ready."
+      "text2": "Dry on top, damp an arm down. Dug slowly. Or kept ready.",
+      "tell": false
     },
     {
       "id": "stag-plinth",
@@ -93,7 +97,8 @@
       "z": 20.0,
       "radius": 3.9,
       "text": "A stag — the crest from the invitation’s wax. One antler snapped clean off. Deliberate, by the cut.",
-      "text2": "The plinth names no family. Just: FOR THE HOUSE, FROM ITS WINNERS."
+      "text2": "The plinth names no family. Just: FOR THE HOUSE, FROM ITS WINNERS.",
+      "tell": false
     },
     {
       "id": "weathered-marker",
@@ -102,7 +107,8 @@
       "z": 30.0,
       "radius": 2.8,
       "text": "Most of the names are weather-eaten. One date reads clear — older than this house admits to being.",
-      "text2": "Same mason’s hand on every legible stone. A century apart. The same hand."
+      "text2": "Same mason’s hand on every legible stone. A century apart. The same hand.",
+      "tell": true
     },
     {
       "id": "chapel-door",
@@ -111,7 +117,8 @@
       "z": 30.0,
       "radius": 3.0,
       "text": "A chapel, locked long before I was born. The hinges say it intends to stay that way.",
-      "text2": "Scratches around the lock. Not from picking it. From under the door."
+      "text2": "Scratches around the lock. Not from picking it. From under the door.",
+      "tell": true
     },
     {
       "id": "garden-scarecrow",
@@ -120,7 +127,8 @@
       "z": 27.5,
       "radius": 2.8,
       "text": "Someone dressed the scarecrow in a dinner coat. The tailoring is better than mine.",
-      "text2": "There’s a watch chain under the coat. Gold. The watch is gone."
+      "text2": "There’s a watch chain under the coat. Gold. The watch is gone.",
+      "tell": false
     },
     {
       "id": "garden-basin",
@@ -129,7 +137,8 @@
       "z": 26.0,
       "radius": 3.5,
       "text": "Dry for years. Coins fused to the basin — wishes nobody ever collected.",
-      "text2": "All the coins are heads-down. Every one."
+      "text2": "All the coins are heads-down. Every one.",
+      "tell": true
     },
     {
       "id": "garden-shed",
@@ -138,7 +147,8 @@
       "z": 19.8,
       "radius": 3.4,
       "text": "Groundskeeper’s shed. The padlock is new. That bothers me more than the graves do.",
-      "text2": "Boot prints to the door. None coming back. Small boots."
+      "text2": "Boot prints to the door. None coming back. Small boots.",
+      "tell": true
     },
     {
       "id": "coach-doors",
@@ -147,7 +157,8 @@
       "z": 48.0,
       "radius": 3.6,
       "text": "Coach doors. Wheel ruts under the moss — decades old and deep as trenches.",
-      "text2": "Chalked inside the frame, old as the moss: 41. 9. A third number, scratched out hard."
+      "text2": "Chalked inside the frame, old as the moss: 41. 9. A third number, scratched out hard.",
+      "tell": true
     },
     {
       "id": "garden-well",
@@ -156,7 +167,8 @@
       "z": 22.5,
       "radius": 2.6,
       "text": "The rope is gone. The bucket too. The dark down there has a smell.",
-      "text2": "I dropped a pebble. I waited. I’m choosing to believe it landed."
+      "text2": "I dropped a pebble. I waited. I’m choosing to believe it landed.",
+      "tell": false
     },
     {
       "id": "fallen-marker",
@@ -165,7 +177,8 @@
       "z": 35.0,
       "radius": 2.6,
       "text": "This one fell face-down, and nobody turned it back over. Kinder not to read it, maybe.",
-      "text2": "Fine. I read it. The surname was mine. It’s a common name. It’s a common name."
+      "text2": "Fine. I read it. The surname was mine. It’s a common name. It’s a common name.",
+      "tell": false
     },
     {
       "id": "child-marker",
@@ -174,7 +187,8 @@
       "z": 17.0,
       "radius": 2.6,
       "text": "A child’s marker — smaller, whiter, newer than the rest. I stopped doing the arithmetic.",
-      "text2": "No dates. An epitaph, two words: COUNTED OUT."
+      "text2": "No dates. An epitaph, two words: COUNTED OUT.",
+      "tell": false
     }
   ],
   "beats": [

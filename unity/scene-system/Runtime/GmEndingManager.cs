@@ -10,6 +10,13 @@ public enum GmEndingType
 
 public static class GmEndingManager
 {
+    /// Catches needed for the canon golden ending.
+    ///
+    /// Was a bare 8 here and nowhere else, which made it impossible to ask whether the game hands
+    /// out more than that before the first card is dealt. It did: fourteen callable tells on the
+    /// walk in, against a threshold of eight.
+    public const int TrueEscapeCatchesRequired = 8;
+
     public static GmEndingType ResolveEnding()
     {
         // Priority 1: Madness Check
@@ -25,7 +32,7 @@ public static class GmEndingManager
         }
 
         // Priority 3: True Escape (Canon Golden Ending)
-        if (GmRunStore.AllShardsCollected && GmRunStore.CheatsCaughtCount >= 8)
+        if (GmRunStore.AllShardsCollected && GmRunStore.CheatsCaughtCount >= TrueEscapeCatchesRequired)
         {
             return GmEndingType.TrueEscape;
         }

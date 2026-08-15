@@ -130,4 +130,49 @@ public sealed class GmGroundsTellTests
         Assert.IsTrue(GmHouseBeginning.PlayerCaughtAldricsCard,
             "the player caught Aldric's card and the table never pays it off");
     }
+
+    [Test]
+    public void TheGroundsCannotHandOutEnoughCatchesToWinTheTrueEndingOnTheirOwn()
+    {
+        // The balance hole this file could not see. Its innocent-object case builds a FABRICATED
+        // interactable with an empty tell and the id "arrival-car" -- and in shipped data arrival-car
+        // carried a tell and returned Caught. The test passed while testing something that was not
+        // in the game.
+        //
+        // Catching a tell records a catch AND a defiance point, and True Escape gates on eight
+        // catches, so fourteen callable tells on the walk in decided the ending before the player
+        // sat down at a single table. Canon is seven games a night; the games have to matter more
+        // than the driveway.
+        var design = GmDesignRuntime.LoadDesign();
+        Assert.IsNotNull(design, "the prologue design data did not load");
+
+        int callable = 0, innocent = 0;
+        foreach (GmDesignRuntime.Poi poi in design.pois)
+        {
+            bool carries = poi.tell && !string.IsNullOrWhiteSpace(poi.text2);
+            if (carries) callable++; else innocent++;
+        }
+
+        Assert.Greater(innocent, 0,
+            "every POI on the grounds carries a tell, so the verb cannot be got wrong and the " +
+            "false-read line is unreachable");
+        Assert.Less(callable, GmEndingManager.TrueEscapeCatchesRequired,
+            $"the grounds alone offer {callable} catches against a True Escape threshold of " +
+            $"{GmEndingManager.TrueEscapeCatchesRequired} — the seven games decide nothing");
+    }
+
+    [Test]
+    public void EveryInnocentPoiStillSaysItsSecondLine()
+    {
+        // Making the verb risky must not cost the writing. An innocent POI keeps text2 as a second
+        // Examine, so the daughter's drawing and the watch chain with no watch are still read --
+        // they simply are not evidence of anything.
+        var design = GmDesignRuntime.LoadDesign();
+        var silent = new System.Collections.Generic.List<string>();
+        foreach (GmDesignRuntime.Poi poi in design.pois)
+            if (!poi.tell && string.IsNullOrWhiteSpace(poi.text2)) silent.Add(poi.id);
+
+        Assert.IsEmpty(silent, "these POIs were made innocent by DELETING their line rather than " +
+            "by demoting it to an observation:\n- " + string.Join("\n- ", silent));
+    }
 }
