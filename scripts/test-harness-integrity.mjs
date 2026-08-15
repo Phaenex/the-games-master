@@ -179,6 +179,22 @@ mustPass('a real night sky over dark ground', 'scan-frame-defects.mjs', [properN
 mustPass('the same bright frame in a scene that never claimed to be night',
   'scan-frame-defects.mjs', [daylightDir]);
 
+// The interior band is a WIDER threshold, so it needs the same two directions as everything else --
+// otherwise "interior" quietly becomes "unchecked". A room lit by oil lamps is legitimately warm; a
+// room with no blue in it at all is still a defect indoors.
+const furnaceRoomDir = path.join(sandbox, 'interior-furnace');
+mkdirSync(furnaceRoomDir, { recursive: true });
+writeGradientPng(path.join(furnaceRoomDir, 'room.png'), 32, [1, 0.35, 0.12]);
+const lamplitRoomDir = path.join(sandbox, 'interior-lamplit');
+mkdirSync(lamplitRoomDir, { recursive: true });
+writeGradientPng(path.join(lamplitRoomDir, 'room.png'), 32, [1, 0.62, 0.32]);
+
+mustFail('an interior with no cool light in it at all', 'scan-frame-defects.mjs', [furnaceRoomDir, '--interior']);
+mustPass('a lamp-lit interior inside the wider indoor band', 'scan-frame-defects.mjs', [lamplitRoomDir, '--interior']);
+// The same lamp-lit frame must still FAIL outdoors, or --interior is not a distinction, it is a
+// blanket exemption that any target could claim.
+mustFail('that same interior frame judged as an exterior', 'scan-frame-defects.mjs', [lamplitRoomDir]);
+
 mustFail('a frame lit only by orange', 'scan-frame-defects.mjs', [orangeDir]);
 mustFail('a frame lit only by blue', 'scan-frame-defects.mjs', [blueDir]);
 mustPass('a warm lamplit frame that is still balanced', 'scan-frame-defects.mjs', [warmDir]);

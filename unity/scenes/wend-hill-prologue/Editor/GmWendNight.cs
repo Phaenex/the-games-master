@@ -631,7 +631,21 @@ public static class GmWendNight
     /// stylised at a fixed 0.3 EV and what matters is the RATIO to the practicals, not realism.
     /// Measured effect: worst-frame cast 2.94 -> 2.03, and the lit fraction of the drive frame rose
     /// from 47% to 71%, which is the misty forest depth behind the trees becoming visible at all.
-    public const float DefaultMoonLux = 4.0f;
+    /// 1 -> 4 -> 6, and the middle step is the interesting one.
+    ///
+    /// At 1 lux the moon was invisible beside 24 practicals totalling 2475 lumens, so the night had
+    /// no cool light for the warm lamps to be warm AGAINST and the drive measured red:blue 2.94 with
+    /// 1% cool pixels. Raising the moon AND the sky together fixed that and washed the night out
+    /// instead -- overcast dusk at nine o'clock. Reverting the sky brought the night back and took
+    /// the cool fill with it, up to 2.68.
+    ///
+    /// The way out is that the two levers do different jobs. The moon lights SURFACES; the sky
+    /// lights FOG. Cool fill without a washed sky means more moon and no more sky. At 6 lux with the
+    /// sky held at 4 stops, the worst tour frame measures 2.31 and every frame passes the night rule.
+    ///
+    /// Physically generous -- real full moonlight is 0.05-0.3 lux -- and deliberately so: the scene
+    /// is stylised at a fixed 0.3 EV and what matters is the ratio to the practicals, not realism.
+    public const float DefaultMoonLux = 6.0f;
 
     /// Static rather than const so the moon can be bracketed like every other lever. The contract reads
     /// this same value, so a bracket run audits against what it actually built rather than failing on

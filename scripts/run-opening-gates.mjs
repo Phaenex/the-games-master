@@ -57,10 +57,18 @@ const gates = [
   // Runs LAST because it reads what every gate above produced. Percentile luminance proves
   // brightness and nothing else: a magenta object survived every green gate run on 2026-08-03 by
   // hiding in screenshots behind an opaque UI panel, while black-void gate piers scored "ok".
-  ['captured-frame render defects', 'node', ['scripts/scan-frame-defects.mjs',
+  // Split in two because the two halves are judged by different rules and one process gets one set
+  // of flags. Outdoors a warm cast means the night has no cool source left; indoors a room lit by
+  // oil lamps genuinely has one colour of light, and the exterior band condemns good shots. Both
+  // still scan for magenta, near-black, blown and flat.
+  ['captured-frame render defects (exterior)', 'node', ['scripts/scan-frame-defects.mjs',
     `${unityRoot}/Library/GmSceneIntelligence/standalone-proof/${scene}`,
-    `${unityRoot}/Library/GmSceneIntelligence/player-probes/${scene}`,
+    `${unityRoot}/Library/GmSceneIntelligence/player-probes/${scene}/walk`,
+    `${unityRoot}/Library/GmSceneIntelligence/player-probes/${scene}/walk-review`,
+    `${unityRoot}/Library/GmSceneIntelligence/player-probes/${scene}/walls`,
     `${unityRoot}/Screens/${sceneName}`, '--night'], CONTINUES],
+  ['captured-frame render defects (interior)', 'node', ['scripts/scan-frame-defects.mjs',
+    `${unityRoot}/Library/GmSceneIntelligence/player-probes/${scene}/house`, '--interior'], CONTINUES],
 ];
 
 function run(command, args) {

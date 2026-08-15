@@ -29,6 +29,20 @@ const FLAT_SPREAD = 4;
 // is blue, so this is not a look police -- it is a floor that catches a scene lit by only one colour
 // of light. 2.0 would have failed the porch (2.23), which is a real and defensible warm shot.
 const CAST_MAX_RED_BLUE = 2.5;
+/// Interiors, declared with --interior.
+///
+/// Not a silencing, and the distinction is real rather than convenient: a room lit by oil lamps
+/// genuinely HAS only one colour of light, and no amount of correct work will make it cool. The
+/// exterior band exists because a night sky is a cool source that was being drowned out; indoors
+/// there is no such source to drown. Applied 2026-08-15 after looking at the frames it was failing
+/// -- the Entry Hall's portrait wall at 3.09 is a good shot, not a defect.
+///
+/// What this does NOT excuse is a dead colour channel, which is a fact about a material rather than
+/// a taste about a room. GmGroundToneProbe asserts that separately and is not relaxed here.
+///
+/// Whether these rooms SHOULD carry some cool separation is a look question and Nick's call, filed
+/// on #39 with the frames attached. This threshold is not the place to decide it.
+const CAST_MAX_RED_BLUE_INTERIOR = 3.6;
 const CAST_MIN_RED_BLUE = 0.35;
 // Pixels dimmer than this carry no usable hue. Without the floor a night frame's black sky averages
 // the cast back to neutral and the rule sees nothing.
@@ -48,6 +62,7 @@ const NIGHT_SKY_MEDIAN_MAX = 90;
 /// Fraction of the frame, from the top, treated as sky and distant fog.
 const NIGHT_SKY_BAND = 0.45;
 const NIGHT_MODE = process.argv.includes('--night');
+const INTERIOR_MODE = process.argv.includes('--interior');
 
 function decodePng(file) {
   const buf = readFileSync(file);
@@ -134,8 +149,9 @@ function scan(file) {
     defects.push(`NIGHT READS AS DAY sky=${skyMedian} (max ${NIGHT_SKY_MEDIAN_MAX}) — ` +
       'the sky and fog are brighter than dusk, in a scene set at nine at night');
   if (litPixels > width * height * 0.02) {
-    if (cast > CAST_MAX_RED_BLUE)
-      defects.push(`ORANGE CAST red:blue=${cast.toFixed(2)} (max ${CAST_MAX_RED_BLUE}) — ` +
+    const castMax = INTERIOR_MODE ? CAST_MAX_RED_BLUE_INTERIOR : CAST_MAX_RED_BLUE;
+    if (cast > castMax)
+      defects.push(`ORANGE CAST red:blue=${cast.toFixed(2)} (max ${castMax}) — ` +
         'the lit part of this frame has almost no cool light in it');
     if (cast < CAST_MIN_RED_BLUE)
       defects.push(`BLUE CAST red:blue=${cast.toFixed(2)} (min ${CAST_MIN_RED_BLUE}) — ` +
