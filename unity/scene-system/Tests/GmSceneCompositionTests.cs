@@ -128,6 +128,49 @@ public class GmSceneCompositionTests
             new Vector3(2f, 2f, 2f), centerOffset: new Vector3(5f, 0f, 0f));
         Assert.That(zone.Contains(new Vector3(5f, 0f, 0f)), Is.True);
         Assert.That(zone.Contains(Vector3.zero), Is.False);
+
+        // The cluster half of the same idea: its centre is an authored local offset from whatever
+        // transform happens to own it, so a rotated or moved owner must carry the centre with it.
+        var offsetCluster = new GameObject("OffsetClusterOwner");
+        offsetCluster.transform.position = new Vector3(1f, 0f, -2f);
+        offsetCluster.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
+        GmCompositionCluster cluster = GmCompositionAuthoring.Cluster(offsetCluster, "offset-cluster",
+            "offset-zone", "Sits its radius over the anchor rather than over its hierarchy owner.",
+            "offset-anchor", centerOffset: new Vector3(4f, 0f, 0f));
+        Assert.That(cluster.LocalCenterOffset, Is.EqualTo(new Vector3(4f, 0f, 0f)));
+        // Yaw 90 turns local +x into world -z.
+        Assert.That(cluster.WorldCenter.x, Is.EqualTo(1f).Within(0.001f));
+        Assert.That(cluster.WorldCenter.z, Is.EqualTo(-6f).Within(0.001f));
+    }
+
+    [Test]
+    public void ClusterRadiusIsMeasuredFromItsOffsetCentreNotItsOwnerTransform()
+    {
+        var clusterObject = new GameObject("OffsetCluster");
+        GmCompositionAuthoring.Cluster(clusterObject, "offset-cluster", "arrival",
+            "Groups the far bench and its traces around a centre away from the scene origin.",
+            "offset-anchor", minSupports: 1, minDetails: 1, maxMembers: 6, maxRadius: 2f,
+            requireVariation: false, centerOffset: new Vector3(6f, 0f, 0f));
+
+        MarkCube("OffsetBench", new Vector3(6f, 0.9f, 0f), new Vector3(1.6f, 1.8f, 0.4f),
+            "offset-anchor", "offset-cluster", "furniture", "The dominant destination of the far group.",
+            GmCompositionRole.Anchor);
+        MarkCube("OffsetKerb", new Vector3(5.2f, 0.2f, 0.6f), new Vector3(0.4f, 0.4f, 0.4f),
+            "offset-kerb", "offset-cluster", "stone", "Turns the walking line toward the bench.",
+            GmCompositionRole.RouteCue);
+        GmCompositionElement stray = MarkCube("OffsetCup", new Vector3(6.7f, 0.3f, -0.5f),
+            new Vector3(0.6f, 0.6f, 0.6f), "offset-cup", "offset-cluster", "crockery",
+            "A human trace left where somebody sat.", GmCompositionRole.Detail);
+
+        List<string> gathered = Validate();
+        Assert.That(gathered, Is.Empty,
+            "members gathered around the authored centre were rejected:\n" + string.Join("\n", gathered));
+
+        // Same cluster, same radius: this places the trace within 2m of the owner's origin but far
+        // outside the authored centre. Only an audit that ignores the offset would accept it.
+        stray.transform.position = new Vector3(0.5f, 0.3f, 0.5f);
+        Assert.That(Validate(),
+            Has.Some.Contains("element 'offset-cup' lies outside cluster 'offset-cluster' radius"));
     }
 
     [Test]
@@ -225,6 +268,77 @@ public class GmSceneCompositionTests
         go.transform.localScale = scale;
         return GmCompositionAuthoring.Element(go, id, cluster, family, rationale, role,
             GmSpatialRelation.Grounded, surfaceY: 0f, groundTolerance: 0.02f);
+    }
+
+    // -------------------------------------------------------------------------------------------
+    // The UI-only exit. It shipped with no tests at all, and the commit that introduced it claimed
+    // "a room can never quietly acquire this and stop being checked" -- which was not true as
+    // written: the self-refutation counted composition MARKERS, and a scene that quietly grows
+    // geometry grows it without authoring a single zone. These four are the cases that claim needs.
+    // -------------------------------------------------------------------------------------------
+
+    /// Rebuilds the scene as a bare screen-space menu: no zones, no clusters, no elements.
+    void BeginScreenSpaceOnlyScene()
+    {
+        EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+        var composition = new GameObject("Composition");
+        GmCompositionAuthoring.Begin(composition, SceneId,
+            "A title screen. Everything the player sees is drawn on the glass, not standing in a room.",
+            minZones: 0, minClusters: 0, minElements: 0,
+            requireEveryShot: false, requireMotivatedLights: false, uiOnly: true);
+    }
+
+    [Test]
+    public void AScreenSpaceOnlySceneWithNoGeometryPasses()
+    {
+        // Without this direction the exit could be satisfied by a check that always fails, and the
+        // boot scene -- the only real user -- would be unshippable.
+        BeginScreenSpaceOnlyScene();
+        Assert.IsEmpty(Validate());
+    }
+
+    [Test]
+    public void AScreenSpaceOnlySceneThatGrowsAPropIsCaughtEvenWithNoMarkersOnIt()
+    {
+        // The real failure mode, and the one the marker count could not see. Nobody adds a zone to a
+        // prop they are quietly dropping into a menu scene.
+        BeginScreenSpaceOnlyScene();
+        GameObject.CreatePrimitive(PrimitiveType.Cube).name = "SomeoneAddedARoom";
+
+        List<string> issues = Validate();
+        CollectionAssert.IsNotEmpty(issues, "a prop appeared in a scene exempt from every geometry " +
+            "check and nothing objected");
+        StringAssert.Contains("world-space renderer", string.Join("\n", issues));
+    }
+
+    [Test]
+    public void AScreenSpaceOnlySceneThatGrowsALightIsCaught()
+    {
+        // Lights are the other half. A menu needs none; a room always has some, and light motivation
+        // is one of the checks the exit turns off.
+        BeginScreenSpaceOnlyScene();
+        new GameObject("SomeoneLitTheRoom").AddComponent<Light>();
+
+        List<string> issues = Validate();
+        CollectionAssert.IsNotEmpty(issues, "a light appeared in a scene exempt from light motivation " +
+            "checks and nothing objected");
+        StringAssert.Contains("light(s)", string.Join("\n", issues));
+    }
+
+    [Test]
+    public void AScreenSpaceCanvasIsNotMistakenForARoom()
+    {
+        // The false positive that would make the check useless: a menu's own text and images are
+        // Renderers too. Only ones outside a screen-space Canvas are props.
+        BeginScreenSpaceOnlyScene();
+        var canvasObject = new GameObject("MenuCanvas");
+        var canvas = canvasObject.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        var label = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        label.name = "TitleArt";
+        label.transform.SetParent(canvasObject.transform, false);
+
+        Assert.IsEmpty(Validate(), "a renderer under a screen-space canvas is the menu, not a room");
     }
 
     static List<string> Validate()

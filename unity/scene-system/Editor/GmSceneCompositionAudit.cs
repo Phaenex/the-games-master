@@ -85,6 +85,20 @@ public static class GmSceneCompositionAudit
                     $"{clusters.Count} cluster(s) and {elements.Count} element(s) — it has real " +
                     "composition, so drop the uiOnly declaration and give it real minimums");
             }
+
+            // The check above only sees composition MARKERS, and markers are the first thing anyone
+            // skips. A scene that quietly grows real geometry grows it without authoring a single
+            // zone, which is the whole failure mode -- so counting markers to detect it is backwards.
+            // The claim in the commit that introduced this exit ("a room can never quietly acquire
+            // this and stop being checked") was not true as written. Count the geometry itself.
+            int worldRenderers = CountWorldSpaceRenderers(scene);
+            int lights = FindInScene<Light>(scene).Count;
+            if (worldRenderers > 0 || lights > 0)
+            {
+                issues.Add($"scene is declared screen-space only but contains {worldRenderers} " +
+                    $"world-space renderer(s) and {lights} light(s) — that is a room, not a menu, " +
+                    "and it is currently exempt from every geometry check");
+            }
         }
 
         if (zones.Count < manifest.MinimumZones)
@@ -124,6 +138,24 @@ public static class GmSceneCompositionAudit
         foreach (var candidate in UnityEngine.Object.FindObjectsByType<T>(FindObjectsInactive.Include))
             if (candidate.gameObject.scene == scene) result.Add(candidate);
         return result;
+    }
+
+    /// Renderers that draw into the world rather than onto the screen.
+    ///
+    /// A screen-space menu legitimately owns renderers -- a Canvas in overlay or camera mode drives
+    /// them, and TextMeshPro's UI text is one. Those are the menu. Anything NOT under such a Canvas
+    /// is a prop standing in a room, and a room that has taken the UI-only exit is exempt from every
+    /// check this file performs.
+    static int CountWorldSpaceRenderers(Scene scene)
+    {
+        int count = 0;
+        foreach (Renderer renderer in FindInScene<Renderer>(scene))
+        {
+            var canvas = renderer.GetComponentInParent<Canvas>(true);
+            if (canvas != null && canvas.rootCanvas.renderMode != RenderMode.WorldSpace) continue;
+            count++;
+        }
+        return count;
     }
 
     static Dictionary<string, T> UniqueMap<T>(IReadOnlyList<T> items, Func<T, string> id,
