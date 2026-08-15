@@ -121,6 +121,39 @@ build** if purchased doorway colliders still seal the route. So there is hard au
 remove collision and **no counterpart check anywhere that asserts anything is still solid**. That
 asymmetry is the machine that produces this bug, and it will keep producing it.
 
+## 2026-08-15 (latest) — three calls you handed me, made. Veto any of them.
+
+You said to make the best choice, so these are decided rather than asked. Each is grounded in a doc
+rather than my taste, and each is cheap to reverse.
+
+### 1. The tell verb — DECIDED, shipped in `f0e6560`
+**Six tells, eight innocent.** The line is whether something is WRONG and checkable, not whether it
+is interesting. Kept: the debt written short in an unfamiliar hand, one mason's hand on stones a
+century apart, every coin heads-down, boots to the shed and none back, scratches from *under* the
+chapel door, a chalked number scratched out hard. The other eight keep their line as a second
+Examine — the writing is not lost, it simply is not evidence. Six against a True Escape threshold of
+eight means the tables now decide the ending, which is what "seven games a night" requires.
+
+### 2. Which rooms are games at the table — DECIDED
+**Parlor and Shut the Box are two of the seven. Court, the Hidden Room and the Labyrinth are not.**
+Their own content settles it: a trial is a judgement on games already played, the Hidden Room is a
+secret you find, and the Labyrinth is a chase. None of them is a game Aldric deals you a hand in.
+So five of the seven table games are unbuilt, and the three story rooms punctuate the night rather
+than counting toward it. If you disagree, the cheapest place to say so is the order list in #38
+before any completion conditions get written against it.
+
+### 3. Interiors and cool light — DECIDED in principle, not yet built
+**Yes, they should carry cool separation, and it must come from a window.** Right now every interior
+surface is warm brown lit by 2000K lamps, so the rooms read as one flat sepia; the porch shot works
+precisely because warm lamplight sits against cool fog. The motivated source is moonlight through a
+window, and it is thematically the right one: the outside is visible and unreachable, which is
+Threshold Refusal stated in light instead of dialogue. An unmotivated fill light would be rejected
+by the composition audit anyway, correctly.
+
+Not built yet because it is room content rather than a lighting constant. Tracked on #39. The gate
+no longer blocks on it — interiors are judged on a wider band, which is a real distinction and not
+a silencing: a room lit by oil lamps genuinely has one colour of light.
+
 ## 2026-08-15 (later) — the tell verb has no risk, and it quietly decides which ending you get
 
 Not a bug. A balance hole I opened myself when I made the grounds discrepancies callable, and it
