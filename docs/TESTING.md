@@ -424,6 +424,53 @@ Related, and it bit twice in one session: **run Unity tasks with the sandbox dis
 a test failure and is not one. A green-looking commit message was written on the back of that once
 today; the tests did pass on re-run, but the claim was made before the evidence existed.
 
+## The moon lights surfaces; the sky lights fog (2026-08-15)
+
+The prologue's night was fixed three times in one session, and the reason it took three is that two
+levers looked interchangeable and are not.
+
+- **Moon (`-gmMoonLux`)** lights *surfaces*. Raising it gives warm lamps something cool to be warm
+  against, which is what the night was actually missing.
+- **Sky (`-gmSkyExposureDrop`)** lights *fog*. Raising it scatters across the entire upper half of
+  every open frame, and turned nine at night into overcast dusk.
+
+Raising both together fixed the cast and washed the night out. The answer was more moon and no more
+sky: **6 lux at 4 stops**. Cast 2.94 → 2.31, night intact.
+
+**The wash was caught by a person looking at a live window, not by any check**, and the reasons are
+worth keeping:
+
+1. The colour-cast rule measures **hue**, so it cannot see a frame that is correctly balanced and far
+   too bright. It read 1.35 and passed.
+2. The eight tour frames all point at the drive, not at open sky, so they stayed dark (median 18–54)
+   while route frames hit 74 and map edges 122–164.
+3. The frames that showed it **did not exist yet** — gates 9–11 had never run, because gate 8 stopped
+   the pipeline dead.
+
+## Separate the gates that BUILD from the gates that JUDGE (2026-08-15)
+
+The pipeline stopped at the first failure, on the reasoning that every later gate depends on the
+earlier artifact. True of the gates that produce things, false of the gates that assess them — and
+it cost real coverage: gate 8's perf budget had been 4ms high all day, so gates 9, 10, 11 and 12 had
+**never run**. Four gates' worth of evidence thrown away by one number.
+
+This is the gate-2 deadlock again, one gate along. Each gate now declares whether its failure
+invalidates what follows; blocking stays the default and every exception carries its reason. The run
+still fails on any failure — it just stops discarding the evidence that would have followed. And
+"did not run" prints as a **third state**, because the old summary silently omitted gates it never
+reached, so seven-of-twelve looked identical to twelve-minus-one.
+
+## Classify by origin consistently, or a font server fails your build (2026-08-15)
+
+The web harness routed third-party *network* failures to a non-gating bucket and then pushed the
+console error that **the same failure** produces straight into the gating list. A Google Fonts 404
+therefore printed "47 passed, 0 failed" and returned red — and with the pipeline stopping at the
+first failure, one CDN hiccup cost all twelve gates below it.
+
+If a rule has an exemption, apply it to **every** signal the exempted thing emits, not just the one
+you thought of. And when a gate fails while its own summary says everything passed, that gap is the
+bug.
+
 ## Known coverage boundaries (honest)
 
 - **Court / Shut the Box**: boot + phase screenshots only. Their gameplay is Phase 1/2 work,
