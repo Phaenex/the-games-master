@@ -276,22 +276,30 @@ public static class GmShutTheBoxBuilder
             DieWorldSize / Mathf.Max(1e-4f, inherited.y),
             DieWorldSize / Mathf.Max(1e-4f, inherited.z));
 
+        // Un-flattening the die made it TALLER in the tray's local space (scale.y 0.12 -> 0.825), so
+        // the old localPosition.y of 0.6 left it half-buried in the felt -- 2.25cm sunk. Fixing one
+        // axis of a transform and not re-checking the others is exactly the mistake that produced
+        // the floating props in three other scenes today, committed here by me a few hours after
+        // fixing theirs. The tray is a scaled cube, so its top face is y=+0.5 in its own local space;
+        // rest the die on it and derive the offset from the scale rather than restating a literal.
+        float dieRestY = 0.5f + dieScale.y * 0.5f;
+
         GameObject die1 = GameObject.CreatePrimitive(PrimitiveType.Cube);
         die1.name = "Die1";
         die1.transform.SetParent(dicePair.transform, false);
-        die1.transform.localPosition = new Vector3(-0.1f, 0.6f, 0f);
+        die1.transform.localPosition = new Vector3(-0.1f, dieRestY, 0f);
         die1.transform.localScale = dieScale;
         ApplyMaterial(die1, "HDRP/Lit", new Color(0.92f, 0.90f, 0.82f), 0.0f, 0.6f);
 
         GameObject die2 = GameObject.CreatePrimitive(PrimitiveType.Cube);
         die2.name = "Die2";
         die2.transform.SetParent(dicePair.transform, false);
-        die2.transform.localPosition = new Vector3(0.1f, 0.6f, 0f);
+        die2.transform.localPosition = new Vector3(0.1f, dieRestY, 0f);
         die2.transform.localScale = dieScale;
         ApplyMaterial(die2, "HDRP/Lit", new Color(0.92f, 0.90f, 0.82f), 0.0f, 0.6f);
         refs.boneDice = dicePair;
         Debug.Log($"[GmShutTheBox] dice: inherited lossy {inherited}, die scale {dieScale}, " +
-            $"world size {DieWorldSize * 100f:F2}cm cube");
+            $"world size {DieWorldSize * 100f:F2}cm cube, resting at tray-local y {dieRestY:F4}");
 
         // Leather rim of rolling pit
         refs.diceRim = Cube(parent, "DiceRim", new Vector3(0f, 0.79f, 0f),
