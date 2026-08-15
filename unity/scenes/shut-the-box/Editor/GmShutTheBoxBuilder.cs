@@ -251,23 +251,49 @@ public static class GmShutTheBoxBuilder
         refs.diceTray = tray;
 
         // Bone Dice (Pair)
+        //
+        // These render as WAFERS, not dice, and did so every rebuild: uniform localScale
+        // (0.12, 0.12, 0.12) -- an unambiguous "this is a cube" -- inherited two levels of
+        // non-uniform scale, GameTable (1.1, 0.9, 1.1) then the felt tray (0.45, 0.08, 0.45), for a
+        // lossy (0.495, 0.072, 0.495). Final world size 5.94cm x 0.86cm x 5.94cm, a 6.9:1 slab. In a
+        // dice game.
+        //
+        // The compensation is DERIVED from the parent's actual lossyScale rather than hardcoded, so
+        // re-tuning the table or the tray cannot silently flatten the dice again -- that recurrence
+        // is the whole defect class (the same compounding scale inflated Court's judge desk to
+        // 12.6m wide inside a 14m room).
+        //
+        // Target size is the die's CURRENT 5.94cm footprint, not its nominal 12cm. The pair sit
+        // 9.9cm apart, spacing that was plainly eyeballed against the broken render; restoring the
+        // nominal size would make two 12cm dice intersect. So this fixes the collapsed axis and
+        // changes nothing the author could actually see. Whether the dice should then be BIGGER is a
+        // taste call, and it goes to Nick rather than getting smuggled in behind a bug fix.
         var dicePair = new GameObject("BoneDice");
         dicePair.transform.SetParent(tray.transform, false);
+
+        Vector3 inherited = dicePair.transform.lossyScale;
+        const float DieWorldSize = 0.0594f;
+        var dieScale = new Vector3(
+            DieWorldSize / Mathf.Max(1e-4f, inherited.x),
+            DieWorldSize / Mathf.Max(1e-4f, inherited.y),
+            DieWorldSize / Mathf.Max(1e-4f, inherited.z));
 
         GameObject die1 = GameObject.CreatePrimitive(PrimitiveType.Cube);
         die1.name = "Die1";
         die1.transform.SetParent(dicePair.transform, false);
         die1.transform.localPosition = new Vector3(-0.1f, 0.6f, 0f);
-        die1.transform.localScale = new Vector3(0.12f, 0.12f, 0.12f);
+        die1.transform.localScale = dieScale;
         ApplyMaterial(die1, "HDRP/Lit", new Color(0.92f, 0.90f, 0.82f), 0.0f, 0.6f);
 
         GameObject die2 = GameObject.CreatePrimitive(PrimitiveType.Cube);
         die2.name = "Die2";
         die2.transform.SetParent(dicePair.transform, false);
         die2.transform.localPosition = new Vector3(0.1f, 0.6f, 0f);
-        die2.transform.localScale = new Vector3(0.12f, 0.12f, 0.12f);
+        die2.transform.localScale = dieScale;
         ApplyMaterial(die2, "HDRP/Lit", new Color(0.92f, 0.90f, 0.82f), 0.0f, 0.6f);
         refs.boneDice = dicePair;
+        Debug.Log($"[GmShutTheBox] dice: inherited lossy {inherited}, die scale {dieScale}, " +
+            $"world size {DieWorldSize * 100f:F2}cm cube");
 
         // Leather rim of rolling pit
         refs.diceRim = Cube(parent, "DiceRim", new Vector3(0f, 0.79f, 0f),
