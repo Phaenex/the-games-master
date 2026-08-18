@@ -37,8 +37,22 @@ public static class GmEntryHallBuilder
     public const string BarredGuestDoorId = "door_barred_guest";
     public const string AtticHatchId = "door_attic_hatch";
     public const string AtticKeyClueId = "key:attic_hatch";
+    public const string VaultGrateId = "door_vault_grate";
     public const float SecondFloorY = 3.4f;
     public const float AtticFloorY = 6.5f;
+    // 12 * 0.24 m. A 1.8 m capsule needs the cellar floor this far below the hall
+    // slab (underside y=-0.2) before the head clears the walking surface.
+    public const float CellarFloorY = -2.88f;
+    public const float CellarPanelX = 2.85f;
+    public const float CellarPanelZ = 8.35f;
+    public const float CellarHoleX = 1.55f;
+    public const float CellarHoleZ = 3.3f;
+
+    public static float CellarWellCenterX => CellarPanelX - CellarHoleX * 0.5f;
+    public static float CellarHoleWest => CellarWellCenterX - CellarHoleX * 0.5f;
+    public static float CellarHoleEast => CellarWellCenterX + CellarHoleX * 0.5f;
+    public static float CellarHoleSouth => CellarPanelZ - CellarHoleZ * 0.5f;
+    public static float CellarHoleNorth => CellarPanelZ + CellarHoleZ * 0.5f;
 
     [MenuItem("GamesMaster/Scenes/Rebuild Entry Hall")]
     public static void Build()
@@ -95,13 +109,19 @@ public static class GmEntryHallBuilder
 
     static void BuildArchitecture(Transform parent)
     {
-        // Floor (Marble)
-        GameObject floor = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        floor.name = "HallFloor";
-        floor.transform.SetParent(parent, false);
-        floor.transform.position = new Vector3(0f, -0.1f, 0f);
-        floor.transform.localScale = new Vector3(12f, 0.2f, 20f);
-        GmSceneBuildUtility.ApplyVictorianSurface(floor, "floor", 2.2f);
+        // Floor split around the under-stair well. A single 12x20 slab used to fill the
+        // east-flank panel, so opening it dumped a body into stair mesh.
+        var hallFloor = new GameObject("HallFloor");
+        hallFloor.transform.SetParent(parent, false);
+        FloorSlab(hallFloor.transform, "HallFloorWest",
+            new Vector3((-6f + CellarHoleWest) * 0.5f, -0.1f, 0f),
+            new Vector3(CellarHoleWest - (-6f), 0.2f, 20f));
+        FloorSlab(hallFloor.transform, "HallFloorEast",
+            new Vector3((CellarHoleEast + 6f) * 0.5f, -0.1f, 0f),
+            new Vector3(6f - CellarHoleEast, 0.2f, 20f));
+        FloorSlab(hallFloor.transform, "HallFloorMidSouth",
+            new Vector3(CellarWellCenterX, -0.1f, (-10f + CellarHoleSouth) * 0.5f),
+            new Vector3(CellarHoleX, 0.2f, CellarHoleSouth - (-10f)));
 
         // The runner uses five real carpet sections. Stretching one carpet to the hall's 7.5:1
         // footprint would either crush its pile flat or widen it across most of the room.
@@ -312,13 +332,14 @@ public static class GmEntryHallBuilder
         var stairs = new GameObject("GrandStaircase");
         stairs.transform.SetParent(parent, false);
         stairs.transform.position = new Vector3(0f, 0f, 8.4f);
-        for (int side = -1; side <= 1; side += 2)
-        {
-            GmVictorianInteriorKit.PlaceGrounded("Stair",
-                side < 0 ? "GrandStairLeft" : "GrandStairRight", stairs.transform,
-                new Vector3(side * 1.15f, 0f, 8.4f), new Vector3(2.2f, 3.4f, 5.0f),
-                Quaternion.Euler(0f, side * 3f, 0f), "stair", surfaceY: 0f);
-        }
+        GmVictorianInteriorKit.PlaceGrounded("Stair", "GrandStairLeft", stairs.transform,
+            new Vector3(-1.15f, 0f, 8.4f), new Vector3(2.2f, 3.4f, 5.0f),
+            Quaternion.Euler(0f, -3f, 0f), "stair", surfaceY: 0f);
+        // East flight stays under the treads. The old 2.2 m AABB reached x=2.25 and
+        // filled the cellar well behind the panel.
+        GmVictorianInteriorKit.PlaceGrounded("Stair", "GrandStairRight", stairs.transform,
+            new Vector3(0.50f, 0f, 8.4f), new Vector3(1.4f, 3.4f, 5.0f),
+            Quaternion.Euler(0f, 3f, 0f), "stair", surfaceY: 0f);
         BuildWalkableTreads(stairs.transform);
         authored["grand-staircase"] = stairs;
     }
@@ -826,11 +847,15 @@ public static class GmEntryHallBuilder
 
         // Under-stair access is the east flank of the rising flights, not the south face.
         // The south face is the first tread. A panel there (0, 6.55) stopped a body at y=0.23.
+        // x=2.85 is the east lip of a 1.55 m well: 2.28 left only 1.12 m, and 1.15 m failed
+        // for a 1.8 m capsule in the attic.
         GmEstateDoor cellar = GmEstateDoorFactory.Place(environment, "CellarPanel",
-            new Vector3(2.28f, 1.05f, 8.35f), 1.15f, 2.05f, GmEstateDoorFacing.West,
+            new Vector3(CellarPanelX, 1.05f, CellarPanelZ), 1.15f, 2.05f, GmEstateDoorFacing.West,
             CellarDoorId, "Cellar Panel", locked: true, barred: false, secret: true,
             requiredKey: LibraryLeverClueId, keyName: "bookcase lever", wood: doorWood);
         authored["cellar-panel"] = cellar.gameObject;
+
+        BuildCellar(environment, authored, lighting);
 
         BuildNorthLibrary(environment, authored, lighting);
 
@@ -847,6 +872,277 @@ public static class GmEntryHallBuilder
             "Acquired the Brass Skeleton Key.",
             "An ornate, tarnished brass key bearing the Blackwood crest. The library lock looks to match.");
         authored["brass-skeleton-key"] = key;
+    }
+
+    static void BuildCellar(Transform parent, Dictionary<string, GameObject> authored,
+        Transform lighting)
+    {
+        var vault = new GameObject("CellarVault");
+        vault.transform.SetParent(parent, false);
+        authored["cellar-vault"] = vault;
+
+        float wellX = CellarWellCenterX;
+        float wallH = 2.2f - CellarFloorY;
+        float wallMidY = (2.2f + CellarFloorY) * 0.5f;
+        float belowH = 0.1f - CellarFloorY;
+        float belowMidY = (0.1f + CellarFloorY) * 0.5f;
+
+        FloorSlab(vault.transform, "CellarFloor",
+            new Vector3(2.75f, CellarFloorY - 0.1f, 4.08f),
+            new Vector3(5.2f, 0.2f, 5.25f));
+        FloorSlab(vault.transform, "CellarWellFloor",
+            new Vector3(wellX, CellarFloorY - 0.1f, CellarPanelZ),
+            new Vector3(CellarHoleX, 0.2f, CellarHoleZ));
+
+        WallSlab(vault.transform, "CellarWestWall",
+            new Vector3(0.15f, CellarFloorY + 1.45f, 4.08f),
+            new Vector3(0.28f, 2.9f, 5.25f));
+        WallSlab(vault.transform, "CellarEastWall",
+            new Vector3(5.35f, CellarFloorY + 1.45f, 4.08f),
+            new Vector3(0.28f, 2.9f, 5.25f));
+        WallSlab(vault.transform, "CellarSouthWallWest",
+            new Vector3(1.05f, CellarFloorY + 1.45f, 1.45f),
+            new Vector3(1.8f, 2.9f, 0.28f));
+        WallSlab(vault.transform, "CellarSouthWallEast",
+            new Vector3(4.45f, CellarFloorY + 1.45f, 1.45f),
+            new Vector3(1.8f, 2.9f, 0.28f));
+        WallSlab(vault.transform, "CellarSouthWallHeader",
+            new Vector3(2.75f, CellarFloorY + 2.55f, 1.45f),
+            new Vector3(1.6f, 0.7f, 0.28f));
+        WallSlab(vault.transform, "CellarNorthWallWest",
+            new Vector3(0.72f, CellarFloorY + 1.45f, CellarHoleSouth),
+            new Vector3(1.15f, 2.9f, 0.28f));
+        WallSlab(vault.transform, "CellarNorthWallEast",
+            new Vector3(4.10f, CellarFloorY + 1.45f, CellarHoleSouth),
+            new Vector3(2.5f, 2.9f, 0.28f));
+
+        WallSlab(vault.transform, "CellarWellWest",
+            new Vector3(CellarHoleWest, wallMidY, CellarPanelZ),
+            new Vector3(0.16f, wallH, CellarHoleZ));
+        WallSlab(vault.transform, "CellarWellEastLow",
+            new Vector3(CellarHoleEast, belowMidY, CellarPanelZ),
+            new Vector3(0.16f, belowH, CellarHoleZ));
+        WallSlab(vault.transform, "CellarWellEastSouthJamb",
+            new Vector3(CellarHoleEast, 1.1f, (CellarHoleSouth + 7.775f) * 0.5f),
+            new Vector3(0.16f, 2.2f, 7.775f - CellarHoleSouth));
+        WallSlab(vault.transform, "CellarWellEastNorthJamb",
+            new Vector3(CellarHoleEast, 1.1f, (8.925f + CellarHoleNorth) * 0.5f),
+            new Vector3(0.16f, 2.2f, CellarHoleNorth - 8.925f));
+        WallSlab(vault.transform, "CellarWellEastHeader",
+            new Vector3(CellarHoleEast, 2.28f, CellarPanelZ),
+            new Vector3(0.16f, 0.36f, 1.22f));
+        WallSlab(vault.transform, "CellarWellSouthHall",
+            new Vector3(wellX, 1.2f, CellarHoleSouth - 0.10f),
+            new Vector3(CellarHoleX, 2.4f, 0.16f));
+        WallSlab(vault.transform, "CellarWellNorthLow",
+            new Vector3(wellX, belowMidY, CellarHoleNorth),
+            new Vector3(CellarHoleX, belowH, 0.16f));
+
+        authored["cellar-stair"] = BuildCellarStairs(vault.transform, wellX);
+
+        Material iron = CreateMaterial("EntryHall_VaultIron",
+            new Color(0.07f, 0.065f, 0.06f), 0.62f, 0.38f);
+
+        GameObject barrel = new GameObject("CellarBarrel");
+        barrel.transform.SetParent(vault.transform, false);
+        barrel.transform.position = new Vector3(4.55f, CellarFloorY, 3.35f);
+        GmOwnedPropFactory.PlacePrefab(
+            "Assets/LeartesStudios/Abandoned Village/HDRP/Art/Prefabs/SM_Barrel_01.prefab",
+            "CellarBarrel", barrel.transform, new Vector3(4.55f, CellarFloorY + 0.42f, 3.35f),
+            new Vector3(0.62f, 0.84f, 0.62f), Quaternion.Euler(0f, 18f, 0f),
+            ground: true, surfaceY: CellarFloorY);
+        barrel.AddComponent<BoxCollider>().size = new Vector3(0.66f, 0.84f, 0.66f);
+        authored["cellar-barrel"] = barrel;
+
+        GameObject barrelTwo = new GameObject("CellarBarrelStack");
+        barrelTwo.transform.SetParent(vault.transform, false);
+        barrelTwo.transform.position = new Vector3(4.35f, CellarFloorY, 4.15f);
+        GmOwnedPropFactory.PlacePrefab(
+            "Assets/LeartesStudios/Abandoned Village/HDRP/Art/Prefabs/SM_Barrel_01.prefab",
+            "CellarBarrelStack", barrelTwo.transform, new Vector3(4.35f, CellarFloorY + 0.38f, 4.15f),
+            new Vector3(0.55f, 0.76f, 0.55f), Quaternion.Euler(0f, -22f, 0f),
+            ground: true, surfaceY: CellarFloorY);
+        barrelTwo.AddComponent<BoxCollider>().size = new Vector3(0.6f, 0.76f, 0.6f);
+
+        GameObject crate = new GameObject("CellarCrate");
+        crate.transform.SetParent(vault.transform, false);
+        crate.transform.position = new Vector3(4.7f, CellarFloorY, 5.05f);
+        GmOwnedPropFactory.PlacePrefab(
+            "Assets/LeartesStudios/Abandoned Village/HDRP/Art/Prefabs/SM_Crate_01.prefab",
+            "CellarCrate", crate.transform, new Vector3(4.7f, CellarFloorY + 0.32f, 5.05f),
+            new Vector3(0.64f, 0.64f, 0.64f), Quaternion.Euler(0f, 40f, 0f),
+            ground: true, surfaceY: CellarFloorY);
+        crate.AddComponent<BoxCollider>().size = new Vector3(0.68f, 0.64f, 0.68f);
+
+        GameObject brazier = new GameObject("CellarBrazier");
+        brazier.transform.SetParent(vault.transform, false);
+        brazier.transform.position = new Vector3(0.85f, CellarFloorY, 3.55f);
+        GmOwnedPropFactory.PlacePrefab(
+            "Assets/LeartesStudios/WitchVillage/HDRP/Art/Prefabs/SM_brasier.prefab",
+            "CellarBrazier", brazier.transform, new Vector3(0.85f, CellarFloorY + 0.38f, 3.55f),
+            new Vector3(0.55f, 0.72f, 0.55f), Quaternion.identity,
+            ground: true, surfaceY: CellarFloorY);
+        authored["cellar-brazier"] = brazier;
+
+        GameObject brazierTwo = new GameObject("CellarBrazierNorth");
+        brazierTwo.transform.SetParent(vault.transform, false);
+        brazierTwo.transform.position = new Vector3(0.95f, CellarFloorY, 5.25f);
+        GmOwnedPropFactory.PlacePrefab(
+            "Assets/LeartesStudios/WitchVillage/HDRP/Art/Prefabs/SM_brasier.prefab",
+            "CellarBrazierNorth", brazierTwo.transform, new Vector3(0.95f, CellarFloorY + 0.38f, 5.25f),
+            new Vector3(0.5f, 0.68f, 0.5f), Quaternion.Euler(0f, 35f, 0f),
+            ground: true, surfaceY: CellarFloorY);
+        authored["cellar-brazier-two"] = brazierTwo;
+
+        var lantern = new GameObject("CellarLantern");
+        lantern.transform.SetParent(lighting, false);
+        lantern.transform.position = new Vector3(2.75f, CellarFloorY + 2.05f, 4.2f);
+        GmVictorianInteriorKit.Place("Lamp_2", "CellarLantern", lantern.transform,
+            lantern.transform.position, new Vector3(0.28f, 0.4f, 0.28f),
+            Quaternion.identity, "lamp");
+        authored["cellar-lantern"] = lantern;
+
+        authored["cellar-grate"] = BuildVaultGrate(vault.transform, iron);
+
+        var panelLamp = new GameObject("CellarPanelLamp");
+        panelLamp.transform.SetParent(lighting, false);
+        panelLamp.transform.position = new Vector3(3.42f, 2.12f, CellarPanelZ);
+        GmVictorianInteriorKit.Place("Lamp_2", "CellarPanelSconce", panelLamp.transform,
+            panelLamp.transform.position, new Vector3(0.26f, 0.42f, 0.3f),
+            Quaternion.Euler(0f, 90f, 0f), "lamp");
+        authored["cellar-panel-lamp"] = panelLamp;
+        authored["cellar-panel-lamp-light"] = CreatePointLight(lighting, "CellarPanelSconceLight",
+            new Vector3(3.28f, 2.02f, CellarPanelZ), 4.8f, 28f, new Color(1.0f, 0.7f, 0.4f));
+
+        authored["cellar-brazier-light"] = CreatePointLight(lighting, "CellarBrazierLight",
+            new Vector3(0.85f, CellarFloorY + 0.85f, 3.55f), 6.5f, 48f,
+            new Color(1.0f, 0.55f, 0.22f));
+        authored["cellar-brazier-two-light"] = CreatePointLight(lighting, "CellarBrazierNorthLight",
+            new Vector3(0.95f, CellarFloorY + 0.82f, 5.25f), 5.8f, 36f,
+            new Color(1.0f, 0.5f, 0.2f));
+        authored["cellar-vault-fill"] = CreatePointLight(lighting, "CellarVaultFill",
+            new Vector3(2.75f, CellarFloorY + 1.85f, 4.2f), 8.5f, 40f,
+            new Color(1.0f, 0.62f, 0.32f));
+    }
+
+    static GameObject BuildCellarStairs(Transform parent, float wellX)
+    {
+        var stairs = new GameObject("CellarStairs");
+        stairs.transform.SetParent(parent, false);
+        stairs.transform.position = new Vector3(wellX, 0f, CellarPanelZ);
+        const int Steps = 12;
+        const float Rise = 0.24f;
+        const float Run = 0.12f;
+        float startZ = CellarPanelZ + 0.12f;
+        Material treadWood = CreateMaterial("EntryHall_CellarTread",
+            new Color(0.16f, 0.08f, 0.04f), 0.03f, 0.28f);
+        float treadWidth = CellarHoleX - 0.12f;
+        AddBarrierCollider(stairs.transform, "CellarWellLanding",
+            new Vector3(wellX, -0.04f, CellarPanelZ),
+            new Vector3(treadWidth, 0.08f, 0.7f));
+        GameObject rail = GmOwnedPropFactory.CreateRoundedProp("CellarStairRail",
+            stairs.transform, new Vector3(wellX - 0.52f, -0.12f, CellarPanelZ - 0.25f),
+            Quaternion.Euler(22f, 0f, 0f), new Vector3(0.08f, 0.08f, 0.85f), 0.012f, treadWood);
+        for (int i = 0; i < Steps; i++)
+        {
+            float top = -(i + 1) * Rise;
+            float z = startZ - i * Run;
+            GmOwnedPropFactory.CreateRoundedProp($"CellarTread_{i + 1:00}",
+                stairs.transform, new Vector3(wellX, top - 0.02f, z), Quaternion.identity,
+                new Vector3(treadWidth - 0.08f, 0.05f, Run + 0.02f), 0.01f, treadWood);
+            AddBarrierCollider(stairs.transform, $"CellarStairTread_{i + 1:00}",
+                new Vector3(wellX, top - 0.04f, z),
+                new Vector3(treadWidth, 0.08f, Run + 0.04f));
+        }
+        return rail;
+    }
+
+    static GameObject BuildVaultGrate(Transform parent, Material iron)
+    {
+        const float WallZ = 1.45f;
+        const float Opening = 1.45f;
+        const float GrateX = 2.75f;
+        const float GrateY = CellarFloorY + 1.05f;
+
+        var grate = new GameObject("VaultGrate");
+        grate.transform.SetParent(parent, false);
+        grate.transform.position = new Vector3(GrateX, GrateY, WallZ);
+
+        for (int side = -1; side <= 1; side += 2)
+        {
+            float swingAngle = side * 62f;
+            Vector3 hinge = new Vector3(GrateX + side * Opening * 0.5f, GrateY, WallZ + 0.04f);
+            Vector3 closedCenterFromHinge = new Vector3(-side * Opening * 0.25f, 0f, 0f);
+            Vector3 center = hinge + Quaternion.Euler(0f, swingAngle, 0f) * closedCenterFromHinge;
+            string leafName = side < 0 ? "VaultGrateLeafWest" : "VaultGrateLeafEast";
+            var leaf = new GameObject(leafName);
+            leaf.transform.SetParent(grate.transform, false);
+            leaf.transform.SetPositionAndRotation(center, Quaternion.Euler(0f, swingAngle, 0f));
+            GmOwnedPropFactory.CreateRoundedProp(leafName + "StileOuter", leaf.transform,
+                center + Quaternion.Euler(0f, swingAngle, 0f) * new Vector3(-side * Opening * 0.22f, 0f, 0f),
+                Quaternion.Euler(0f, swingAngle, 0f),
+                new Vector3(0.05f, 2.05f, 0.05f), 0.01f, iron);
+            GmOwnedPropFactory.CreateRoundedProp(leafName + "StileInner", leaf.transform,
+                center + Quaternion.Euler(0f, swingAngle, 0f) * new Vector3(side * Opening * 0.18f, 0f, 0f),
+                Quaternion.Euler(0f, swingAngle, 0f),
+                new Vector3(0.04f, 2.05f, 0.05f), 0.01f, iron);
+            GmOwnedPropFactory.CreateRoundedProp(leafName + "RailTop", leaf.transform,
+                center + new Vector3(0f, 0.92f, 0f),
+                Quaternion.Euler(0f, swingAngle, 0f),
+                new Vector3(Opening * 0.44f, 0.045f, 0.045f), 0.01f, iron);
+            GmOwnedPropFactory.CreateRoundedProp(leafName + "RailBottom", leaf.transform,
+                center + new Vector3(0f, -0.92f, 0f),
+                Quaternion.Euler(0f, swingAngle, 0f),
+                new Vector3(Opening * 0.44f, 0.045f, 0.045f), 0.01f, iron);
+            for (int bar = 0; bar < 5; bar++)
+            {
+                Vector3 barOffset = Quaternion.Euler(0f, swingAngle, 0f) *
+                    new Vector3((bar - 2) * 0.12f, 0f, 0f);
+                GmOwnedPropFactory.CreateRoundedProp(leafName + "Bar_" + bar, leaf.transform,
+                    center + barOffset, Quaternion.Euler(0f, swingAngle, 0f),
+                    new Vector3(0.04f, 1.82f, 0.04f), 0.008f, iron);
+            }
+            BoxCollider collider = leaf.AddComponent<BoxCollider>();
+            collider.size = new Vector3(Opening * 0.48f, 2.05f, 0.08f);
+        }
+
+        var volume = new GameObject("VaultTransition");
+        volume.transform.SetParent(grate.transform, false);
+        volume.transform.position = new Vector3(GrateX, GrateY, WallZ - 0.22f);
+        var box = volume.AddComponent<BoxCollider>();
+        box.isTrigger = true;
+        box.size = new Vector3(Opening, 2.1f, 0.55f);
+
+        var trigger = volume.AddComponent<GmSceneTransitionTrigger>();
+        trigger.TargetSceneId = GmHiddenRoomBuilder.SceneId;
+        trigger.TargetScenePath = GmHiddenRoomBuilder.ScenePath;
+        trigger.InteractionPrompt = "Through the iron grate, into the archive";
+
+        var door = grate.AddComponent<GmEstateDoor>();
+        door.Configure(VaultGrateId, "Iron Grate", "", "",
+            locked: false, barred: false, openAng: 0f, leaf: grate.transform,
+            secret: false, openAtStart: true);
+        door.EnsureBarrier(new Vector3(Opening, 2.1f, 0.16f));
+
+        var threshold = new GameObject("VaultThresholdInterior");
+        threshold.transform.SetParent(grate.transform, false);
+        FloorSlab(threshold.transform, "VaultThresholdFloor",
+            new Vector3(GrateX, CellarFloorY - 0.08f, WallZ - 1.05f),
+            new Vector3(Opening + 0.3f, 0.16f, 2.0f));
+        CeilingSlab(threshold.transform, "VaultThresholdCeiling",
+            new Vector3(GrateX, CellarFloorY + 2.15f, WallZ - 1.05f),
+            new Vector3(Opening + 0.3f, 0.16f, 2.0f));
+        for (int side = -1; side <= 1; side += 2)
+        {
+            WallSlab(threshold.transform, side < 0 ? "VaultThresholdWestReveal" : "VaultThresholdEastReveal",
+                new Vector3(GrateX + side * (Opening * 0.5f + 0.12f), CellarFloorY + 1.05f, WallZ - 1.05f),
+                new Vector3(0.16f, 2.1f, 2.0f));
+        }
+        WallSlab(threshold.transform, "VaultThresholdBacking",
+            new Vector3(GrateX, CellarFloorY + 1.05f, WallZ - 2.02f),
+            new Vector3(Opening + 0.4f, 2.1f, 0.16f));
+
+        return grate;
     }
 
     static void BuildNorthLibrary(Transform parent, Dictionary<string, GameObject> authored,

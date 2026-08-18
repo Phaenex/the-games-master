@@ -41,7 +41,7 @@ web work credited as design source, because a player on Steam cannot play a desi
 Overall (Unity/Steam): [████░░░░░░░░░░░░░░░░]  22%
 
 Phase  0 Prologue        [██████████████████░░]  92%  08-16 gates 14/14 on a trusted host; Nick walk still open
-Phase  1 Entry Hall      [█████████████░░░░░░░]  65%  Sessions 1–4 proven; cellar not built
+Phase  1 Entry Hall      [████████████████░░░░]  80%  Sessions 1–5 proven; Session 6 remaining doors not built
 Phase  2 Parlor          [████░░░░░░░░░░░░░░░░]  20%  rules + physical slice in source; not shipping-proven tonight
 Phase  3 Court           [██░░░░░░░░░░░░░░░░░░]  10%  scene spine only; LOCKED behind Nick's Phase 0 walk
 Phase  4 Shut the Box    [██████░░░░░░░░░░░░░░]  30%  rules + tile-9 path in source; no finished match UI

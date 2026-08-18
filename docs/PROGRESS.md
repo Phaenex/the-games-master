@@ -43,6 +43,32 @@ bed: its deep-space/rumble textures would recreate the exact "spaceship" problem
 
 ## Status
 
+### 2026-08-18 - Hub Session 5: cellar + vault
+
+Closed H5. Did not start Session 6 remaining game doors. No commit.
+
+**What landed**
+
+- Library lever still unlatches the east-flank cellar panel. A 1.55 x 3.3 m well sits behind it. Without the lever a body cannot enter.
+- 0.24 m rise / 0.12 m run treads drop a 1.8 m capsule under the hall floor. South lip wall sits on the hall side of the hole so the head is not wedged.
+- Vault: owned barrels, two braziers, hanging lantern, open iron grate. Grate transition loads Hidden Room the same way parlor doors load the card room.
+
+**Verification this pass**
+
+- rebuild entry-hall PASS, audit entry-hall PASS
+- EditMode **930/930**, 0 failed. XML: `unity-project/Logs/editmode-results.xml`
+- GUI tour **23/23 first attempt**. Log: `unity-project/Logs/cli-entry-hall-tour-attempt-1.log`
+- `npm run test:fast` PASS
+- Frames: `docs/playtest/screenshots/entry-hall-tour-21-cellar-panel.png`, `22-cellar-descent.png`, `23-cellar-vault.png`
+
+**Visual (agent, full-size)**
+
+- Shot 21 panel + sconce: PASS. Dark stair mass on the left is the well enclosure, not a void. Mean 20, black 27%.
+- Shot 22 descent: PASS. Looking down the well onto herringbone cellar floor.
+- Shot 23 vault: PASS. Barrels left, iron grate leaves open, warm lantern. Mean 17, black 0.3%.
+
+Human eye still Nick's. Court still locked. No `npm run gates` this session.
+
 ### 2026-08-18 - Hub Session 4: attic loft + leftover lintel/books
 
 Closed H4. Did not start Session 5 cellar. No commit.

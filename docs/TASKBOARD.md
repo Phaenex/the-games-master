@@ -8,8 +8,8 @@
 > Delivery bars live here and in `STEAM-TRACKER.md`; this file carries the task-level detail.
 
 > **Current authority, 2026-08-17/18:** this chat and `docs/HANDOFF-2026-08-17.md`. Active queue is
-> Hub Session 5 (cellar/vault) then Session 6 (remaining minigame doors), then Parlor shipping proof.
-> H1–H4 (foyer, library, 2F gallery/Marr/barred guest, attic loft) are proven this campaign.
+> Hub Session 6 (remaining minigame doors), then Parlor shipping proof.
+> H1–H5 (foyer, library, 2F gallery/Marr/barred guest, attic loft, cellar/vault) are proven this campaign.
 > Lane A's human gates and the five missing table games remain. The 08-16 handoff is the last full opening-gate pack.
 
 ## How to read and update this
@@ -246,13 +246,13 @@ Parlor first: it is the complexity budget every other room is scoped against, an
 of the true ending's 8+ cheats caught.
 
 ```
-Phase 1 Entry Hall      [█████████████░░░░░░░]  65%   Sessions 1–4 proven (foyer, library, 2F, attic); cellar remains
+Phase 1 Entry Hall      [████████████████░░░░]  80%   Sessions 1–5 proven (foyer, library, 2F, attic, cellar); Session 6 doors remain
 Phase 2 Parlor          [████░░░░░░░░░░░░░░░░]  20%   physical slice in source; not shipping-proven tonight
 Phase 4 Shut the Box    [█████░░░░░░░░░░░░░░░]  25%   rules 23/23; no board/AI/UI
 Phase 3 Court           [░░░░░░░░░░░░░░░░░░░░]   0%   LOCKED behind Nick's Phase 0 walk
 ```
 
-> **Tracker correction:** Unity Entry Hall is a walkable hub through the attic loft (65%), not the web
+> **Tracker correction:** Unity Entry Hall is a walkable hub through the cellar (80%), not the web
 > room. Parlor is a physical slice in source (20%), not a shipping table game. The *games* still
 > do not exist as playable matches.
 
@@ -272,8 +272,9 @@ Phase 3 Court           [░░░░░░░░░░░░░░░░░░�
 
 | **H3** | 2F debtor gallery + Marr study + barred guest | DONE 2026-08-17 | EditMode 922/922 (foyer still owns shard, 2F hang, Marr walk-after-key, barred body blocked); rebuild+audit PASS; GUI tour **17/17 first attempt** | `docs/playtest/screenshots/entry-hall-tour-15-upper-gallery.png`, `16-marr-study.png`, `17-barred-guest.png`. Foyer portraits were extended, not moved. |
 | **H4** | Attic loft: hatch, 0.4 m-legal ladder, rafters, crates, dormer, Mirror Shard II | DONE 2026-08-18 | EditMode **927/927** (climb after Marr-desk key, locked hatch holds, loft furnished); rebuild+audit PASS; GUI tour **20/20 first attempt** | `docs/playtest/screenshots/entry-hall-tour-18-attic-hatch.png`, `19-attic-loft.png`, `20-attic-shard.png`. Shot 09 lintel void closed with a hall-side beam. Hub campaign puts Shard II in the attic until Court exists. |
+| **H5** | Cellar + vault: lever-gated well, barrels, braziers, iron grate → Hidden Room | DONE 2026-08-18 | EditMode **930/930** (locked panel holds, descent after shelf solve, grate targets HiddenRoom); rebuild+audit PASS; GUI tour **23/23 first attempt** | `docs/playtest/screenshots/entry-hall-tour-21-cellar-panel.png`, `22-cellar-descent.png`, `23-cellar-vault.png`. Grate loads Hidden Room the same way parlor doors load the card room. |
 
-**Hub campaign leftover:** Sessions 5–6 (cellar/vault, remaining minigame doors). H1–H4 are a climbable foyer, furnished library, 2F wing, and a keyed attic loft. Cellar interior is still not built.
+**Hub campaign leftover:** Session 6 (remaining minigame doors + one campaign walk). H1–H5 are a climbable foyer, furnished library, 2F wing, keyed attic loft, and a lever-gated cellar. Conservatory stays barred.
 
 **Canon trap:** "a friend" (the letter's signer = Aldric) and "the friend in the walls" (the host
 before Aldric, never resolved) are different things sharing a word. Keep distinct in every line.

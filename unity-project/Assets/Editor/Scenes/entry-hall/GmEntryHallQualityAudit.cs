@@ -98,6 +98,16 @@ public static class GmEntryHallQualityAudit
             issues.Add("AtticLadder is missing");
         if (GameObject.Find("MirrorShard_2") == null)
             issues.Add("MirrorShard_2 prop is missing");
+        if (GameObject.Find("CellarVault") == null)
+            issues.Add("CellarVault is missing");
+        if (GameObject.Find("CellarStairs") == null)
+            issues.Add("CellarStairs are missing");
+        if (GameObject.Find("CellarBarrel") == null)
+            issues.Add("CellarBarrel is missing");
+        if (GameObject.Find("CellarBrazier") == null)
+            issues.Add("CellarBrazier is missing");
+        if (GameObject.Find("VaultGrate") == null)
+            issues.Add("VaultGrate is missing");
 
         issues.AddRange(GmSceneCompositionAudit.ValidateOpenScene(
             GmEntryHallBuilder.SceneId, Object.FindAnyObjectByType<GmEntryHallShotTour>(), Camera.main));

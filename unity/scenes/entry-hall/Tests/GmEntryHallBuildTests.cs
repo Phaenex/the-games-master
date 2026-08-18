@@ -54,7 +54,7 @@ public class GmEntryHallBuildTests
     {
         var tour = Object.FindAnyObjectByType<GmEntryHallShotTour>();
         Assert.IsNotNull(tour, "review tour component is missing");
-        Assert.AreEqual(20, tour.ShotCount, "registry and tour both need library interiors, the 2F wing, and the attic");
+        Assert.AreEqual(23, tour.ShotCount, "registry and tour both need the cellar descent and vault");
         string[] names = tour.ShotsForAudit.Select(shot => shot.Name).ToArray();
         CollectionAssert.Contains(names, "13-library-interior");
         CollectionAssert.Contains(names, "14-weighted-shelf");
@@ -64,6 +64,9 @@ public class GmEntryHallBuildTests
         CollectionAssert.Contains(names, "18-attic-hatch");
         CollectionAssert.Contains(names, "19-attic-loft");
         CollectionAssert.Contains(names, "20-attic-shard");
+        CollectionAssert.Contains(names, "21-cellar-panel");
+        CollectionAssert.Contains(names, "22-cellar-descent");
+        CollectionAssert.Contains(names, "23-cellar-vault");
     }
 
     [Test]
@@ -95,7 +98,7 @@ public class GmEntryHallBuildTests
         // Phase A's last missing link. Every scene was in the build and every room had a player, and
         // there was still no way from this room into a single game -- GmSceneTransitionTrigger existed,
         // was unit-tested, and was placed in ZERO scenes.
-        var trigger = Object.FindAnyObjectByType<GmSceneTransitionTrigger>(FindObjectsInactive.Include);
+        var trigger = GameObject.Find("ParlorTransition")?.GetComponent<GmSceneTransitionTrigger>();
         Assert.IsNotNull(trigger, "the Entry Hall has no exit — the player wakes in the house and stays there");
 
         Assert.AreEqual(GmParlorBuilder.SceneId, trigger.TargetSceneId,
@@ -115,7 +118,7 @@ public class GmEntryHallBuildTests
     {
         // A transition volume big enough to catch someone crossing the hall would take the player out
         // of the room on the way to the staircase, which reads as the game hijacking a walk.
-        var trigger = Object.FindAnyObjectByType<GmSceneTransitionTrigger>(FindObjectsInactive.Include);
+        var trigger = GameObject.Find("ParlorTransition")?.GetComponent<GmSceneTransitionTrigger>();
         Assert.IsNotNull(trigger);
         Bounds bounds = trigger.GetComponent<Collider>().bounds;
 
@@ -311,8 +314,8 @@ public class GmEntryHallBuildTests
         string[] architecturalShell =
         {
             "HallFloor", "LeftWall", "RightWall", "NorthWall", "SouthWall", "Ceiling",
-            "ParlorDoorLintel", "NorthLibrary", "SecondFloorGallery", "PercivalBedroom",
-            "MarrStudy", "BarredGuestRoom", "AtticLoft",
+            "ParlorDoorLintel",             "NorthLibrary", "SecondFloorGallery", "PercivalBedroom",
+            "MarrStudy", "BarredGuestRoom", "AtticLoft", "CellarVault",
             "StairLanding",
         };
 
@@ -857,6 +860,93 @@ public class GmEntryHallBuildTests
                 probe.Move(new Vector3(0f, -0.45f, 0.18f));
             Assert.That(probe.transform.position.y, Is.GreaterThan(GmEntryHallBuilder.AtticFloorY - 0.4f),
                 $"the attic climb stalled at {probe.transform.position}");
+        }
+        finally
+        {
+            if (player != null) player.enabled = true;
+            Object.DestroyImmediate(probe.gameObject);
+        }
+    }
+
+    [Test]
+    public void TheCellarIsAFurnishedVaultNotAStub()
+    {
+        Assert.IsNotNull(GameObject.Find("CellarVault"));
+        Assert.IsNotNull(GameObject.Find("CellarStairs"));
+        Assert.IsNotNull(GameObject.Find("CellarBarrel"));
+        Assert.IsNotNull(GameObject.Find("CellarBrazier"));
+        Assert.IsNotNull(GameObject.Find("VaultGrate"));
+        Assert.IsNotNull(GameObject.Find("VaultTransition"));
+        Transform treads = GameObject.Find("CellarStairs").transform;
+        int treadCount = Enumerable.Range(0, treads.childCount)
+            .Count(i => treads.GetChild(i).name.StartsWith("CellarStairTread_"));
+        Assert.That(treadCount, Is.GreaterThanOrEqualTo(10),
+            "cellar descent has no 0.4m-legal treads");
+        Assert.That(GameObject.Find("CellarBarrel").GetComponentsInChildren<Renderer>(true)
+            .Any(renderer => renderer.transform.GetComponentsInParent<Transform>(true)
+                .Any(parent => parent.name.StartsWith(GmOwnedPropFactory.VisualPrefix))),
+            "cellar barrel is not the owned barrel mesh");
+        var grate = GameObject.Find("VaultTransition").GetComponent<GmSceneTransitionTrigger>();
+        Assert.AreEqual(GmHiddenRoomBuilder.SceneId, grate.TargetSceneId);
+        Assert.AreEqual(GmHiddenRoomBuilder.ScenePath, grate.TargetScenePath);
+    }
+
+    [Test]
+    public void ACharacterControllerCannotEnterTheCellarWithoutTheLever()
+    {
+        CharacterController probe = MakeProbe();
+        CharacterController player = GameObject.Find("Player")?.GetComponent<CharacterController>();
+        if (player != null) player.enabled = false;
+        try
+        {
+            AssertDoorHolds(probe, "CellarPanel", 0.05f);
+            probe.enabled = false;
+            probe.transform.position = new Vector3(4.1f, 0.05f, GmEntryHallBuilder.CellarPanelZ);
+            probe.enabled = true;
+            Physics.SyncTransforms();
+            for (int step = 0; step < 40; step++)
+                probe.Move(new Vector3(-0.18f, -0.45f, 0f));
+            Assert.That(probe.transform.position.y, Is.GreaterThan(-0.4f),
+                $"a body dropped into the locked cellar (ended {probe.transform.position})");
+            Assert.That(probe.transform.position.x, Is.GreaterThan(GmEntryHallBuilder.CellarPanelX - 0.35f),
+                $"a body walked through the locked panel (ended {probe.transform.position})");
+        }
+        finally
+        {
+            if (player != null) player.enabled = true;
+            Object.DestroyImmediate(probe.gameObject);
+        }
+    }
+
+    [Test]
+    public void ACharacterControllerCanDescendIntoTheCellarAfterTheLever()
+    {
+        CharacterController probe = MakeProbe();
+        CharacterController player = GameObject.Find("Player")?.GetComponent<CharacterController>();
+        if (player != null) player.enabled = false;
+        GmEstateDoor cellar = Door("CellarPanel");
+        try
+        {
+            var shelf = Object.FindAnyObjectByType<GmWeightedShelf>(FindObjectsInactive.Include);
+            Assert.IsTrue(shelf.HandleSlot(0));
+            Assert.IsTrue(shelf.HandleSlot(1));
+            Assert.IsTrue(shelf.HandleSlot(1));
+            Assert.IsTrue(shelf.HandleSlot(4));
+            cellar.OnGmInteraction(null);
+            Assert.IsTrue(cellar.IsOpen);
+            Assert.IsFalse(cellar.BlocksPassage);
+
+            probe.enabled = false;
+            probe.transform.position = new Vector3(GmEntryHallBuilder.CellarWellCenterX, 0.05f,
+                GmEntryHallBuilder.CellarPanelZ);
+            probe.enabled = true;
+            Physics.SyncTransforms();
+            for (int step = 0; step < 160; step++)
+                probe.Move(new Vector3(0f, -0.45f, -0.18f));
+            Assert.That(probe.transform.position.y, Is.LessThan(GmEntryHallBuilder.CellarFloorY + 0.55f),
+                $"the cellar descent stalled at {probe.transform.position}");
+            Assert.That(probe.transform.position.x, Is.LessThan(GmEntryHallBuilder.CellarPanelX - 0.2f),
+                $"the body never passed the panel (ended {probe.transform.position})");
         }
         finally
         {

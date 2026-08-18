@@ -18,7 +18,7 @@ public static class GmEntryHallCompositionPlan
     {
         GmCompositionAuthoring.Begin(owner, SceneId,
             "A cavernous, decaying Victorian entry hall where nine portraits and a guest ledger reveal the host's trapped cycle.",
-            minZones: 10, minClusters: 13, minElements: 32);
+            minZones: 11, minClusters: 14, minElements: 37);
 
         // Zone 1: Wake Vestibule
         var wakeZone = new GameObject("WakeZone");
@@ -521,6 +521,66 @@ public static class GmEntryHallCompositionPlan
         GmCompositionAuthoring.Motivate(Built(built, "attic-dormer-fill"), "attic-dormer-fill",
             "attic-dormer", "Moon spill on Shard II under the dormer.");
 
+        var cellarZone = new GameObject("CellarZone");
+        cellarZone.transform.SetParent(owner.transform, false);
+        cellarZone.transform.position = new Vector3(2.75f, -1.4f, 4.2f);
+        GmCompositionAuthoring.Zone(cellarZone, "cellar-zone",
+            "Coaching-inn cellar under the east stair: barrels, braziers, and the vault grate.",
+            new Vector3(10f, 6f, 10f), minClusters: 1, minElements: 4);
+
+        var cellarCluster = new GameObject("CellarCluster");
+        cellarCluster.transform.SetParent(cellarZone.transform, false);
+        cellarCluster.transform.position = new Vector3(2.75f, -1.6f, 4.2f);
+        GmCompositionAuthoring.Cluster(cellarCluster, "cellar-cluster", "cellar-zone",
+            "Barrel stack, iron grate, and the brazier that lights the vault.", "cellar-barrel",
+            maxRadius: 12f);
+
+        GmCompositionAuthoring.Element(Built(built, "cellar-panel"), "cellar-panel", "cellar-cluster",
+            "hall-architecture", "Secret under-stair panel the library lever unlatches.",
+            GmCompositionRole.Support, surfaceY: 0f);
+
+        GmCompositionAuthoring.Element(Built(built, "cellar-stair"), "cellar-stair", "cellar-cluster",
+            "hall-architecture", "0.4 m-legal descent into the coaching-inn cellar.",
+            GmCompositionRole.Support, GmSpatialRelation.Suspended);
+
+        GmCompositionAuthoring.Element(Built(built, "cellar-barrel"), "cellar-barrel", "cellar-cluster",
+            "hall-furniture", "Inn barrel left from the house's coaching years.",
+            GmCompositionRole.Anchor, surfaceY: -2.88f);
+
+        GmCompositionAuthoring.Element(Built(built, "cellar-brazier"), "cellar-brazier", "cellar-cluster",
+            "hall-lighting", "Brazier on the west wall so the vault is not a black box.",
+            GmCompositionRole.Detail, surfaceY: -2.88f);
+
+        GmCompositionAuthoring.Element(Built(built, "cellar-brazier-two"), "cellar-brazier-two",
+            "cellar-cluster", "hall-lighting",
+            "Second brazier further north along the west wall.",
+            GmCompositionRole.Detail, surfaceY: -2.88f);
+
+        GmCompositionAuthoring.Element(Built(built, "cellar-lantern"), "cellar-lantern", "cellar-cluster",
+            "hall-lighting", "Hanging lantern over the vault floor.",
+            GmCompositionRole.Support, GmSpatialRelation.Suspended);
+
+        GmCompositionAuthoring.Element(Built(built, "cellar-grate"), "cellar-grate", "cellar-cluster",
+            "hall-architecture", "Open iron grate into the Hidden Room archive.",
+            GmCompositionRole.Gameplay, GmSpatialRelation.AgainstBoundary, "cellar-barrel", 8f);
+
+        GmCompositionAuthoring.Element(Built(built, "cellar-panel-lamp"), "cellar-panel-lamp",
+            "cellar-cluster", "hall-lighting",
+            "Sconce on the hall side of the secret panel.",
+            GmCompositionRole.Detail, GmSpatialRelation.Suspended);
+
+        GmCompositionAuthoring.Motivate(Built(built, "cellar-panel-lamp-light"), "cellar-panel-lamp-light",
+            "cellar-panel-lamp", "Hall sconce so the panel is not a dark patch on the stair.");
+
+        GmCompositionAuthoring.Motivate(Built(built, "cellar-brazier-light"), "cellar-brazier-light",
+            "cellar-brazier", "Fire in the west brazier.");
+
+        GmCompositionAuthoring.Motivate(Built(built, "cellar-brazier-two-light"), "cellar-brazier-two-light",
+            "cellar-brazier-two", "Fire in the north brazier.");
+
+        GmCompositionAuthoring.Motivate(Built(built, "cellar-vault-fill"), "cellar-vault-fill",
+            "cellar-lantern", "Warm fill from the hanging lantern so the grate reads.");
+
         // Author explicit review claims (8 shots).
         // The trailing float on every one of these is passed through the interim ReviewClaim adapter
         // as a symmetric viewport tolerance. That reading is NOT confirmed and it is Nick's to settle
@@ -607,6 +667,18 @@ public static class GmEntryHallCompositionPlan
         GmCompositionAuthoring.ReviewClaim(owner, "20-attic-shard", "shard-two", "attic-dormer",
             "attic-cluster", "attic-zone", new Vector2(0.5f, 0.5f), 0.50f,
             "Proves Mirror Shard II under the dormer.");
+
+        GmCompositionAuthoring.ReviewClaim(owner, "21-cellar-panel", "cellar-panel", "cellar-panel-lamp",
+            "cellar-cluster", "cellar-zone", new Vector2(0.55f, 0.5f), 0.50f,
+            "Proves the secret under-stair panel from the hall aisle.");
+
+        GmCompositionAuthoring.ReviewClaim(owner, "22-cellar-descent", "cellar-stair", "cellar-lantern",
+            "cellar-cluster", "cellar-zone", new Vector2(0.5f, 0.55f), 0.50f,
+            "Proves the 0.4 m-legal well behind the panel.");
+
+        GmCompositionAuthoring.ReviewClaim(owner, "23-cellar-vault", "cellar-barrel", "cellar-grate",
+            "cellar-cluster", "cellar-zone", new Vector2(0.5f, 0.5f), 0.50f,
+            "Proves barrels, braziers, and the iron grate into the archive.");
     }
 
     // A composition marker belongs on the built object or it measures nothing. A missing key means

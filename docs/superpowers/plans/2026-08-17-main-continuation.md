@@ -29,7 +29,8 @@
 | Hub Session 2 North Library + Weighted Shelf | yes | yes | yes | tour-13/14 inspected | H2 DONE 2026-08-17 |
 | Hub Session 3 2F gallery + Marr + barred guest | yes | yes | yes this run | tour-15/16/17 inspected | H3 DONE 2026-08-17 |
 | Hub Session 4 attic loft | yes | yes | yes this run | tour-18/19/20 inspected | H4 DONE 2026-08-18 |
-| Hub Sessions 5–6 | no | no | no | no | cellar, remaining doors not built |
+| Hub Session 5 cellar + vault | yes | yes | yes this run | tour-21/22/23 inspected | H5 DONE 2026-08-18 |
+| Hub Session 6 remaining doors | no | no | no | no | Court/STB hub doors not built |
 | Parlor physical slice / House Memory | yes | mixed | 08-16 era | not this session | do not call finished |
 | Five missing table games | names/design only | — | — | — | Nick still owns rules for 6–7 |
 
@@ -65,13 +66,13 @@ Hatch key on Marr's desk. Ceiling-slab hatch. 0.24 m-legal ladder inside a well 
 
 Evidence: EditMode **927/927**, audit PASS, tour **20/20 first attempt**, frames 09/16/18–20 inspected.
 
-## Hub Sessions 5–6 (next)
+## Hub Session 5 (DONE 2026-08-18)
 
-### Session 5 — Cellar + vault
+Library lever opens the under-stair well. 0.24 m rise / 0.12 m run. Vault: barrels, braziers, lantern, iron grate. Grate loads `HiddenRoom.unity` the same way parlor doors load the card room.
 
-Library lever opens the under-stair descent. Barrels, braziers, iron grate. Grate loads `HiddenRoom.unity` / `Labyrinth.unity` the same way parlor doors load the card room.
+Evidence: EditMode **930/930**, audit PASS, tour **23/23 first attempt**, frames 21–23 inspected.
 
-### Session 6 — Remaining game doors + one campaign walk
+## Hub Session 6 (next)
 
 Court / Shut the Box doorways from the hub as canon allows. One walk: foyer → library → 2F → attic → cellar → a minigame door.
 
