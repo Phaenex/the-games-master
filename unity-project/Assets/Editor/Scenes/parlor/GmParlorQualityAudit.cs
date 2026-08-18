@@ -83,6 +83,7 @@ public static class GmParlorQualityAudit
         if (Object.FindAnyObjectByType<GmParlorEvidenceLog>() == null)
             issues.Add("GmParlorEvidenceLog component is missing");
 
+        issues.AddRange(GmParlorPresentationAudit.ValidateOpenScene());
         issues.AddRange(GmSceneCompositionAudit.ValidateOpenScene(
             GmParlorBuilder.SceneId, Object.FindAnyObjectByType<GmParlorShotTour>(), Camera.main));
 

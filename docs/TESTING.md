@@ -177,6 +177,9 @@ what it is: covered by its own probe, not by the rig.
 | Unity editor code throws `Cannot find the-games-master repo` | `FindRepoRoot()` walked up from `Application.dataPath`, but the Unity project lives OUTSIDE the repo, and its fallback pinned one hardcoded path that broke when the repo moved | Search the Projects tree instead of pinning a path, and have `unity-cli.mjs` export `GM_REPO_ROOT` so the editor never has to guess. |
 | `spawnSync ps EPERM` on every Unity command | `unity-cli.mjs` shells out to `ps` for its "editor closed" guard; a sandbox that blocks process listing kills every Unity gate | Run Unity commands outside the sandbox, or allow `ps`. Not a project defect — do not debug the game. |
 | Magenta object that no test catches | The guard read `if (m == null \|\| m.shader == null) continue;` — **a null material renders magenta exactly like a built-in shader**, so it caught only half its own defect class. Separately, Terrain trees/details are drawn by the Terrain system and are invisible to `FindObjectsByType<Renderer>()` | Assert on null material AND null shader AND builtin shader; add a second guard walking `terrainData.treePrototypes`. Print full hierarchy paths — a bare GameObject name is useless in a 7,000-object estate. |
+| Closed hub door tour is crushed black (mean ~9, 60% black) | Camera stood 4 m back in the hall while the only practical sat on the lintel. A shut dark leaf does not catch chandelier spill the way an open parlor threshold does. | Move the review camera inside the sconce pool (~2 m) and add a motivated fill on the leaf, still under 1.5 m from the visible fixture. Re-shot 24 went mean 9 → 32. |
+| Hub "campaign walk" is green but a player cannot follow it | Each leg teleported the probe to a hardcoded pose. The foyer assertion set `z = -6` then demanded `z < -5`. The parlor finish used `bounds.Contains(...) \|\| x > 5.4`. Grate proof was `TargetSceneId` field equality. Tread tests counted name prefixes and never measured spacing. | Walk from the real player spawn with `Move` only. End pose of one leg is start of the next. Body must sit inside the grate and parlor trigger AABBs. Consecutive treads must match authored rise/run. |
+| Cellar descent works, climb-out stalls mid-well | 0.12 m run on 0.24 m rise is a ladder. A hall-height landing collider sat in the shaft like a lid. Even at 0.24/0.24 the 1.8 m capsule still cannot be proven back to the hall: the east exit is a hall-height jamb gap, and the top treads are not at that gap. | Keep descent proven. Do not mark H5 climb-out CONFIRMED until a body that walked down also walks back onto HallFloorEast. |
 | Improving UI copy fails several gates at once | Assertions pinned to display prose (`prompt.text.Contains("A / CROSS")`). Five such assertions across three files had frozen the UI: any wording improvement broke gates, so the incentive was to leave bad UI alone — a suite defending a defect instead of preventing one | Expose a state accessor (`PromptUsesControllerLabels`) and assert behaviour. Keep `StringAssert` for **data** — input binding paths, JSON keys — never for display copy. |
 | Frame-time spike right after a visibility change | Enabling/disabling a large object set in ONE frame. 208 objects cost a 123ms spike; the main sweep already learned this and slices to 24/frame | Slice the transition with a cursor, and pass an unbounded budget only for `Start` and review captures so no screenshot catches a half-revealed room. |
 | Perf regression that every audit misses | The newly added thing was exempt from BOTH the runtime culling and the editor perf pass, so the one system nobody measured was the one that regressed | When something is excluded from a perf system, that exclusion is a measurement blind spot — record it, and never let the same object be exempt from culling *and* auditing. |
@@ -500,6 +503,21 @@ Interiors and exteriors share a fixed 0.3 EV deliberately, so the crossing does 
 another film — which is precisely why they need *different* light budgets. The prologue's 200-lumen
 practical ceiling is right at tens of metres and is a modern LED bulb at arm's length. Interiors cap
 at 35: a paraffin lamp is 10-40 lumens, a candle about 12.
+
+## Parlor review shots must isolate observed facts (2026-08-18)
+
+The 24-shot Parlor tour stages unrelated frozen cases in one process. The evidence log is a run
+journal. If the tour does not `Clear()` it before each case, shot 11 (a calm missed cheat) still
+shows "His right hand stopped above the deck" from shot 05. Restore then faithfully round-trips the
+pollution, so matching hashes are not proof the baseline was honest.
+
+**Fix:** `GmParlorShotTour.IsolateReviewEvidence()` and the restore orchestrator both clear the log
+and reset transient presentation before staging. Result shots that `FastForwardToCanonicalState()`
+skip the Aldric presenter on purpose; their decision object is the feedback banner, not leftover
+facts from a previous case.
+
+**Rule:** a review harness that force-restarts canonical state must also reset player-facing
+observation. Restore proofs compare isolated baselines, not the residue of earlier shots.
 
 ## Known coverage boundaries (honest)
 

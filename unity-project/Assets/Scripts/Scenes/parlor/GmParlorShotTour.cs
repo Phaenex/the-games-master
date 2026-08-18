@@ -129,6 +129,7 @@ public sealed class GmParlorShotTour : GmSceneReviewTour
     GmParlorController controller;
     GmParlorPresentationCoordinator presentation;
     GmParlorFocusView focus;
+    GmParlorEvidenceLog evidence;
     GmPlayer player;
     GmPauseMenu pauseMenu;
     string stageError;
@@ -169,7 +170,7 @@ public sealed class GmParlorShotTour : GmSceneReviewTour
         stageError = string.Empty;
         currentCaseId = string.Empty;
         Bind();
-        focus?.Close();
+        IsolateReviewEvidence();
         GmPauseMenu.SetCaptions(originalCaptions);
         if (player != null && player.IsPaused) player.SetPaused(false);
         pauseMenu?.SetPauseState(false);
@@ -333,11 +334,19 @@ public sealed class GmParlorShotTour : GmSceneReviewTour
         controller ??= FindAnyObjectByType<GmParlorController>();
         presentation ??= FindAnyObjectByType<GmParlorPresentationCoordinator>();
         focus ??= FindAnyObjectByType<GmParlorFocusView>();
+        evidence ??= FindAnyObjectByType<GmParlorEvidenceLog>();
         player ??= FindAnyObjectByType<GmPlayer>();
         pauseMenu ??= FindAnyObjectByType<GmPauseMenu>();
         if (probe == null || rules == null || controller == null || presentation == null ||
-            focus == null || player == null || pauseMenu == null)
+            focus == null || evidence == null || player == null || pauseMenu == null)
             stageError = "saved Parlor is missing a review dependency";
+    }
+
+    void IsolateReviewEvidence()
+    {
+        focus?.Close();
+        evidence?.Clear();
+        presentation?.ResetTransientState();
     }
 
     void StageReady(GmParlorReviewCase item)

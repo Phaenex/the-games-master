@@ -44,7 +44,9 @@ public sealed class GmEntryHallShotTour : GmSceneReviewTour
         new GmReviewShot("20-attic-shard", new Vector3(0.95f, 7.28f, 14.35f), -8f, 4f),
         new GmReviewShot("21-cellar-panel", new Vector3(5.42f, 1.58f, 8.35f), -90f, 2f),
         new GmReviewShot("22-cellar-descent", new Vector3(2.07f, 0.48f, 9.15f), 192f, 30f),
-        new GmReviewShot("23-cellar-vault", new Vector3(3.15f, -1.46f, 5.55f), 165f, 4f)
+        new GmReviewShot("23-cellar-vault", new Vector3(3.15f, -1.46f, 5.55f), 165f, 4f),
+        new GmReviewShot("24-court-door", new Vector3(3.85f, 1.52f, -5.05f), 90f, 3f),
+        new GmReviewShot("25-stb-door", new Vector3(-2.15f, 1.55f, 8.65f), -90f, 2f)
     };
 
     protected override IReadOnlyList<GmReviewShot> ReviewShots => Shots;

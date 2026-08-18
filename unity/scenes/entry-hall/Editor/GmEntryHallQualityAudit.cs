@@ -108,6 +108,14 @@ public static class GmEntryHallQualityAudit
             issues.Add("CellarBrazier is missing");
         if (GameObject.Find("VaultGrate") == null)
             issues.Add("VaultGrate is missing");
+        if (GameObject.Find("CourtDoor") == null)
+            issues.Add("CourtDoor is missing");
+        if (GameObject.Find("ShutTheBoxDoor") == null)
+            issues.Add("ShutTheBoxDoor is missing");
+        if (GameObject.Find("CourtTransition") == null)
+            issues.Add("CourtTransition is missing");
+        if (GameObject.Find("ShutTheBoxTransition") == null)
+            issues.Add("ShutTheBoxTransition is missing");
 
         issues.AddRange(GmSceneCompositionAudit.ValidateOpenScene(
             GmEntryHallBuilder.SceneId, Object.FindAnyObjectByType<GmEntryHallShotTour>(), Camera.main));

@@ -23,7 +23,8 @@ public static class GmEstateDoorFactory
         float width, float height, GmEstateDoorFacing intoDestination,
         string doorId, string doorName, bool locked, bool barred, bool secret = false,
         string requiredKey = "", string keyName = "", bool startOpen = false,
-        float openAngle = 90f, Material wood = null)
+        float openAngle = 90f, Material wood = null,
+        string requiredCompletedRoom = "", string lockedUntilMessage = "")
     {
         Vector3 through = Through(intoDestination);
         Vector3 along = AlongWall(intoDestination);
@@ -60,7 +61,8 @@ public static class GmEstateDoorFactory
 
         var door = root.AddComponent<GmEstateDoor>();
         door.Configure(doorId, doorName, requiredKey, keyName, locked, barred, openAngle,
-            leaf.transform, secret, startOpen);
+            leaf.transform, secret, startOpen, requiredCompletedRoom: requiredCompletedRoom,
+            lockedUntilMessage: lockedUntilMessage);
         BoxCollider barrier = door.EnsureBarrier(new Vector3(width - 0.08f, height - 0.1f, 0.14f));
         barrier.transform.localPosition = new Vector3(width * 0.5f, height * 0.02f, 0f);
         return door;

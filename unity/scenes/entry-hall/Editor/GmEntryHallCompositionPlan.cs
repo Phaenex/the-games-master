@@ -18,7 +18,7 @@ public static class GmEntryHallCompositionPlan
     {
         GmCompositionAuthoring.Begin(owner, SceneId,
             "A cavernous, decaying Victorian entry hall where nine portraits and a guest ledger reveal the host's trapped cycle.",
-            minZones: 11, minClusters: 14, minElements: 37);
+            minZones: 13, minClusters: 16, minElements: 41);
 
         // Zone 1: Wake Vestibule
         var wakeZone = new GameObject("WakeZone");
@@ -581,6 +581,60 @@ public static class GmEntryHallCompositionPlan
         GmCompositionAuthoring.Motivate(Built(built, "cellar-vault-fill"), "cellar-vault-fill",
             "cellar-lantern", "Warm fill from the hanging lantern so the grate reads.");
 
+        var courtZone = new GameObject("CourtDoorZone");
+        courtZone.transform.SetParent(owner.transform, false);
+        courtZone.transform.position = new Vector3(6f, 1.5f, GmEntryHallBuilder.CourtDoorZ);
+        GmCompositionAuthoring.Zone(courtZone, "court-door-zone",
+            "East-wall hearing door. Locked until the parlor sitting is complete.",
+            new Vector3(6f, 4f, 6f), minClusters: 1, minElements: 2);
+
+        var courtCluster = new GameObject("CourtDoorCluster");
+        courtCluster.transform.SetParent(courtZone.transform, false);
+        courtCluster.transform.position = new Vector3(6f, 1.4f, GmEntryHallBuilder.CourtDoorZ);
+        GmCompositionAuthoring.Cluster(courtCluster, "court-door-cluster", "court-door-zone",
+            "Closed hearing door and the sconce that marks it.", "court-door",
+            minSupports: 1, minDetails: 0);
+
+        GmCompositionAuthoring.Element(Built(built, "court-door"), "court-door", "court-door-cluster",
+            "hall-architecture", "Hearing door that loads Court after the parlor sitting.",
+            GmCompositionRole.Anchor, surfaceY: 0f);
+
+        GmCompositionAuthoring.Element(Built(built, "court-door-sconce"), "court-door-sconce",
+            "court-door-cluster", "hall-lighting",
+            "Gas sconce on the east jamb of the hearing door.",
+            GmCompositionRole.Support, GmSpatialRelation.Suspended);
+
+        GmCompositionAuthoring.Motivate(Built(built, "court-door-sconce-light"), "court-door-sconce-light",
+            "court-door-sconce", "Threshold light on the locked hearing door.");
+        GmCompositionAuthoring.Motivate(Built(built, "court-door-fill"), "court-door-fill",
+            "court-door-sconce", "Warm fill on the hearing leaf so the closed door reads.");
+
+        var stbZone = new GameObject("ShutTheBoxDoorZone");
+        stbZone.transform.SetParent(owner.transform, false);
+        stbZone.transform.position = new Vector3(-6f, 1.5f, GmEntryHallBuilder.ShutTheBoxDoorZ);
+        GmCompositionAuthoring.Zone(stbZone, "stb-door-zone",
+            "West-wall quieter hall. Locked until Court is complete. Conservatory stays barred.",
+            new Vector3(6f, 4f, 6f), minClusters: 1, minElements: 2);
+
+        var stbCluster = new GameObject("ShutTheBoxDoorCluster");
+        stbCluster.transform.SetParent(stbZone.transform, false);
+        stbCluster.transform.position = new Vector3(-6f, 1.4f, GmEntryHallBuilder.ShutTheBoxDoorZ);
+        GmCompositionAuthoring.Cluster(stbCluster, "stb-door-cluster", "stb-door-zone",
+            "Closed quieter-hall door north of the portrait run.", "stb-door",
+            minSupports: 1, minDetails: 0);
+
+        GmCompositionAuthoring.Element(Built(built, "stb-door"), "stb-door", "stb-door-cluster",
+            "hall-architecture", "Quieter hall door that loads Shut the Box after Court.",
+            GmCompositionRole.Anchor, surfaceY: 0f);
+
+        GmCompositionAuthoring.Element(Built(built, "stb-door-sconce"), "stb-door-sconce",
+            "stb-door-cluster", "hall-lighting",
+            "Gas sconce on the west jamb of the quieter hall.",
+            GmCompositionRole.Support, GmSpatialRelation.Suspended);
+
+        GmCompositionAuthoring.Motivate(Built(built, "stb-door-sconce-light"), "stb-door-sconce-light",
+            "stb-door-sconce", "Threshold light on the locked quieter-hall door.");
+
         // Author explicit review claims (8 shots).
         // The trailing float on every one of these is passed through the interim ReviewClaim adapter
         // as a symmetric viewport tolerance. That reading is NOT confirmed and it is Nick's to settle
@@ -679,6 +733,14 @@ public static class GmEntryHallCompositionPlan
         GmCompositionAuthoring.ReviewClaim(owner, "23-cellar-vault", "cellar-barrel", "cellar-grate",
             "cellar-cluster", "cellar-zone", new Vector2(0.5f, 0.5f), 0.50f,
             "Proves barrels, braziers, and the iron grate into the archive.");
+
+        GmCompositionAuthoring.ReviewClaim(owner, "24-court-door", "court-door", "court-door-sconce",
+            "court-door-cluster", "court-door-zone", new Vector2(0.55f, 0.5f), 0.50f,
+            "Proves the locked hearing door on the east wall south of the parlor.");
+
+        GmCompositionAuthoring.ReviewClaim(owner, "25-stb-door", "stb-door", "stb-door-sconce",
+            "stb-door-cluster", "stb-door-zone", new Vector2(0.45f, 0.5f), 0.50f,
+            "Proves the locked quieter-hall door north of the portraits. Conservatory stays barred.");
     }
 
     // A composition marker belongs on the built object or it measures nothing. A missing key means

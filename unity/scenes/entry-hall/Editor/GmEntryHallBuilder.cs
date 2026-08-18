@@ -38,6 +38,11 @@ public static class GmEntryHallBuilder
     public const string AtticHatchId = "door_attic_hatch";
     public const string AtticKeyClueId = "key:attic_hatch";
     public const string VaultGrateId = "door_vault_grate";
+    public const string CourtDoorId = "door_court";
+    public const string ShutTheBoxDoorId = "door_shut_the_box";
+    public const float CourtDoorZ = -5.0f;
+    public const float ShutTheBoxDoorZ = 8.65f;
+    public const float GameDoorWidth = 1.3f;
     public const float SecondFloorY = 3.4f;
     public const float AtticFloorY = 6.5f;
     // 12 * 0.24 m. A 1.8 m capsule needs the cellar floor this far below the hall
@@ -76,6 +81,8 @@ public static class GmEntryHallBuilder
         BuildDressing(environment.transform, authored);
         BuildLighting(lighting.transform, authored);
         BuildParlorDoorway(environment.transform, authored);
+        BuildCourtDoorway(environment.transform, authored, lighting.transform);
+        BuildShutTheBoxDoorway(environment.transform, authored, lighting.transform);
         BuildFoyerCrossroads(environment.transform, gameplay.transform, authored, lighting.transform);
         BuildSecondFloor(environment.transform, authored, lighting.transform);
 
@@ -143,14 +150,20 @@ public static class GmEntryHallBuilder
         // portrait run further north keeps a continuous surface.
         var leftWall = new GameObject("LeftWall");
         leftWall.transform.SetParent(parent, false);
-        WallSlab(leftWall.transform, "LeftWallNorthRun", new Vector3(-6f, 3f, 1.325f),
-            new Vector3(0.3f, 6f, 17.35f));
+        WallSlab(leftWall.transform, "LeftWallPortraitRun", new Vector3(-6f, 3f, 0.325f),
+            new Vector3(0.3f, 6f, 15.35f));
         WallSlab(leftWall.transform, "LeftWallSouthRun", new Vector3(-6f, 3f, -9.325f),
             new Vector3(0.3f, 6f, 1.35f));
         WallSlab(leftWall.transform, "LeftWallConservatoryHeader", new Vector3(-6f, 4.05f, -8f),
             new Vector3(0.3f, 3.9f, 1.3f));
         WallSlab(leftWall.transform, "LeftWallConservatoryLintel", new Vector3(-6f, 2.28f, -8f),
             new Vector3(0.34f, 0.36f, 1.38f));
+        WallSlab(leftWall.transform, "LeftWallStbHeader", new Vector3(-6f, 4.05f, ShutTheBoxDoorZ),
+            new Vector3(0.3f, 3.9f, GameDoorWidth));
+        WallSlab(leftWall.transform, "LeftWallStbLintel", new Vector3(-6f, 2.28f, ShutTheBoxDoorZ),
+            new Vector3(0.34f, 0.36f, GameDoorWidth + 0.08f));
+        WallSlab(leftWall.transform, "LeftWallNorthEnd", new Vector3(-6f, 3f, 9.65f),
+            new Vector3(0.3f, 6f, 0.7f));
 
         // Right wall, built around the parlor opening. A single wall cube used to sit behind the
         // open leaves and transition trigger, so the route existed in code but was physically
@@ -160,11 +173,32 @@ public static class GmEntryHallBuilder
         rightWall.transform.SetParent(parent, false);
 
         GameObject rightWallSouth = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        rightWallSouth.name = "RightWallSouthRun";
+        rightWallSouth.name = "RightWallSouthEnd";
         rightWallSouth.transform.SetParent(rightWall.transform, false);
-        rightWallSouth.transform.position = new Vector3(6f, 3f, -2.6f);
-        rightWallSouth.transform.localScale = new Vector3(0.3f, 6f, 14.8f);
+        rightWallSouth.transform.position = new Vector3(6f, 3f, -7.825f);
+        rightWallSouth.transform.localScale = new Vector3(0.3f, 6f, 4.35f);
         GmSceneBuildUtility.ApplyVictorianSurface(rightWallSouth, "wall", 2.6f);
+
+        GameObject rightWallMid = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        rightWallMid.name = "RightWallMidSouth";
+        rightWallMid.transform.SetParent(rightWall.transform, false);
+        rightWallMid.transform.position = new Vector3(6f, 3f, 0.225f);
+        rightWallMid.transform.localScale = new Vector3(0.3f, 6f, 9.15f);
+        GmSceneBuildUtility.ApplyVictorianSurface(rightWallMid, "wall", 2.6f);
+
+        GameObject rightWallCourtHeader = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        rightWallCourtHeader.name = "RightWallCourtHeader";
+        rightWallCourtHeader.transform.SetParent(rightWall.transform, false);
+        rightWallCourtHeader.transform.position = new Vector3(6f, 4.35f, CourtDoorZ);
+        rightWallCourtHeader.transform.localScale = new Vector3(0.3f, 3.3f, GameDoorWidth + 0.1f);
+        GmSceneBuildUtility.ApplyVictorianSurface(rightWallCourtHeader, "wall", 2.6f);
+
+        GameObject rightWallCourtLintel = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        rightWallCourtLintel.name = "RightWallCourtLintel";
+        rightWallCourtLintel.transform.SetParent(rightWall.transform, false);
+        rightWallCourtLintel.transform.position = new Vector3(6f, 2.28f, CourtDoorZ);
+        rightWallCourtLintel.transform.localScale = new Vector3(0.34f, 0.36f, GameDoorWidth + 0.08f);
+        GmSceneBuildUtility.ApplyVictorianSurface(rightWallCourtLintel, "wall", 2.6f);
 
         GameObject rightWallNorth = GameObject.CreatePrimitive(PrimitiveType.Cube);
         rightWallNorth.name = "RightWallNorthRun";
@@ -747,6 +781,114 @@ public static class GmEntryHallBuilder
         parlorDoor.EnsureBarrier(new Vector3(0.2f, 2.4f, Opening));
     }
 
+    static void BuildCourtDoorway(Transform environment, Dictionary<string, GameObject> authored,
+        Transform lighting)
+    {
+        // Dining-wing hearing door. Canon puts Court off the manor, not only at the Parlor
+        // match exit. The leaf stays shut until parlor is complete so a body cannot skip
+        // the first table. Loading Court.unity is reachability, not trial content.
+        Material doorWood = CreateMaterial("EntryHall_CourtDoorWood",
+            new Color(0.34f, 0.15f, 0.065f), 0.03f, 0.34f);
+        Transform wall = GameObject.Find("RightWall").transform;
+        GmEstateDoor door = GmEstateDoorFactory.Place(environment, "CourtDoor",
+            new Vector3(6f, 1.2f, CourtDoorZ), GameDoorWidth, 2.4f, GmEstateDoorFacing.East,
+            CourtDoorId, "Hearing Door", locked: true, barred: false, secret: false,
+            wood: doorWood, requiredCompletedRoom: GmParlorBuilder.SceneId,
+            lockedUntilMessage: "The hearing has not been called. Sit at the table first.");
+        authored["court-door"] = door.gameObject;
+
+        BuildWallThreshold(wall, "Court", 6f, CourtDoorZ, GameDoorWidth, intoPositiveX: true);
+
+        var volume = new GameObject("CourtTransition");
+        volume.transform.SetParent(door.transform, false);
+        volume.transform.position = new Vector3(6.2f, 1.2f, CourtDoorZ);
+        var box = volume.AddComponent<BoxCollider>();
+        box.isTrigger = true;
+        box.size = new Vector3(0.55f, 2.3f, GameDoorWidth);
+        var trigger = volume.AddComponent<GmSceneTransitionTrigger>();
+        trigger.TargetSceneId = GmCourtBuilder.SceneId;
+        trigger.TargetScenePath = GmCourtBuilder.ScenePath;
+        trigger.RequiredCompletedRoomId = GmParlorBuilder.SceneId;
+        trigger.InteractionPrompt = "The hearing is waiting";
+        trigger.UseCurtain = true;
+
+        var sconce = new GameObject("CourtDoorSconceFixture");
+        sconce.transform.SetParent(lighting, false);
+        sconce.transform.position = new Vector3(5.72f, 2.40f, CourtDoorZ);
+        GmVictorianInteriorKit.Place("Lamp_2", "CourtDoorGasSconce", sconce.transform,
+            sconce.transform.position, new Vector3(0.28f, 0.47f, 0.34f),
+            Quaternion.Euler(0f, -90f, 0f), "lamp");
+        authored["court-door-sconce"] = sconce;
+        authored["court-door-sconce-light"] = CreatePointLight(lighting, "CourtDoorSconceLight",
+            new Vector3(5.38f, 2.40f, CourtDoorZ), 7.5f, 58f, new Color(1.0f, 0.72f, 0.44f));
+        authored["court-door-fill"] = CreatePointLight(lighting, "CourtDoorFill",
+            new Vector3(5.15f, 1.62f, CourtDoorZ), 4.2f, 36f, new Color(1.0f, 0.68f, 0.40f));
+    }
+
+    static void BuildShutTheBoxDoorway(Transform environment, Dictionary<string, GameObject> authored,
+        Transform lighting)
+    {
+        // Quieter hall, later in the chain. Locked until Court is complete. Conservatory
+        // stays barred on purpose and is not this door.
+        Material doorWood = CreateMaterial("EntryHall_StbDoorWood",
+            new Color(0.34f, 0.15f, 0.065f), 0.03f, 0.34f);
+        Transform wall = GameObject.Find("LeftWall").transform;
+        GmEstateDoor door = GmEstateDoorFactory.Place(environment, "ShutTheBoxDoor",
+            new Vector3(-6f, 1.2f, ShutTheBoxDoorZ), GameDoorWidth, 2.4f, GmEstateDoorFacing.West,
+            ShutTheBoxDoorId, "Quieter Hall", locked: true, barred: false, secret: false,
+            wood: doorWood, requiredCompletedRoom: GmCourtBuilder.SceneId,
+            lockedUntilMessage: "The quieter hall is not yet offered.");
+        authored["stb-door"] = door.gameObject;
+
+        BuildWallThreshold(wall, "ShutTheBox", -6f, ShutTheBoxDoorZ, GameDoorWidth, intoPositiveX: false);
+
+        var volume = new GameObject("ShutTheBoxTransition");
+        volume.transform.SetParent(door.transform, false);
+        volume.transform.position = new Vector3(-6.2f, 1.2f, ShutTheBoxDoorZ);
+        var box = volume.AddComponent<BoxCollider>();
+        box.isTrigger = true;
+        box.size = new Vector3(0.55f, 2.3f, GameDoorWidth);
+        var trigger = volume.AddComponent<GmSceneTransitionTrigger>();
+        trigger.TargetSceneId = GmShutTheBoxBuilder.SceneId;
+        trigger.TargetScenePath = GmShutTheBoxBuilder.ScenePath;
+        trigger.RequiredCompletedRoomId = GmCourtBuilder.SceneId;
+        trigger.InteractionPrompt = "Into the quieter hall";
+        trigger.UseCurtain = true;
+
+        var sconce = new GameObject("ShutTheBoxDoorSconceFixture");
+        sconce.transform.SetParent(lighting, false);
+        sconce.transform.position = new Vector3(-5.72f, 2.40f, ShutTheBoxDoorZ);
+        GmVictorianInteriorKit.Place("Lamp_2", "ShutTheBoxDoorGasSconce", sconce.transform,
+            sconce.transform.position, new Vector3(0.28f, 0.47f, 0.34f),
+            Quaternion.Euler(0f, 90f, 0f), "lamp");
+        authored["stb-door-sconce"] = sconce;
+        authored["stb-door-sconce-light"] = CreatePointLight(lighting, "ShutTheBoxDoorSconceLight",
+            new Vector3(-5.38f, 2.40f, ShutTheBoxDoorZ), 5f, 32f, new Color(1.0f, 0.70f, 0.42f));
+    }
+
+    static void BuildWallThreshold(Transform wall, string prefix, float wallX, float doorZ,
+        float opening, bool intoPositiveX)
+    {
+        float dir = intoPositiveX ? 1f : -1f;
+        float midX = wallX + dir * 1.1f;
+        float backX = wallX + dir * 2.18f;
+        var threshold = new GameObject(prefix + "ThresholdInterior");
+        threshold.transform.SetParent(wall, false);
+        FloorSlab(threshold.transform, prefix + "ThresholdFloor",
+            new Vector3(midX, -0.08f, doorZ), new Vector3(2.2f, 0.16f, opening + 0.2f));
+        CeilingSlab(threshold.transform, prefix + "ThresholdCeiling",
+            new Vector3(midX, 2.78f, doorZ), new Vector3(2.2f, 0.16f, opening + 0.2f));
+        for (int side = -1; side <= 1; side += 2)
+        {
+            WallSlab(threshold.transform,
+                prefix + (side < 0 ? "ThresholdSouthReveal" : "ThresholdNorthReveal"),
+                new Vector3(midX, 1.35f, doorZ + side * (opening * 0.5f + 0.16f)),
+                new Vector3(2.2f, 2.7f, 0.16f));
+        }
+        WallSlab(threshold.transform, prefix + "ThresholdBacking",
+            new Vector3(backX, 1.35f, doorZ), new Vector3(0.16f, 2.7f, opening + 0.2f));
+    }
+
     static GameObject WallSlab(Transform parent, string name, Vector3 position, Vector3 scale)
     {
         GameObject slab = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -1032,14 +1174,11 @@ public static class GmEntryHallBuilder
         stairs.transform.position = new Vector3(wellX, 0f, CellarPanelZ);
         const int Steps = 12;
         const float Rise = 0.24f;
-        const float Run = 0.12f;
-        float startZ = CellarPanelZ + 0.12f;
+        const float Run = 0.24f;
+        float startZ = CellarHoleNorth - 0.2f;
         Material treadWood = CreateMaterial("EntryHall_CellarTread",
             new Color(0.16f, 0.08f, 0.04f), 0.03f, 0.28f);
         float treadWidth = CellarHoleX - 0.12f;
-        AddBarrierCollider(stairs.transform, "CellarWellLanding",
-            new Vector3(wellX, -0.04f, CellarPanelZ),
-            new Vector3(treadWidth, 0.08f, 0.7f));
         GameObject rail = GmOwnedPropFactory.CreateRoundedProp("CellarStairRail",
             stairs.transform, new Vector3(wellX - 0.52f, -0.12f, CellarPanelZ - 0.25f),
             Quaternion.Euler(22f, 0f, 0f), new Vector3(0.08f, 0.08f, 0.85f), 0.012f, treadWood);
@@ -1318,14 +1457,8 @@ public static class GmEntryHallBuilder
             new Vector3(-2.72f, 1.18f, 13.2f), Quaternion.identity,
             new Vector3(0.22f, 0.05f, 2.05f), 0.012f, railWood);
 
-        Color[] leather =
-        {
-            new Color(0.42f, 0.12f, 0.1f),
-            new Color(0.14f, 0.28f, 0.16f),
-            new Color(0.32f, 0.18f, 0.08f),
-            new Color(0.1f, 0.07f, 0.04f),
-            new Color(0.28f, 0.06f, 0.1f)
-        };
+        const string Book1 = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Prefabs/SM_Book_1.prefab";
+        const string Book2 = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Prefabs/SM_Book_2.prefab";
 
         var books = new Transform[GmWeightedShelf.SlotCount];
         var slots = new Vector3[GmWeightedShelf.SlotCount];
@@ -1339,11 +1472,11 @@ public static class GmEntryHallBuilder
             var book = new GameObject("WeightedBook_" + GmWeightedShelf.Numerals[i]);
             book.transform.SetParent(caseRoot.transform, false);
             book.transform.SetPositionAndRotation(slots[i], spineFace);
-            Material hide = CreateMaterial("EntryHall_WeightedBook_" + i, leather[i], 0.02f, 0.22f);
-            GmOwnedPropFactory.CreateRoundedProp("WeightedBookMesh_" + i, book.transform,
-                slots[i], spineFace, new Vector3(0.16f, 0.28f, 0.055f), 0.01f, hide);
+            string path = (i % 2 == 0) ? Book1 : Book2;
+            GmOwnedPropFactory.PlacePrefab(path, "WeightedBookMesh_" + i, book.transform,
+                slots[i], new Vector3(0.16f, 0.28f, 0.18f), spineFace, ground: false);
             AddWorldText("WeightedSpine_" + i, GmWeightedShelf.SpineLabel(i), book.transform,
-                new Vector3(0f, 0f, 0.032f), Quaternion.Euler(0f, 180f, 0f), 0.0065f);
+                new Vector3(0f, 0f, 0.09f), Quaternion.Euler(0f, 180f, 0f), 0.0065f);
             var collider = book.AddComponent<BoxCollider>();
             collider.size = new Vector3(0.18f, 0.3f, 0.08f);
             var interact = book.AddComponent<GmInteractable>();

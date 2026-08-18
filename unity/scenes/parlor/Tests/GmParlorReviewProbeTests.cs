@@ -204,6 +204,22 @@ public sealed class GmParlorReviewProbeTests
     }
 
     [Test]
+    public void CancelFromOpenFocusQuitsTheSurfaceWithoutResolvingACard()
+    {
+        Assert.That(probe.StageFirstJudgement(readUnlocked: true, out string stageError),
+            Is.True, stageError);
+        presentation.FastForwardToCanonicalState();
+        focus.Open();
+        string before = rules.Match.PublicStateBytes;
+
+        Assert.That(input.HandleCancelIntent(), Is.True);
+
+        Assert.That(focus.IsOpen, Is.False);
+        Assert.That(rules.Match.PublicStateBytes, Is.EqualTo(before));
+        Assert.That(rules.Phase, Is.EqualTo(GmParlorMatchPhase.AwaitingAldricJudgement));
+    }
+
+    [Test]
     public void PauseDuringJudgementConsumesNoGameplayIntent()
     {
         Assert.That(probe.StageFirstJudgement(readUnlocked: true, out string stageError),

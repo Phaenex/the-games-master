@@ -43,6 +43,78 @@ bed: its deep-space/rumble textures would recreate the exact "spaceship" problem
 
 ## Status
 
+### 2026-08-18 - Hub retrospective (do not inherit H1–H6)
+
+Re-verified Sessions 1–6 instead of copying the previous pass. The old campaign walk was not a walk.
+
+**What landed**
+
+- Connected spawn → library → 2F → Marr → attic → parlor trigger. Capsule must sit in `ParlorTransition`.
+- Connected spawn → cellar well → vault grate. Capsule must sit in `VaultTransition`.
+- Tread tests measure rise/run, not just name counts.
+- Weighted shelf books are `SM_Book` meshes.
+- Cellar run 0.24 m. Removed the well landing lid. Climb-out still fails.
+
+**Verification this pass**
+
+- EditMode **945/945**, PlayMode **44/44** (XML)
+- rebuild / audit entry-hall PASS
+- GUI tour **25/25 first attempt**
+- `test:fast` green, sources 420/420
+- Docs shots recopied from this tour so they match `Screens/EntryHall`
+
+**Still HIGH**
+
+- Cellar climb-out. Descent is proven. Return to the hall is not.
+
+Human eye still Nick's. Court still locked. No `npm run gates` this session.
+
+### 2026-08-18 - Parlor shipping proof
+
+Closed the editor table slice. Did not run a fresh macOS player build. No commit.
+
+**What landed**
+
+- `GmParlorPresentationAudit` measures card identities, focus colliders, baize penetration, proxy clearance, restore seams, and two readable evidence channels. Wired into the quality audit.
+- Tour isolation: each staged case clears the evidence log. First pass leaked shot-05 facts onto later frames. That is not the pass.
+- Tasks 5–8 were already in source. Checkboxes were stale. Verified, not reimplemented.
+
+**Verification this pass**
+
+- `test:fast` green, rebuild parlor PASS, audit-saved PASS
+- EditMode **944/944**, PlayMode **44/44**
+- GUI tour **24/24 first attempt** after isolation (`unity-project/Logs/cli-parlor-tour-attempt-1.log`)
+- Restore: 28 cards, firstDelta=0, secondDelta=0, cue=0
+- Frames inspected: `docs/playtest/screenshots/parlor-tour-*.png`
+
+**Not this pass**
+
+- Built-player 1080p. The Aug 14 game app is stale.
+- Aldric character art. Still the substitute proxy.
+- `npm run gates` (last full pack is still 08-16)
+
+### 2026-08-18 - Hub Session 6: remaining game doors
+
+Closed H6. Hub campaign leftover is gone. Did not start Parlor shipping proof. No commit for this slice.
+
+**What landed**
+
+- East-wall hearing door loads `Court.unity` after parlor is complete. Locked until then. Conservatory stays barred.
+- West-wall quieter-hall door loads `ShutTheBox.unity` after Court is complete.
+- Campaign walk covers foyer → library → 2F → attic → cellar → parlor door in one EditMode probe.
+
+**Verification this pass**
+
+- rebuild entry-hall PASS, audit entry-hall PASS
+- EditMode **935/935**, 0 failed
+- GUI tour **25/25 first attempt** on the lighting retake. Earlier tour that night idle-stalled once, then shot 24 was crushed black (mean 9). That is not the pass.
+- Frames 24–25 inspected: `docs/playtest/screenshots/entry-hall-tour-24-court-door.png`, `25-stb-door.png`
+
+**Not this pass**
+
+- Court trial content. Still locked behind Nick's Phase 0 walk.
+- `npm run gates` (last full pack is still 08-16)
+
 ### 2026-08-18 - Hub Session 5: cellar + vault
 
 Closed H5. Did not start Session 6 remaining game doors. No commit.

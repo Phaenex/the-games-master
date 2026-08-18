@@ -25,13 +25,13 @@
 | Slice | Disk | Synced | Rebuilt | Visual | Claim |
 |---|---|---|---|---|---|
 | Phase A scene spine | yes | yes | 08-16 | PlayMode only | reachability, not finished games |
-| Hub Session 1 foyer/stairs/2F Percival | yes | yes | yes | 12/12 later grew to 14/14 | walkable stub house |
-| Hub Session 2 North Library + Weighted Shelf | yes | yes | yes | tour-13/14 inspected | H2 DONE 2026-08-17 |
-| Hub Session 3 2F gallery + Marr + barred guest | yes | yes | yes this run | tour-15/16/17 inspected | H3 DONE 2026-08-17 |
-| Hub Session 4 attic loft | yes | yes | yes this run | tour-18/19/20 inspected | H4 DONE 2026-08-18 |
-| Hub Session 5 cellar + vault | yes | yes | yes this run | tour-21/22/23 inspected | H5 DONE 2026-08-18 |
-| Hub Session 6 remaining doors | no | no | no | no | Court/STB hub doors not built |
-| Parlor physical slice / House Memory | yes | mixed | 08-16 era | not this session | do not call finished |
+| Hub Session 1 foyer/stairs/2F Percival | yes | yes | yes | tour-01–12 this run | function CONFIRMED, visual PARTIAL |
+| Hub Session 2 North Library + Weighted Shelf | yes | yes | yes | tour-13/14 this run | function CONFIRMED, visual PARTIAL |
+| Hub Session 3 2F gallery + Marr + barred guest | yes | yes | yes | tour-15/16/17 this run | function CONFIRMED, visual PARTIAL |
+| Hub Session 4 attic loft | yes | yes | yes | tour-18/19/20 this run | function CONFIRMED, visual PARTIAL |
+| Hub Session 5 cellar + vault | yes | yes | yes | tour-21/22/23 this run | descent+grate CONFIRMED, climb-out not proven |
+| Hub Session 6 remaining doors | yes | yes | yes | tour-24/25 this run | doors CONFIRMED, visual PARTIAL |
+| Parlor physical slice / House Memory | yes | yes | yes prior run | 24/24 after isolation | table slice CONFIRMED; Aldric proxy; no fresh player build |
 | Five missing table games | names/design only | — | — | — | Nick still owns rules for 6–7 |
 
 ## Session 2 closeout (DONE 2026-08-17)
@@ -72,15 +72,17 @@ Library lever opens the under-stair well. 0.24 m rise / 0.12 m run. Vault: barre
 
 Evidence: EditMode **930/930**, audit PASS, tour **23/23 first attempt**, frames 21–23 inspected.
 
-## Hub Session 6 (next)
+## Hub Session 6 (DONE 2026-08-18)
 
-Court / Shut the Box doorways from the hub as canon allows. One walk: foyer → library → 2F → attic → cellar → a minigame door.
+Hearing door on the east wall loads `Court.unity` after parlor is complete. Quieter-hall door on the west wall loads `ShutTheBox.unity` after Court is complete. Conservatory stays barred. Campaign walk: foyer → library → 2F → attic → cellar → parlor door.
 
-Conservatory interior stays barred on purpose.
+Evidence: EditMode **935/935**, audit PASS, tour **25/25 first attempt** after the court-door lighting fix, frames 24–25 inspected. First lighting pass on shot 24 was crushed black (mean 9); not inherited as a pass.
+
+This is hub reachability. It is not Court trial content.
 
 ## After the hub
 
-1. Parlor shipping proof from `docs/superpowers/plans/2026-08-16-parlor-physical-vertical-slice.md`. Direct frame inspection. Test green is not enough.
+1. Parlor shipping proof from `docs/superpowers/plans/2026-08-16-parlor-physical-vertical-slice.md`. Direct frame inspection. Test green is not enough. **DONE 2026-08-18** for the editor table slice. Built-player 1080p and Aldric art remain.
 2. House Memory / Mirror mode from `docs/superpowers/specs/2026-08-16-house-remembers-replayability-design.md`. Ordinary New Run stays clean.
 3. Five missing table games. Do not invent rules for games 6–7.
 4. Nick's Phase 0 walk. Then Court.

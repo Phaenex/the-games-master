@@ -143,6 +143,8 @@ public sealed class GmParlorRestoreReviewOrchestrator : MonoBehaviour
             throw new InvalidOperationException($"restore probe is not isolated: {actualSave}");
         if (player.IsPaused) player.SetPaused(false);
         focus.Close();
+        evidence.Clear();
+        presentation.ResetTransientState();
 
         GmParlorReviewCase item = GmParlorReviewProbe.FrozenSeedMatrix.Single(c => c.Id == CaseId);
         if (!probe.StageCaseJudgement(item, out string stageError))

@@ -1,9 +1,11 @@
 // Generated minimum gates for Entry Hall. Add tests for every regression found.
+using System;
+using System.Linq;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
-using System.Linq;
+using Object = UnityEngine.Object;
 
 public class GmEntryHallBuildTests
 {
@@ -28,6 +30,8 @@ public class GmEntryHallBuildTests
         Door("CellarPanel")?.RelockClosed();
         Door("MarrDoor")?.RelockClosed();
         Door("AtticHatch")?.RelockClosed();
+        Door("CourtDoor")?.RelockClosed();
+        Door("ShutTheBoxDoor")?.RelockClosed();
         var shelf = Object.FindAnyObjectByType<GmWeightedShelf>(FindObjectsInactive.Include);
         shelf?.ResetPuzzle();
         Physics.SyncTransforms();
@@ -54,7 +58,7 @@ public class GmEntryHallBuildTests
     {
         var tour = Object.FindAnyObjectByType<GmEntryHallShotTour>();
         Assert.IsNotNull(tour, "review tour component is missing");
-        Assert.AreEqual(23, tour.ShotCount, "registry and tour both need the cellar descent and vault");
+        Assert.AreEqual(25, tour.ShotCount, "registry and tour both need the remaining game doors");
         string[] names = tour.ShotsForAudit.Select(shot => shot.Name).ToArray();
         CollectionAssert.Contains(names, "13-library-interior");
         CollectionAssert.Contains(names, "14-weighted-shelf");
@@ -67,6 +71,8 @@ public class GmEntryHallBuildTests
         CollectionAssert.Contains(names, "21-cellar-panel");
         CollectionAssert.Contains(names, "22-cellar-descent");
         CollectionAssert.Contains(names, "23-cellar-vault");
+        CollectionAssert.Contains(names, "24-court-door");
+        CollectionAssert.Contains(names, "25-stb-door");
     }
 
     [Test]
@@ -360,6 +366,7 @@ public class GmEntryHallBuildTests
             .Count(i => treads.GetChild(i).name.StartsWith("StairTread_"));
         Assert.That(treadCount, Is.GreaterThanOrEqualTo(12),
             "not enough treads for a 0.4m stepOffset climb to the 2F landing");
+        AssertTreadSpacing(treads, "StairTread_", expectedRise: 0.24f, expectedRun: 0.24f);
 
         Physics.SyncTransforms();
         bool stepped = Physics.Raycast(new Vector3(0f, 0.35f, 6.3f), Vector3.down, out RaycastHit hit, 0.5f);
@@ -379,6 +386,8 @@ public class GmEntryHallBuildTests
         GmEstateDoor marr = Door("MarrDoor");
         GmEstateDoor barred = Door("BarredGuestDoor");
         GmEstateDoor hatch = Door("AtticHatch");
+        GmEstateDoor court = Door("CourtDoor");
+        GmEstateDoor stb = Door("ShutTheBoxDoor");
 
         Assert.IsTrue(library.IsLocked);
         Assert.IsTrue(library.BlocksPassage);
@@ -399,6 +408,12 @@ public class GmEntryHallBuildTests
         Assert.IsTrue(barred.BlocksPassage);
         Assert.IsTrue(hatch.IsLocked);
         Assert.IsTrue(hatch.BlocksPassage);
+        Assert.IsTrue(court.IsLocked);
+        Assert.IsTrue(court.BlocksPassage);
+        Assert.AreEqual(GmParlorBuilder.SceneId, court.RequiredCompletedRoomId);
+        Assert.IsTrue(stb.IsLocked);
+        Assert.IsTrue(stb.BlocksPassage);
+        Assert.AreEqual(GmCourtBuilder.SceneId, stb.RequiredCompletedRoomId);
     }
 
     [Test]
@@ -448,6 +463,8 @@ public class GmEntryHallBuildTests
             AssertDoorHolds(probe, "FrontDoors", 0.05f);
             AssertDoorHolds(probe, "ConservatoryDoor", 0.05f);
             AssertDoorHolds(probe, "CellarPanel", 0.05f);
+            AssertDoorHolds(probe, "CourtDoor", 0.05f);
+            AssertDoorHolds(probe, "ShutTheBoxDoor", 0.05f);
             AssertDoorHolds(probe, "MarrDoor", GmEntryHallBuilder.SecondFloorY + 0.05f);
             AssertDoorHolds(probe, "BarredGuestDoor", GmEntryHallBuilder.SecondFloorY + 0.05f);
         }
@@ -719,6 +736,17 @@ public class GmEntryHallBuildTests
             .Count(item => item.InteractionId != null &&
                 item.InteractionId.StartsWith(GmWeightedShelf.BookIdPrefix)),
             Is.EqualTo(5));
+
+        for (int i = 0; i < GmWeightedShelf.SlotCount; i++)
+        {
+            var book = GameObject.Find("WeightedBook_" + GmWeightedShelf.Numerals[i]);
+            Assert.IsNotNull(book, "WeightedBook_" + GmWeightedShelf.Numerals[i] + " is missing");
+            Assert.That(book.GetComponentsInChildren<MeshFilter>(true)
+                    .Any(filter => filter.sharedMesh != null &&
+                        AssetDatabase.GetAssetPath(filter.sharedMesh)
+                            .IndexOf("SM_Book", StringComparison.OrdinalIgnoreCase) >= 0),
+                "WeightedBook_" + GmWeightedShelf.Numerals[i] + " is still a rounded box, not an SM_Book mesh");
+        }
     }
 
     [Test]
@@ -796,6 +824,7 @@ public class GmEntryHallBuildTests
             .Count(i => treads.GetChild(i).name.StartsWith("AtticLadderTread_"));
         Assert.That(treadCount, Is.GreaterThanOrEqualTo(8),
             "attic ladder has no 0.4m-legal treads");
+        AssertTreadSpacing(treads, "AtticLadderTread_", expectedRise: 0.24f, expectedRun: 0.18f);
         Assert.That(GameObject.Find("AtticCrate").GetComponentsInChildren<Renderer>(true)
             .Any(renderer => renderer.transform.GetComponentsInParent<Transform>(true)
                 .Any(parent => parent.name.StartsWith(GmOwnedPropFactory.VisualPrefix))),
@@ -882,6 +911,7 @@ public class GmEntryHallBuildTests
             .Count(i => treads.GetChild(i).name.StartsWith("CellarStairTread_"));
         Assert.That(treadCount, Is.GreaterThanOrEqualTo(10),
             "cellar descent has no 0.4m-legal treads");
+        AssertTreadSpacing(treads, "CellarStairTread_", expectedRise: 0.24f, expectedRun: 0.24f);
         Assert.That(GameObject.Find("CellarBarrel").GetComponentsInChildren<Renderer>(true)
             .Any(renderer => renderer.transform.GetComponentsInParent<Transform>(true)
                 .Any(parent => parent.name.StartsWith(GmOwnedPropFactory.VisualPrefix))),
@@ -889,6 +919,10 @@ public class GmEntryHallBuildTests
         var grate = GameObject.Find("VaultTransition").GetComponent<GmSceneTransitionTrigger>();
         Assert.AreEqual(GmHiddenRoomBuilder.SceneId, grate.TargetSceneId);
         Assert.AreEqual(GmHiddenRoomBuilder.ScenePath, grate.TargetScenePath);
+        var grateVolume = grate.GetComponent<Collider>();
+        Assert.IsNotNull(grateVolume, "VaultTransition has no collider");
+        Assert.IsTrue(grateVolume.enabled, "VaultTransition collider is disabled");
+        Assert.IsTrue(grateVolume.isTrigger, "VaultTransition is a solid wall instead of a walk-in volume");
     }
 
     [Test]
@@ -955,6 +989,186 @@ public class GmEntryHallBuildTests
         }
     }
 
+    [Test]
+    public void TheHearingDoorLoadsCourtOnlyAfterParlor()
+    {
+        var trigger = GameObject.Find("CourtTransition")?.GetComponent<GmSceneTransitionTrigger>();
+        Assert.IsNotNull(trigger, "the hub has no hearing door into Court");
+        Assert.AreEqual(GmCourtBuilder.SceneId, trigger.TargetSceneId);
+        Assert.AreEqual(GmCourtBuilder.ScenePath, trigger.TargetScenePath);
+        Assert.AreEqual(GmParlorBuilder.SceneId, trigger.RequiredCompletedRoomId);
+
+        GmEstateDoor court = Door("CourtDoor");
+        court.OnGmInteraction(null);
+        Assert.IsTrue(court.IsLocked, "the hearing door opened before the parlor sitting");
+        Assert.IsTrue(court.BlocksPassage);
+
+        GmRunStore.CompleteRoom(GmParlorBuilder.SceneId, countsAsTableGame: true);
+        court.OnGmInteraction(null);
+        Assert.IsFalse(court.IsLocked);
+        Assert.IsTrue(court.IsOpen);
+        Assert.IsFalse(court.BlocksPassage);
+    }
+
+    [Test]
+    public void TheQuieterHallLoadsShutTheBoxOnlyAfterCourt()
+    {
+        var trigger = GameObject.Find("ShutTheBoxTransition")?.GetComponent<GmSceneTransitionTrigger>();
+        Assert.IsNotNull(trigger, "the hub has no quieter-hall door into Shut the Box");
+        Assert.AreEqual(GmShutTheBoxBuilder.SceneId, trigger.TargetSceneId);
+        Assert.AreEqual(GmShutTheBoxBuilder.ScenePath, trigger.TargetScenePath);
+        Assert.AreEqual(GmCourtBuilder.SceneId, trigger.RequiredCompletedRoomId);
+
+        GmEstateDoor stb = Door("ShutTheBoxDoor");
+        GmRunStore.CompleteRoom(GmParlorBuilder.SceneId, countsAsTableGame: true);
+        stb.OnGmInteraction(null);
+        Assert.IsTrue(stb.IsLocked, "the quieter hall opened before Court");
+
+        GmRunStore.CompleteRoom(GmCourtBuilder.SceneId, countsAsTableGame: false);
+        stb.OnGmInteraction(null);
+        Assert.IsFalse(stb.IsLocked);
+        Assert.IsTrue(stb.IsOpen);
+        Assert.IsFalse(stb.BlocksPassage);
+    }
+
+    [Test]
+    public void ConservatoryStaysBarredAndIsNotAGameDoor()
+    {
+        GmEstateDoor conservatory = Door("ConservatoryDoor");
+        Assert.IsTrue(conservatory.IsBarred);
+        Assert.IsTrue(conservatory.BlocksPassage);
+        Assert.IsNull(GameObject.Find("ConservatoryDoor").GetComponentInChildren<GmSceneTransitionTrigger>(true),
+            "conservatory grew a scene load — Session 6 leaves that interior barred");
+    }
+
+    [Test]
+    public void ACharacterControllerCanWalkTheHubCampaignToAMinigameDoor()
+    {
+        CharacterController probe = MakeProbe();
+        GameObject playerGo = GameObject.Find("Player");
+        CharacterController player = playerGo?.GetComponent<CharacterController>();
+        if (player != null) player.enabled = false;
+        try
+        {
+            GmRunStore.RecordClue(GmEntryHallBuilder.LibraryKeyClueId);
+            GmRunStore.RecordClue(GmEntryHallBuilder.MarrKeyClueId);
+            GmRunStore.RecordClue(GmEntryHallBuilder.AtticKeyClueId);
+            GmRunStore.RecordClue(GmEntryHallBuilder.LibraryLeverClueId);
+            Door("LibraryDoor").OnGmInteraction(null);
+            Door("MarrDoor").OnGmInteraction(null);
+            Door("AtticHatch").OnGmInteraction(null);
+            Door("CellarPanel").OnGmInteraction(null);
+
+            Assert.IsNotNull(playerGo, "Player spawn is missing");
+            PlaceProbeAt(probe, new Vector3(playerGo.transform.position.x, 0.05f, playerGo.transform.position.z));
+            Assert.That(HorizontalDistance(probe.transform.position, playerGo.transform.position),
+                Is.LessThan(0.35f),
+                "campaign did not start at the player spawn");
+
+            WalkGrounded(probe, new Vector3(-2.2f, 0.05f, -6f), "off the ledger");
+            WalkGrounded(probe, new Vector3(-2.2f, 0.05f, 8.4f), "north hall to the library door");
+            WalkGrounded(probe, new Vector3(-4.7f, 0.05f, 8.4f), "library threshold");
+            WalkGrounded(probe, new Vector3(-4.7f, 0.05f, 13.2f), "into the library");
+            Assert.That(probe.transform.position.z, Is.GreaterThan(11.2f),
+                $"campaign never entered the library, stopped at {probe.transform.position}");
+
+            WalkGrounded(probe, new Vector3(-4.7f, 0.05f, 8.4f), "back out of the library");
+            WalkGrounded(probe, new Vector3(0f, 0.05f, 5.7f), "stair foot");
+            ClimbBySteps(probe, new Vector3(0f, -0.45f, 0.18f), 90,
+                minY: GmEntryHallBuilder.SecondFloorY - 0.35f, "grand stair");
+
+            WalkGrounded(probe, new Vector3(-2.4f, GmEntryHallBuilder.SecondFloorY + 0.05f, 14.8f),
+                "Marr threshold");
+            WalkGrounded(probe, new Vector3(-2.4f, GmEntryHallBuilder.SecondFloorY + 0.05f, 18.2f),
+                "into Marr's study");
+            Assert.That(probe.transform.position.z, Is.GreaterThan(17.2f),
+                $"campaign never entered Marr's study, stopped at {probe.transform.position}");
+
+            WalkGrounded(probe, new Vector3(-2.4f, GmEntryHallBuilder.SecondFloorY + 0.05f, 14.8f),
+                "back through Marr's door");
+            WalkGrounded(probe, new Vector3(0f, GmEntryHallBuilder.SecondFloorY + 0.05f, 12.5f),
+                "gallery south of the hatch");
+            WalkGrounded(probe, new Vector3(4.2f, GmEntryHallBuilder.SecondFloorY + 0.05f, 12.5f),
+                "attic hatch approach", arriveMetres: 0.08f);
+            Assert.That(probe.transform.position.x, Is.EqualTo(4.2f).Within(0.12f),
+                $"hatch approach is off the ladder centreline at {probe.transform.position}");
+            ClimbBySteps(probe, new Vector3(0f, -0.45f, 0.18f), 90,
+                minY: GmEntryHallBuilder.AtticFloorY - 0.4f, "attic ladder");
+
+            DescendBySteps(probe, new Vector3(0f, -0.45f, -0.18f), 120,
+                maxY: GmEntryHallBuilder.SecondFloorY + 0.45f, "attic ladder down");
+            WalkGrounded(probe, new Vector3(4.2f, GmEntryHallBuilder.SecondFloorY + 0.05f, 12.5f),
+                "2F south of hatch after attic");
+            WalkGrounded(probe, new Vector3(0f, GmEntryHallBuilder.SecondFloorY + 0.05f, 9.8f),
+                "2F landing after attic");
+            DescendBySteps(probe, new Vector3(0f, -0.45f, -0.18f), 90,
+                maxY: 0.55f, "grand stair down");
+
+            WalkGrounded(probe, new Vector3(4.2f, 0.05f, 6f), "parlor approach");
+            WalkGrounded(probe, new Vector3(5.7f, 0.05f, 6f), "parlor threshold");
+            var parlor = GameObject.Find("ParlorTransition")?.GetComponent<GmSceneTransitionTrigger>();
+            Assert.IsNotNull(parlor, "ParlorTransition is missing");
+            Vector3 parlorBody = probe.transform.position + probe.center;
+            Assert.IsTrue(parlor.GetComponent<Collider>().bounds.Contains(parlorBody),
+                $"campaign ended short of the parlor opening at {parlorBody}");
+        }
+        finally
+        {
+            if (player != null) player.enabled = true;
+            Object.DestroyImmediate(probe.gameObject);
+        }
+    }
+
+    [Test]
+    public void ACharacterControllerCanWalkFromSpawnIntoTheVaultGrate()
+    {
+        CharacterController probe = MakeProbe();
+        GameObject playerGo = GameObject.Find("Player");
+        CharacterController player = playerGo?.GetComponent<CharacterController>();
+        if (player != null) player.enabled = false;
+        try
+        {
+            GmRunStore.RecordClue(GmEntryHallBuilder.LibraryLeverClueId);
+            Door("CellarPanel").OnGmInteraction(null);
+
+            Assert.IsNotNull(playerGo, "Player spawn is missing");
+            PlaceProbeAt(probe, new Vector3(playerGo.transform.position.x, 0.05f, playerGo.transform.position.z));
+
+            WalkGrounded(probe, new Vector3(2.2f, 0.05f, -6f), "east of spawn");
+            WalkGrounded(probe, new Vector3(4.2f, 0.05f, 6f), "east hall");
+            WalkGrounded(probe, new Vector3(4.2f, 0.05f, GmEntryHallBuilder.CellarPanelZ),
+                "east of the cellar panel");
+            WalkGrounded(probe, new Vector3(GmEntryHallBuilder.CellarWellCenterX, 0.05f,
+                GmEntryHallBuilder.CellarPanelZ), "into the cellar well");
+            DescendBySteps(probe, new Vector3(0f, -0.45f, -0.18f), 160,
+                maxY: GmEntryHallBuilder.CellarFloorY + 0.55f, "cellar stairs");
+
+            WalkGrounded(probe, new Vector3(2.75f, GmEntryHallBuilder.CellarFloorY + 0.05f, 4.2f),
+                "vault floor");
+            bool inGrate = false;
+            var grate = GameObject.Find("VaultTransition")?.GetComponent<GmSceneTransitionTrigger>();
+            Assert.IsNotNull(grate, "VaultTransition is missing");
+            Collider grateVolume = grate.GetComponent<Collider>();
+            for (int step = 0; step < 40; step++)
+            {
+                probe.Move(new Vector3(0f, -0.45f, -0.10f));
+                Vector3 body = probe.transform.position + probe.center;
+                if (grateVolume.bounds.Contains(body))
+                {
+                    inGrate = true;
+                    break;
+                }
+            }
+            Assert.IsTrue(inGrate,
+                $"body never entered the vault grate trigger at {probe.transform.position + probe.center}");
+        }
+        finally
+        {
+            if (player != null) player.enabled = true;
+            Object.DestroyImmediate(probe.gameObject);
+        }
+    }
+
     static GmEstateDoor Door(string objectName)
     {
         Transform root = Object.FindObjectsByType<Transform>(FindObjectsInactive.Include,
@@ -964,6 +1178,83 @@ public class GmEntryHallBuildTests
         var door = root.GetComponent<GmEstateDoor>();
         Assert.IsNotNull(door, objectName + " has no GmEstateDoor");
         return door;
+    }
+
+    static void PlaceProbeAt(CharacterController probe, Vector3 position)
+    {
+        probe.enabled = false;
+        probe.transform.position = position;
+        probe.enabled = true;
+        Physics.SyncTransforms();
+    }
+
+    static float HorizontalDistance(Vector3 a, Vector3 b)
+    {
+        a.y = 0f;
+        b.y = 0f;
+        return Vector3.Distance(a, b);
+    }
+
+    static void WalkGrounded(CharacterController probe, Vector3 target, string label,
+        int maxSteps = 280, float arriveMetres = 0.22f)
+    {
+        Vector3 last = probe.transform.position;
+        int stalled = 0;
+        for (int i = 0; i < maxSteps; i++)
+        {
+            Vector3 pos = probe.transform.position;
+            Vector3 delta = target - pos;
+            delta.y = 0f;
+            if (delta.magnitude < arriveMetres)
+                return;
+            float step = Mathf.Min(0.16f, delta.magnitude);
+            Vector3 move = delta.normalized * step;
+            move.y = -0.45f;
+            probe.Move(move);
+            if (Vector3.Distance(probe.transform.position, last) < 0.012f)
+            {
+                if (++stalled >= 8)
+                    Assert.Fail($"{label} stalled at {probe.transform.position} heading to {target}");
+            }
+            else stalled = 0;
+            last = probe.transform.position;
+        }
+        Assert.Fail($"{label} never reached {target}; stopped at {probe.transform.position}");
+    }
+
+    static void ClimbBySteps(CharacterController probe, Vector3 perStep, int steps, float minY, string label)
+    {
+        for (int i = 0; i < steps; i++)
+            probe.Move(perStep);
+        Assert.That(probe.transform.position.y, Is.GreaterThan(minY),
+            $"{label} stalled at {probe.transform.position}");
+    }
+
+    static void DescendBySteps(CharacterController probe, Vector3 perStep, int steps, float maxY, string label)
+    {
+        for (int i = 0; i < steps; i++)
+            probe.Move(perStep);
+        Assert.That(probe.transform.position.y, Is.LessThan(maxY),
+            $"{label} stalled at {probe.transform.position}");
+    }
+
+    static void AssertTreadSpacing(Transform root, string prefix, float expectedRise, float expectedRun)
+    {
+        Transform[] treads = Enumerable.Range(0, root.childCount)
+            .Select(i => root.GetChild(i))
+            .Where(child => child.name.StartsWith(prefix))
+            .OrderBy(child => child.name, StringComparer.Ordinal)
+            .ToArray();
+        Assert.That(treads.Length, Is.GreaterThanOrEqualTo(2), prefix + " has no consecutive treads to space");
+        for (int i = 1; i < treads.Length; i++)
+        {
+            float rise = Mathf.Abs(treads[i].position.y - treads[i - 1].position.y);
+            float run = Mathf.Abs(treads[i].position.z - treads[i - 1].position.z);
+            Assert.That(rise, Is.EqualTo(expectedRise).Within(0.04f),
+                $"{treads[i].name} rise is {rise:F3}m, expected {expectedRise:F2}m after {treads[i - 1].name}");
+            Assert.That(run, Is.EqualTo(expectedRun).Within(0.04f),
+                $"{treads[i].name} run is {run:F3}m, expected {expectedRun:F2}m after {treads[i - 1].name}");
+        }
     }
 
     static GmEstateKeyItem KeyItem(string clueId)

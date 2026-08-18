@@ -102,7 +102,7 @@
         "method": "GmEntryHallShotTourMenu.ArmAndPlay",
         "success": "[GmSceneReviewTour] TOUR COMPLETE",
         "logTag": "GmSceneReviewTour",
-        "shots": 23
+        "shots": 25
       }
     },
     {

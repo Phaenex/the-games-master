@@ -14,6 +14,8 @@ public sealed class GmEstateDoor : MonoBehaviour, IGmInteractionReceiver
     [SerializeField] string doorName = "Oak Door";
     [SerializeField] string requiredKeyClueId = "";
     [SerializeField] string keyDisplayName = "";
+    [SerializeField] string requiredCompletedRoomId = "";
+    [SerializeField] string lockedUntilHint = "";
     [SerializeField] bool isLocked;
     [SerializeField] bool isBarred;
     [SerializeField] bool isSecretMechanism;
@@ -43,6 +45,7 @@ public sealed class GmEstateDoor : MonoBehaviour, IGmInteractionReceiver
     public bool IsSecretMechanism => isSecretMechanism;
     public bool IsOpen => isOpen;
     public string RequiredKey => requiredKeyClueId;
+    public string RequiredCompletedRoomId => requiredCompletedRoomId;
     public BoxCollider Barrier => barrier;
 
     /// Lane G: a player-sized body cannot walk the opening while this is true.
@@ -53,6 +56,8 @@ public sealed class GmEstateDoor : MonoBehaviour, IGmInteractionReceiver
     {
         EnsurePose();
         if (!string.IsNullOrEmpty(doorId) && GmRunStore.HasClue($"unlocked:{doorId}"))
+            isLocked = false;
+        if (RequiredRoomIsComplete())
             isLocked = false;
 
         interactable = GetComponent<GmInteractable>();
@@ -94,17 +99,19 @@ public sealed class GmEstateDoor : MonoBehaviour, IGmInteractionReceiver
 
         if (isLocked)
         {
-            if (HasRequiredKey())
+            if (CanUnlock())
             {
                 string keyBit = string.IsNullOrEmpty(keyDisplayName)
                     ? "the key"
                     : $"the {keyDisplayName}";
-                UnlockAndOpen($"Unlocked {doorName} using {keyBit}.");
+                string opened = RequiredRoomIsComplete() && string.IsNullOrEmpty(requiredKeyClueId)
+                    ? $"{doorName} yields now that the house has opened that way."
+                    : $"Unlocked {doorName} using {keyBit}.";
+                UnlockAndOpen(opened);
             }
             else
             {
-                string keyPrompt = string.IsNullOrEmpty(keyDisplayName) ? "a key" : $"the {keyDisplayName}";
-                ShowFeedback($"{doorName} is locked. It requires {keyPrompt}.");
+                ShowFeedback(LockedRefusal());
             }
             return;
         }
@@ -139,12 +146,15 @@ public sealed class GmEstateDoor : MonoBehaviour, IGmInteractionReceiver
     public void Configure(string id, string name, string requiredKey, string keyName,
         bool locked, bool barred, float openAng = 90f, Transform leaf = null,
         bool secret = false, bool openAtStart = false, BoxCollider barrierCollider = null,
-        Vector3 swingAxis = default)
+        Vector3 swingAxis = default, string requiredCompletedRoom = "",
+        string lockedUntilMessage = "")
     {
         doorId = id;
         doorName = name;
         requiredKeyClueId = requiredKey ?? "";
         keyDisplayName = keyName ?? "";
+        requiredCompletedRoomId = requiredCompletedRoom ?? "";
+        lockedUntilHint = lockedUntilMessage ?? "";
         isLocked = locked;
         isBarred = barred;
         isSecretMechanism = secret;
@@ -222,6 +232,25 @@ public sealed class GmEstateDoor : MonoBehaviour, IGmInteractionReceiver
     bool HasRequiredKey()
     {
         return !string.IsNullOrEmpty(requiredKeyClueId) && GmRunStore.HasClue(requiredKeyClueId);
+    }
+
+    bool RequiredRoomIsComplete()
+    {
+        return !string.IsNullOrEmpty(requiredCompletedRoomId) &&
+            GmRunStore.IsRoomComplete(requiredCompletedRoomId);
+    }
+
+    bool CanUnlock()
+    {
+        return HasRequiredKey() || RequiredRoomIsComplete();
+    }
+
+    string LockedRefusal()
+    {
+        if (!string.IsNullOrEmpty(lockedUntilHint))
+            return lockedUntilHint;
+        string keyPrompt = string.IsNullOrEmpty(keyDisplayName) ? "a key" : $"the {keyDisplayName}";
+        return $"{doorName} is locked. It requires {keyPrompt}.";
     }
 
     void UpdateInteractableConfig()

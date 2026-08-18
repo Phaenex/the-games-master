@@ -291,7 +291,7 @@ Expected red: missing evidence/presenter types.
 
 Implement `GmParlorAldricPresenter` as an animator-ready receiver of semantic cues: calm play, suspicious play, caught, falsely accused, win, loss. It may drive authored mask/glove/table contact objects in this slice, but it must not pretend that substitute is the final full-body character asset.
 
-- [ ] **Step 3: Add evidence-equivalent accessibility behavior**
+- [x] **Step 3: Add evidence-equivalent accessibility behavior**
 
 When captions, reduced motion, vibration off, or mono audio are enabled, preserve at least two readable channels using caption facts, card motion, contrast pulse, and focus log. Never make a correct Read depend on color alone, hearing alone, or a sub-200ms animation.
 
@@ -325,7 +325,7 @@ Run: `npm run unity:scene:sync && node scripts/unity-cli.mjs test`
 
 Expected: missing focus-view types.
 
-- [ ] **Step 3: Implement UI Toolkit presentation**
+- [x] **Step 3: Implement UI Toolkit presentation**
 
 Use the project typography and pause-menu accessibility settings. Support keyboard, mouse, and controller focus; scalable text; high-contrast focus; reduced motion; captions; and clear legal/illegal feedback. Keep the normal screen sparse: phase, round/trick score, current action, Read prompt, and the last few observed facts.
 
@@ -344,27 +344,29 @@ Expected: full green with equivalent legal choices in both modes.
 - Modify: `unity/scenes/parlor/Runtime/GmParlorPropBinder.cs`
 - Modify: `unity/scenes/parlor/Runtime/GmParlorPresentationCoordinator.cs`
 
-- [ ] **Step 1: Write kill/reload reds at every visible phase**
+- [x] **Step 1: Write kill/reload reds at every visible phase**
 
 Cover player lead, Aldric lead, judgement with honest play, judgement with cheat, trick result, round result, match result, and deferred Read teaching. Export, destroy scene objects, restore through `GmRunStore` and `GmSaveSystem`, recreate the controller, then compare canonical logical poses and visible evidence.
 
 Assert no outcome event, room completion, catch, penalty, sound, haptic, or evidence fact is delivered twice.
 
-- [ ] **Step 2: Capture red**
+- [x] **Step 2: Capture red**
 
 Run: `npm run unity:scene:sync && node scripts/unity-cli.mjs test`
 
 Expected: restore tests fail because presentation reconstruction is not yet explicit.
 
-- [ ] **Step 3: Add restore-only snap and explicit activation**
+- [x] **Step 3: Add restore-only snap and explicit activation**
 
 On Awake: restore rules, bind physical state, clear stale commands, and remain input-closed. On explicit Start/activation: deliver any durable pending outcome through `GmParlorRules`, build only forward commands, then open input. Never replay an already acknowledged animation or effect.
 
-- [ ] **Step 4: Prove EditMode and real PlayMode lifecycle**
+- [x] **Step 4: Prove EditMode and real PlayMode lifecycle**
 
 Run: `npm run unity:scene:sync && node scripts/unity-cli.mjs test && node scripts/unity-cli.mjs playtest`
 
 Expected: full green, exact physical reconstruction, one-shot outcomes.
+
+Current proof (2026-08-18): EditMode **944/944**, PlayMode **44/44**, tour restore **firstDelta=0 secondDelta=0 cue=0**. Built-player 1080p is Task 9 Step 4.
 
 ### Task 8: Add deterministic review automation and adversarial input proof
 
@@ -375,23 +377,23 @@ Expected: full green, exact physical reconstruction, one-shot outcomes.
 - Modify: `scripts/unity-cli.mjs`
 - Modify: `unity/scene-system/scene-registry.json`
 
-- [ ] **Step 1: Write probe contract tests**
+- [x] **Step 1: Write probe contract tests**
 
 The probe must drive public controller intent, not mutate match internals. Freeze a seed matrix that contains honest, cheated, true-tell, false-tell, Eyes, Teeth, Bones, Flames, player win, Aldric win, rematch, and restore cases.
 
 Add held-input and simultaneous-input adversaries: held D-pad, Interact+CallTell same frame, Cancel during each motion phase, Pause during judgement, controller disconnect/reconnect, and quit from focus view.
 
-- [ ] **Step 2: Capture red and implement the probe**
+- [x] **Step 2: Capture red and implement the probe**
 
 Run: `npm run unity:scene:sync && node scripts/unity-cli.mjs test`
 
 Expected red: missing probe type and CLI command.
 
-- [ ] **Step 3: Extend the Parlor tour**
+- [x] **Step 3: Extend the Parlor tour**
 
 Add player view, Aldric hands, player hand, lead/follow cards, true suspicious tell, false suspicious tell, focus view, result state, and restore state shots. Each shot must identify its semantic state in the report.
 
-- [ ] **Step 4: Run automation**
+- [x] **Step 4: Run automation**
 
 Run:
 
@@ -406,6 +408,8 @@ node scripts/unity-cli.mjs tour parlor
 
 Expected: all suites green, build/audit/tour pass, complete seed matrix reported.
 
+Current proof (2026-08-18): EditMode 944/944, PlayMode 44/44, `[GmParlor] BUILD PASS`, `[GmEstateAudit] SAVED PASS`, tour **24/24 first attempt**. Tour isolation: each case clears the evidence log before staging.
+
 ### Task 9: Visual, accessibility, allocation, and frame-budget review
 
 **Files:**
@@ -415,27 +419,31 @@ Expected: all suites green, build/audit/tour pass, complete seed matrix reported
 - Modify: `unity/scenes/parlor/Runtime/GmParlorReviewProbe.cs`
 - Evidence only: `unity-project/Library/GmSceneIntelligence/**/parlor/**`
 
-- [ ] **Step 1: Write measurable audit reds**
+- [x] **Step 1: Write measurable audit reds**
 
 Audit physical card count/identity, focus collider bounds, legibility distance, card/table penetration, hand/table clearances, command recovery, reduced-motion support, evidence-channel count, and missing presenter bindings.
 
-- [ ] **Step 2: Capture red, implement, and rebuild**
+- [x] **Step 2: Capture red, implement, and rebuild**
 
 Run: `npm run unity:scene:sync && node scripts/unity-cli.mjs test`
 
 Expected red: missing presentation audit.
 
-- [ ] **Step 3: Capture and inspect frames directly**
+- [x] **Step 3: Capture and inspect frames directly**
 
 Run: `node scripts/unity-cli.mjs tour parlor`
 
 Open every resulting frame. Reject buried cards, unreadable ranks, clipping sleeves, floating contact, weak focus, UI collisions, over-dark evidence, repeated-looking tells, and camera compositions that hide the decision object.
 
+Current proof (2026-08-18): tour 24/24 first attempt after evidence isolation. Inspected frames under `unity-project/Screens/Parlor/` and copies in `docs/playtest/screenshots/parlor-tour-*.png`. Aldric is still the substitute proxy. True and false suspicious tells use the same caption vocabulary on purpose. Built-player 1080p is the next step, not this one.
+
 - [ ] **Step 4: Profile built-player presentation**
 
 Build the macOS player and run the Parlor probe at 1920x1080 HDRP. Require total p95 below 16.7ms, main thread at or below 10ms, GPU at or below 13.5ms, p99 below 20ms, no non-load frame above 33.3ms, and zero steady-state managed allocation.
 
-- [ ] **Step 5: Run accessibility matrix**
+The existing standalone probe freezes a 34ms p95 gate. The Aug 14 `Builds/macOS-Game` app is stale and is not evidence for this slice.
+
+- [x] **Step 5: Run accessibility matrix**
 
 Repeat the deterministic proof with reduced motion, captions, vibration off, mono audio, high contrast, and focus view. Legal choices and evidence must remain equivalent.
 

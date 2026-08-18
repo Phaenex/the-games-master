@@ -115,6 +115,28 @@ public sealed class GmEstateDoorTests
     }
 
     [Test]
+    public void ARoomGatedDoorStaysShutUntilThatRoomIsComplete()
+    {
+        var door = root.AddComponent<GmEstateDoor>();
+        door.Configure("door_court", "Hearing Door", "", "",
+            locked: true, barred: false, 90f, leaf, secret: false, openAtStart: false,
+            requiredCompletedRoom: "parlor",
+            lockedUntilMessage: "The hearing has not been called. Sit at the table first.");
+        door.EnsureBarrier(new Vector3(0.14f, 2.2f, 1.15f));
+        Awake(door);
+
+        door.OnGmInteraction(null);
+        Assert.IsTrue(door.IsLocked);
+        Assert.IsTrue(door.BlocksPassage);
+
+        GmRunStore.CompleteRoom("parlor", countsAsTableGame: true);
+        door.OnGmInteraction(null);
+        Assert.IsFalse(door.IsLocked);
+        Assert.IsTrue(door.IsOpen);
+        Assert.IsFalse(door.BlocksPassage);
+    }
+
+    [Test]
     public void ACeilingHatchSwingsOnItsHingeAxisInsteadOfYaw()
     {
         var door = root.AddComponent<GmEstateDoor>();
