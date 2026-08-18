@@ -29,6 +29,7 @@ public static class GmHouseBeginningBuilder
     static Material bone;
     static Material red;
     static Material glass;
+    static Material moonGlass;
     static Material fire;
 
     static readonly (string slug, string name, string text, string second)[] Portraits =
@@ -102,9 +103,13 @@ public static class GmHouseBeginningBuilder
         glass = Mat("House_Mirror", new Color(0.48f, 0.55f, 0.58f), 0.92f, 0.65f);
         glass.EnableKeyword("_EMISSIVE_COLOR_MAP");
         glass.SetColor("_EmissiveColor", new Color(0.035f, 0.065f, 0.085f));
+        // The glass is a dark exterior value, not a luminous blue card. The first window pass used
+        // emissive cobalt panes and the standalone read them as two flat blue rectangles. Cool light
+        // belongs on the room surfaces; the pane itself should stay nearly black at night.
+        moonGlass = Mat("House_MoonWindow", new Color(0.018f, 0.026f, 0.042f), 0.78f, 0.06f);
         fire = Mat("House_Fire", new Color(1f, 0.20f, 0.025f), 0.15f);
         fire.EnableKeyword("_EMISSIVE_COLOR_MAP");
-        fire.SetColor("_EmissiveColor", new Color(1.35f, 0.18f, 0.018f));
+        fire.SetColor("_EmissiveColor", new Color(0.72f, 0.15f, 0.025f));
     }
 
     internal static Material Mat(string name, Color color, float smoothness, float metallic = 0f)
@@ -143,23 +148,66 @@ public static class GmHouseBeginningBuilder
         BuildStairAndRope(hall);
         BuildParlorDoor(hall);
         BuildFireplace(hall, new Vector3(8.38f, 0f, 390.6f), Quaternion.Euler(0f, -90f, 0f), "HallHearth", "hall-fireplace");
-        BuildChandelier(hall, new Vector3(0f, 4.35f, 384.2f), "HallChandelier", 250f);
-        AddWarmLight(hall, "NorthHallLamp", new Vector3(0f, 3.4f, 393.4f), 350f, 12f);
-        BuildWallSconce(hall, "WestGalleryLampNorth", new Vector3(-8.45f, 2.72f, 389.8f), Vector3.right, 145f);
-        BuildWallSconce(hall, "WestGalleryLampSouth", new Vector3(-8.45f, 2.72f, 378.2f), Vector3.right, 145f);
-        BuildWallSconce(hall, "EastGalleryLampNorth", new Vector3(8.45f, 2.72f, 389.8f), Vector3.left, 145f);
-        BuildWallSconce(hall, "EastGalleryLampSouth", new Vector3(8.45f, 2.72f, 378.2f), Vector3.left, 145f);
-        AddWarmLight(hall, "WakeClockFill", new Vector3(-1.6f, 2.2f, 398.3f), 360f, 7f);
-        AddWarmLight(hall, "HallRouteFill", new Vector3(0f, 2.3f, 384.0f), 165f, 13f);
+        BuildChandelier(hall, new Vector3(0f, 4.35f, 384.2f), "HallChandelier", 120f);
+        BuildMoonWindowOnZWall(hall, "NorthMoonWindowWest",
+            new Vector3(-5.35f, 2.62f, 396.22f), new Vector3(-8.0f, 1.55f, 380.5f),
+            new Vector2(2.0f, 3.15f), 1200f, 23f);
+        BuildMoonWindowOnZWall(hall, "NorthMoonWindowEast",
+            new Vector3(5.35f, 2.62f, 396.22f), new Vector3(8.0f, 1.55f, 380.5f),
+            new Vector2(2.0f, 3.15f), 1200f, 23f);
+        BuildChandelier(hall, new Vector3(0f, 4.15f, 393.4f), "NorthHallChandelier", 160f);
+        BuildWallSconce(hall, "WestGalleryLampNorth", new Vector3(-8.45f, 2.72f, 389.8f), Vector3.right, 60f);
+        BuildWallSconce(hall, "WestGalleryLampSouth", new Vector3(-8.45f, 2.72f, 378.2f), Vector3.right, 60f);
+        BuildWallSconce(hall, "EastGalleryLampNorth", new Vector3(8.45f, 2.72f, 389.8f), Vector3.left, 60f);
+        BuildWallSconce(hall, "EastGalleryLampSouth", new Vector3(8.45f, 2.72f, 378.2f), Vector3.left, 60f);
+        AddCoolSpot(hall, "NorthHallMoonBounce", new Vector3(0f, 3.15f, 395.2f),
+            new Vector3(0f, 1.05f, 381.0f), 1200f, 20f, 102f);
+        AddCoolSpot(hall, "LedgerMoonFill", new Vector3(-5.3f, 2.55f, 395.7f),
+            new Vector3(-5.15f, 0.8f, 390.0f), 700f, 8f, 58f);
+        AddCoolSpot(hall, "WakeClockFill", new Vector3(2.75f, 2.45f, 400.25f),
+            new Vector3(-0.10f, 1.15f, 400.85f), 260f, 7f, 88f);
+        AddWarmLight(hall, "HallRouteFill", new Vector3(0f, 2.3f, 384.0f), 100f, 13f);
 
         Transform wakeClock = GameObject.Find("WakeRoom")?.transform;
         if (wakeClock != null)
         {
+            BalanceWakeRoomLighting(wakeClock);
             Transform clock = FindChildContaining(wakeClock, "Clock");
             if (clock != null)
                 AddInteractable(clock.gameObject, "hall-clock", "Read",
                     "The longcase clock has stopped at nine. Its pendulum still moves, but never crosses the centre line.",
                     "Nine strokes on the dial's inner rim are newer than the brass.", 3.8f, 10f);
+        }
+    }
+
+    internal static void BalanceWakeRoomLighting(Transform wakeRoom)
+    {
+        // GmWakeRoom predates the house proof and its three tiny warm sources were exposed into a
+        // full-room red wash. Keep the candle and hearth readable as practicals, but let the existing
+        // east-window shaft and the clock shaft establish the room's night value.
+        foreach (Light light in wakeRoom.GetComponentsInChildren<Light>(true))
+        {
+            switch (light.name)
+            {
+                case "CandleFlame":
+                    light.intensity = 22f;
+                    light.color = new Color(1f, 0.66f, 0.40f);
+                    break;
+                case "HearthEmberLight":
+                    light.intensity = 22f;
+                    light.color = new Color(1f, 0.58f, 0.34f);
+                    break;
+                case "WakeRoomAmbientFill":
+                    light.intensity = 8f;
+                    light.color = new Color(1f, 0.78f, 0.58f);
+                    break;
+                case "SlattedMoonlightShaft":
+                    light.intensity = 75f;
+                    light.color = new Color(0.62f, 0.72f, 0.92f);
+                    HDAdditionalLightData hd = light.GetComponent<HDAdditionalLightData>();
+                    if (hd != null) hd.affectsVolumetric = false;
+                    break;
+            }
         }
     }
 
@@ -438,10 +486,16 @@ public static class GmHouseBeginningBuilder
         BuildBookshelves(parlor);
         BuildGameTable(parlor);
         BuildAldric(parlor);
-        BuildChandelier(parlor, new Vector3(0f, 3.4f, 358.5f), "ParlorChandelier", 320f);
-        AddWarmLight(parlor, "TableLight", new Vector3(0f, 2.6f, 358.5f), 220f, 8f);
-        AddWarmLight(parlor, "NorthParlorFill", new Vector3(2.5f, 2.2f, 363.2f), 120f, 6f);
-        AddWarmLight(parlor, "SouthParlorFill", new Vector3(-2.5f, 2.2f, 353.8f), 120f, 6f);
+        BuildChandelier(parlor, new Vector3(0f, 3.4f, 358.5f), "ParlorChandelier", 180f);
+        BuildMoonWindowOnZWall(parlor, "SouthMoonWindowWest",
+            new Vector3(-2.65f, 2.28f, 349.80f), new Vector3(-4.0f, 1.35f, 357.0f),
+            new Vector2(1.55f, 2.85f), 450f, 13f);
+        BuildMoonWindowOnZWall(parlor, "SouthMoonWindowEast",
+            new Vector3(2.65f, 2.28f, 349.80f), new Vector3(4.0f, 1.35f, 357.0f),
+            new Vector2(1.55f, 2.85f), 450f, 13f);
+        AddWarmLight(parlor, "TableLight", new Vector3(0f, 2.6f, 358.5f), 130f, 8f);
+        AddWarmLight(parlor, "NorthParlorFill", new Vector3(2.5f, 2.2f, 363.2f), 55f, 6f);
+        AddWarmLight(parlor, "SouthParlorFill", new Vector3(-2.5f, 2.2f, 353.8f), 55f, 6f);
 
         var threshold = new GameObject("HostIntroductionThreshold");
         threshold.transform.SetParent(parlor, true);
@@ -537,7 +591,7 @@ public static class GmHouseBeginningBuilder
                 ? new Vector3(3.2f, 3.0f, 1.0f)
                 : new Vector3(1.0f, 3.0f, 3.2f), rotation, "mantel");
         Sphere("Fire", new Vector3(0f, 0.48f, -0.42f), new Vector3(0.9f, 0.75f, 0.18f), fire, hearth, false);
-        AddWarmLightLocal(hearth, "FireLight", new Vector3(0f, 1.0f, -1.0f), 460f, 9f);
+        AddWarmLightLocal(hearth, "FireLight", new Vector3(0f, 1.0f, -1.0f), 320f, 9f);
         AddInteractable(hearth.gameObject, interactionId, "Examine",
             "The fire gives heat but no ash. In the back brickwork, an older coaching-inn hearth shows through.",
             "Aldric calls the next room the back room, though it lies at the front of the house.");
@@ -572,6 +626,65 @@ public static class GmHouseBeginningBuilder
         AddWarmLight(parent, name + "Light", position + inward * 0.55f + Vector3.down * 0.05f, lumens, 7f);
     }
 
+    static void BuildMoonWindowOnZWall(Transform parent, string name, Vector3 position,
+        Vector3 target, Vector2 size, float lumens, float range)
+    {
+        var window = new GameObject(name).transform;
+        window.SetParent(parent, false);
+        window.localPosition = position;
+
+        Slab("MoonlitGlass", Vector3.zero, new Vector3(size.x, size.y, 0.045f),
+            moonGlass, window, false);
+        const float frame = 0.13f;
+        Slab("FrameLeft", new Vector3(-size.x * 0.5f, 0f, -0.025f),
+            new Vector3(frame, size.y + frame, 0.11f), darkWood, window, false);
+        Slab("FrameRight", new Vector3(size.x * 0.5f, 0f, -0.025f),
+            new Vector3(frame, size.y + frame, 0.11f), darkWood, window, false);
+        Slab("FrameTop", new Vector3(0f, size.y * 0.5f, -0.025f),
+            new Vector3(size.x + frame, frame, 0.11f), darkWood, window, false);
+        Slab("FrameBottom", new Vector3(0f, -size.y * 0.5f, -0.025f),
+            new Vector3(size.x + frame, frame, 0.11f), darkWood, window, false);
+        Slab("Mullion", new Vector3(0f, 0f, -0.045f),
+            new Vector3(frame * 0.7f, size.y, 0.10f), darkWood, window, false);
+
+        var lightObject = new GameObject("Moonlight");
+        lightObject.transform.SetParent(window, false);
+        Vector3 direction = (target - position).normalized;
+        lightObject.transform.localPosition = direction * 0.24f;
+        lightObject.transform.rotation = Quaternion.LookRotation((target - position).normalized, Vector3.up);
+        var light = lightObject.AddComponent<Light>();
+        light.type = LightType.Spot;
+        light.color = new Color(0.62f, 0.72f, 0.92f);
+        light.range = range;
+        light.spotAngle = 56f;
+        light.innerSpotAngle = 30f;
+        light.shadows = LightShadows.Soft;
+        light.intensity = lumens;
+        var hd = lightObject.AddComponent<HDAdditionalLightData>();
+        hd.lightUnit = LightUnit.Lumen;
+        hd.affectsVolumetric = false;
+    }
+
+    static void AddCoolSpot(Transform parent, string name, Vector3 position, Vector3 target,
+        float lumens, float range, float angle)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, true);
+        go.transform.position = position;
+        go.transform.rotation = Quaternion.LookRotation((target - position).normalized, Vector3.up);
+        var light = go.AddComponent<Light>();
+        light.type = LightType.Spot;
+        light.color = new Color(0.62f, 0.72f, 0.92f);
+        light.range = range;
+        light.spotAngle = angle;
+        light.innerSpotAngle = angle * 0.58f;
+        light.shadows = LightShadows.Soft;
+        light.intensity = lumens;
+        var hd = go.AddComponent<HDAdditionalLightData>();
+        hd.lightUnit = LightUnit.Lumen;
+        hd.affectsVolumetric = false;
+    }
+
     internal static void AddWarmLight(Transform parent, string name, Vector3 position, float lumens, float range)
     {
         var go = new GameObject(name);
@@ -579,7 +692,7 @@ public static class GmHouseBeginningBuilder
         go.transform.position = position;
         var light = go.AddComponent<Light>();
         light.type = LightType.Point;
-        light.color = new Color(1f, 0.57f, 0.28f);
+        light.color = new Color(1f, 0.66f, 0.40f);
         light.range = range;
         light.shadows = LightShadows.Soft;
         var hd = go.AddComponent<HDAdditionalLightData>();
@@ -595,7 +708,7 @@ public static class GmHouseBeginningBuilder
         go.transform.localPosition = localPosition;
         var light = go.AddComponent<Light>();
         light.type = LightType.Point;
-        light.color = new Color(1f, 0.57f, 0.28f);
+        light.color = new Color(1f, 0.66f, 0.40f);
         light.range = range;
         light.shadows = LightShadows.Soft;
         light.intensity = lumens;

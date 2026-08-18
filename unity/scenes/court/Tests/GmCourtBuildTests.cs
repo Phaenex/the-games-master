@@ -64,6 +64,70 @@ public class GmCourtBuildTests
             "less than 0.6m of floor between the back of the bench and the wall — nobody fits behind it");
     }
 
+    [Test]
+    public void ARealVerdictUnlocksTheOnwardDoorToShutTheBox()
+    {
+        var exit = Object.FindAnyObjectByType<GmSequenceExit>(FindObjectsInactive.Include);
+        Assert.IsNotNull(exit, "the Court reaches a verdict and then strands the player");
+        var trigger = exit.GetComponentInChildren<GmSceneTransitionTrigger>(true);
+        Assert.IsNotNull(trigger);
+        Assert.AreEqual(GmShutTheBoxBuilder.SceneId, trigger.TargetSceneId);
+        Assert.AreEqual(GmShutTheBoxBuilder.ScenePath, trigger.TargetScenePath);
+        Assert.IsFalse(trigger.GetComponent<Collider>().enabled,
+            "the player can leave before the Court reaches a verdict");
+
+        GmRunStore.CompleteRoom(GmCourtBuilder.SceneId, countsAsTableGame: false);
+        Assert.IsTrue(exit.IsUnlocked);
+        Assert.IsTrue(trigger.GetComponent<Collider>().enabled);
+    }
+
+    [Test]
+    public void EvidencePropsUseHdrpMaterialsAndBothSpotlightsActuallyAimAtTheirSubjects()
+    {
+        foreach (string name in new[] { "JudgeBenchDesk", "CourtEvidenceCandle", "JudgeBenchCandles", "EvidenceDocket", "BrassGavel" })
+        {
+            GameObject prop = GameObject.Find(name);
+            Assert.IsNotNull(prop, $"{name} is missing");
+            foreach (Renderer renderer in prop.GetComponentsInChildren<Renderer>(true))
+                foreach (Material material in renderer.sharedMaterials)
+                {
+                    Assert.IsNotNull(material, $"{name}/{renderer.name} has a null material");
+                    Assert.IsNotNull(material.shader, $"{name}/{renderer.name} has a null shader");
+                    Assert.AreEqual("HDRP/Lit", material.shader.name,
+                        $"{name}/{renderer.name} would render with an incompatible material");
+                }
+        }
+
+        AssertSpotAimsAt("EvidenceSpotlight", new Vector3(0f, 0.8f, 2.5f));
+        AssertSpotAimsAt("JudgeChandelierLight", new Vector3(0f, 1.6f, 5.7f));
+        foreach (string name in new[] { "EvidenceSpotlight", "JudgeChandelierLight", "JudgeBenchCandleLight", "JurySconceLight", "WitnessBacklight" })
+            Assert.AreEqual("Lumen", GameObject.Find(name).GetComponent<Light>().lightUnit.ToString(),
+                $"{name} has no explicit HDRP lumen contract");
+
+        Assert.AreEqual(GmInteriorAtmosphere.PracticalCeilingLumens,
+            GameObject.Find("JudgeBenchCandleLight").GetComponent<Light>().intensity, 0.01f,
+            "the bench candle practical exceeds the shared period-light ceiling");
+
+        Assert.AreEqual(50f, GameObject.Find("JudgeChandelierLight").GetComponent<Light>().spotAngle, 0.01f,
+            "the bench practical spreads its period-limited output across the whole room");
+        GameObject exitFixtures = GameObject.Find("VerdictDoorSconces");
+        GameObject exitLight = GameObject.Find("VerdictDoorSconceLight");
+        Assert.IsNotNull(exitFixtures, "the verdict passage has no visible period light source");
+        Assert.AreEqual(2, exitFixtures.transform.childCount);
+        Assert.IsNotNull(exitLight);
+        Assert.AreEqual(GmInteriorAtmosphere.PracticalCeilingLumens,
+            exitLight.GetComponent<Light>().intensity, 0.01f);
+    }
+
+    static void AssertSpotAimsAt(string name, Vector3 subject)
+    {
+        GameObject lightObject = GameObject.Find(name);
+        Assert.IsNotNull(lightObject, $"{name} is missing");
+        Vector3 expected = (subject - lightObject.transform.position).normalized;
+        Assert.Greater(Vector3.Dot(lightObject.transform.forward, expected), 0.995f,
+            $"{name} illuminates empty space instead of its authored subject");
+    }
+
     static Bounds WorldBounds(GameObject root)
     {
         var renderers = root.GetComponentsInChildren<Renderer>(true);

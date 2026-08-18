@@ -240,6 +240,154 @@
                     "action": "BrightnessUp"
                 }
             ]
+        },
+        {
+            "name": "Menu",
+            "id": "b6c71a3a-2b55-4d71-817e-3272651e698f",
+            "actions": [
+                {
+                    "name": "Navigate",
+                    "type": "Value",
+                    "id": "43fbdcca-bc9c-41a4-bbba-3ac6ebce86ae",
+                    "expectedControlType": "Vector2"
+                },
+                {
+                    "name": "Submit",
+                    "type": "Button",
+                    "id": "32f598d4-cd24-4e44-9fb4-c13e780fdf23",
+                    "expectedControlType": "Button"
+                },
+                {
+                    "name": "Cancel",
+                    "type": "Button",
+                    "id": "eb5fde8d-973a-4875-92b0-76d9f86bb9ee",
+                    "expectedControlType": "Button"
+                },
+                {
+                    "name": "Quit",
+                    "type": "Button",
+                    "id": "41f9f523-42a7-4934-93ef-eef2f72b1fe6",
+                    "expectedControlType": "Button"
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "WASD",
+                    "id": "26a758bd-70c4-437e-bfe9-d83f480aa4d6",
+                    "path": "2DVector",
+                    "action": "Navigate",
+                    "isComposite": true
+                },
+                {
+                    "name": "up",
+                    "id": "75ca4642-a4b6-4ce2-bb60-dd6d99682449",
+                    "path": "<Keyboard>/w",
+                    "action": "Navigate",
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "down",
+                    "id": "012c4a6b-75c9-4754-af84-b9e6978cebbb",
+                    "path": "<Keyboard>/s",
+                    "action": "Navigate",
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "left",
+                    "id": "08038ac3-b87e-4a0c-b810-d2e910910d71",
+                    "path": "<Keyboard>/a",
+                    "action": "Navigate",
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "right",
+                    "id": "5374639d-75ee-419f-a81d-857d32e93b17",
+                    "path": "<Keyboard>/d",
+                    "action": "Navigate",
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "Arrows",
+                    "id": "f0ac22a4-248a-4f60-bb68-d046f765f928",
+                    "path": "2DVector",
+                    "action": "Navigate",
+                    "isComposite": true
+                },
+                {
+                    "name": "up",
+                    "id": "05b9032b-621b-4bb1-aa68-d3d696da7623",
+                    "path": "<Keyboard>/upArrow",
+                    "action": "Navigate",
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "down",
+                    "id": "304f5e5a-a053-48f9-b6bc-bf8819ebcd16",
+                    "path": "<Keyboard>/downArrow",
+                    "action": "Navigate",
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "left",
+                    "id": "386f36bd-c640-46b1-8dd1-9235cf00bf1b",
+                    "path": "<Keyboard>/leftArrow",
+                    "action": "Navigate",
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "right",
+                    "id": "632c2184-a72d-43cb-860d-ef9c57f8c020",
+                    "path": "<Keyboard>/rightArrow",
+                    "action": "Navigate",
+                    "isPartOfComposite": true
+                },
+                {
+                    "id": "cc47e749-5a27-4943-8ccc-858e8812d262",
+                    "path": "<Gamepad>/dpad",
+                    "action": "Navigate"
+                },
+                {
+                    "id": "25d05ae8-3fae-41e8-81f4-86d55c28b81a",
+                    "path": "<Gamepad>/leftStick",
+                    "action": "Navigate",
+                    "processors": "StickDeadzone(min=0.5,max=0.95)"
+                },
+                {
+                    "id": "68cbe8fb-a6c8-4b11-a344-5387a3d39b7a",
+                    "path": "<Keyboard>/enter",
+                    "action": "Submit"
+                },
+                {
+                    "id": "5c414aed-604f-4a9f-9adf-4269f33c7b5c",
+                    "path": "<Keyboard>/space",
+                    "action": "Submit"
+                },
+                {
+                    "id": "aab4664c-dd40-4a8c-847f-f3c516ed037a",
+                    "path": "<Gamepad>/buttonSouth",
+                    "action": "Submit"
+                },
+                {
+                    "id": "403b93da-b0ce-44bc-8112-84f1927535f9",
+                    "path": "<Keyboard>/escape",
+                    "action": "Cancel"
+                },
+                {
+                    "id": "7080b62d-582b-4444-98bb-1ff27711dd0f",
+                    "path": "<Gamepad>/buttonEast",
+                    "action": "Cancel"
+                },
+                {
+                    "id": "91051085-e968-454d-895d-b75c1a0a9bd3",
+                    "path": "<Keyboard>/q",
+                    "action": "Quit"
+                },
+                {
+                    "id": "baecc759-cfc9-4193-9518-f25000e3d00e",
+                    "path": "<Gamepad>/buttonNorth",
+                    "action": "Quit"
+                }
+            ]
         }
     ],
     "controlSchemes": []

@@ -6,9 +6,10 @@
 // tidiness. Feel is Nick's gate, and a dial he cannot turn without a recompile is a dial he cannot
 // turn during a walk.
 //
-// NOTHING HERE WAS RETUNED. Every default below is the exact literal that used to sit at the call
-// site, carried across unchanged, so a build reading this config plays identically to the build that
-// did not have it. Changing a value is a separate, human-owned pass.
+// Most defaults below are the exact literals that originally sat at their call sites. Values changed
+// by a measured tuning pass say so beside the field, including the prologue render corridor, far clip
+// and no-vsync frame ceiling. That keeps the asset honest: it is the authored source of current feel,
+// not a museum of the first literals the project happened to use.
 //
 // HOW IT RESOLVES. Call sites read `GmFeelConfig.Active`, which is the asset at
 // `Resources/GmFeelConfig` when the project has one and an in-memory instance carrying the defaults
@@ -59,6 +60,26 @@ public sealed class GmFeelConfig : ScriptableObject
              "where editing either alone left the walk running at two speeds depending on which " +
              "path built the scene.")]
     public float walkSpeedMetresPerSecond = 2.1f;
+
+    [Header("Prologue rendering")]
+
+    [Range(60, 360)]
+    [Tooltip("Frame cap used by the vSync-off prologue performance contract. The command-line " +
+             "diagnostic override can perturb this without changing the authored default.")]
+    // 📝 DECISION: cap the no-vsync prologue at 100 fps | WHY: a 1,800-frame profiler capture put
+    // the 240-fps tail in Metal present synchronization, not game work; the same release route at
+    // 100 fps held 11.99ms p95 with full draw distance and one queued frame | ALT: 120 fps remained
+    // quantized at 16.76-16.87ms p95 on the 120Hz presentation path and had no safety margin.
+    public int wendTargetFrameRate = 100;
+
+    [Range(40f, 200f)]
+    [Tooltip("Lateral world-space band retained around the full 435m prologue route. Renderers " +
+             "outside it are removed by the editor performance pass before the player is built.")]
+    public float wendRenderCorridorMetres = 100f;
+
+    [Range(100f, 400f)]
+    [Tooltip("Far clip distance for the prologue player camera after the editor performance pass.")]
+    public float wendCameraFarClipMetres = 180f;
 
     [Header("Gap lamps")]
 
@@ -217,7 +238,7 @@ public sealed class GmFeelConfig : ScriptableObject
 
     [Range(1f, 3f)]
     [Tooltip("Largest text scale the accessibility slider allows.")]
-    public float maxTextScale = 1.5f;
+    public float maxTextScale = 2.0f;
 
     [Header("Sanity rewards")]
 

@@ -65,17 +65,28 @@ public abstract class GmSceneReviewTour : MonoBehaviour
     public int minimumLuminanceRange = 6;
     [Range(0f, 1f)] public float maximumNearBlackFraction = 0.97f;
     [Range(0f, 1f)] public float maximumNearWhiteFraction = 0.25f;
+    [Range(0f, 0.01f)] public float maximumSaturatedMagentaFraction = 0.0001f;
 
     public const string ArmKey = "GmSceneReviewTour.armed";
     protected abstract IReadOnlyList<GmReviewShot> ReviewShots { get; }
     protected virtual float ReviewYawOffset => 0f;
     protected virtual string ReviewLogTag => "GmSceneReviewTour";
+    protected virtual bool CaptureReviewBackbuffer => false;
+    // A stateful tour may expose its complete authored shot contract while deferring a tail of
+    // captures to an object that survives a scene unload. Ordinary tours capture every shot.
+    protected virtual int DirectCaptureShotCount => ReviewShots?.Count ?? 0;
 
     public int ShotCount => ReviewShots?.Count ?? 0;
     public int ShotWidth => shotWidth;
     public int ShotHeight => shotHeight;
     public IReadOnlyList<GmReviewShot> ShotsForAudit => ReviewShots;
     public float ReviewYawOffsetForAudit => ReviewYawOffset;
+    public bool UsesBackbufferCaptureForAudit => CaptureReviewBackbuffer;
+    // Composition validation runs in EditMode, outside the capture coroutine. Stateful shots still
+    // need the same temporary geometry state they use when rendered (an opened exit, an activated
+    // interior), and that state must be restored so an audit cannot dirty the shipping scene.
+    public virtual void PrepareShotForAudit(GmReviewShot shot) { }
+    public virtual void RestoreAfterAuditShot(GmReviewShot shot) { }
     public bool HasPlaceholderShots
     {
         get
@@ -89,9 +100,19 @@ public abstract class GmSceneReviewTour : MonoBehaviour
 
     protected virtual void BeforeTour() { }
     protected virtual void BeforeShot(GmReviewShot shot) { }
+    // Stateful runtime overlays commit layout at the end of a frame. A scene may wait here after
+    // staging its semantic state and before the backbuffer is sampled.
+    protected virtual IEnumerator BeforeShotSettled(GmReviewShot shot) { yield break; }
     /// Scene-specific perceptual gates can compare the actual captured pixels after the generic
     /// blank/exposure checks. Return a concise failure reason or null when the shot is acceptable.
     protected virtual string ValidateCapturedShot(GmReviewShot shot, Color32[] pixels) => null;
+    // Runs only after the PNG exists. Stateful tours use this to bind semantic state and a file
+    // digest to the exact frame, rather than trusting a filename to describe what was captured.
+    protected virtual void AfterShotCaptured(GmReviewShot shot, string file, Texture2D captured) { }
+    // Return true only when a persistent owner has accepted responsibility for final validation,
+    // completion logging and editor exit. This keeps the base tour from claiming success early.
+    protected virtual bool TryBeginDeferredCompletion(Camera camera, string directory,
+        int written, int invalidVisualEvidence) => false;
 
     protected virtual void Start()
     {
@@ -128,7 +149,8 @@ public abstract class GmSceneReviewTour : MonoBehaviour
         }
 
         var names = new HashSet<string>();
-        foreach (var shot in shots)
+        int directCount = Mathf.Clamp(DirectCaptureShotCount, 0, shots.Count);
+        foreach (GmReviewShot shot in shots)
         {
             if (string.IsNullOrWhiteSpace(shot.Name) || shot.Name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
             {
@@ -157,21 +179,29 @@ public abstract class GmSceneReviewTour : MonoBehaviour
         string dir = Path.Combine(Directory.GetCurrentDirectory(), "Screens", sceneName);
         Directory.CreateDirectory(dir);
         yield return new WaitForSecondsRealtime(settleSeconds);
+        GmPlayer playerCtrl = player != null ? player.GetComponent<GmPlayer>() : null;
+        if (playerCtrl != null) playerCtrl.SetControlBlocked(true);
         BeforeTour();
 
-        var target = new RenderTexture(shotWidth, shotHeight, 24, RenderTextureFormat.ARGB32);
-        var texture = new Texture2D(shotWidth, shotHeight, TextureFormat.RGBA32, false);
+        RenderTexture target = CaptureReviewBackbuffer ? null :
+            new RenderTexture(shotWidth, shotHeight, 24, RenderTextureFormat.ARGB32);
+        Texture2D texture = CaptureReviewBackbuffer ? null :
+            new Texture2D(shotWidth, shotHeight, TextureFormat.RGBA32, false);
         int written = 0;
         int invalidVisualEvidence = 0;
-        foreach (var shot in shots)
+        for (int shotIndex = 0; shotIndex < directCount; shotIndex++)
         {
+            GmReviewShot shot = shots[shotIndex];
             BeforeShot(shot);
             if (player != null && camera.transform.IsChildOf(player.transform))
             {
+                var cc = player.GetComponent<CharacterController>();
+                if (cc != null) cc.enabled = false;
                 float eyeHeight = camera.transform.localPosition.y;
                 player.transform.position = shot.Position - Vector3.up * eyeHeight;
                 player.transform.rotation = Quaternion.Euler(0f, shot.Yaw + ReviewYawOffset, 0f);
                 camera.transform.localRotation = Quaternion.Euler(shot.Pitch, 0f, 0f);
+                if (cc != null) cc.enabled = true;
             }
             else
             {
@@ -180,23 +210,42 @@ public abstract class GmSceneReviewTour : MonoBehaviour
             }
 
             Physics.SyncTransforms();
-            camera.targetTexture = target;
-            for (int i = 0; i < 10; i++) camera.Render();
-            camera.targetTexture = null;
+            yield return BeforeShotSettled(shot);
+            Texture2D captured = texture;
+            if (CaptureReviewBackbuffer)
+            {
+                yield return new WaitForEndOfFrame();
+                captured = ScreenCapture.CaptureScreenshotAsTexture();
+                if (captured == null)
+                {
+                    Debug.LogError($"[{ReviewLogTag}] FAILED: backbuffer capture returned null for {shot.Name}");
+                    invalidVisualEvidence++;
+                    continue;
+                }
+            }
+            else
+            {
+                camera.targetTexture = target;
+                for (int i = 0; i < 10; i++) camera.Render();
+                camera.targetTexture = null;
 
-            RenderTexture.active = target;
-            texture.ReadPixels(new Rect(0, 0, shotWidth, shotHeight), 0, 0);
-            texture.Apply();
-            RenderTexture.active = null;
+                RenderTexture.active = target;
+                texture.ReadPixels(new Rect(0, 0, shotWidth, shotHeight), 0, 0);
+                texture.Apply();
+                RenderTexture.active = null;
+            }
 
             string file = Path.Combine(dir, $"tour-{shot.Name}.png");
-            File.WriteAllBytes(file, texture.EncodeToPNG());
+            File.WriteAllBytes(file, captured.EncodeToPNG());
             written++;
+            AfterShotCaptured(shot, file, captured);
 
             long sum = 0;
             int nearBlack = 0;
             int nearWhite = 0;
-            var pixels = texture.GetPixels32();
+            var pixels = captured.GetPixels32();
+            int magentaPixels = LogMagentaOccupants(camera, shot.Name, pixels,
+                captured.width, captured.height);
             var luminance = new byte[pixels.Length];
             for (int i = 0; i < pixels.Length; i++)
             {
@@ -212,13 +261,17 @@ public abstract class GmSceneReviewTour : MonoBehaviour
             float blackFraction = nearBlack / (float)pixels.Length;
             float whiteFraction = nearWhite / (float)pixels.Length;
             int range = p95 - p05;
-            bool valid = range >= minimumLuminanceRange &&
-                blackFraction <= maximumNearBlackFraction && whiteFraction <= maximumNearWhiteFraction;
+            bool isHighContrastUi = whiteFraction >= 0.005f && blackFraction >= 0.90f;
+            bool valid = (range >= minimumLuminanceRange || (isHighContrastUi && whiteFraction >= 0.005f)) &&
+                (blackFraction <= maximumNearBlackFraction || isHighContrastUi) &&
+                whiteFraction <= maximumNearWhiteFraction &&
+                magentaPixels / (float)pixels.Length <= maximumSaturatedMagentaFraction;
             if (!valid)
             {
                 invalidVisualEvidence++;
                 Debug.LogError($"[{ReviewLogTag}] FAILED VISUAL EVIDENCE {shot.Name}: p05={p05} p95={p95} " +
-                    $"range={range} black={blackFraction:P1} white={whiteFraction:P1}");
+                    $"range={range} black={blackFraction:P1} white={whiteFraction:P1} " +
+                    $"magenta={magentaPixels / (float)pixels.Length:P3}");
             }
             string sceneSpecificFailure = ValidateCapturedShot(shot, pixels);
             if (!string.IsNullOrEmpty(sceneSpecificFailure))
@@ -229,13 +282,18 @@ public abstract class GmSceneReviewTour : MonoBehaviour
             }
             Debug.Log($"[{ReviewLogTag}] {shot.Name} meanLum={sum / pixels.Length} p05={p05} p95={p95} " +
                 $"black={blackFraction:P1} white={whiteFraction:P1} -> {file}");
+            if (CaptureReviewBackbuffer) Destroy(captured);
         }
 
         camera.targetTexture = null;
         RenderTexture.active = null;
-        Destroy(texture);
-        target.Release();
-        Destroy(target);
+        if (texture != null) Destroy(texture);
+        if (target != null)
+        {
+            target.Release();
+            Destroy(target);
+        }
+        if (TryBeginDeferredCompletion(camera, dir, written, invalidVisualEvidence)) yield break;
         if (invalidVisualEvidence > 0)
         {
             Debug.LogError($"[{ReviewLogTag}] FAILED: {invalidVisualEvidence}/{shots.Count} captures were blank, clipped or too flat to review");
@@ -246,6 +304,55 @@ public abstract class GmSceneReviewTour : MonoBehaviour
             Debug.Log($"[{ReviewLogTag}] TOUR COMPLETE {written}/{shots.Count} -> {dir}");
             EndPlay(0);
         }
+    }
+
+    // A saturated magenta patch is almost always Unity's error shader. Name the renderer covering
+    // its centroid while the scene and camera still exist, instead of spending another full capture
+    // cycle guessing which of hundreds of renderers owns the pixels.
+    static int LogMagentaOccupants(Camera camera, string shotName, Color32[] pixels, int width, int height)
+    {
+        long sumX = 0;
+        long sumY = 0;
+        int count = 0;
+        for (int index = 0; index < pixels.Length; index++)
+        {
+            Color32 pixel = pixels[index];
+            if (pixel.r < 180 || pixel.b < 180 || pixel.g > 70) continue;
+            sumX += index % width;
+            sumY += index / width;
+            count++;
+        }
+        if (count < 24) return count;
+
+        Vector2 point = new Vector2(sumX / (float)count, sumY / (float)count);
+        var occupants = new List<string>();
+        foreach (Renderer renderer in FindObjectsByType<Renderer>(FindObjectsInactive.Exclude,
+                     FindObjectsSortMode.None))
+        {
+            if (!renderer.enabled) continue;
+            Bounds bounds = renderer.bounds;
+            Vector3 min = new Vector3(float.PositiveInfinity, float.PositiveInfinity, float.PositiveInfinity);
+            Vector3 max = new Vector3(float.NegativeInfinity, float.NegativeInfinity, float.NegativeInfinity);
+            for (int corner = 0; corner < 8; corner++)
+            {
+                Vector3 world = bounds.center + Vector3.Scale(bounds.extents, new Vector3(
+                    (corner & 1) == 0 ? -1f : 1f,
+                    (corner & 2) == 0 ? -1f : 1f,
+                    (corner & 4) == 0 ? -1f : 1f));
+                Vector3 screen = camera.WorldToScreenPoint(world);
+                if (screen.z <= 0f) continue;
+                min = Vector3.Min(min, screen);
+                max = Vector3.Max(max, screen);
+            }
+            if (point.x < min.x || point.x > max.x || point.y < min.y || point.y > max.y) continue;
+            Material material = renderer.sharedMaterial;
+            occupants.Add($"{renderer.transform.name} material='{(material != null ? material.name : "NULL")}' " +
+                $"shader='{(material != null && material.shader != null ? material.shader.name : "NULL")}'");
+            if (occupants.Count >= 8) break;
+        }
+        Debug.LogWarning($"[{nameof(GmSceneReviewTour)}] MAGENTA {shotName}: {count} pixels around " +
+            $"({point.x:0},{point.y:0}); renderers=[{string.Join(" | ", occupants)}]");
+        return count;
     }
 
     static void EndPlay(int exitCode)

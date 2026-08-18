@@ -1,4 +1,4 @@
-> **Continuing this project?** Start with `docs/HANDOFF-2026-08-15.md`, then `docs/TESTING.md`.
+> **Continuing this project?** Start with `docs/HANDOFF-2026-08-17.md`, then `docs/TESTING.md`. The live plan is `docs/superpowers/plans/2026-08-17-main-continuation.md`.
 
 # The Games Master
 
@@ -12,9 +12,9 @@ The current production target is the Unity 6000.5.3f1 HDRP opening, `WendHill_Pr
 
 ## Current status
 
-The 435 m Wend Hill opening is the default registered scene and is review-ready: it rebuilds deterministically, passes its saved-scene contract, produces a macOS player, and passes story/input/audio, full-route performance, visual-tour, and boundary proofs. The rest of the seven-game experience is not yet a complete Unity game; Entry Hall, Court, Shut the Box, and Parlor remain represented by the archived web prototypes.
+The 435 m Wend Hill opening is the default registered scene. Unity also has a PlayMode-proven scene spine from Boot through Labyrinth to an ending, and a walkable Entry Hall hub stub (foyer, stairs, Percival). That is reachability, not a finished house or finished table games. Current truth: [2026-08-17 handoff](docs/HANDOFF-2026-08-17.md). Last full opening-gate pack: [2026-08-16 handoff](docs/HANDOFF-2026-08-16.md).
 
-See [the 2026-07-31 audit](docs/playtest/wend-hill-prologue-audit-2026-07-31.md) for the exact coverage, results, artifacts, fixes, and remaining limits.
+See [the 2026-07-31 audit](docs/playtest/wend-hill-prologue-audit-2026-07-31.md) for the earlier opening baseline and the defects that shaped the current proof system.
 
 ## Archived web prototype
 

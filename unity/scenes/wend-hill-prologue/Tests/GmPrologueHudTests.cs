@@ -12,6 +12,7 @@ public sealed class GmPrologueHudTests
     public void SetUp()
     {
         GmRunStore.BeginNewRun();
+        ResetAccessibility();
         hudObj = new GameObject("TestPrologueHud");
         hud = hudObj.AddComponent<GmPrologueHud>();
     }
@@ -32,6 +33,7 @@ public sealed class GmPrologueHudTests
             }
             Object.DestroyImmediate(hudObj);
         }
+        ResetAccessibility();
     }
 
     [Test]
@@ -65,59 +67,26 @@ public sealed class GmPrologueHudTests
     }
 
     [Test]
-    public void BuildUiCreatesPauseMenuRowsWithMarkersAndLabels()
+    public void BuildUiCedesPauseRowsToTheCommonPauseMenu()
     {
         VisualElement root = InvokeBuildUi(hud);
         Assert.IsNotNull(root, "GmPrologueHud root visual element is null");
 
         var resumeRow = root.Q<VisualElement>("PauseResume");
         var quitRow = root.Q<VisualElement>("PauseQuit");
-        Assert.IsNotNull(resumeRow, "PauseResume row is missing from visual tree");
-        Assert.IsNotNull(quitRow, "PauseQuit row is missing from visual tree");
-
-        var resumeMarker = root.Q<VisualElement>("PauseResumeMarker");
-        var quitMarker = root.Q<VisualElement>("PauseQuitMarker");
-        Assert.IsNotNull(resumeMarker, "PauseResume marker is missing");
-        Assert.IsNotNull(quitMarker, "PauseQuit marker is missing");
-
-        var resumeLabel = root.Q<Label>("PauseResumeLabel");
-        var quitLabel = root.Q<Label>("PauseQuitLabel");
-        Assert.IsNotNull(resumeLabel, "PauseResume label is missing");
-        Assert.IsNotNull(quitLabel, "PauseQuit label is missing");
-        Assert.AreEqual("Resume", resumeLabel.text);
-        Assert.AreEqual("Quit to desktop", quitLabel.text);
-
-        var runState = root.Q<Label>("RunState");
-        Assert.IsNotNull(runState, "RunState label is missing from pause card");
+        Assert.IsNull(resumeRow, "Prologue still renders a second competing pause menu");
+        Assert.IsNull(quitRow, "Prologue still renders a second competing pause menu");
     }
 
     [Test]
-    public void SetPauseFocusAppliesTwoChannelAccessibilityFocus()
+    public void BuildUiAppliesGlobalTextScaleAndHighContrast()
     {
+        GmAccessibilitySettings.SetTextScale(2f);
+        GmAccessibilitySettings.SetHighContrast(true);
         VisualElement root = InvokeBuildUi(hud);
-
-        MethodInfo setFocusMethod = typeof(GmPrologueHud).GetMethod("SetPauseFocus",
-            BindingFlags.Instance | BindingFlags.NonPublic);
-        Assert.IsNotNull(setFocusMethod, "GmPrologueHud.SetPauseFocus method missing");
-
-        var resumeMarker = root.Q<VisualElement>("PauseResumeMarker");
-        var quitMarker = root.Q<VisualElement>("PauseQuitMarker");
-        var resumeLabel = root.Q<Label>("PauseResumeLabel");
-        var quitLabel = root.Q<Label>("PauseQuitLabel");
-
-        // Focus Resume
-        setFocusMethod.Invoke(hud, new object[] { true });
-        Assert.AreEqual(DisplayStyle.Flex, resumeMarker.style.display.value, "Resume marker must be visible when focused");
-        Assert.AreEqual(DisplayStyle.None, quitMarker.style.display.value, "Quit marker must be hidden when Resume is focused");
-        Assert.Greater(resumeLabel.style.color.value.r, quitLabel.style.color.value.r,
-            "Resume label ink must be brighter than Quit label ink when Resume is focused");
-
-        // Focus Quit
-        setFocusMethod.Invoke(hud, new object[] { false });
-        Assert.AreEqual(DisplayStyle.None, resumeMarker.style.display.value, "Resume marker must be hidden when Quit is focused");
-        Assert.AreEqual(DisplayStyle.Flex, quitMarker.style.display.value, "Quit marker must be visible when focused");
-        Assert.Greater(quitLabel.style.color.value.r, resumeLabel.style.color.value.r,
-            "Quit label ink must be brighter than Resume label ink when Quit is focused");
+        Assert.That(root.Q<Label>("CardBody").style.fontSize.value.value,
+            Is.EqualTo(76f).Within(0.01f));
+        Assert.That(root.ClassListContains("gm-high-contrast"), Is.True);
     }
 
     static VisualElement InvokeBuildUi(GmPrologueHud hudInstance)
@@ -129,5 +98,12 @@ public sealed class GmPrologueHudTests
         var doc = hudInstance.GetComponent<UIDocument>();
         Assert.IsNotNull(doc, "UIDocument was not created by BuildUi");
         return doc.rootVisualElement;
+    }
+
+    static void ResetAccessibility()
+    {
+        typeof(GmRunStore).Assembly.GetType("GmAccessibilitySettings")?.GetMethod(
+            "ResetToDefaultsForTests", BindingFlags.Public | BindingFlags.NonPublic |
+            BindingFlags.Static)?.Invoke(null, null);
     }
 }

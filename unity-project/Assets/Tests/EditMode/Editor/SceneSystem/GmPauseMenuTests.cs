@@ -1,17 +1,35 @@
+using System;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 using UnityEngine.UIElements;
+using Object = UnityEngine.Object;
 
 public class GmPauseMenuTests
 {
+    string directory;
+
     [SetUp]
     public void SetUp()
     {
+        directory = Path.Combine(Path.GetTempPath(), "gm-pause-" + Guid.NewGuid().ToString("N"));
+        GmSaveSystem.ConfigureForTests(Path.Combine(directory, "save.json"));
         GmRunStore.BeginNewRun();
+        ResetAccessibility();
         GmPauseMenu.SetTextScale(1.0f);
         GmPauseMenu.SetReduceMotion(false);
+    }
+
+    [TearDown]
+    public void TearDown()
+    {
+        ResetAccessibility();
+        GmSaveSystem.ResetTestConfiguration();
+        if (Directory.Exists(directory)) Directory.Delete(directory, true);
     }
 
     [Test]
@@ -56,8 +74,9 @@ public class GmPauseMenuTests
             player.SetPaused(true);
             Sync(menu, player);
             Assert.IsTrue(GmPauseMenu.IsPaused, "the menu did not react to GmPlayer.IsPaused becoming true");
-            Assert.AreEqual("Esc  Resume      Q  Quit", prompt.text,
-                "the keyboard prompt does not match GmPrologueHud's established wording");
+            StringAssert.Contains("Esc  Resume", prompt.text);
+            StringAssert.Contains("Q  Quit", prompt.text);
+            StringAssert.Contains("Enter  Select", prompt.text);
 
             player.SetPaused(false);
             Sync(menu, player);
@@ -71,7 +90,7 @@ public class GmPauseMenuTests
     }
 
     [Test]
-    public void APrologueHudInTheSceneSuppressesThisMenuEntirely()
+    public void APrologueHudCedesPauseOwnershipToTheCommonMenu()
     {
         // wend-hill-prologue already has its own bespoke, tested pause overlay (GmPrologueHud).
         // This menu must never show a second pause screen on top of it.
@@ -87,14 +106,129 @@ public class GmPauseMenuTests
         {
             player.SetPaused(true);
             InvokeUpdate(menu);
-            Assert.IsFalse(GmPauseMenu.IsPaused,
-                "GmPauseMenu activated even though a GmPrologueHud is present in the scene");
+            Assert.IsTrue(GmPauseMenu.IsPaused,
+                "the common accessible pause menu was suppressed in the Prologue");
         }
         finally
         {
             Teardown(menu, pauseObj);
             Object.DestroyImmediate(playerObj);
             Object.DestroyImmediate(hudObj);
+        }
+    }
+
+    [Test]
+    public void MenuOwnsACompleteClonedInputContractAndExposesControllerFocus()
+    {
+        var pauseObj = new GameObject("TestPauseMenu");
+        var menu = pauseObj.AddComponent<GmPauseMenu>();
+        try
+        {
+            BuildUi(menu);
+            Assert.That(ReadInstance<bool>(menu, "HasRequiredActions"), Is.True,
+                "pause never acquired Menu/Navigate, Submit and Cancel from an owned clone");
+            menu.SetPauseState(true);
+            Assert.That(ReadInstance<int>(menu, "FocusedTabIndex"), Is.EqualTo(0));
+            InvokeInstance(menu, "MoveMenuFocus", 3);
+            Assert.That(menu.ActiveTab, Is.EqualTo(GmPauseTab.Settings));
+            InvokeInstance(menu, "ActivateFocusedItem");
+            Assert.That(ReadInstance<bool>(menu, "SettingsFocusActive"), Is.True);
+            Assert.That(ReadInstance<int>(menu, "SettingsFocusIndex"), Is.Zero);
+            Assert.That(menu.GetComponent<UIDocument>().rootVisualElement
+                .Q<VisualElement>("CaptionsToggle").ClassListContains("gm-controller-focus"), Is.True,
+                "settings focus has no visible non-colour indicator");
+        }
+        finally
+        {
+            Teardown(menu, pauseObj);
+        }
+    }
+
+    [Test]
+    public void CustomControllerOwnerPreventsUiToolkitFromSubmittingTheSameWidgets()
+    {
+        var pauseObj = new GameObject("TestPauseMenu");
+        var menu = pauseObj.AddComponent<GmPauseMenu>();
+        try
+        {
+            VisualElement root = BuildUi(menu);
+            foreach (string tab in new[]
+                { "Tab_Journal", "Tab_MirrorShards", "Tab_CaughtTells", "Tab_Settings" })
+                Assert.That(root.Q<Button>(tab).focusable, Is.False,
+                    $"{tab} still accepts UI Toolkit controller Submit beside GmPauseMenu");
+
+            menu.SwitchTab(GmPauseTab.Settings);
+            menu.ActivateFocusedItem();
+            foreach (string toggle in new[]
+                { "CaptionsToggle", "ReduceMotionToggle", "VibrationToggle",
+                    "MonoAudioToggle", "HighContrastToggle" })
+                Assert.That(root.Q<Toggle>(toggle).focusable, Is.False,
+                    $"{toggle} has a second controller Submit owner");
+            Assert.That(root.Q<Slider>("TextScaleSlider").focusable, Is.False,
+                "text scale still has a second controller navigation owner");
+        }
+        finally
+        {
+            Teardown(menu, pauseObj);
+        }
+    }
+
+    [Test]
+    public void ClosingSettingsFlushesChangedPreferencesWithoutATestCallingFlush()
+    {
+        var pauseObj = new GameObject("TestPauseMenu");
+        var menu = pauseObj.AddComponent<GmPauseMenu>();
+        try
+        {
+            VisualElement root = BuildUi(menu);
+            menu.SetPauseState(true);
+            menu.SwitchTab(GmPauseTab.Settings);
+            root.Q<Toggle>("CaptionsToggle").value = true;
+            root.Q<Slider>("TextScaleSlider").value = 1.6f;
+
+            menu.SetPauseState(false);
+
+            string json = File.ReadAllText(GmSaveSystem.PreferencesPath);
+            StringAssert.Contains("\"captions\": true", json);
+            StringAssert.Contains("\"textScale\": 1.6", json);
+            Assert.That(GmSaveSystem.HasSave(), Is.False,
+                "closing settings created a fake Continue run");
+            Assert.That(ReadInstance<bool>(menu, "HasPendingSettingsSave"), Is.False);
+        }
+        finally
+        {
+            Teardown(menu, pauseObj);
+        }
+    }
+
+    [Test]
+    public void FailedLifecycleFlushKeepsPreferencesDirtyAndRetriesAtTheNextBoundary()
+    {
+        var backend = new FailingBackend { Fail = true };
+        GmSaveSystem.ConfigureForTests(Path.Combine(directory, "save.json"), backend);
+        var pauseObj = new GameObject("TestPauseMenu");
+        var menu = pauseObj.AddComponent<GmPauseMenu>();
+        try
+        {
+            VisualElement root = BuildUi(menu);
+            menu.SetPauseState(true);
+            menu.SwitchTab(GmPauseTab.Settings);
+            root.Q<Toggle>("CaptionsToggle").value = true;
+            LogAssert.Expect(LogType.Error, new Regex("injected accessibility writer failure"));
+            LogAssert.Expect(LogType.Error, new Regex("Accessibility settings remain pending"));
+
+            menu.SetPauseState(false);
+
+            Assert.That(menu.HasPendingSettingsSave, Is.True,
+                "failed flush was falsely marked durable");
+            backend.Fail = false;
+            InvokeInstance(menu, "OnApplicationPause", true);
+            Assert.That(menu.HasPendingSettingsSave, Is.False);
+            StringAssert.Contains("\"captions\": true", backend.LastJson);
+        }
+        finally
+        {
+            Teardown(menu, pauseObj);
         }
     }
 
@@ -112,11 +246,48 @@ public class GmPauseMenuTests
 
         // Clamping check
         GmPauseMenu.SetTextScale(3.0f);
-        Assert.AreEqual(1.5f, GmPauseMenu.TextScale, 0.001f);
+        Assert.AreEqual(2.0f, GmPauseMenu.TextScale, 0.001f);
 
         GmPauseMenu.SetTextScale(0.1f);
         Assert.AreEqual(0.8f, GmPauseMenu.TextScale, 0.001f);
     }
+
+    [Test]
+    public void HighContrastTwoHundredPercentRepaintsEverySettingsLabelAndHint()
+    {
+        var pauseObj = new GameObject("TestPauseMenu");
+        var menu = pauseObj.AddComponent<GmPauseMenu>();
+        try
+        {
+            VisualElement root = BuildUi(menu);
+            menu.SetPauseState(true);
+            menu.SwitchTab(GmPauseTab.Settings);
+            GmPauseMenu.SetTextScale(2f);
+            GmPauseMenu.SetHighContrast(true);
+
+            foreach (Label label in root.Query<Label>().ToList())
+            {
+                Color color = label.style.color.value;
+                Assert.That(Mathf.Max(color.r, color.g, color.b), Is.GreaterThanOrEqualTo(0.98f),
+                    $"{label.name}/{label.text} stayed muted in high contrast");
+            }
+            foreach (Toggle toggle in root.Query<Toggle>().ToList())
+                Assert.That(toggle.labelElement.style.color.value, Is.EqualTo(Color.white),
+                    $"{toggle.name} label stayed muted in high contrast");
+            Slider slider = root.Q<Slider>("TextScaleSlider");
+            Assert.That(slider.labelElement.style.color.value, Is.EqualTo(Color.white));
+            Assert.That(root.Q<Label>("PausePrompt").style.fontSize.value.value,
+                Is.EqualTo(BodyFontSizeForTest * 2f).Within(0.001f));
+        }
+        finally
+        {
+            GmPauseMenu.SetHighContrast(false);
+            GmPauseMenu.SetTextScale(1f);
+            Teardown(menu, pauseObj);
+        }
+    }
+
+    const int BodyFontSizeForTest = 16;
 
     [Test]
     public void TabSwitchingUpdatesActiveTab()
@@ -228,8 +399,82 @@ public class GmPauseMenuTests
             Assert.AreEqual("No tells caught yet.", content.Children().OfType<Label>().First().text);
 
             menu.SwitchTab(GmPauseTab.Settings);
+            Assert.IsNotNull(content.Q<Toggle>("CaptionsToggle"), "settings lost its captions control");
             Assert.IsNotNull(content.Q<Toggle>("ReduceMotionToggle"), "settings lost its reduce-motion control");
+            Assert.IsNotNull(content.Q<Toggle>("VibrationToggle"), "settings lost its vibration control");
+            Assert.IsNotNull(content.Q<Toggle>("MonoAudioToggle"), "settings lost its mono-audio control");
+            Assert.IsNotNull(content.Q<Toggle>("HighContrastToggle"), "settings lost its high-contrast control");
             Assert.IsNotNull(content.Q<Slider>("TextScaleSlider"), "settings lost its text-size control");
+        }
+        finally
+        {
+            Teardown(menu, pauseObj);
+        }
+    }
+
+    [Test]
+    public void EveryDynamicPauseTextElementUsesTheRuntimeSafeStandardGenerator()
+    {
+        var pauseObj = new GameObject("TestPauseMenu");
+        var menu = pauseObj.AddComponent<GmPauseMenu>();
+        try
+        {
+            VisualElement root = BuildUi(menu);
+            foreach (GmPauseTab tab in Enum.GetValues(typeof(GmPauseTab)))
+            {
+                menu.SwitchTab(tab);
+                AssertStandardText(root, $"pause tab {tab}");
+            }
+        }
+        finally
+        {
+            Teardown(menu, pauseObj);
+        }
+    }
+
+    [Test]
+    public void PauseSourceStandardizesTheTreeAfterEveryDynamicTabRebuild()
+    {
+        string source = File.ReadAllText(Path.Combine(Application.dataPath,
+            "Scripts/GmPauseMenu.cs"));
+        int render = source.IndexOf("void RenderActiveTab()", StringComparison.Ordinal);
+        int nextMethod = source.IndexOf("void BuildJournalTab()", render,
+            StringComparison.Ordinal);
+        Assert.That(render, Is.GreaterThanOrEqualTo(0));
+        Assert.That(nextMethod, Is.GreaterThan(render));
+        StringAssert.Contains("GmUiText.UseStandardGenerator(root)",
+            source.Substring(render, nextMethod - render),
+            "each rebuilt tab needs a post-construction standard-generator sweep");
+    }
+
+    [Test]
+    public void EverySettingsControlAppliesImmediatelyAndQueuesDurableState()
+    {
+        var pauseObj = new GameObject("TestPauseMenu");
+        var menu = pauseObj.AddComponent<GmPauseMenu>();
+        try
+        {
+            VisualElement root = BuildUi(menu);
+            menu.SetPauseState(true);
+            menu.SwitchTab(GmPauseTab.Settings);
+            root.Q<Toggle>("CaptionsToggle").value = true;
+            root.Q<Toggle>("ReduceMotionToggle").value = true;
+            root.Q<Toggle>("VibrationToggle").value = false;
+            root.Q<Toggle>("MonoAudioToggle").value = true;
+            root.Q<Toggle>("HighContrastToggle").value = true;
+            root.Q<Slider>("TextScaleSlider").value = 2f;
+
+            Assert.That(ReadAccessibility<bool>("Captions"), Is.True);
+            Assert.That(ReadAccessibility<bool>("ReducedMotion"), Is.True);
+            Assert.That(ReadAccessibility<bool>("Vibration"), Is.False);
+            Assert.That(ReadAccessibility<bool>("MonoAudio"), Is.True);
+            Assert.That(ReadAccessibility<bool>("HighContrast"), Is.True);
+            Assert.That(ReadAccessibility<float>("TextScale"), Is.EqualTo(2f).Within(0.001f));
+            menu.SetPauseState(false);
+            Assert.That(File.Exists(GmSaveSystem.PreferencesPath), Is.True,
+                "closing settings did not durably flush changed preferences");
+            Assert.That(GmSaveSystem.HasSave(), Is.False,
+                "settings durability must not create a run save");
         }
         finally
         {
@@ -310,5 +555,58 @@ public class GmPauseMenuTests
         panelField.SetValue(menu, null);
         Object.DestroyImmediate(owner);
         if (settings != null) Object.DestroyImmediate(settings);
+    }
+
+    static Type AccessibilityType => typeof(GmRunStore).Assembly.GetType("GmAccessibilitySettings");
+
+    static T ReadAccessibility<T>(string property)
+    {
+        Assert.That(AccessibilityType, Is.Not.Null);
+        return (T)AccessibilityType.GetProperty(property,
+            BindingFlags.Public | BindingFlags.Static).GetValue(null);
+    }
+
+    static void ResetAccessibility()
+    {
+        AccessibilityType?.GetMethod("ResetToDefaultsForTests",
+            BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static)?.Invoke(null, null);
+    }
+
+    static T ReadInstance<T>(object target, string property)
+    {
+        PropertyInfo info = target.GetType().GetProperty(property,
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.That(info, Is.Not.Null, $"{target.GetType().Name} has no {property} property");
+        return (T)info.GetValue(target);
+    }
+
+    static object InvokeInstance(object target, string method, params object[] args)
+    {
+        MethodInfo info = target.GetType().GetMethod(method,
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.That(info, Is.Not.Null, $"{target.GetType().Name} has no {method} method");
+        return info.Invoke(target, args);
+    }
+
+    sealed class FailingBackend : IGmAtomicSaveBackend
+    {
+        public bool Fail;
+        public string LastJson { get; private set; }
+
+        public void WriteAtomic(string target, string json)
+        {
+            if (Fail) throw new IOException("injected accessibility writer failure");
+            LastJson = json;
+        }
+    }
+
+    static void AssertStandardText(VisualElement root, string context)
+    {
+        var text = root.Query<TextElement>().ToList();
+        Assert.That(text, Is.Not.Empty, $"{context} built no text");
+        foreach (TextElement element in text)
+            Assert.That(element.style.unityTextGenerator.value,
+                Is.EqualTo(TextGeneratorType.Standard),
+                $"{context}: {element.name} can hit Unity 6's missing ICU path");
     }
 }

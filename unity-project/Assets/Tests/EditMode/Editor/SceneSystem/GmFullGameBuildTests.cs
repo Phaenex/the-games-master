@@ -14,6 +14,12 @@ using NUnit.Framework;
 public sealed class GmFullGameBuildTests
 {
     [Test]
+    public void ReleaseBuildEnablesFrameTimingForNonEditorPerformanceProof()
+    {
+        Assert.That(GmFullGameBuild.EnableFrameTimingStatsForBuild, Is.True);
+    }
+
+    [Test]
     public void TheStartupSceneIsBoot()
     {
         // In a built player, index 0 IS the startup scene; there is no separate setting. Boot sat at

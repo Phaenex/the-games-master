@@ -35,6 +35,9 @@ public static class GmShutTheBoxCompositionPlan
         public GameObject wallSconce;
         public GameObject wallSconceLight;
         public GameObject wallClock;
+        public GameObject labyrinthDoors;
+        public GameObject onwardSconces;
+        public GameObject onwardSconceLight;
     }
 
     // Everything resting on the gaming table is grounded on the table top, not the floor.
@@ -180,6 +183,28 @@ public static class GmShutTheBoxCompositionPlan
             "The alcove wall clock, the only thing in the room still keeping honest time.",
             GmCompositionRole.Detail, GmSpatialRelation.Suspended);
 
+        // Zone 5: the ordinary onward route. The secret panel has its own east-wall cluster above;
+        // these are the separate south leaves earned by completing the actual table match.
+        var onwardZone = new GameObject("OnwardZone");
+        onwardZone.transform.SetParent(owner.transform, false);
+        onwardZone.transform.position = new Vector3(0f, 1.5f, -4f);
+        GmCompositionAuthoring.Zone(onwardZone, "onward-zone",
+            "The match-gated double doors opening from the table room into the Labyrinth.",
+            new Vector3(4f, 4f, 4f), minClusters: 1, minElements: 1);
+
+        var onwardCluster = new GameObject("OnwardCluster");
+        onwardCluster.transform.SetParent(onwardZone.transform, false);
+        onwardCluster.transform.position = new Vector3(0f, 1.2f, -3.78f);
+        GmCompositionAuthoring.Cluster(onwardCluster, "onward-cluster", "onward-zone",
+            "Paired oak leaves opening onto the hedge passage.", "labyrinth-doors",
+            minSupports: 1, minDetails: 0, requireVariation: false);
+        GmCompositionAuthoring.Element(refs.labyrinthDoors, "labyrinth-doors", "onward-cluster",
+            "stb-architecture", "Physical match-gated double doors and their real hinge leaves.",
+            GmCompositionRole.Anchor);
+        GmCompositionAuthoring.Element(refs.onwardSconces, "onward-sconces", "onward-cluster",
+            "stb-lighting", "Paired period wall lamps revealing the earned south threshold.",
+            GmCompositionRole.Support, GmSpatialRelation.Suspended);
+
         AuthorLighting(refs);
         AuthorReviewClaims(owner);
     }
@@ -204,6 +229,11 @@ public static class GmShutTheBoxCompositionPlan
             GmLightIntentKind.CompositionFill,
             "Cheated raking accent that grazes the panel edge so the hairline seam is findable.",
             subjectId: "brass-seam");
+
+        refs.onwardSconceLight.AddComponent<GmLightIntent>().Configure("stb-onward-sconces",
+            GmLightIntentKind.Practical,
+            "Paired wall lamps give the completed-match doorway a readable pool without changing exposure.",
+            sourceId: "onward-sconces");
     }
 
     // The trailing float on each claim is an INTERIM reading: GmCompositionAuthoring.ReviewClaim
@@ -246,5 +276,13 @@ public static class GmShutTheBoxCompositionPlan
         GmCompositionAuthoring.ReviewClaim(owner, "08-room-wide", "player-box", "panel-door",
             "table-zone", "door-zone", new Vector2(0.5f, 0.5f), 0.40f,
             "Wide establishing shot showing the table, boards, and east wall secret door.");
+
+        GmCompositionAuthoring.ReviewClaim(owner, "09-hidden-passage-open", "panel-door", "brass-seam",
+            "secret-door-cluster", "door-zone", new Vector2(0.5f, 0.5f), 0.55f,
+            "Tile 9 catch view proving the concealed panel clears a real secret passage.");
+
+        GmCompositionAuthoring.ReviewClaim(owner, "10-labyrinth-passage-open", "labyrinth-doors", "",
+            "onward-cluster", "onward-zone", new Vector2(0.5f, 0.5f), 0.55f,
+            "Finished-match view proving the south leaves clear the passage into the Labyrinth.");
     }
 }

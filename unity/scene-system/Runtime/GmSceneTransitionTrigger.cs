@@ -5,6 +5,10 @@ public sealed class GmSceneTransitionTrigger : MonoBehaviour
     public string TargetSceneId = "entry-hall";
     public string TargetScenePath = "Assets/Scenes/EntryHall.unity";
     public string InteractionPrompt = "Open double doors into the Parlor";
+    public bool UseCurtain = false;
+    public string CompleteRoomOnTransitionId = "";
+    public bool CompletedRoomCountsAsTableGame = false;
+    public string RequiredCompletedRoomId = "";
 
     public bool IsTriggered { get; private set; } = false;
 
@@ -18,7 +22,20 @@ public sealed class GmSceneTransitionTrigger : MonoBehaviour
     public void TriggerTransition()
     {
         if (IsTriggered) return;
+        if (!string.IsNullOrWhiteSpace(RequiredCompletedRoomId) &&
+            !GmRunStore.IsRoomComplete(RequiredCompletedRoomId))
+        {
+            Debug.Log($"[GmSceneTransitionTrigger] Refusing {TargetSceneId} until " +
+                      $"{RequiredCompletedRoomId} is complete");
+            return;
+        }
         IsTriggered = true;
+
+        if (!string.IsNullOrWhiteSpace(CompleteRoomOnTransitionId))
+            GmRunStore.CompleteRoom(CompleteRoomOnTransitionId, CompletedRoomCountsAsTableGame);
+
+        if (UseCurtain && GmSceneCurtain.Instance != null)
+            GmSceneCurtain.Instance.Raise();
 
         if (HandOff()) return;
 

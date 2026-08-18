@@ -62,6 +62,20 @@ public class GmSecretEnding : MonoBehaviour
         bool atCar = semantic ? progress <= carAnchor.RouteMetres + 1f : z >= carZ - 1f;
         if (!movingBackward || !atCar) return;
 
+        if (GmHousePersistenceCoordinator.IsEnabled)
+        {
+            if (!GmHousePersistenceCoordinator.TryAbandonActiveRun(out string houseError))
+            {
+                Debug.LogError($"[GmSecretEnding] could not abandon House run: {houseError}");
+                return;
+            }
+            if (!GmSaveSystem.DeleteSave())
+            {
+                Debug.LogError($"[GmSecretEnding] could not erase pre-gate Continue save: {GmSaveSystem.LastError}");
+                return;
+            }
+        }
+
         fired = true;
         player.SetControlBlocked(true);
         rt?.ShowAftermath(

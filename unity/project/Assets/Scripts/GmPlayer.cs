@@ -67,7 +67,7 @@ public class GmPlayer : MonoBehaviour
     {
         UpdateActiveDevice();
 
-        if (!ControlBlocked && pauseAction != null && pauseAction.WasPressedThisFrame())
+        if (pauseAction != null && pauseAction.WasPressedThisFrame())
         {
             SetPaused(!paused);
             return;
@@ -75,12 +75,18 @@ public class GmPlayer : MonoBehaviour
 
         if (paused)
         {
-            if (brightnessDownAction != null && brightnessDownAction.WasPressedThisFrame())
+            GmPauseMenu commonMenu = GetComponent<GmPauseMenu>() ?? FindAnyObjectByType<GmPauseMenu>();
+            // This branch is already the authoritative paused state. Do not depend on whether the
+            // menu's later Update has mirrored it yet or adjacent-frame Submit/Cancel can leak.
+            bool commonMenuOwnsInput = commonMenu != null;
+            if (!commonMenuOwnsInput && brightnessDownAction != null &&
+                brightnessDownAction.WasPressedThisFrame())
             {
                 displayCalibration?.Step(-1);
                 return;
             }
-            if (brightnessUpAction != null && brightnessUpAction.WasPressedThisFrame())
+            if (!commonMenuOwnsInput && brightnessUpAction != null &&
+                brightnessUpAction.WasPressedThisFrame())
             {
                 displayCalibration?.Step(1);
                 return;
@@ -90,7 +96,8 @@ public class GmPlayer : MonoBehaviour
                 RequestQuit();
                 return;
             }
-            if (InteractPressedThisFrame || CancelPressedThisFrame) SetPaused(false);
+            if (!commonMenuOwnsInput && (InteractPressedThisFrame || CancelPressedThisFrame))
+                SetPaused(false);
             return;
         }
 
@@ -194,6 +201,8 @@ public class GmPlayer : MonoBehaviour
 
     void RequestQuit()
     {
+        GmAccessibilitySettings.FlushPendingSave();
+        GmSaveSystem.Flush();
         QuitRequested = true;
         GmExperienceTelemetry.Record("quit", usingGamepad ? "controller" : "keyboard");
         Debug.Log("[GmPlayer] quit requested from pause menu");
@@ -249,4 +258,3 @@ public class GmPlayer : MonoBehaviour
         gameplay?.Disable();
     }
 }
-

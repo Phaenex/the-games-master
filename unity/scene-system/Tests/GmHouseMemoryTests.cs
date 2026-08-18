@@ -1,0 +1,601 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using NUnit.Framework;
+
+public sealed class GmHouseMemoryTests
+{
+    string directory;
+
+    [SetUp]
+    public void SetUp() => directory = Path.Combine(Path.GetTempPath(),
+        "gm-house-memory-" + Guid.NewGuid().ToString("N"));
+
+    [TearDown]
+    public void TearDown()
+    {
+        if (Directory.Exists(directory)) Directory.Delete(directory, true);
+    }
+
+    [Test]
+    public void ReceiptCodecHasFrozenDomainSeparatedBigEndianGoldenVectors()
+    {
+        var identity = new GmHouseRunIdentity(
+            "00112233445566778899aabbccddeeff", 7,
+            "ffeeddccbbaa99887766554433221100", 42);
+        Assert.That(GmHouseReceiptCodec.ComputeReceiptId(identity, 1), Is.EqualTo(
+            "c0115d3966a021c173a17c8b6f854d36d77460be6c121f5a1bfc0f7b566f9868"));
+        Assert.That(GmHouseReceiptCodec.CanonicalIdentityBytes(identity, 1), Is.EqualTo(Hex(
+            "54474d2f484f5553452f524543454950542d49442f563100" +
+            "000000203030313132323333343435353636373738383939616162626363646465656666" +
+            "0000000000000007" +
+            "000000206666656564646363626261613939383837373636353534343333323231313030" +
+            "000000000000002a0000000000000001")));
+    }
+
+    [Test]
+    public void FullReceiptPayloadHasFrozenGoldenLengthAndDigest()
+    {
+        GmParlorAdaptivePackage package = GmHouseModeDirector.FreezeOrdinary(99);
+        var binding = new GmHousePackageBinding();
+        SetProperty(binding, "LineageId", "00112233445566778899aabbccddeeff");
+        SetProperty(binding, "Epoch", 7L);
+        SetProperty(binding, "ProfileGeneration", 0L);
+        SetProperty(binding, "ProfileDigest", new byte[32]);
+        SetProperty(binding, "HistoryDigest", new byte[32]);
+        SetProperty(binding, "PackageHash", package.CanonicalHash);
+        SetProperty(binding, "SelectedReceiptIds", Array.Empty<string>());
+        SetProperty(binding, "ConsultedProfile", false);
+        var receipt = new GmHouseTerminalReceipt();
+        SetReceiptProperty(receipt, "LineageId", "00112233445566778899aabbccddeeff");
+        SetReceiptProperty(receipt, "Epoch", 7L);
+        SetReceiptProperty(receipt, "RunId", "ffeeddccbbaa99887766554433221100");
+        SetReceiptProperty(receipt, "RunOrdinal", 42L);
+        SetReceiptProperty(receipt, "OutcomeSequence", 1L);
+        SetReceiptProperty(receipt, "Mode", GmParlorAdaptiveMode.Ordinary);
+        SetReceiptProperty(receipt, "Ending", GmEndingType.TrueEscape);
+        SetReceiptProperty(receipt, "ContributesToLearning", true);
+        SetReceiptProperty(receipt, "FrozenPackage", package);
+        SetReceiptProperty(receipt, "PackageBinding", binding);
+        SetReceiptProperty(receipt, "Summary", CompletedAccumulator(package)
+            .CreateCompletedRunSummary());
+
+        byte[] payload = GmHouseReceiptCodec.EncodeCanonicalPayload(receipt);
+        string digest = string.Concat(GmHouseReceiptCodec.ComputePayloadHash(receipt)
+            .Select(value => value.ToString("x2")));
+        Assert.That(payload.Length, Is.EqualTo(631));
+        Assert.That(digest, Is.EqualTo(
+            "4b5de69cc4dd8dc61b34836da973f4e6902e34ddf6157eb87aad88b1dc294526"));
+        Assert.That(Convert.ToBase64String(payload), Is.EqualTo(
+            "VEdNL0hPVVNFL1JFQ0VJUFQtUEFZTE9BRC9WMQAAAAABAAAAIDAwMTEyMjMzNDQ1NTY2Nzc4ODk5YWFiYmNjZGRlZWZmAAAAAAAAAAcAAAAgZmZlZWRkY2NiYmFhOTk4ODc3NjY1NTQ0MzMyMjExMDAAAAAAAAAAKgAAAAAAAAABAAAAAAAAAAUBAAAAaAAAAAIAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAqQAAAAEAAAAgMDAxMTIyMzM0NDU1NjY3Nzg4OTlhYWJiY2NkZGVlZmYAAAAAAAAABwAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIKtaVEjeoLJ6hl2J+ETFDa8wqggMKiRn6qHpmwJN/KTIAAAAAAAAAADQAAAAAgAAAAEAAAABAAAAAQAAAAAAAAABAAAAAAAAAAAAAAABAAAAAAAAAAAAAAABAAAAAAAAAAAAAAABAAAAAAAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAQAAAAQAAAABAAAAAAAAAAAAAAAAAAAABAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAQAAAAAAAAADAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAACCrWlRI3qCyeoZdifhExQ2vMKoIDCokZ+qh6ZsCTfykyA=="));
+    }
+
+    [Test]
+    public void EmptyDomainCreatesGenesisButMissingRootInNonemptyDomainInhibitsWrites()
+    {
+        var store = new GmHouseMemoryStore(directory);
+        Assert.That(store.TryOpenOrCreate(out GmHouseProfileGeneration profile,
+            out string error), Is.True, error);
+        Assert.That(profile.LineageId, Has.Length.EqualTo(32));
+        Assert.That(profile.Epoch, Is.EqualTo(1));
+        Assert.That(store.RootCommitRecords.Count, Is.EqualTo(1));
+        Assert.That(store.ProfileCommitRecords.Count, Is.EqualTo(1));
+
+        Directory.Delete(Path.Combine(directory, "root"), true);
+        var reopened = new GmHouseMemoryStore(directory);
+        Assert.That(reopened.TryOpenOrCreate(out _, out error), Is.False);
+        StringAssert.Contains("root", error.ToLowerInvariant());
+        Assert.That(reopened.TryAllocateCampaignRun(GmParlorAdaptiveMode.Ordinary,
+            1, out _, out error), Is.False);
+    }
+
+    [Test]
+    public void InterruptedGenesisResumesOnlyFromExactCommittedEmptyRoot()
+    {
+        foreach (GmHouseDurabilityPoint point in new[]
+                 { GmHouseDurabilityPoint.RootGeneration,
+                   GmHouseDurabilityPoint.RootCommitRecord,
+                   GmHouseDurabilityPoint.ProfileGeneration,
+                   GmHouseDurabilityPoint.ProfileCommitRecord })
+        {
+            string root = Path.Combine(directory, point.ToString());
+            var faults = new GmHouseFaultInjectingFileSystem(new GmHousePhysicalFileSystem())
+                { FailNext = point };
+            var interrupted = new GmHouseMemoryStore(root, faults);
+            Assert.That(interrupted.TryOpenOrCreate(out _, out string error), Is.False);
+
+            var restarted = new GmHouseMemoryStore(root);
+            Assert.That(restarted.TryOpenOrCreate(out GmHouseProfileGeneration profile,
+                out error), Is.True, error);
+            Assert.That(profile.Generation, Is.EqualTo(1));
+            Assert.That(profile.Receipts, Is.Empty);
+            Assert.That(restarted.CurrentRoot.NextRunOrdinal, Is.EqualTo(1));
+        }
+    }
+
+    [Test]
+    public void EveryCommittedArtifactUsesBoundedChecksummedBinaryEnvelope()
+    {
+        GmHouseMemoryStore store = OpenStore();
+        GmHouseTerminalReceipt receipt = Prepare(store, 3, GmEndingType.TrappedLoop);
+        Assert.That(store.TryApplyReceipt(receipt, store.CurrentProfile.Cas,
+            out _, out string error), Is.True, error);
+
+        string[] artifacts = Directory.GetFiles(directory, "*", SearchOption.AllDirectories)
+            .Where(path => !path.EndsWith(".house-memory.lease", StringComparison.Ordinal))
+            .ToArray();
+        Assert.That(artifacts, Is.Not.Empty);
+        foreach (string path in artifacts)
+        {
+            byte[] bytes = File.ReadAllBytes(path);
+            Assert.That(bytes.Take(8).ToArray(), Is.EqualTo(System.Text.Encoding.ASCII
+                .GetBytes("TGMHOUSE")), $"{path} has no House envelope magic");
+            Assert.That(bytes.Length, Is.LessThanOrEqualTo(4 * 1024 * 1024));
+        }
+    }
+
+    [Test]
+    public void OrdinaryFreezesBaselineWithoutProfileInputButAllocatesCommittedIdentity()
+    {
+        GmParlorAdaptivePackage baseline = GmHouseModeDirector.FreezeOrdinary(4815);
+        Assert.That(baseline.provenance,
+            Is.EqualTo(GmParlorPackageProvenance.OrdinaryBaseline));
+        Assert.That(baseline.historyDigest, Is.All.Zero);
+
+        GmHouseMemoryStore store = OpenStore();
+        Assert.That(store.TryAllocateCampaignRun(GmParlorAdaptiveMode.Ordinary, 4815,
+            out GmHouseRunGeneration run, out string error), Is.True, error);
+        Assert.That(run.Identity.RunOrdinal, Is.EqualTo(1));
+        Assert.That(run.FrozenPackage.CanonicalHash, Is.EqualTo(baseline.CanonicalHash));
+        Assert.That(store.CurrentRoot.Allocations, Has.Count.EqualTo(1));
+        Assert.That(store.CurrentRoot.Allocations[0].RunId, Is.EqualTo(run.Identity.RunId));
+    }
+
+    [Test]
+    public void RootRetainsAllocationsAndNeverReusesOrdinalAcrossReset()
+    {
+        GmHouseMemoryStore store = OpenStore();
+        Assert.That(store.TryAllocateCampaignRun(GmParlorAdaptiveMode.Ordinary, 1,
+            out GmHouseRunGeneration abandoned, out string error), Is.True, error);
+        Assert.That(store.TryResetHouseMemory(false, true, out _, out error), Is.True, error);
+        Assert.That(store.TryAllocateCampaignRun(GmParlorAdaptiveMode.Ordinary, 2,
+            out GmHouseRunGeneration next, out error), Is.True, error);
+        Assert.That(next.Identity.RunOrdinal, Is.EqualTo(abandoned.Identity.RunOrdinal + 1));
+        Assert.That(store.CurrentRoot.Allocations.Select(item => item.RunOrdinal),
+            Is.EqualTo(new[] { abandoned.Identity.RunOrdinal, next.Identity.RunOrdinal }));
+        Assert.That(store.CurrentRoot.Epoch, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void TwoStaleWritersCasOutOfOrderWithoutLostUpdate()
+    {
+        GmHouseMemoryStore first = OpenStore();
+        var stale = new GmHouseMemoryStore(directory);
+        Assert.That(stale.TryOpenExisting(out GmHouseProfileGeneration snapshot,
+            out string error), Is.True, error);
+        GmHouseTerminalReceipt one = Prepare(first, 11, GmEndingType.DefiantSacrifice);
+        GmHouseTerminalReceipt two = Prepare(stale, 12, GmEndingType.HostSuccession);
+        Assert.That(stale.TryApplyReceipt(two, snapshot.Cas, out _, out error), Is.True, error);
+        Assert.That(first.TryApplyReceipt(one, snapshot.Cas,
+            out GmHouseProfileGeneration merged, out error), Is.True, error);
+        Assert.That(merged.Receipts.Select(item => item.RunOrdinal),
+            Is.EqualTo(new long[] { 1, 2 }));
+    }
+
+    [Test]
+    public void CasRejectsImpossibleFutureOrSameGenerationHashMismatch()
+    {
+        GmHouseMemoryStore store = OpenStore();
+        GmHouseTerminalReceipt receipt = Prepare(store, 13, GmEndingType.TrappedLoop);
+        GmHouseProfileCas current = store.CurrentProfile.Cas;
+        var forgedHash = new GmHouseProfileCas(current.LineageId, current.Epoch,
+            current.Generation, new string('0', 64));
+        Assert.That(store.TryApplyReceipt(receipt, forgedHash, out _, out string error),
+            Is.False);
+        StringAssert.Contains("CAS", error);
+
+        var future = new GmHouseProfileCas(current.LineageId, current.Epoch,
+            current.Generation + 1, current.GenerationHash);
+        Assert.That(store.TryApplyReceipt(receipt, future, out _, out error), Is.False);
+        StringAssert.Contains("CAS", error);
+        Assert.That(store.CurrentProfile.Receipts, Is.Empty);
+    }
+
+    [Test]
+    public void DuplicateIsIdempotentAndIdentityCollisionInhibits()
+    {
+        GmHouseMemoryStore store = OpenStore();
+        Assert.That(store.TryAllocateCampaignRun(GmParlorAdaptiveMode.Ordinary, 19,
+            out GmHouseRunGeneration run, out string error), Is.True, error);
+        GmParlorBehaviorAccumulator behavior = CompletedAccumulator(run.FrozenPackage);
+        Assert.That(store.TryCreateReceipt(run, GmEndingType.TrappedLoop, behavior,
+            out GmHouseTerminalReceipt receipt, out error), Is.True, error);
+        Assert.That(store.TryCommitPreparedRun(run, receipt, new GmSaveData
+        { currentSceneId = "labyrinth", lastCheckpoint = "ending",
+            houseRunId = run.Identity.RunId }, out _, out error), Is.True, error);
+        Assert.That(store.TryApplyReceipt(receipt, store.CurrentProfile.Cas,
+            out GmHouseProfileGeneration once, out error), Is.True, error);
+        Assert.That(store.TryApplyReceipt(receipt, once.Cas,
+            out GmHouseProfileGeneration twice, out error), Is.True, error);
+        Assert.That(twice.Cas, Is.EqualTo(once.Cas));
+
+        Assert.That(store.TryCreateReceipt(run, GmEndingType.TrueEscape, behavior,
+            out GmHouseTerminalReceipt collision, out error), Is.True, error);
+        Assert.That(collision.ReceiptId, Is.EqualTo(receipt.ReceiptId));
+        Assert.That(collision.PayloadHash, Is.Not.EqualTo(receipt.PayloadHash));
+        Assert.That(store.TryApplyReceipt(collision, twice.Cas, out _, out error), Is.False);
+        StringAssert.Contains("different payload", error);
+    }
+
+    [Test]
+    public void OutcomeSequenceOtherThanOneIsRejectedBeforeProfileMutation()
+    {
+        GmHouseMemoryStore store = OpenStore();
+        GmHouseTerminalReceipt receipt = Prepare(store, 23, GmEndingType.TrappedLoop);
+        SetReceiptProperty(receipt, "OutcomeSequence", 2L);
+        SetReceiptProperty(receipt, "ReceiptId", GmHouseReceiptCodec.ComputeReceiptId(
+            new GmHouseRunIdentity(receipt.LineageId, receipt.Epoch, receipt.RunId,
+                receipt.RunOrdinal), 2));
+        SetReceiptProperty(receipt, "PayloadHash",
+            GmHouseReceiptCodec.ComputePayloadHash(receipt));
+
+        Assert.That(store.TryApplyReceipt(receipt, store.CurrentProfile.Cas,
+            out _, out string error), Is.False);
+        StringAssert.Contains("receipt", error.ToLowerInvariant());
+        Assert.That(store.CurrentProfile.Receipts, Is.Empty);
+    }
+
+    [Test]
+    public void TerminalProtocolRecoversEveryCrashWindowExactlyOnce()
+    {
+        foreach (GmHouseTerminalFault fault in new[]
+                 { GmHouseTerminalFault.AfterPreparedRunCommit,
+                   GmHouseTerminalFault.AfterProfileCommit,
+                   GmHouseTerminalFault.AfterAcknowledgedRunCommit })
+        {
+            string root = Path.Combine(directory, fault.ToString());
+            var store = new GmHouseMemoryStore(root);
+            Assert.That(store.TryOpenOrCreate(out _, out string error), Is.True, error);
+            Assert.That(store.TryAllocateCampaignRun(GmParlorAdaptiveMode.Ordinary, 31,
+                out GmHouseRunGeneration run, out error), Is.True, error);
+            var protocol = new GmHouseTerminalProtocol(store) { FaultAfter = fault };
+            var checkpoint = new GmSaveData { currentSceneId = "ending", lastCheckpoint = "ending",
+                houseRunId = run.Identity.RunId, corruptionTier = 4 };
+            Assert.That(protocol.TryComplete(run, GmEndingType.DefiantSacrifice,
+                CompletedAccumulator(run.FrozenPackage), checkpoint, out _, out error), Is.False);
+
+            var restarted = new GmHouseMemoryStore(root);
+            Assert.That(restarted.TryOpenExisting(out _, out error), Is.True, error);
+            var recovery = new GmHouseTerminalProtocol(restarted);
+            Assert.That(recovery.TryRecover(run.Identity.RunId,
+                out GmHouseRunGeneration acknowledged, out error), Is.True, error);
+            Assert.That(acknowledged.Stage, Is.EqualTo(GmHouseRunStage.Acknowledged));
+            Assert.That(acknowledged.TerminalCheckpoint.currentSceneId, Is.EqualTo("ending"));
+            Assert.That(acknowledged.TerminalCheckpoint.corruptionTier, Is.EqualTo(4));
+            Assert.That(acknowledged.AcknowledgedProfileGeneration, Is.GreaterThanOrEqualTo(2));
+            Assert.That(acknowledged.AcknowledgedProfileGenerationHash, Has.Length.EqualTo(64));
+            Assert.That(acknowledged.AcknowledgedProfileCommitHash, Has.Length.EqualTo(64));
+            Assert.That(restarted.CurrentProfile.Receipts, Has.Count.EqualTo(1));
+            Assert.That(recovery.TryRecover(run.Identity.RunId, out var again, out error),
+                Is.True, error);
+            Assert.That(again.Generation, Is.EqualTo(acknowledged.Generation));
+        }
+    }
+
+    [Test]
+    public void AbandonCannotDiscardPreparedTerminalReceipt()
+    {
+        GmHouseMemoryStore store = OpenStore();
+        Assert.That(store.TryAllocateCampaignRun(GmParlorAdaptiveMode.Ordinary, 37,
+            out GmHouseRunGeneration run, out string error), Is.True, error);
+        var protocol = new GmHouseTerminalProtocol(store)
+            { FaultAfter = GmHouseTerminalFault.AfterPreparedRunCommit };
+        Assert.That(protocol.TryComplete(run, GmEndingType.TrappedLoop,
+            CompletedAccumulator(run.FrozenPackage), new GmSaveData
+            { currentSceneId = "ending", lastCheckpoint = "ending", houseRunId = run.Identity.RunId },
+            out _, out error), Is.False);
+        Assert.That(store.TryAbandonRun(run.Identity.RunId, out error), Is.False);
+        StringAssert.Contains("prepared", error.ToLowerInvariant());
+    }
+
+    [Test]
+    public void PreparedRunRejectsReceiptFromAnotherAllocatedRun()
+    {
+        GmHouseMemoryStore store = OpenStore();
+        Assert.That(store.TryAllocateCampaignRun(GmParlorAdaptiveMode.Ordinary, 701,
+            out GmHouseRunGeneration first, out string error), Is.True, error);
+        Assert.That(store.TryAllocateCampaignRun(GmParlorAdaptiveMode.Ordinary, 702,
+            out GmHouseRunGeneration second, out error), Is.True, error);
+        Assert.That(store.TryCreateReceipt(second, GmEndingType.TrueEscape,
+            CompletedAccumulator(second.FrozenPackage), out GmHouseTerminalReceipt foreign,
+            out error), Is.True, error);
+
+        Assert.That(store.TryCommitPreparedRun(first, foreign,
+            new GmSaveData { currentSceneId = "ending", lastCheckpoint = "ending",
+                houseRunId = first.Identity.RunId }, out _, out error), Is.False);
+        StringAssert.Contains("receipt", error.ToLowerInvariant());
+    }
+
+    [Test]
+    public void RootAllocationRetriesAfterGenerationRenameBeforeCommitWithoutOrdinalReuse()
+    {
+        var fs = new GmHouseFaultInjectingFileSystem(new GmHousePhysicalFileSystem());
+        var store = new GmHouseMemoryStore(directory, fs);
+        Assert.That(store.TryOpenOrCreate(out _, out string error), Is.True, error);
+        fs.FailArtifact = GmHouseDurabilityPoint.RootCommitRecord;
+        fs.FailNextEdge = GmHouseDurabilityEdge.TempCreate;
+        Assert.That(store.TryAllocateCampaignRun(GmParlorAdaptiveMode.Ordinary, 801,
+            out _, out error), Is.False);
+
+        var restarted = new GmHouseMemoryStore(directory);
+        Assert.That(restarted.TryOpenExisting(out _, out error), Is.True, error);
+        Assert.That(restarted.TryAllocateCampaignRun(GmParlorAdaptiveMode.Ordinary, 802,
+            out GmHouseRunGeneration run, out error), Is.True, error);
+        Assert.That(run.Identity.RunOrdinal, Is.EqualTo(1));
+        Assert.That(restarted.CurrentRoot.Allocations, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public void MissingPredecessorGenerationInhibitsCommitChainInsteadOfTrustingHeadOnly()
+    {
+        GmHouseMemoryStore store = OpenStore();
+        Assert.That(store.TryAllocateCampaignRun(GmParlorAdaptiveMode.Ordinary, 901,
+            out _, out string error), Is.True, error);
+        string oldest = Directory.GetFiles(Path.Combine(directory, "root", "generations"),
+            "*.bin").OrderBy(path => path, StringComparer.Ordinal).First();
+        File.Delete(oldest);
+
+        var reopened = new GmHouseMemoryStore(directory);
+        Assert.That(reopened.TryOpenExisting(out _, out error), Is.False);
+        StringAssert.Contains("generation", error.ToLowerInvariant());
+    }
+
+    [Test]
+    public void RecollectionAllocatesNothingRequiresExactKnownPackageAndNeverTeaches()
+    {
+        GmHouseMemoryStore store = OpenStore();
+        GmHouseTerminalReceipt learned = Prepare(store, 41,
+            GmEndingType.DefiantSacrifice, GmParlorAdaptiveMode.Mirror);
+        Assert.That(store.TryApplyReceipt(learned, store.CurrentProfile.Cas,
+            out GmHouseProfileGeneration profile, out string error), Is.True, error);
+        long nextOrdinal = store.CurrentRoot.NextRunOrdinal;
+
+        Assert.That(store.TryBeginRecollection(learned.FrozenPackage,
+            learned.PackageBinding, out GmHouseRunGeneration recollection,
+            out error), Is.True, error);
+        Assert.That(recollection.Identity.RunOrdinal, Is.Zero);
+        Assert.That(recollection.CanTeachProfile, Is.False);
+        Assert.That(store.CurrentRoot.NextRunOrdinal, Is.EqualTo(nextOrdinal));
+        GmParlorAdaptivePackage forged = learned.FrozenPackage.DeepCopy();
+        forged.fallbackReason += "-forged";
+        Assert.That(store.TryBeginRecollection(forged, learned.PackageBinding,
+            out _, out error), Is.False);
+        StringAssert.Contains("known", error.ToLowerInvariant());
+        Assert.That(profile.KnownMirrorPackages.Count, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void MadnessUnlocksMirrorButCannotEnterAdaptiveHistory()
+    {
+        GmHouseMemoryStore store = OpenStore();
+        GmHouseTerminalReceipt hollow = Prepare(store, 51, GmEndingType.Madness);
+        Assert.That(store.TryApplyReceipt(hollow, store.CurrentProfile.Cas,
+            out GmHouseProfileGeneration profile, out string error), Is.True, error);
+        Assert.That(profile.MirrorUnlocked, Is.True);
+        Assert.That(profile.AdaptiveReceipts, Is.Empty);
+        Assert.That(store.TryAllocateCampaignRun(GmParlorAdaptiveMode.Mirror, 52,
+            out GmHouseRunGeneration mirror, out error), Is.True, error);
+        Assert.That(mirror.FrozenPackage.attentionTier, Is.Zero);
+        Assert.That(mirror.PackageBinding.SelectedReceiptIds, Is.Empty);
+    }
+
+    [Test]
+    public void FirstMirrorMadnessRetainsExactPackageForRecollectionWithoutTeaching()
+    {
+        GmHouseMemoryStore store = OpenStore();
+        GmHouseTerminalReceipt mirrorHollow = Prepare(store, 56, GmEndingType.Madness,
+            GmParlorAdaptiveMode.Mirror);
+        Assert.That(store.TryApplyReceipt(mirrorHollow, store.CurrentProfile.Cas,
+            out GmHouseProfileGeneration profile, out string error), Is.True, error);
+        Assert.That(profile.AdaptiveReceipts.Select(item => item.ReceiptId),
+            Does.Not.Contain(mirrorHollow.ReceiptId));
+        Assert.That(profile.KnownMirrorPackages.Any(item =>
+            item.Package.CanonicalHash.SequenceEqual(mirrorHollow.FrozenPackage.CanonicalHash)),
+            Is.True);
+        Assert.That(store.TryBeginRecollection(mirrorHollow.FrozenPackage,
+            mirrorHollow.PackageBinding, out _, out error), Is.True, error);
+    }
+
+    [Test]
+    public void ResetResumesPendingPhaseAndRejectsOldEpochReceipt()
+    {
+        var fs = new GmHouseFaultInjectingFileSystem(new GmHousePhysicalFileSystem());
+        var store = new GmHouseMemoryStore(directory, fs);
+        Assert.That(store.TryOpenOrCreate(out _, out string error), Is.True, error);
+        GmHouseTerminalReceipt old = Prepare(store, 61, GmEndingType.TrappedLoop);
+        fs.FailNext = GmHouseDurabilityPoint.ProfileCommitRecord;
+        Assert.That(store.TryResetHouseMemory(false, true, out _, out error), Is.False);
+        Assert.That(store.CurrentRoot.ResetPending, Is.True);
+
+        var restarted = new GmHouseMemoryStore(directory);
+        Assert.That(restarted.TryResumePendingReset(out GmHouseProfileGeneration reset,
+            out error), Is.True, error);
+        Assert.That(reset.Epoch, Is.EqualTo(old.Epoch + 1));
+        Assert.That(restarted.CurrentRoot.ResetPending, Is.False);
+        Assert.That(restarted.TryApplyReceipt(old, reset.Cas, out _, out error), Is.False);
+        StringAssert.Contains("epoch", error.ToLowerInvariant());
+    }
+
+    [Test]
+    public void OrdinaryProductionOpenAutomaticallyFinishesPendingReset()
+    {
+        var fs = new GmHouseFaultInjectingFileSystem(new GmHousePhysicalFileSystem());
+        var store = new GmHouseMemoryStore(directory, fs);
+        Assert.That(store.TryOpenOrCreate(out _, out string error), Is.True, error);
+        fs.FailNext = GmHouseDurabilityPoint.ProfileCommitRecord;
+        Assert.That(store.TryResetHouseMemory(false, true, out _, out error), Is.False);
+
+        var restarted = new GmHouseMemoryStore(directory);
+        Assert.That(restarted.TryOpenExisting(out GmHouseProfileGeneration profile,
+            out error), Is.True, error);
+        Assert.That(restarted.CurrentRoot.ResetPending, Is.False);
+        Assert.That(profile.Epoch, Is.EqualTo(restarted.CurrentRoot.Epoch));
+        Assert.That(restarted.TryAllocateCampaignRun(GmParlorAdaptiveMode.Ordinary, 66,
+            out _, out error), Is.True, error);
+    }
+
+    [Test]
+    public void CorruptNewestCommitInhibitsInsteadOfRollingBack()
+    {
+        GmHouseMemoryStore store = OpenStore();
+        GmHouseTerminalReceipt receipt = Prepare(store, 71, GmEndingType.TrappedLoop);
+        Assert.That(store.TryApplyReceipt(receipt, store.CurrentProfile.Cas,
+            out _, out string error), Is.True, error);
+        string newest = store.ProfileCommitRecords.Last();
+        byte[] bytes = File.ReadAllBytes(newest);
+        bytes[bytes.Length / 2] ^= 0x5a;
+        File.WriteAllBytes(newest, bytes);
+        var reopened = new GmHouseMemoryStore(directory);
+        Assert.That(reopened.TryOpenExisting(out _, out error), Is.False);
+        StringAssert.Contains("profile", error.ToLowerInvariant());
+    }
+
+    [Test]
+    public void ProfileReopensReceiptBlobAndCrossValidatesEffectsBeforeCommit()
+    {
+        var fs = new GmHouseFaultInjectingFileSystem(new GmHousePhysicalFileSystem());
+        var store = new GmHouseMemoryStore(directory, fs);
+        Assert.That(store.TryOpenOrCreate(out _, out string error), Is.True, error);
+        GmHouseTerminalReceipt receipt = Prepare(store, 81, GmEndingType.TrueEscape);
+        fs.MutateNextReceiptBlobAfterWrite = true;
+        Assert.That(store.TryApplyReceipt(receipt, store.CurrentProfile.Cas,
+            out _, out error), Is.False);
+        StringAssert.Contains("receipt blob", error.ToLowerInvariant());
+        Assert.That(store.CurrentProfile.Receipts, Is.Empty);
+    }
+
+    [Test]
+    public void EveryDurableWriteEdgeRecoversPriorOrNewGenerationNeverHybrid()
+    {
+        foreach (GmHouseDurabilityEdge edge in new[]
+                 {
+                     GmHouseDurabilityEdge.TempCreate,
+                     GmHouseDurabilityEdge.PayloadWrite,
+                     GmHouseDurabilityEdge.PayloadFlush,
+                     GmHouseDurabilityEdge.AtomicRename,
+                     GmHouseDurabilityEdge.DirectoryFlush,
+                     GmHouseDurabilityEdge.ReopenValidation,
+                     GmHouseDurabilityEdge.LeaseRelease,
+                 })
+        {
+            string root = Path.Combine(directory, "edge-" + edge);
+            var fs = new GmHouseFaultInjectingFileSystem(new GmHousePhysicalFileSystem());
+            var store = new GmHouseMemoryStore(root, fs);
+            Assert.That(store.TryOpenOrCreate(out _, out string error), Is.True, error);
+            GmHouseTerminalReceipt receipt = Prepare(store, 91, GmEndingType.TrappedLoop);
+            fs.FailArtifact = GmHouseDurabilityPoint.ProfileCommitRecord;
+            fs.FailNextEdge = edge;
+
+            Assert.That(store.TryApplyReceipt(receipt, store.CurrentProfile.Cas,
+                out _, out error), Is.False, $"{edge} was not reached");
+
+            var restarted = new GmHouseMemoryStore(root);
+            Assert.That(restarted.TryOpenExisting(out GmHouseProfileGeneration priorOrNew,
+                out error), Is.True, error);
+            Assert.That(priorOrNew.Receipts.Count,
+                Is.EqualTo(0).Or.EqualTo(1));
+            Assert.That(restarted.TryApplyReceipt(receipt, priorOrNew.Cas,
+                out GmHouseProfileGeneration recovered, out error), Is.True, error);
+            Assert.That(recovered.Receipts.Count, Is.EqualTo(1));
+        }
+    }
+
+    [Test]
+    public void ReceiptWhitelistExcludesInputPresentationAccessibilityAndTimestamps()
+    {
+        string[] forbidden = { "input", "focus", "pause", "device", "accessibility",
+            "highlight", "cursor", "reaction", "truth", "secret", "uncommitted",
+            "presentation", "timestamp" };
+        string[] names = typeof(GmHouseTerminalReceipt)
+            .GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            .Select(field => field.Name.ToLowerInvariant()).ToArray();
+        foreach (string word in forbidden)
+            Assert.That(names.Any(name => name.Contains(word)), Is.False,
+                $"receipt leaked forbidden field family '{word}'");
+    }
+
+    [Test]
+    public void SixDiskPlaythroughsRetainAllButSelectOnlyLatestFive()
+    {
+        GmHouseMemoryStore store = OpenStore();
+        for (int index = 0; index < 6; index++)
+        {
+            GmHouseTerminalReceipt receipt = Prepare(store, 100 + index,
+                GmEndingType.TrappedLoop);
+            Assert.That(store.TryApplyReceipt(receipt, store.CurrentProfile.Cas,
+                out _, out string error), Is.True, error);
+        }
+        Assert.That(store.CurrentProfile.Receipts.Count, Is.EqualTo(6));
+        Assert.That(store.TryAllocateCampaignRun(GmParlorAdaptiveMode.Mirror, 200,
+            out GmHouseRunGeneration mirror, out string finalError), Is.True, finalError);
+        Assert.That(mirror.PackageBinding.SelectedReceiptIds.Count, Is.EqualTo(5));
+        Assert.That(mirror.PackageBinding.SelectedReceiptIds,
+            Does.Not.Contain(store.CurrentProfile.Receipts.First().ReceiptId));
+    }
+
+    GmHouseMemoryStore OpenStore()
+    {
+        var store = new GmHouseMemoryStore(directory);
+        Assert.That(store.TryOpenOrCreate(out _, out string error), Is.True, error);
+        return store;
+    }
+
+    static GmHouseTerminalReceipt Prepare(GmHouseMemoryStore store, int seed,
+        GmEndingType ending, GmParlorAdaptiveMode mode = GmParlorAdaptiveMode.Ordinary)
+    {
+        if (mode == GmParlorAdaptiveMode.Mirror && !store.CurrentProfile.MirrorUnlocked)
+        {
+            GmHouseTerminalReceipt unlock = Prepare(store, seed - 1,
+                GmEndingType.TrappedLoop);
+            Assert.That(store.TryApplyReceipt(unlock, store.CurrentProfile.Cas,
+                out _, out string unlockError), Is.True, unlockError);
+        }
+        Assert.That(store.TryAllocateCampaignRun(mode, seed,
+            out GmHouseRunGeneration run, out string error), Is.True, error);
+        Assert.That(store.TryCreateReceipt(run, ending,
+            CompletedAccumulator(run.FrozenPackage),
+            out GmHouseTerminalReceipt receipt, out error), Is.True, error);
+        Assert.That(store.TryCommitPreparedRun(run, receipt, new GmSaveData
+        { currentSceneId = "labyrinth", lastCheckpoint = "ending",
+            houseRunId = run.Identity.RunId }, out _, out error), Is.True, error);
+        return receipt;
+    }
+
+    static GmParlorBehaviorAccumulator CompletedAccumulator(
+        GmParlorAdaptivePackage package)
+    {
+        var accumulator = new GmParlorBehaviorAccumulator(package);
+        accumulator.RecordPlayerLead(new GmCard(GmSuit.Flames, 7), 1, 7);
+        accumulator.RecordRead(GmTellObservation.Suspicious,
+            GmParlorOutcomeKind.CheatCaught);
+        accumulator.SealCompletedMatch(package, 1, 0);
+        return accumulator;
+    }
+
+    static byte[] Hex(string value)
+    {
+        var result = new byte[value.Length / 2];
+        for (int index = 0; index < result.Length; index++)
+            result[index] = Convert.ToByte(value.Substring(index * 2, 2), 16);
+        return result;
+    }
+
+    static void SetReceiptProperty(GmHouseTerminalReceipt receipt,string name,object value) =>
+        SetProperty(receipt,name,value);
+
+    static void SetProperty(object target,string name,object value) =>
+        target.GetType().GetProperty(name,
+            BindingFlags.Instance|BindingFlags.Public|BindingFlags.NonPublic)
+            .SetValue(target,value);
+}

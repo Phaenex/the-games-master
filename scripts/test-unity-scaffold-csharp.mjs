@@ -102,6 +102,11 @@ try {
     if (!responseText.includes(`"${unityRelative}"`)) sources.push(path.join(REPO_ROOT, repoRelative));
   }
   sources.push(
+    // GmSceneBuildUtility applies the same textured Victorian surface adapter used by every room
+    // builder. Unity's full editor assembly already sees this scene-specific source, but the
+    // isolated scaffold compiler must name that dependency explicitly or its portability proof is
+    // compiling a dependency graph that no generated room actually uses.
+    path.join(REPO_ROOT, 'unity/scenes/wend-hill-prologue/Editor/GmVictorianInteriorKit.cs'),
     path.join(REPO_ROOT, 'unity/scene-system/Editor/GmSceneBuildUtility.cs'),
     path.join(REPO_ROOT, 'unity/scene-system/Editor/GmSceneContractAudit.cs'),
     path.join(REPO_ROOT, 'unity/scene-system/Editor/GmSceneCompositionAudit.cs'),

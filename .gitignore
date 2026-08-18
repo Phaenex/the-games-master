@@ -29,6 +29,10 @@ unity-project/[Mm]emoryCaptures/
 unity-project/[Uu]serSettings/
 unity-project/Screens/
 unity-project/Recordings/
+unity-project/TestResults/
+unity-project/mono_crash.*
+unity-project/Assets/InitTestScene*.unity
+unity-project/Assets/InitTestScene*.unity.meta
 
 # Third-party Unity Asset Store packs inside unity-project (re-derivable / manifested in docs/ASSET-PACKS-MANIFEST.md)
 unity-project/Assets/LeartesStudios/

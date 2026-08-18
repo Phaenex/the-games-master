@@ -67,6 +67,10 @@ public static class GmPlayerRig
         // GmPlayer adds this itself at runtime, but adding it here means the built scene contains the
         // component a scene audit can actually see, rather than one that only exists once played.
         player.AddComponent<GmInteractionScanner>();
+        // Every room built from this common rig gets the same reachable dossier/settings overlay.
+        // The prologue attaches the same component at runtime so it cedes pause/settings ownership
+        // to this common menu without requiring its generated scene to be rewritten by hand.
+        player.AddComponent<GmPauseMenu>();
 
         int cameras = Solo(camera);
         int ears = Solo(listener);

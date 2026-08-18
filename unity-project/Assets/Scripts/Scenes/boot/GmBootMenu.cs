@@ -14,7 +14,10 @@
 // built on (turn back at the gate, and the house never has you). Nick owns that call; explicit is
 // the safer default to build first and the cheaper of the two to reverse.
 using System;
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
 using UnityEngine.UIElements;
 
 public sealed class GmBootMenu : MonoBehaviour
@@ -29,27 +32,191 @@ public sealed class GmBootMenu : MonoBehaviour
     const int RowFontSize = 20;
     const int NoteFontSize = 14;
 
-    public enum Row { Continue, NewRun, Quit }
+    public enum Row { Continue, NewRun, Mirror, Recollection, Settings, Quit }
 
     PanelSettings panelSettings;
     UIDocument document;
     VisualElement root;
-    Label continueLabel, newRunLabel, quitLabel, note;
-    VisualElement continueMarker, newRunMarker, quitMarker;
+    Label continueLabel, newRunLabel, mirrorLabel, recollectionLabel, settingsLabel, quitLabel, note;
+    Label titleLabel;
+    VisualElement continueMarker, newRunMarker, mirrorMarker, recollectionMarker,
+        settingsMarker, quitMarker;
+    VisualElement settingsPanel;
+    GmAccessibilitySettingsView settingsView;
+    bool settingsOpen;
+    InputActionAsset menuControls;
+    InputActionMap menuInput;
+    InputAction navigateAction, submitAction, cancelAction, quitAction;
+    bool inputActive;
+    bool navigationHeld;
 
     public Row Focused { get; private set; }
     public bool ContinueAvailable { get; private set; }
     public bool QuitRequested { get; private set; }
+    public bool MirrorAvailable { get; private set; }
+    public IReadOnlyList<GmHouseKnownPackage> RecollectionPackages { get; private set; } =
+        Array.Empty<GmHouseKnownPackage>();
+    public int RecollectionSelection { get; private set; }
 
     /// Raised instead of loading a scene directly, so EditMode tests can drive the menu without a
     /// scene load and a future console port can route it somewhere else.
     public event Action<string> OnStartRun;
 
+    void Awake()
+    {
+        InputActionAsset sharedControls = Resources.Load<InputActionAsset>("Input/GmControls");
+        if (sharedControls == null)
+        {
+            Debug.LogError("[GmBoot] Resources/Input/GmControls.inputactions is missing");
+            return;
+        }
+
+        // Boot owns a clone. Enabling or destroying this menu must never touch the shared asset
+        // GmPlayer enables after the scene transition.
+        menuControls = Instantiate(sharedControls);
+        menuControls.name = "GmBootMenuControls";
+        menuInput = menuControls.FindActionMap("Menu");
+        navigateAction = menuInput?.FindAction("Navigate");
+        submitAction = menuInput?.FindAction("Submit");
+        cancelAction = menuInput?.FindAction("Cancel");
+        quitAction = menuInput?.FindAction("Quit");
+        if (menuInput == null || navigateAction == null || submitAction == null ||
+            cancelAction == null || quitAction == null)
+        {
+            Debug.LogError("[GmBoot] GmControls/Menu is missing Navigate, Submit, Cancel, or Quit");
+            ReleaseInput();
+            return;
+        }
+
+    }
+
+    void OnEnable()
+    {
+        EnableInput();
+    }
+
+    void OnDisable()
+    {
+        FlushSettingsBoundary();
+        DisableInput();
+    }
+
+    void EnableInput()
+    {
+        if (inputActive || menuInput == null) return;
+
+        submitAction.performed += OnSubmit;
+        cancelAction.performed += OnCancel;
+        quitAction.performed += OnQuit;
+        menuInput.Enable();
+        inputActive = true;
+        navigationHeld = false;
+    }
+
+    void DisableInput()
+    {
+        if (inputActive)
+        {
+            submitAction.performed -= OnSubmit;
+            cancelAction.performed -= OnCancel;
+            quitAction.performed -= OnQuit;
+            inputActive = false;
+        }
+        if (menuInput != null && menuInput.enabled) menuInput.Disable();
+        navigationHeld = false;
+    }
+
     void Start()
     {
         EnsureSceneDirector();
+        GmSaveSystem.TryLoadAccessibilityPreferences();
         BuildUi();
         Refresh();
+    }
+
+    void Update()
+    {
+        if (!inputActive || navigateAction == null) return;
+
+        Vector2 navigation = ReadNavigation();
+        if (Mathf.Abs(navigation.x) < 0.5f && Mathf.Abs(navigation.y) < 0.5f)
+        {
+            navigationHeld = false;
+            return;
+        }
+        if (navigationHeld) return;
+
+        navigationHeld = true;
+        if (settingsOpen)
+        {
+            if (Mathf.Abs(navigation.y) >= Mathf.Abs(navigation.x))
+                settingsView?.MoveFocus(navigation.y > 0f ? -1 : 1);
+            else settingsView?.AdjustFocused(navigation.x > 0f ? 1 : -1);
+        }
+        else if (Mathf.Abs(navigation.y) >= Mathf.Abs(navigation.x))
+            MoveFocus(navigation.y > 0f ? -1 : 1);
+        else if (Focused == Row.Recollection && RecollectionPackages.Count > 1)
+        {
+            RecollectionSelection = (RecollectionSelection +
+                (navigation.x > 0f ? 1 : -1) + RecollectionPackages.Count) %
+                RecollectionPackages.Count;
+            Repaint();
+        }
+    }
+
+    Vector2 ReadNavigation()
+    {
+        return navigateAction.ReadValue<Vector2>();
+    }
+
+    float ReadVerticalNavigation()
+    {
+        float strongestUp = 0f;
+        float strongestDown = 0f;
+        foreach (InputControl control in navigateAction.controls)
+        {
+            float vertical = 0f;
+            if (control is Vector2Control vector)
+            {
+                vertical = vector.ReadValue().y;
+            }
+            else if (control is KeyControl key && key.isPressed)
+            {
+                if (key.name == "w" || key.name == "upArrow") vertical = 1f;
+                else if (key.name == "s" || key.name == "downArrow") vertical = -1f;
+            }
+
+            if (vertical > strongestUp) strongestUp = vertical;
+            else if (-vertical > strongestDown) strongestDown = -vertical;
+        }
+
+        if (Mathf.Approximately(strongestUp, strongestDown)) return 0f;
+        return strongestUp > strongestDown ? strongestUp : -strongestDown;
+    }
+
+    void OnSubmit(InputAction.CallbackContext _)
+    {
+        if (settingsOpen) settingsView?.ActivateFocused();
+        else Activate();
+    }
+
+    void OnCancel(InputAction.CallbackContext _)
+    {
+        if (settingsOpen)
+        {
+            CloseSettings();
+            return;
+        }
+        // New Run is always actionable. Cancel on it is deliberately a no-op; on either other row
+        // it gives the player a safe place to land without starting or quitting anything.
+        if (Focused == Row.NewRun) return;
+        Focused = Row.NewRun;
+        Repaint();
+    }
+
+    void OnQuit(InputAction.CallbackContext _)
+    {
+        Quit();
     }
 
     /// The whole point of this scene. Idempotent -- the director's own Awake destroys a duplicate,
@@ -100,12 +267,12 @@ public sealed class GmBootMenu : MonoBehaviour
         root.style.alignItems = Align.Center;
         root.style.justifyContent = Justify.Center;
 
-        var title = new Label("THE GAMES MASTER") { name = "BootTitle" };
-        title.style.fontSize = TitleFontSize;
-        title.style.color = Gild;
-        title.style.unityTextAlign = TextAnchor.MiddleCenter;
-        title.style.letterSpacing = 8;
-        root.Add(title);
+        titleLabel = new Label("THE GAMES MASTER") { name = "BootTitle" };
+        titleLabel.style.fontSize = TitleFontSize;
+        titleLabel.style.color = Gild;
+        titleLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+        titleLabel.style.letterSpacing = 8;
+        root.Add(titleLabel);
 
         var rule = new VisualElement { name = "BootRule" };
         rule.style.height = 1;
@@ -117,7 +284,17 @@ public sealed class GmBootMenu : MonoBehaviour
 
         (continueMarker, continueLabel) = AddRow("Continue", "BootContinue");
         (newRunMarker, newRunLabel) = AddRow("New Run", "BootNewRun");
+        (mirrorMarker, mirrorLabel) = AddRow("The Mirror", "BootMirror");
+        (recollectionMarker, recollectionLabel) = AddRow("Recollection", "BootRecollection");
+        (settingsMarker, settingsLabel) = AddRow("Settings", "BootSettings");
         (quitMarker, quitLabel) = AddRow("Quit", "BootQuit");
+
+        settingsView = new GmAccessibilitySettingsView(ApplyAccessibility);
+        settingsPanel = settingsView.Build("BootSettingsPanel");
+        settingsPanel.style.minWidth = 520;
+        settingsPanel.style.marginTop = 18;
+        settingsPanel.style.display = DisplayStyle.None;
+        root.Add(settingsPanel);
 
         note = new Label { name = "BootNote" };
         note.style.fontSize = NoteFontSize;
@@ -129,6 +306,9 @@ public sealed class GmBootMenu : MonoBehaviour
         // Sweep the tree built so far. AddRow sweeps its own row because rows are created after this
         // returns; this covers the title, the rule and the note.
         GmUiText.UseStandardGenerator(root);
+        GmAccessibilitySettings.OnChanged -= ApplyAccessibility;
+        GmAccessibilitySettings.OnChanged += ApplyAccessibility;
+        ApplyAccessibility();
     }
 
     (VisualElement, Label) AddRow(string text, string name)
@@ -166,6 +346,20 @@ public sealed class GmBootMenu : MonoBehaviour
     public void Refresh()
     {
         ContinueAvailable = GmSaveSystem.HasSave();
+        if (!GmHousePersistenceCoordinator.TryGetTitleUnlocks(out bool mirror,
+            out IReadOnlyList<GmHouseKnownPackage> recollections, out string houseError))
+        {
+            MirrorAvailable = false;
+            RecollectionPackages = Array.Empty<GmHouseKnownPackage>();
+            Debug.LogError($"[GmBoot] House title state unavailable: {houseError}");
+        }
+        else
+        {
+            MirrorAvailable = mirror;
+            RecollectionPackages = recollections ?? Array.Empty<GmHouseKnownPackage>();
+            RecollectionSelection = Mathf.Clamp(RecollectionSelection, 0,
+                Mathf.Max(0, RecollectionPackages.Count - 1));
+        }
         // Landing on a row that does nothing is the worst first impression a menu can make, so focus
         // starts on New Run whenever there is nothing to continue.
         Focused = ContinueAvailable ? Row.Continue : Row.NewRun;
@@ -174,12 +368,15 @@ public sealed class GmBootMenu : MonoBehaviour
 
     public void MoveFocus(int delta)
     {
-        var order = ContinueAvailable
-            ? new[] { Row.Continue, Row.NewRun, Row.Quit }
-            : new[] { Row.NewRun, Row.Quit };
-        int index = Array.IndexOf(order, Focused);
+        var order = new List<Row>();
+        if (ContinueAvailable) order.Add(Row.Continue);
+        order.Add(Row.NewRun);
+        if (MirrorAvailable) order.Add(Row.Mirror);
+        if (RecollectionPackages.Count > 0) order.Add(Row.Recollection);
+        order.Add(Row.Settings);order.Add(Row.Quit);
+        int index = order.IndexOf(Focused);
         if (index < 0) index = 0;
-        index = (index + delta % order.Length + order.Length) % order.Length;
+        index = (index + delta % order.Count + order.Count) % order.Count;
         Focused = order[index];
         Repaint();
     }
@@ -189,17 +386,30 @@ public sealed class GmBootMenu : MonoBehaviour
         if (root == null) return;
         SetRow(continueMarker, continueLabel, Focused == Row.Continue, ContinueAvailable);
         SetRow(newRunMarker, newRunLabel, Focused == Row.NewRun, true);
+        SetRow(mirrorMarker, mirrorLabel, Focused == Row.Mirror, MirrorAvailable);
+        SetRow(recollectionMarker, recollectionLabel, Focused == Row.Recollection,
+            RecollectionPackages.Count > 0);
+        SetRow(settingsMarker, settingsLabel, Focused == Row.Settings, true);
         SetRow(quitMarker, quitLabel, Focused == Row.Quit, true);
-        note.text = ContinueAvailable
-            ? "A run is already under way."
-            : "No run recorded. The house has not met you yet.";
+        note.text = Focused == Row.Mirror && MirrorAvailable
+            ? "The house remembers."
+            : Focused == Row.Recollection && RecollectionPackages.Count > 0
+                ? $"Known hand {RecollectionSelection + 1} of {RecollectionPackages.Count}. Left or right changes it."
+                : ContinueAvailable
+                    ? "A run is already under way."
+                    : "No run recorded. The house has not met you yet.";
     }
 
     static void SetRow(VisualElement marker, Label label, bool focused, bool enabled)
     {
         if (marker != null) marker.style.display = focused && enabled ? DisplayStyle.Flex : DisplayStyle.None;
         if (label == null) return;
-        label.style.color = !enabled ? Dim : focused ? Gild : Ink;
+        bool highContrast = GmAccessibilitySettings.HighContrast;
+        label.style.color = !enabled
+            ? (highContrast ? new Color(0.62f, 0.62f, 0.62f) : Dim)
+            : focused
+                ? (highContrast ? new Color(1f, 0.86f, 0.2f) : Gild)
+                : (highContrast ? Color.white : Ink);
     }
 
     /// Activates the focused row. Returns false when the row cannot act -- Continue with no save --
@@ -210,9 +420,51 @@ public sealed class GmBootMenu : MonoBehaviour
         {
             case Row.Continue: return Continue();
             case Row.NewRun: NewRun(); return true;
+            case Row.Mirror: return MirrorAvailable && MirrorRun();
+            case Row.Recollection:
+                if (RecollectionPackages.Count == 0) return false;
+                GmHouseKnownPackage known = RecollectionPackages[RecollectionSelection];
+                return Recollection(known.Package, known.Binding);
+            case Row.Settings: OpenSettings(); return true;
             case Row.Quit: Quit(); return true;
             default: return false;
         }
+    }
+
+    void OpenSettings()
+    {
+        settingsOpen = true;
+        settingsPanel.style.display = DisplayStyle.Flex;
+        settingsView.SetFocusVisible(true);
+    }
+
+    void CloseSettings()
+    {
+        settingsOpen = false;
+        settingsView?.SetFocusVisible(false);
+        if (settingsPanel != null) settingsPanel.style.display = DisplayStyle.None;
+        FlushSettingsBoundary();
+    }
+
+    void ApplyAccessibility()
+    {
+        if (root == null) return;
+        float scale = GmAccessibilitySettings.TextScale;
+        if (titleLabel != null) titleLabel.style.fontSize = Mathf.RoundToInt(TitleFontSize * scale);
+        foreach (Label label in new[] { continueLabel, newRunLabel, mirrorLabel,
+                     recollectionLabel, settingsLabel, quitLabel })
+            if (label != null) label.style.fontSize = Mathf.RoundToInt(RowFontSize * scale);
+        if (note != null) note.style.fontSize = Mathf.RoundToInt(NoteFontSize * scale);
+        if (settingsPanel != null)
+            foreach (VisualElement control in settingsPanel.Children())
+                control.style.fontSize = Mathf.RoundToInt(RowFontSize * scale);
+        bool highContrast = GmAccessibilitySettings.HighContrast;
+        root.EnableInClassList("gm-high-contrast", highContrast);
+        root.style.backgroundColor = highContrast ? Color.black : new Color(0.012f, 0.010f, 0.009f);
+        if (titleLabel != null)
+            titleLabel.style.color = highContrast ? new Color(1f, 0.86f, 0.2f) : Gild;
+        Repaint();
+        settingsView?.Refresh();
     }
 
     /// Starts a fresh run. Clears the store FIRST: a New Run that inherits the previous run's
@@ -220,10 +472,72 @@ public sealed class GmBootMenu : MonoBehaviour
     public void NewRun()
     {
         EnsureSceneDirector();
+        GmSaveSystem.TryLoadAccessibilityPreferences();
+        if (!TryRetireCampaignForReplacement(out string retireError))
+        {
+            Debug.LogError($"[GmBoot] existing campaign could not be retired: {retireError}");
+            return;
+        }
         GmRunStore.BeginNewRun();
+        if (!GmHousePersistenceCoordinator.TryBeginOrdinaryRun(GmRunSeed.Value,
+            out string houseError))
+        {
+            Debug.LogError($"[GmBoot] House memory unavailable; persistent New Run refused: {houseError}");
+            return;
+        }
         GmExperienceTelemetry.Record("boot", "new-run");
         Debug.Log("[GmBoot] new run — store cleared, entering the Prologue");
         StartRun(PrologueSceneId, GmSceneDirector.PrologueScenePath);
+    }
+
+    /// Production entry point for the opt-in campaign mode. The title treatment can bind this to
+    /// an authored row later; keeping it explicit here prevents Ordinary New Run from consulting
+    /// House memory while still giving tests and the eventual menu one real route.
+    public bool MirrorRun()
+    {
+        EnsureSceneDirector();
+        if (!TryRetireCampaignForReplacement(out string retireError))
+        {
+            Debug.LogError($"[GmBoot] existing campaign could not be retired: {retireError}");
+            return false;
+        }
+        GmRunStore.BeginNewRun();
+        if (!GmHousePersistenceCoordinator.TryBeginMirrorRun(GmRunSeed.Value,
+            out string error))
+        {
+            Debug.LogError($"[GmBoot] Mirror refused: {error}");
+            return false;
+        }
+        StartRun(PrologueSceneId, GmSceneDirector.PrologueScenePath);
+        return true;
+    }
+
+    bool TryRetireCampaignForReplacement(out string error)
+    {
+        return GmHousePersistenceCoordinator.TryRetireActiveRunForReplacement(out error);
+    }
+
+    /// Recollection is deliberately a non-campaign Parlor shell: no ordinal, Continue pointer,
+    /// ending, or profile write. Only an exact package already retained by the profile can enter.
+    public bool Recollection(GmParlorAdaptivePackage known,GmHousePackageBinding binding)
+    {
+        EnsureSceneDirector();
+        if (!GmSaveSystem.Flush())
+        {
+            Debug.LogError($"[GmBoot] Recollection refused until campaign save settles: {GmSaveSystem.LastError}");
+            return false;
+        }
+        GmRunStore.BeginNewRun();
+        if (!GmHousePersistenceCoordinator.TryBeginRecollection(known,binding,
+            out string error))
+        {
+            Debug.LogError($"[GmBoot] Recollection refused: {error}");
+            return false;
+        }
+        string path=ScenePathFor("parlor");
+        if(path==null) return false;
+        StartRun("parlor",path);
+        return true;
     }
 
     /// Resumes. Returns false when there is nothing to resume, which is a real outcome rather than
@@ -239,6 +553,13 @@ public sealed class GmBootMenu : MonoBehaviour
         if (!GmSaveSystem.Load())
         {
             Debug.LogError("[GmBoot] FAILED: save exists but did not load — staying on the menu");
+            return false;
+        }
+        if (!string.IsNullOrEmpty(GmRunStore.HouseRunId) &&
+            !GmHousePersistenceCoordinator.TryResume(GmRunStore.HouseRunId,
+                out string houseError))
+        {
+            Debug.LogError($"[GmBoot] FAILED: House run could not resume: {houseError}");
             return false;
         }
         string sceneId = GmRunStore.CurrentSceneId;
@@ -258,6 +579,7 @@ public sealed class GmBootMenu : MonoBehaviour
 
     public void Quit()
     {
+        FlushSettingsBoundary();
         QuitRequested = true;
         GmExperienceTelemetry.Record("boot", "quit");
         Debug.Log("[GmBoot] quit requested from the title");
@@ -290,6 +612,39 @@ public sealed class GmBootMenu : MonoBehaviour
 
     void OnDestroy()
     {
+        FlushSettingsBoundary();
+        GmAccessibilitySettings.OnChanged -= ApplyAccessibility;
+        ReleaseInput();
         if (panelSettings != null) Destroy(panelSettings);
+    }
+
+    void OnApplicationPause(bool pausedByApplication)
+    {
+        if (pausedByApplication) FlushSettingsBoundary();
+    }
+
+    void OnApplicationQuit() => FlushSettingsBoundary();
+
+    void FlushSettingsBoundary()
+    {
+        if (!GmAccessibilitySettings.HasPendingSave) return;
+        if (!GmAccessibilitySettings.FlushPendingSave())
+            Debug.LogError($"[GmBoot] Accessibility settings remain pending: {GmSaveSystem.LastError}");
+    }
+
+    void ReleaseInput()
+    {
+        DisableInput();
+
+        InputActionAsset ownedControls = menuControls;
+        menuControls = null;
+        menuInput = null;
+        navigateAction = null;
+        submitAction = null;
+        cancelAction = null;
+        quitAction = null;
+        inputActive = false;
+        navigationHeld = false;
+        if (ownedControls != null) Destroy(ownedControls);
     }
 }

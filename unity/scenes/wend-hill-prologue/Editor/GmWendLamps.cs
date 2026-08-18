@@ -27,6 +27,10 @@ using UnityEngine.Rendering.HighDefinition;
 public static class GmWendLamps
 {
     const string LogTag = "GmWendLamps";
+    const string LightPolePrefabPath =
+        "Assets/LeartesStudios/Abandoned Village/HDRP/Art/Prefabs/SM_LightPole.prefab";
+    const string LanternPrefabPath =
+        "Assets/LeartesStudios/Abandoned Village/HDRP/Art/Prefabs/SM_Lantern.prefab";
 
     public const string RootName = "GmWendLamps";
 
@@ -116,30 +120,42 @@ public static class GmWendLamps
                 ? terrain.SampleHeight(at) + terrain.transform.position.y
                 : at.y;
 
-            var go = new GameObject($"GapLamp_{gaps.IndexOf(at):D2}");
-            go.transform.SetParent(root.transform, false);
-            go.transform.position = new Vector3(at.x, ground + Height, at.z);
-
-            var light = go.AddComponent<Light>();
-            light.type = LightType.Point;
-            light.useColorTemperature = true;
-            light.colorTemperature = Kelvin;
-            light.color = Color.white;
-            light.shadows = LightShadows.None;   // shadow cost for a fill lamp is not worth it
-
-            var hd = go.AddComponent<HDAdditionalLightData>();
-            hd.lightUnit = LightUnit.Lumen;
-            hd.intensity = Lumens;
-            hd.range = LampReach * 1.5f;
-            hd.affectsVolumetric = false;   // same reason the moon does not: fog turns it into glare
-
-            // The same flicker the pack's practicals were given, so these breathe like the rest.
-            if (go.GetComponent<GmLightFlicker>() == null) go.AddComponent<GmLightFlicker>();
+            CreateGapLamp(root.transform, new Vector3(at.x, ground + Height, at.z), gaps.IndexOf(at));
         }
 
         Debug.Log($"[{LogTag}] added {gaps.Count} gap lamp(s) at {Lumens} lumens {Kelvin}K, " +
                   $"filling {dense.Count} sampled point(s) (every {GapSampleSpacing}m) further than " +
                   $"{LampReach}m from any of the pack's {existing.Count} light(s)");
         return gaps.Count;
+    }
+
+    static GameObject CreateGapLamp(Transform parent, Vector3 lightPosition, int index)
+    {
+        var go = new GameObject($"GapLamp_{index:D2}");
+        go.transform.SetParent(parent, false);
+        go.transform.position = lightPosition;
+
+        float groundY = lightPosition.y - Height;
+        GmOwnedPropFactory.PlacePrefab(LightPolePrefabPath, $"GapLampPole_{index:D2}", go.transform,
+            new Vector3(lightPosition.x, groundY + Height * 0.5f, lightPosition.z),
+            new Vector3(0.48f, Height, 0.48f), Quaternion.identity, ground: true, surfaceY: groundY);
+        GmOwnedPropFactory.PlacePrefab(LanternPrefabPath, $"GapLanternFixture_{index:D2}", go.transform,
+            lightPosition, new Vector3(0.56f, 0.82f, 0.56f), Quaternion.identity);
+
+        var light = go.AddComponent<Light>();
+        light.type = LightType.Point;
+        light.useColorTemperature = true;
+        light.colorTemperature = Kelvin;
+        light.color = Color.white;
+        light.shadows = LightShadows.None;
+
+        var hd = go.AddComponent<HDAdditionalLightData>();
+        hd.lightUnit = LightUnit.Lumen;
+        hd.intensity = Lumens;
+        hd.range = LampReach * 1.5f;
+        hd.affectsVolumetric = false;
+
+        if (go.GetComponent<GmLightFlicker>() == null) go.AddComponent<GmLightFlicker>();
+        return go;
     }
 }

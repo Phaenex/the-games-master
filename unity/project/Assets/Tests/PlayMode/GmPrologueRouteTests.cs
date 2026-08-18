@@ -222,22 +222,25 @@ public class GmPrologueRouteTests
             Assert.IsTrue(Property<bool>(player, "IsPaused"), "Menu/Options did not pause gameplay");
             Assert.AreEqual(0f, Time.timeScale, 0.0001f);
             Assert.IsTrue(AudioListener.pause, "pause did not suspend game audio");
-            var pauseEyebrow = document.rootVisualElement.Q<Label>("Eyebrow");
-            Assert.IsNotNull(pauseEyebrow);
-            Assert.AreEqual("PAUSED", pauseEyebrow.text);
-            // State, not wording: the claim is that the pause prompt is showing controller labels.
-            Assert.IsFalse(string.IsNullOrWhiteSpace(prompt.text), "pause prompt is empty");
-            Assert.IsTrue(Property<bool>(hud, "PromptUsesControllerLabels"),
-                "pause prompt did not switch to controller labels");
+            MonoBehaviour commonPause = FindBehaviour("GmPauseMenu");
+            Assert.IsNotNull(commonPause, "Prologue has no common accessibility pause menu");
+            UIDocument commonPauseDocument = commonPause.GetComponent<UIDocument>();
+            Assert.IsNotNull(commonPauseDocument);
+            Assert.AreEqual(DisplayStyle.Flex,
+                commonPauseDocument.rootVisualElement.resolvedStyle.display);
+            Assert.IsNull(document.rootVisualElement.Q<VisualElement>("PauseResume"),
+                "Prologue still rendered its competing bespoke pause card");
+            Assert.IsFalse(string.IsNullOrWhiteSpace(
+                commonPauseDocument.rootVisualElement.Q<Label>("PausePrompt").text));
 
             yield return SendGamepad(gamepad, new GamepadState().WithButton(GamepadButton.North));
             yield return SendGamepad(gamepad, new GamepadState());
             Assert.IsTrue(Property<bool>(player, "QuitRequested"),
                 "Y/Triangle did not reach the pause-menu quit path");
 
-            yield return SendGamepad(gamepad, new GamepadState().WithButton(GamepadButton.South));
+            yield return SendGamepad(gamepad, new GamepadState().WithButton(GamepadButton.East));
             yield return SendGamepad(gamepad, new GamepadState());
-            Assert.IsFalse(Property<bool>(player, "IsPaused"), "A/Cross did not resume gameplay");
+            Assert.IsFalse(Property<bool>(player, "IsPaused"), "B/Circle did not resume gameplay");
             Assert.AreEqual(1f, Time.timeScale, 0.0001f);
             Assert.IsFalse(AudioListener.pause);
 
@@ -519,4 +522,3 @@ public class GmPrologueRouteTests
         }
     }
 }
-

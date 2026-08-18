@@ -48,6 +48,41 @@ public static class GmEntryHallQualityAudit
         if (GameObject.Find("MirrorShard_1") == null)
             issues.Add("MirrorShard_1 prop is missing");
 
+        if (GameObject.Find("LibraryDoor") == null)
+            issues.Add("LibraryDoor is missing");
+        if (GameObject.Find("ConservatoryDoor") == null)
+            issues.Add("ConservatoryDoor is missing");
+        if (GameObject.Find("FrontDoors") == null)
+            issues.Add("FrontDoors are missing");
+        if (GameObject.Find("CellarPanel") == null)
+            issues.Add("CellarPanel is missing");
+        if (GameObject.Find("PercivalDoor") == null)
+            issues.Add("PercivalDoor is missing");
+        if (GameObject.Find("MarrDoor") == null)
+            issues.Add("MarrDoor is missing");
+        if (GameObject.Find("BarredGuestDoor") == null)
+            issues.Add("BarredGuestDoor is missing");
+        if (GameObject.Find("AtticHatch") == null)
+            issues.Add("AtticHatch is missing");
+        if (GameObject.Find("BrassSkeletonKey") == null)
+            issues.Add("BrassSkeletonKey is missing");
+        if (GameObject.Find("StairTreads") == null)
+            issues.Add("walkable StairTreads are missing — the staircase is still a solid box");
+        if (GameObject.Find("SecondFloorGallery") == null)
+            issues.Add("SecondFloorGallery is missing");
+        if (GameObject.Find("PercivalBedroom") == null)
+            issues.Add("PercivalBedroom is missing");
+        if (GameObject.Find("NorthLibrary") == null)
+            issues.Add("NorthLibrary is missing");
+        if (GameObject.Find("LibraryReadingTable") == null)
+            issues.Add("LibraryReadingTable is missing");
+        if (GameObject.Find("LibraryLadder") == null)
+            issues.Add("LibraryLadder is missing");
+        if (GameObject.Find("WeightedShelfCase") == null)
+            issues.Add("WeightedShelfCase is missing");
+        if (Object.FindAnyObjectByType<GmWeightedShelf>(FindObjectsInactive.Include) == null)
+            issues.Add("GmWeightedShelf is missing");
+
         issues.AddRange(GmSceneCompositionAudit.ValidateOpenScene(
             GmEntryHallBuilder.SceneId, Object.FindAnyObjectByType<GmEntryHallShotTour>(), Camera.main));
 

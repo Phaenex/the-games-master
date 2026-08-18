@@ -1,6 +1,7 @@
 using GamesMaster.ShutTheBox;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.Rendering.HighDefinition;
 using UnityEngine.SceneManagement;
 
@@ -18,6 +19,7 @@ public static class GmShutTheBoxBuilder
     const string CarpetPath = "Assets/ThirdParty/MetalManVictorianInteriors/Carpet_1.fbx";
     const string LampPath = "Assets/ThirdParty/MetalManVictorianInteriors/Lamp_2.fbx";
     const string DoorPath = "Assets/LeartesStudios/HauntedVillage/Art/Meshes/SM_Door_01.fbx";
+    const string DoorPrefabPath = "Assets/LeartesStudios/HauntedVillage/Art/Prefabs/SM_Door_01.prefab";
     const string CandlePath = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Meshes/SmallProps/Candles/SM_Candles_1.fbx";
     const string Book1Path = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Meshes/SmallProps/Books/SM_Book_1.fbx";
 
@@ -52,6 +54,7 @@ public static class GmShutTheBoxBuilder
 
         var refs = new GmShutTheBoxCompositionPlan.SceneRefs();
         BuildArchitecture(environment.transform, refs);
+        BuildMainExit(environment.transform, refs);
         BuildGameplayProps(gameplay.transform, refs);
         BuildLighting(lighting.transform, refs);
 
@@ -71,6 +74,9 @@ public static class GmShutTheBoxBuilder
         GmInteriorAtmosphere.Apply(null, GmShutTheBoxBuilder.SceneId);
 
         GmPlayerRig.Build(null, new Vector3(0f, 0f, -2f), new Vector3(0f, 0.9f, 0f));
+
+        var arrival = systems.AddComponent<GmSceneArrival>();
+        arrival.closingCard = "";
 
         GmSceneBuildUtility.SaveScene(scene, ScenePath);
         Debug.Log("[GmShutTheBox] BUILD PASS: " + ScenePath);
@@ -164,13 +170,26 @@ public static class GmShutTheBoxBuilder
         northWall.transform.localScale = new Vector3(8f, 4f, 0.3f);
         northWall.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
 
-        // East Wall
-        GameObject eastWall = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        eastWall.name = "EastWall";
+        // East wall, split around the Tile-9 panel. The old single 8m cube left the secret leaf
+        // mounted on solid collision, so the rarest unlock in the game opened onto a wall.
+        var eastWall = new GameObject("EastWall");
         eastWall.transform.SetParent(parent, false);
-        eastWall.transform.position = new Vector3(4f, 2f, 0f);
-        eastWall.transform.localScale = new Vector3(0.3f, 4f, 8f);
-        eastWall.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
+        ArchitectureCube(eastWall.transform, "EastWallSouth", new Vector3(4f, 2f, -2.325f),
+            new Vector3(0.3f, 4f, 3.35f), wallMat);
+        ArchitectureCube(eastWall.transform, "EastWallNorth", new Vector3(4f, 2f, 2.325f),
+            new Vector3(0.3f, 4f, 3.35f), wallMat);
+        ArchitectureCube(eastWall.transform, "EastWallHeader", new Vector3(4f, 3.25f, 0f),
+            new Vector3(0.3f, 1.5f, 1.3f), wallMat);
+        ArchitectureCube(eastWall.transform, "HiddenPassageFloor", new Vector3(4.8f, -0.06f, 0f),
+            new Vector3(1.6f, 0.12f, 1.3f), floorMat);
+        ArchitectureCube(eastWall.transform, "HiddenPassageCeiling", new Vector3(4.8f, 2.56f, 0f),
+            new Vector3(1.6f, 0.12f, 1.3f), wallMat);
+        ArchitectureCube(eastWall.transform, "HiddenPassageNorth", new Vector3(4.8f, 1.25f, 0.7f),
+            new Vector3(1.6f, 2.5f, 0.1f), wallMat);
+        ArchitectureCube(eastWall.transform, "HiddenPassageSouth", new Vector3(4.8f, 1.25f, -0.7f),
+            new Vector3(1.6f, 2.5f, 0.1f), wallMat);
+        ArchitectureCube(eastWall.transform, "HiddenPassageBlind", new Vector3(5.65f, 1.25f, 0f),
+            new Vector3(0.1f, 2.5f, 1.3f), wallMat);
 
         // Secret Panel Door (Tile-9 Latch)
         // Two errors, and fixing only the height leaves the shot still failing. SM_Door_01's pivot is
@@ -178,9 +197,33 @@ public static class GmShutTheBoxBuilder
         // wall, so its 1.02m width jutted into the room. The wainscot runs leave a 1.2m doorway gap
         // at z in (-0.6, +0.6) and BrassSeam is a vertical hairline at z=-0.6 -- the leaf belongs in
         // that gap with its free edge on the seam, which yaw 180 gives (hinge at +0.427).
-        GameObject panelDoor = LoadMesh(DoorPath, "PanelDoor", parent,
+        var secretExit = new GameObject("SecretPanelExit");
+        secretExit.transform.SetParent(parent, false);
+        GameObject panelDoor = LoadMesh(DoorPath, "PanelDoor", secretExit.transform,
             new Vector3(3.78f, 0f, 0.42f), new Vector3(0.9f, 1.1f, 1f), Quaternion.Euler(0, 180f, 0));
+        ApplyPbr(panelDoor, TableAlbedo, TableNormal, 0.38f, 0.02f,
+            new Color(0.28f, 0.13f, 0.055f));
         refs.panelDoor = panelDoor;
+
+        var secretBlocker = secretExit.AddComponent<BoxCollider>();
+        secretBlocker.center = new Vector3(3.88f, 1.2f, 0f);
+        secretBlocker.size = new Vector3(0.16f, 2.4f, 1.3f);
+        var secretTransitionObject = new GameObject("HiddenRoomTransition");
+        secretTransitionObject.transform.SetParent(secretExit.transform, false);
+        secretTransitionObject.transform.position = new Vector3(4.45f, 1.2f, 0f);
+        var secretVolume = secretTransitionObject.AddComponent<BoxCollider>();
+        secretVolume.isTrigger = true;
+        secretVolume.size = new Vector3(0.7f, 2.4f, 1.15f);
+        var secretTransition = secretTransitionObject.AddComponent<GmSceneTransitionTrigger>();
+        secretTransition.TargetSceneId = GmHiddenRoomBuilder.SceneId;
+        secretTransition.TargetScenePath = GmHiddenRoomBuilder.ScenePath;
+        secretTransition.InteractionPrompt = "Behind Percival's panel";
+        secretTransition.UseCurtain = true;
+        secretTransition.RequiredCompletedRoomId = SceneId;
+        var secretSequence = secretExit.AddComponent<GmSequenceExit>();
+        secretSequence.ConfigureForCatch("stb-tile-9-door-latch", secretTransition, secretVolume,
+            secretBlocker, panelDoor.transform, null, new Vector3(0f, 82f, 0f), Vector3.zero,
+            authorClosed: true);
 
         // Wainscoting flanking the door
         var wainscot = new GameObject("DoorWainscot");
@@ -196,13 +239,26 @@ public static class GmShutTheBoxBuilder
         refs.brassSeam = Cube(parent, "BrassSeam", new Vector3(3.79f, 1.2f, -0.6f),
             new Vector3(0.02f, 2.4f, 0.02f), new Color(0.62f, 0.48f, 0.22f), 0.85f, 0.7f);
 
-        // South & West Walls
-        GameObject southWall = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        southWall.name = "SouthWall";
+        // South/onward wall. The door the Court delivered the player through returns after the
+        // match, now opening into the Labyrinth. A short blind passage prevents a skybox reveal.
+        var southWall = new GameObject("SouthWall");
         southWall.transform.SetParent(parent, false);
-        southWall.transform.position = new Vector3(0f, 2f, -4f);
-        southWall.transform.localScale = new Vector3(8f, 4f, 0.3f);
-        southWall.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
+        ArchitectureCube(southWall.transform, "SouthWallLeft", new Vector3(-2.6f, 2f, -4f),
+            new Vector3(2.8f, 4f, 0.3f), wallMat);
+        ArchitectureCube(southWall.transform, "SouthWallRight", new Vector3(2.6f, 2f, -4f),
+            new Vector3(2.8f, 4f, 0.3f), wallMat);
+        ArchitectureCube(southWall.transform, "SouthWallHeader", new Vector3(0f, 3.25f, -4f),
+            new Vector3(2.4f, 1.5f, 0.3f), wallMat);
+        ArchitectureCube(southWall.transform, "LabyrinthPassageFloor", new Vector3(0f, -0.06f, -4.8f),
+            new Vector3(2.4f, 0.12f, 1.6f), floorMat);
+        ArchitectureCube(southWall.transform, "LabyrinthPassageCeiling", new Vector3(0f, 2.56f, -4.8f),
+            new Vector3(2.4f, 0.12f, 1.6f), wallMat);
+        ArchitectureCube(southWall.transform, "LabyrinthPassageLeft", new Vector3(-1.25f, 1.25f, -4.8f),
+            new Vector3(0.1f, 2.5f, 1.6f), wallMat);
+        ArchitectureCube(southWall.transform, "LabyrinthPassageRight", new Vector3(1.25f, 1.25f, -4.8f),
+            new Vector3(0.1f, 2.5f, 1.6f), wallMat);
+        ArchitectureCube(southWall.transform, "LabyrinthPassageBlind", new Vector3(0f, 1.25f, -5.65f),
+            new Vector3(2.4f, 2.5f, 0.1f), wallMat);
 
         GameObject westWall = GameObject.CreatePrimitive(PrimitiveType.Cube);
         westWall.name = "WestWall";
@@ -220,11 +276,88 @@ public static class GmShutTheBoxBuilder
         ApplyPbr(shelf, BookshelfAlbedo, BookshelfNormal, 0.40f, 0f);
         refs.bookshelf = shelf;
 
-        LoadMesh(Book1Path, "AlcoveBook_1", parent,
+        GameObject alcoveBook = LoadMesh(Book1Path, "AlcoveBook_1", parent,
             new Vector3(-1.4f, 1.0f, 3.55f), new Vector3(0.6f, 0.6f, 0.6f), Quaternion.identity);
+        ApplyPbr(alcoveBook, "", "", 0.22f, 0f, new Color(0.24f, 0.09f, 0.045f));
 
         refs.wallClock = Cube(parent, "WallClock", new Vector3(0.2f, 2.4f, 3.8f),
             new Vector3(0.42f, 0.42f, 0.08f), new Color(0.30f, 0.20f, 0.12f), 0.1f, 0.45f);
+    }
+
+    static void BuildMainExit(Transform parent, GmShutTheBoxCompositionPlan.SceneRefs refs)
+    {
+        var doors = new GameObject("LabyrinthDoors");
+        doors.transform.SetParent(parent, false);
+        refs.labyrinthDoors = doors;
+        Material wood = CreatePbrMaterial(TableAlbedo, TableNormal,
+            new Color(0.23f, 0.10f, 0.04f), 0.36f, 0.02f, Vector2.one);
+        Transform leftHinge = null;
+        Transform rightHinge = null;
+        for (int side = -1; side <= 1; side += 2)
+        {
+            var hinge = new GameObject(side < 0 ? "LabyrinthDoorLeftHinge" : "LabyrinthDoorRightHinge");
+            hinge.transform.SetParent(doors.transform, false);
+            hinge.transform.position = new Vector3(side * 1.2f, 0f, -3.78f);
+            GameObject leaf = GmOwnedPropFactory.PlacePrefab(DoorPrefabPath,
+                side < 0 ? "LabyrinthDoorLeft" : "LabyrinthDoorRight", doors.transform,
+                new Vector3(side * 0.6f, 0f, -3.78f), new Vector3(1.2f, 2.5f, 0.16f),
+                Quaternion.identity, ground: true, surfaceY: 0f, overrideMaterial: wood);
+            leaf.transform.SetParent(hinge.transform, true);
+            if (side < 0) leftHinge = hinge.transform; else rightHinge = hinge.transform;
+        }
+
+        var blocker = doors.AddComponent<BoxCollider>();
+        blocker.center = new Vector3(0f, 1.25f, -3.78f);
+        blocker.size = new Vector3(2.4f, 2.5f, 0.16f);
+        var transitionObject = new GameObject("LabyrinthTransition");
+        transitionObject.transform.SetParent(doors.transform, false);
+        transitionObject.transform.position = new Vector3(0f, 1.2f, -4.4f);
+        var volume = transitionObject.AddComponent<BoxCollider>();
+        volume.isTrigger = true;
+        volume.size = new Vector3(2.2f, 2.4f, 0.7f);
+        var transition = transitionObject.AddComponent<GmSceneTransitionTrigger>();
+        transition.TargetSceneId = GmLabyrinthBuilder.SceneId;
+        transition.TargetScenePath = GmLabyrinthBuilder.ScenePath;
+        transition.InteractionPrompt = "The hedges are waiting";
+        transition.UseCurtain = true;
+        var exit = doors.AddComponent<GmSequenceExit>();
+        exit.Configure(SceneId, transition, volume, blocker, leftHinge, rightHinge,
+            new Vector3(0f, -98f, 0f), new Vector3(0f, 98f, 0f), authorClosed: true);
+
+        var sconces = new GameObject("OnwardDoorSconces");
+        sconces.transform.SetParent(parent, false);
+        for (int side = -1; side <= 1; side += 2)
+        {
+            GameObject fixture = LoadMesh(LampPath, side < 0 ? "OnwardSconceLeft" : "OnwardSconceRight",
+                sconces.transform, new Vector3(side * 1.55f, 2.15f, -3.65f),
+                new Vector3(0.52f, 0.52f, 0.52f), Quaternion.identity);
+            ApplyPbr(fixture, LampAlbedo, LampNormal, 0.65f, 0.7f);
+        }
+        refs.onwardSconces = sconces;
+
+        var lightObject = new GameObject("OnwardDoorSconceLight");
+        lightObject.transform.SetParent(parent, false);
+        lightObject.transform.position = new Vector3(0f, 2.05f, -3.25f);
+        Light onwardLight = lightObject.AddComponent<Light>();
+        onwardLight.type = LightType.Point;
+        onwardLight.range = 4.5f;
+        onwardLight.color = new Color(1f, 0.76f, 0.44f);
+        onwardLight.lightUnit = LightUnit.Lumen;
+        onwardLight.intensity = GmInteriorAtmosphere.PracticalCeilingLumens;
+        lightObject.AddComponent<HDAdditionalLightData>();
+        refs.onwardSconceLight = lightObject;
+    }
+
+    static GameObject ArchitectureCube(Transform parent, string name, Vector3 position,
+        Vector3 scale, Material material)
+    {
+        GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        cube.name = name;
+        cube.transform.SetParent(parent, false);
+        cube.transform.position = position;
+        cube.transform.localScale = scale;
+        cube.GetComponent<MeshRenderer>().sharedMaterial = material;
+        return cube;
     }
 
     static void BuildGameplayProps(Transform parent, GmShutTheBoxCompositionPlan.SceneRefs refs)
@@ -244,8 +377,9 @@ public static class GmShutTheBoxBuilder
         ApplyPbr(hostChair, ChairAlbedo, ChairNormal, 0.35f, 0f);
 
         // Tabletop Sculpted Candles
-        LoadMesh(CandlePath, "TableCandle", parent,
+        GameObject tableCandle = LoadMesh(CandlePath, "TableCandle", parent,
             new Vector3(-0.9f, 0.8f, 0f), new Vector3(0.7f, 0.7f, 0.7f), Quaternion.identity);
+        ApplyPbr(tableCandle, "", "", 0.28f, 0f, new Color(0.72f, 0.56f, 0.32f));
 
         // Dice Tray (Center)
         GameObject tray = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -369,12 +503,15 @@ public static class GmShutTheBoxBuilder
         GameObject lampObj = new GameObject("TableLampLight");
         lampObj.transform.SetParent(parent, false);
         lampObj.transform.position = new Vector3(0f, 2.2f, 0f);
+        lampObj.transform.rotation = Quaternion.LookRotation(
+            new Vector3(0f, 0.82f, 0f) - lampObj.transform.position);
         Light lamp = lampObj.AddComponent<Light>();
         lamp.type = LightType.Spot;
         lamp.range = 4.5f;
         lamp.spotAngle = 70f;
         lamp.color = new Color(1.0f, 0.88f, 0.65f);
-        lamp.intensity = 220f;
+        lamp.lightUnit = LightUnit.Lumen;
+        lamp.intensity = 450f;
         lampObj.AddComponent<HDAdditionalLightData>();
         refs.tableLampLight = lampObj;
 
@@ -386,6 +523,7 @@ public static class GmShutTheBoxBuilder
         doorLight.type = LightType.Point;
         doorLight.range = 3.5f;
         doorLight.color = new Color(0.85f, 0.75f, 0.55f);
+        doorLight.lightUnit = LightUnit.Lumen;
         doorLight.intensity = 90f;
         doorLightObj.AddComponent<HDAdditionalLightData>();
         refs.doorAccentLight = doorLightObj;
@@ -403,6 +541,7 @@ public static class GmShutTheBoxBuilder
         sconceLight.type = LightType.Point;
         sconceLight.range = 3f;
         sconceLight.color = new Color(0.95f, 0.72f, 0.42f);
+        sconceLight.lightUnit = LightUnit.Lumen;
         sconceLight.intensity = 60f;
         sconceLightObj.AddComponent<HDAdditionalLightData>();
         refs.wallSconceLight = sconceLightObj;

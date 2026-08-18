@@ -588,6 +588,7 @@ public static class GmSceneCompositionAudit
         float oldAspect = camera.aspect;
         try
         {
+            tour?.PrepareShotForAudit(shot);
             camera.transform.position = shot.Position;
             camera.transform.rotation = Quaternion.Euler(shot.Pitch, shot.Yaw + tour.ReviewYawOffsetForAudit, 0f);
             camera.aspect = tour.ShotHeight == 0 ? 16f / 9f : tour.ShotWidth / (float)tour.ShotHeight;
@@ -618,6 +619,7 @@ public static class GmSceneCompositionAudit
             camera.transform.position = oldPosition;
             camera.transform.rotation = oldRotation;
             camera.aspect = oldAspect;
+            tour?.RestoreAfterAuditShot(shot);
         }
     }
 

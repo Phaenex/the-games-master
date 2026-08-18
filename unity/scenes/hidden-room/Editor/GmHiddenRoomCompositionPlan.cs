@@ -139,10 +139,10 @@ public static class GmHiddenRoomCompositionPlan
             GmCompositionRole.Support, GmSpatialRelation.FlanksAnchor, "recess-door");
 
         // Every local light answers to a visible source, which is what keeps the room from lighting
-        // itself out of nowhere. The one still absent is the DOOR sconce (recess-cluster): that
-        // fixture has no Light built for it at all, pending Nick's call on whether it burns. The
-        // SHELF sconce is a different fixture and it does burn -- builder creates and enables a
-        // 90-intensity point light beside it -- so it is motivated here rather than left unexplained.
+        // itself out of nowhere.
+        GmCompositionAuthoring.Motivate(props.DoorSconceLight, "door-sconce-light", "door-sconce",
+            "Amber practical for the open panel and the real return passage behind it.");
+
         GmCompositionAuthoring.Motivate(props.DeskLanternLight, "desk-lantern-light", "desk-lantern",
             "Warm practical for the desk: the lantern body on the desk top is the source on camera.");
 
@@ -152,7 +152,7 @@ public static class GmHiddenRoomCompositionPlan
         GmCompositionAuthoring.Motivate(props.ShelfSconceLight, "shelf-sconce-light", "shelf-sconce",
             "Amber practical for the archive: the wall sconce beside the shelves is the source on camera.");
 
-        // 6 Review Claims
+        // Review Claims
         // NOTE: the trailing float on each call reaches GmReviewCompositionClaim as a SYMMETRIC
         // viewport tolerance through the interim ReviewClaim adapter, and that reading is not
         // confirmed (docs/audit/F1-review-claim-decision.md). Values here track shot intimacy rather
@@ -181,5 +181,9 @@ public static class GmHiddenRoomCompositionPlan
         GmCompositionAuthoring.ReviewClaim(owner, "06-room-wide", "rolltop-desk", "recess-door",
             "desk-zone", "recess-zone", new Vector2(0.5f, 0.5f), 0.35f,
             "Wide corner shot showing the entire compact hidden chamber.");
+
+        GmCompositionAuthoring.ReviewClaim(owner, "07-labyrinth-passage", "recess-door", "door-sconce",
+            "recess-cluster", "recess-zone", new Vector2(0.5f, 0.5f), 0.55f,
+            "Interior view proving the already-open panel frames a real return passage into the night.");
     }
 }

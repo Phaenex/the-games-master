@@ -13,7 +13,7 @@ public sealed class GmHiddenRoomController : MonoBehaviour
     // let a returning player re-farm the invitation's sanity reward and re-fire the mirror
     // completion event; every piece of progress is therefore read back from the run, not remembered
     // here.
-    public bool InvitationRead => HasCatch(InvitationClueId);
+    public bool InvitationRead => GmRunStore.HasCatch(InvitationClueId);
     public bool ShardThreeCollected => GmRunStore.HasShard(ShardThreeIndex);
     public bool MirrorAssembled => GmRunStore.AllShardsCollected;
 
@@ -23,7 +23,7 @@ public sealed class GmHiddenRoomController : MonoBehaviour
         {
             int inspected = 0;
             for (int guest = 1; guest <= JournalCount; guest++)
-                if (HasCatch(JournalClueId(guest))) inspected++;
+                if (GmRunStore.HasCatch(JournalClueId(guest))) inspected++;
             return inspected;
         }
     }
@@ -69,13 +69,4 @@ public sealed class GmHiddenRoomController : MonoBehaviour
 
     static string JournalClueId(int guestIndex) => $"hidden-room-journal-{guestIndex}";
 
-    // GmRunStore publishes its catches but offers no membership query, and its set ignores case
-    // where a LINQ Contains would not. Matching its comparer keeps this read-back agreeing with
-    // RecordCatch instead of quietly disagreeing on a differently-cased id.
-    static bool HasCatch(string clueId)
-    {
-        foreach (string caught in GmRunStore.CheatsCaught)
-            if (string.Equals(caught, clueId, StringComparison.OrdinalIgnoreCase)) return true;
-        return false;
-    }
 }

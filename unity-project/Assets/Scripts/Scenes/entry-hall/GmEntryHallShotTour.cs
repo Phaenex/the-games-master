@@ -8,11 +8,10 @@ public sealed class GmEntryHallShotTour : GmSceneReviewTour
 {
     static readonly GmReviewShot[] Shots =
     {
-        // Re-derived straight from WakeSettee's authored transform (0,0.25,-8): aiming yaw/pitch at
-        // its exact center from a further-back post (was -9.4, now -12) keeps the settee comfortably
-        // inside the frustum with real margin instead of a near-edge fit, and still holds wake-lamp
-        // (-1,1.55,-8.1) well inside frame off to one side.
-        new GmReviewShot("01-wake-vestibule", new Vector3(0f, 1.5f, -12.0f), 0f, 17.5f),
+        // The previous post at z=-12 was outside the south wall at z=-10, so its green composition
+        // result was a shot through solid architecture. This oblique post is inside the vestibule,
+        // looking across both the settee and its practical without occupying either prop.
+        new GmReviewShot("01-wake-vestibule", new Vector3(2.0f, 1.4f, -9.15f), -55f, 18f),
         new GmReviewShot("02-hall-overview", new Vector3(0f, 1.7f, -6f), 0f, 10f),
         new GmReviewShot("03-ledger-table", new Vector3(0f, 1.4f, -2.5f), 0f, 25f),
         // Re-aimed dead-center at GuestLedger's authored world position (0,0.945,-1) from a step
@@ -24,18 +23,19 @@ public sealed class GmEntryHallShotTour : GmSceneReviewTour
         // the camera up to x=5.5 (just inside the east wall at x=6) widens the angular margin to both
         // frames versus the previous x=3 post, which put one of the two nearer the frustum edge.
         new GmReviewShot("05-portrait-gallery", new Vector3(5.5f, 2.2f, 0f), -90f, 0f),
-        new GmReviewShot("06-percival-shard", new Vector3(-4.5f, 1.8f, 5.5f), -60f, 10f),
-        // GrandStaircase's rotated AABB (Editor/GmEntryHallBuilder) spans roughly y[-0.55,3.55]
-        // z[6.45,10.55]; ChandelierFixture sits at (0,4.8,0). A level, further-back post (0,3,-6)
-        // keeps the staircase's full vertical span inside frame with real headroom on both edges
-        // while the chandelier lands comfortably in the upper third of the same frame.
-        new GmReviewShot("07-staircase-landing", new Vector3(0f, 3.0f, -6.0f), 0f, 0f),
-        // Aimed dead-center at ConsoleTable's combined bounds (table + GuestLedger + LedgerQuill
-        // children, center ~(0,0.49,-1)) from further into the east corner (was 4.5,-2.0, now
-        // 5.5,-3.5) than the previous oblique guess. Still documents the solid east wall boundary
-        // (no doorway to Aldric's parlor is built here) while keeping the grand staircase inside the
-        // support-element frustum margin off to the far side.
-        new GmReviewShot("08-parlor-door", new Vector3(5.5f, 1.9f, -3.5f), -65.6f, 13.1f)
+        new GmReviewShot("06-percival-shard", new Vector3(-3.5f, 1.9f, 5.5f), -77f, 6f),
+        // Close enough for the modeled balustrade to resolve under its east-wall practical, while
+        // still retaining the chandelier and both flights in the wider composition.
+        new GmReviewShot("07-staircase-landing", new Vector3(0f, 1.8f, 1.5f), 0f, 5f),
+        // The doorway now exists. This post faces the actual north-east opening and its threshold
+        // sconce, instead of preserving the obsolete solid-wall proof that predated the doors.
+        new GmReviewShot("08-parlor-door", new Vector3(0f, 1.6f, 3.5f), 70f, 2f),
+        new GmReviewShot("09-library-door", new Vector3(-2.55f, 1.55f, 7.15f), -32f, 3f),
+        new GmReviewShot("10-stair-ascent", new Vector3(0f, 1.85f, 2.2f), 0f, 14f),
+        new GmReviewShot("11-second-floor", new Vector3(0.2f, 4.9f, 11.3f), -48f, 2f),
+        new GmReviewShot("12-percival-room", new Vector3(-6.55f, 4.8f, 13.2f), -92f, 6f),
+        new GmReviewShot("13-library-interior", new Vector3(-4.7f, 1.55f, 10.7f), 8f, 4f),
+        new GmReviewShot("14-weighted-shelf", new Vector3(-5.15f, 1.55f, 13.2f), 90f, 6f)
     };
 
     protected override IReadOnlyList<GmReviewShot> ReviewShots => Shots;

@@ -20,9 +20,20 @@ public static class GmWendStandaloneBuild
 {
     const string LogTag = "GmWendBuild";
     public const string OutputPath = "Builds/macOS-Wend/Wend Hill Prologue.app";
+    public const string ProfileOutputPath =
+        "Builds/macOS-Wend-Profile/Wend Hill Prologue Profile.app";
+    public const BuildOptions ReleaseBuildOptions = BuildOptions.StrictMode;
+    public const BuildOptions ProfileBuildOptions =
+        BuildOptions.StrictMode | BuildOptions.Development;
 
     [MenuItem("GamesMaster/Wend/4. Build the prologue app")]
-    public static void BuildPrologueApp()
+    public static void BuildPrologueApp() => Build(OutputPath, ReleaseBuildOptions);
+
+    [MenuItem("GamesMaster/Wend/Diagnostics/Build profiler-enabled prologue app")]
+    public static void BuildPrologueProfileApp() =>
+        Build(ProfileOutputPath, ProfileBuildOptions);
+
+    static void Build(string outputPath, BuildOptions options)
     {
         if (EditorApplication.isPlayingOrWillChangePlaymode)
             throw new InvalidOperationException("exit Play mode before building");
@@ -47,7 +58,7 @@ public static class GmWendStandaloneBuild
         PlayerSettings.resizableWindow = true;
         AssetDatabase.SaveAssets();
 
-        string output = Path.GetFullPath(OutputPath);
+        string output = Path.GetFullPath(outputPath);
         string directory = Path.GetDirectoryName(output);
         if (string.IsNullOrEmpty(directory))
             throw new InvalidOperationException("build output has no parent directory");
@@ -70,7 +81,7 @@ public static class GmWendStandaloneBuild
                 scenes = new[] { GmWendBuilder.ScenePath },
                 locationPathName = output,
                 target = BuildTarget.StandaloneOSX,
-                options = BuildOptions.StrictMode,
+                options = options,
             });
         }
         finally
@@ -89,7 +100,9 @@ public static class GmWendStandaloneBuild
             throw new DirectoryNotFoundException(
                 $"Unity reported success but the app bundle is missing: {output}");
 
-        Debug.Log($"[{LogTag}] PASS: {output} bytes={summary.totalSize} warnings={summary.totalWarnings}");
+        string verdict = (options & BuildOptions.Development) != 0 ? "PROFILE PASS:" : "PASS:";
+        Debug.Log($"[{LogTag}] {verdict} {output} bytes={summary.totalSize} " +
+                  $"warnings={summary.totalWarnings}");
         EditorApplication.Exit(0);
     }
 }

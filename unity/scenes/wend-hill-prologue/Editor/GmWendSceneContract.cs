@@ -7,7 +7,7 @@
 // repoints the pack's own materials. A crashed run leaves a scene that has every root the purchased
 // pack ships, opens fine, builds fine, and is broad daylight.
 //
-// So this audits the night itself. Seventeen checks, each one a thing that a stale, half-built or
+// So this audits the night itself. Twenty checks, each one a thing that a stale, half-built or
 // reverted-on-reload scene fails. Checks 1-10 are the night; 11-17 arrived with the canonical opening
 // and the first house chapter, and went undocumented here for long enough that the header said ten,
 // the PASS line said fifteen and the code numbered sixteen:
@@ -24,11 +24,14 @@
 //  10. the player actually has something wired into that listener
 //  11. the canonical estate opening is present, at route length, with a clear walk lane
 //  12. world anchors are unique, the required five resolve, and thirteen POIs are anchored
-//  13. the story runtime and the eight-shot review tour are wired into this scene
+//  13. the story runtime and the ten-shot review tour are wired into this scene
 //  14. one manor, a gate that can close, and a wake destination
 //  15. no negative-scale BoxCollider survives, and no purchased collider seals the route
 //  16. the first house chapter: portraits, clues, interactions and textured Victorian art
 //  17. every story POI carries owned rendered evidence, and the arrival car is the authored car
+//  18. the player-height cemetery marker reveal is free of vegetation intrusions
+//  19. house renderers remain enabled for the runtime interior culler to discover
+//  20. the shipping opening participates in the shared composition contract
 //
 // The numbered comments in Audit() run in build order rather than in this order, because each check
 // runs where the scene state it reads is cheapest to gather.
@@ -67,7 +70,7 @@ public static class GmWendSceneContract
         UnityEditor.SceneManagement.EditorSceneManager.OpenScene(
             GmWendBuilder.ScenePath, UnityEditor.SceneManagement.OpenSceneMode.Single);
         List<string> failures = Audit();
-        if (failures.Count == 0) Debug.Log($"[{LogTag}] PASS: all 17 checks green");
+        if (failures.Count == 0) Debug.Log($"[{LogTag}] PASS: all 20 checks green");
         else Debug.LogError($"[{LogTag}] FAIL:\n  - {string.Join("\n  - ", failures)}");
         EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
     }
@@ -144,9 +147,30 @@ public static class GmWendSceneContract
         failures.AddRange(GmWorldAnchor.ValidateScene());
         foreach (string id in new[] { "arrival-car", "gate", "chapel", "manor-porch", "wake-pose" })
             if (GmWorldAnchor.Find(id) == null) failures.Add($"required world anchor '{id}' is missing");
+        GmWorldAnchor chapelAnchor = GmWorldAnchor.Find("chapel");
+        GmWorldAnchor chapelDoorAnchor = GmWorldAnchor.Find("chapel-door");
+        Renderer churchDoor = Object.FindObjectsByType<Renderer>(FindObjectsInactive.Include,
+                FindObjectsSortMode.None)
+            .Where(renderer => renderer.enabled &&
+                renderer.name.StartsWith("SM_Church_Door", System.StringComparison.OrdinalIgnoreCase))
+            .OrderBy(renderer => chapelAnchor == null ? float.MaxValue :
+                renderer.bounds.SqrDistance(chapelAnchor.transform.position))
+            .FirstOrDefault();
+        if (churchDoor == null) failures.Add("chapel has no rendered SM_Church_Door geometry");
+        else if (chapelAnchor == null || chapelDoorAnchor == null ||
+                 Vector2.Distance(new Vector2(chapelAnchor.transform.position.x, chapelAnchor.transform.position.z),
+                     new Vector2(churchDoor.bounds.center.x, churchDoor.bounds.center.z)) > 1f ||
+                 Vector2.Distance(new Vector2(chapelDoorAnchor.transform.position.x, chapelDoorAnchor.transform.position.z),
+                     new Vector2(churchDoor.bounds.center.x, churchDoor.bounds.center.z)) > 1f)
+            failures.Add("chapel and chapel-door anchors are not seated on the rendered church door");
         if (Object.FindObjectsByType<GmWorldAnchor>(FindObjectsInactive.Include)
                 .Count(a => a.name.StartsWith("POI_")) != 13)
             failures.Add("canonical opening does not contain exactly 13 anchored POIs");
+        int cemeteryIntrusions = GmWendEstateForest.CountCemeterySightlineIntrusions();
+        if (cemeteryIntrusions < 0)
+            failures.Add("cemetery marker reveal cannot resolve its endpoint anchors");
+        else if (cemeteryIntrusions > 0)
+            failures.Add($"cemetery marker reveal contains {cemeteryIntrusions} vegetation intrusion(s)");
 
         // 13. Full story runtime and deterministic review tour are wired into this scene.
         GmDesignRuntime story = Object.FindAnyObjectByType<GmDesignRuntime>();
@@ -163,7 +187,15 @@ public static class GmWendSceneContract
             Object.FindAnyObjectByType<GmWendRenderBudget>() == null)
             failures.Add("one or more canonical opening systems are missing");
         GmWendStoryTour review = Object.FindAnyObjectByType<GmWendStoryTour>();
-        if (review == null || review.ShotCount != 8) failures.Add("canonical review tour is missing or is not 8 shots");
+        if (review == null || review.ShotCount != 10) failures.Add("canonical review tour is missing or is not 10 shots");
+        Renderer[] houseRenderers = Object.FindObjectsByType<Renderer>(FindObjectsInactive.Include,
+                FindObjectsSortMode.None)
+            .Where(renderer => renderer.transform.root.name == GmHouseBeginningBuilder.RootName)
+            .ToArray();
+        if (houseRenderers.Length == 0)
+            failures.Add("HouseBeginning has no renderers for the runtime interior culler");
+        else if (houseRenderers.Any(renderer => !renderer.enabled))
+            failures.Add("one or more HouseBeginning renderers were disabled before runtime culling could discover them");
 
         // 14. One manor, a real closing gate and a wake destination complete the route.
         if (Object.FindObjectsByType<GmMansionIdentity>(FindObjectsInactive.Include).Length != 1)
@@ -268,7 +300,9 @@ public static class GmWendSceneContract
             failures.Add("arrival car is missing");
         else
         {
-            Renderer[] carRenderers = arrivalCar.GetComponentsInChildren<Renderer>(true);
+            Renderer[] carRenderers = arrivalCar.GetComponentsInChildren<Renderer>(true)
+                .Where(renderer => renderer.GetComponentInParent<Light>() == null)
+                .ToArray();
             if (carRenderers.Length == 0) failures.Add("arrival car has no renderers");
             else
             {
@@ -281,7 +315,40 @@ public static class GmWendSceneContract
                 if (carAnchor == null || Vector2.Distance(new Vector2(carBounds.center.x, carBounds.center.z),
                         new Vector2(carAnchor.transform.position.x, carAnchor.transform.position.z)) > 0.15f)
                     failures.Add("arrival car visual bounds are not centred on the arrival-car anchor");
+                Renderer body = carRenderers.SingleOrDefault(renderer => renderer.name == "Car03_Body_LOD0");
+                Renderer grille = carRenderers.SingleOrDefault(renderer => renderer.name == "Car03_Grill_LOD0");
+                Renderer[] wheels = carRenderers
+                    .Where(renderer => renderer.name.StartsWith("Car03_Wheel_", System.StringComparison.Ordinal))
+                    .ToArray();
+                if (body == null || wheels.Length != 4 || wheels.Any(wheel => wheel.bounds.center.y >= body.bounds.center.y))
+                    failures.Add("arrival car is not upright: four wheel centres must sit below the body centre");
+                if (body == null || grille == null || Vector3.Dot(grille.bounds.center - body.bounds.center,
+                        route.TangentAt(0f)) <= 0f)
+                    failures.Add("arrival car faces backwards: its imported grille must point up the estate route");
             }
+            Light[] headlamps = arrivalCar.GetComponentsInChildren<Light>(true)
+                .Where(light => light.name.StartsWith("ArrivalHeadlamp", System.StringComparison.Ordinal))
+                .ToArray();
+            if (headlamps.Length != 2)
+                failures.Add($"arrival car has {headlamps.Length} authored headlamp(s), expected 2");
+            foreach (Light headlamp in headlamps)
+            {
+                if (!headlamp.enabled || headlamp.type != LightType.Spot || headlamp.intensity < 650f ||
+                    headlamp.range < 18f || headlamp.color.r <= headlamp.color.b * 1.25f)
+                    failures.Add($"arrival headlamp '{headlamp.name}' is not an enabled warm readable spot");
+                bool hasFixture = headlamp.GetComponentsInChildren<Renderer>(true)
+                    .Any(renderer => renderer.enabled && renderer.gameObject.activeInHierarchy &&
+                        renderer.transform.GetComponentsInParent<Transform>(true).Any(parent =>
+                            parent.name.IndexOf("Lantern", System.StringComparison.OrdinalIgnoreCase) >= 0));
+                if (!hasFixture)
+                    failures.Add($"arrival headlamp '{headlamp.name}' has no visible period fixture");
+            }
+            Light moonKey = arrivalCar.GetComponentsInChildren<Light>(true)
+                .SingleOrDefault(light => light.name == "ArrivalMoonlightKey");
+            if (moonKey == null || !moonKey.enabled || moonKey.type != LightType.Spot ||
+                moonKey.intensity < 900f || moonKey.range < 14f ||
+                moonKey.color.b <= moonKey.color.r * 1.25f)
+                failures.Add("arrival car has no enabled cool moon key strong enough to separate its body");
         }
 
         // 4 and 5. The owned profile, and the exposure on it.
@@ -399,15 +466,22 @@ public static class GmWendSceneContract
                 failures.Add("ambience has no cricket anchors derived from the route");
         }
 
+        // 20. The shipping opening participates in the same composition contract as every generated
+        // interior. This catches orphan intent, under-authored landmark clusters and tour shots whose
+        // declared subjects have slipped out of frame. It remains a floor beneath direct image review.
+        GmWendStoryTour compositionTour = Object.FindAnyObjectByType<GmWendStoryTour>();
+        failures.AddRange(GmSceneCompositionAudit.ValidateOpenScene(
+            "wend-hill-prologue", compositionTour, Camera.main));
+
         if (failures.Count == 0)
-            Debug.Log($"[{LogTag}] 17/17 checks pass: player, census ({census}), moon " +
+            Debug.Log($"[{LogTag}] 20/20 checks pass: player, census ({census}), moon " +
                       $"{GmWendNight.MoonLux} lux, owned profile, fixed EV " +
                       $"{GmWendNight.CommittedExposureEV}, one live camera, zero foliage emitters, " +
                       "closed map edge, one live ear, ambience wired " +
                       $"({ambience.footstepPool.Length} footstep clips, " +
                       $"{ambience.cricketAnchors.Length} cricket anchors), canonical estate opening, " +
                       "semantic anchors, story runtime, manor/gate/wake, collider proxies, " +
-                      "house beginning chapter, POI evidence props");
+                      "house beginning chapter, POI evidence props, cemetery reveal");
 
         return failures;
     }

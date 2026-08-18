@@ -15,6 +15,7 @@ public sealed class GmSceneDirector : MonoBehaviour
     public const string CourtScenePath = "Assets/Scenes/Court.unity";
     public const string HiddenRoomScenePath = "Assets/Scenes/HiddenRoom.unity";
     public const string LabyrinthScenePath = "Assets/Scenes/Labyrinth.unity";
+    public const string BootScenePath = "Assets/Scenes/Boot.unity";
 
     /// Every scene this director is capable of asking for, in play order.
     ///
@@ -64,6 +65,12 @@ public sealed class GmSceneDirector : MonoBehaviour
     public void TransitionTo(string sceneId, string scenePath)
     {
         if (IsTransitioning) return;
+        if (GmHousePersistenceCoordinator.ActiveRun?.Mode == GmParlorAdaptiveMode.Recollection &&
+            sceneId != "parlor" && sceneId != "boot")
+        {
+            sceneId = "boot";
+            scenePath = BootScenePath;
+        }
         StartCoroutine(TransitionRoutine(sceneId, scenePath));
     }
 
@@ -85,11 +92,15 @@ public sealed class GmSceneDirector : MonoBehaviour
     IEnumerator TransitionRoutine(string sceneId, string scenePath)
     {
         IsTransitioning = true;
+        bool recollection = GmHousePersistenceCoordinator.ActiveRun?.Mode ==
+            GmParlorAdaptiveMode.Recollection;
         OnTransitionStarted?.Invoke(sceneId);
         Debug.Log($"[GmSceneDirector] Transitioning from {CurrentSceneId} -> {sceneId} ({scenePath})");
 
-        // Save progress before scene change
-        GmSaveSystem.SaveGame();
+        // Recollection is a practice shell over a frozen known package. It must never overwrite the
+        // player's campaign Continue checkpoint or create campaign progress of its own.
+        if (!recollection)
+            GmSaveSystem.SaveGame();
 
         // Load scene asynchronously. LoadSceneAsync returns null when the scene is not in Build
         // Settings or the path is wrong -- which is the state every scene here except the prologue
@@ -110,9 +121,20 @@ public sealed class GmSceneDirector : MonoBehaviour
             yield return null;
         }
 
-        CurrentSceneId = sceneId;
+        RecordLoadedScene(sceneId);
+        // The pre-load save above protects the run if loading fails. This second write is the one
+        // Continue actually needs: it records the room the player reached, not the room they left.
+        if (!recollection) GmSaveSystem.SaveGame();
+        else if (sceneId == "boot") GmHousePersistenceCoordinator.EndRecollectionShell();
         IsTransitioning = false;
         OnTransitionCompleted?.Invoke(sceneId);
         Debug.Log($"[GmSceneDirector] Transition complete. Active scene: {CurrentSceneId}");
+    }
+
+    void RecordLoadedScene(string sceneId)
+    {
+        CurrentSceneId = sceneId;
+        GmRunStore.CurrentSceneId = sceneId;
+        GmRunStore.LastCheckpoint = "spawn";
     }
 }

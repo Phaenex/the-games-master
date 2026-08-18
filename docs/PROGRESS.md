@@ -43,6 +43,72 @@ bed: its deep-space/rumble textures would recreate the exact "spaceship" problem
 
 ## Status
 
+### 2026-08-17 - Session 1 leftovers: clock wood, climb path, body probes
+
+Closed the Session 1 holes that were still open after the hub landed. Did not start H2 / Sessions 2–6. No commit.
+
+**What was actually broken**
+
+- `LandingClock` had no HDRP override, so the imported Standard case rendered as a bright untextured pillar. Same dark wood recipe as the wake-room clock, plus a BoxCollider (PlacePrefab strips imported colliders).
+- The secret cellar panel sat at `(0, 6.55)`, on the first tread. A CharacterController climb stalled at `(0.00, 0.23, 6.03)`. Moved to the east flank under the rising flights `(2.28, 8.35)`, facing west into the stair mass.
+- Physical proofs were rays and flags. The plan asked for a body.
+
+**Verification this pass**
+
+- `npm run unity:scene:sync` then `rebuild entry-hall` PASS, `audit entry-hall` PASS
+- EditMode **906/906** (was 905/906 until the cellar moved off the climb)
+- CharacterController: locked/barred doors hold, Percival's open door admits a body, stairs reach 2F, clock case is solid
+- GUI tour **12/12**, **FLAKY**: attempt 1 idle-stalled, attempt 2 passed. Failure log kept: `unity-project/Logs/cli-entry-hall-tour-attempt-1.log`
+- Copies: `docs/playtest/screenshots/entry-hall-tour-*.png`. Clock is a dark upright case in shots 07/08, not the white pillar from the prior tour.
+- `npm run test:fast` PASS
+- Interior frame scan: **11/12 clean**. Shot 09 library door is orange-cast red:blue **5.37** (indoor max 3.6). The previous copy of that same shot measures **5.37** too — pre-existing lamp-only corner, not this pass. Scanner comments file that look call to Nick (#39).
+
+**Not done, and not claimed**
+
+H2 library, Marr interior, attic, cellar/vault geometry, remaining game-door wiring, prologue merge, git packaging. Human gates unchanged: Phase 0 walk, display, audio, feel.
+
+### 2026-08-17 - This chat is the working trunk
+
+Audit of every overlapping session, then a snapshot commit Nick asked for. Live plan: `docs/superpowers/plans/2026-08-17-main-continuation.md`. Handoff: `docs/HANDOFF-2026-08-17.md`.
+
+**Repo that ships:** `/Users/damato/Projects/games/the-games-master` on `wend-prologue-boundary-navmesh-harnesses`. `/Users/damato/Games Master` is the April skeleton. Several chats tonight wrote plans against it and aborted on folder switch.
+
+**What is true**
+
+- Hub Session 1 is in the Unity project: foyer doors, walkable stairs, 2F Percival, Lane G barriers. Entry Hall tour 12/12 tonight, FLAKY (attempt 1 idle-stalled).
+- Hub Session 2 library/Weighted Shelf is authored C#. It was not in `unity-project/` at audit time and has no library-interior tour.
+- 08-16 still owns the last full gate pack (14/14, EditMode 455/455). Later chats claiming 886/886 or "all rooms exist" are false.
+- Parlor physical slice and House Memory are in the same uncommitted tree. Not re-proven tonight.
+
+**Human gates still open:** Nick's Phase 0 walk, display/audio/feel, vehicle taste, Aldric character art. Court stays locked behind the walk.
+
+### 2026-08-17 - Session 1: Entry Hall is a walkable house hub, not a dead-end box
+
+Session 1 of the Blackwood Manor hub campaign. Isolated minigame scenes (Parlor, Court, STB, Hidden Room, Labyrinth) stay separate. This did **not** dump interior into `WendHill_Prologue`. No commit.
+
+**What is actually walkable now**
+
+- Foyer crossroads: barred front doors (Threshold Refusal), open parlor double doors still load `Parlor.unity`, locked north library door (`key:brass_skeleton_key` on the wake table), west conservatory barred from the other side, secret under-stair cellar panel that does not open (needs `clue:library_lever`, not spawned).
+- Grand staircase is 14 treads at 0.24m rise (agent step 0.4m), not the old 4.6×3.4×5 solid. A 2F landing slab sits at 3.4m with a north arch the body can pass.
+- 2F gallery: Percival's door starts open onto a dressed bedroom (`GothicBed` + desk). Lady Marr locked (no key this session). Third guest barred. Attic hatch visible and locked.
+- North of the library door: a short stub with one bookcase. Full library is Session 2.
+
+**Door contract (Lane G)**
+
+`GmEstateDoor.Configure` now takes `secret` and `openAtStart`. Closed / locked / barred leaves keep a solid non-trigger `DoorBarrier`. Open leaves disable it. Unlock persists as `unlocked:{doorId}` on `GmRunStore`. Factory uses Victorian `Door_1` for the leaf (SM_Door_01 was uniform-scale crushed into a postage stamp).
+
+**Verification this session**
+
+- `npm run unity:scene:sync` then `rebuild entry-hall` PASS
+- `audit entry-hall` PASS
+- EditMode **900/900**
+- GUI tour **12/12** (shots 09–12 are new). Copies: `docs/playtest/screenshots/entry-hall-tour-*.png`
+- Physical proofs in EditMode: locked/barred openings hit `DoorBarrier`; Percival's open leaf does not; first tread is under a climbing foot; desk sits on 2F, not the foyer; door AABB fills the wall instead of stabbing through the opening.
+
+**Not done, and not claimed**
+
+Full library, 2F debtor gallery move, Marr's interior, attic loft, cellar/vault, remaining game-door wiring, prologue `HouseBeginning` merge, git packaging. The grandfather clock in the hall is still a bright untextured upright case. That predates this session's 2F work.
+
 ### 2026-08-13 - Claude session: Reckoning/coach-house work, PAUSED — read `docs/CLAUDE-FABLE-HANDOFF.md` first
 
 Session paused on Nick's explicit instruction after he manually found a serious defect the

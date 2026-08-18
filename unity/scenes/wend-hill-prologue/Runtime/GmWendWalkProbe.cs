@@ -95,7 +95,7 @@ public sealed class GmWendWalkProbe : MonoBehaviour
     // something. Traversal is the case the prologue is made of.
     readonly List<float> frameMilliseconds = new List<float>();
     double lastFrameAt;
-    bool discardNextInterval;
+    int discardIntervalsRemaining;
 
     /// Active renderers in the scene, sampled at each capture. This is a SCENE SIZE figure, not a
     /// culling figure: it counts what exists and is enabled, not what the engine drew. Reported so the
@@ -126,8 +126,10 @@ public sealed class GmWendWalkProbe : MonoBehaviour
         if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-gmWendNoVSync") >= 0)
         {
             QualitySettings.vSyncCount = 0;
-            Application.targetFrameRate = 120;
-            Debug.Log("[GmWendWalkProbe] vSync OFF, 120 fps cap: this run measures high-refresh frame pacing");
+            int target = GmWendRenderBudget.ResolveTargetFrameRate(
+                System.Environment.GetCommandLineArgs());
+            Application.targetFrameRate = target;
+            Debug.Log($"[GmWendWalkProbe] vSync OFF, {target} fps cap: this run measures high-refresh frame pacing");
         }
 
         // Opt-in short walk, for tuning. A full walk to the water is ~8 minutes; testing one lever
@@ -451,7 +453,7 @@ public sealed class GmWendWalkProbe : MonoBehaviour
         float elapsed = (float)((now - lastFrameAt) * 1000d);
         lastFrameAt = now;
 
-        if (discardNextInterval) { discardNextInterval = false; return; }
+        if (discardIntervalsRemaining > 0) { discardIntervalsRemaining--; return; }
         if (elapsed > 0f) frameMilliseconds.Add(elapsed);
     }
 
@@ -659,7 +661,7 @@ public sealed class GmWendWalkProbe : MonoBehaviour
             yield return null;
         }
 
-        discardNextInterval = true;
+        discardIntervalsRemaining = 3;
         lastFrameAt = Time.realtimeSinceStartupAsDouble;
     }
 
@@ -706,7 +708,7 @@ public sealed class GmWendWalkProbe : MonoBehaviour
 
         // A screenshot costs a readback and a file write. Charging that to the scene would make the
         // walk look like it stutters every 15m when what stutters is the camera taking the picture.
-        discardNextInterval = true;
+        discardIntervalsRemaining = 6;
         lastFrameAt = Time.realtimeSinceStartupAsDouble;
     }
 

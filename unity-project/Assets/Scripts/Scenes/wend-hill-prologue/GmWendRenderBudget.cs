@@ -34,6 +34,41 @@ public sealed class GmWendRenderBudget : MonoBehaviour
         return settings;
     }
 
+    public static int ResolveTargetFrameRate(string[] args)
+    {
+        int authored = GmFeelConfig.Active.wendTargetFrameRate;
+        if (args == null) return authored;
+        int flag = System.Array.IndexOf(args, "-gmWendTargetFps");
+        if (flag < 0 || flag + 1 >= args.Length ||
+            !int.TryParse(args[flag + 1], out int configured) || configured < 30 || configured > 1000)
+            return authored;
+        return configured;
+    }
+
+    public static int ResolveMaxQueuedFrames(string[] args)
+    {
+        const int authored = 1;
+        if (args == null) return authored;
+        int flag = System.Array.IndexOf(args, "-gmWendQueueFrames");
+        if (flag < 0 || flag + 1 >= args.Length ||
+            !int.TryParse(args[flag + 1], out int configured) || configured < 1 || configured > 3)
+            return authored;
+        return configured;
+    }
+
+    public static float ResolveCameraFarClip(string[] args)
+    {
+        float authored = GmFeelConfig.Active.wendCameraFarClipMetres;
+        if (args == null) return authored;
+        int flag = System.Array.IndexOf(args, "-gmWendFarClip");
+        if (flag < 0 || flag + 1 >= args.Length ||
+            !float.TryParse(args[flag + 1], System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out float configured) ||
+            configured < 60f || configured > 300f)
+            return authored;
+        return configured;
+    }
+
     void Awake()
     {
         HDRenderPipelineAsset pipeline = GraphicsSettings.currentRenderPipeline as HDRenderPipelineAsset;
@@ -51,14 +86,18 @@ public sealed class GmWendRenderBudget : MonoBehaviour
         // Do not let an uncapped Metal player race several frames ahead and then report the driver's
         // periodic queue drain as a gameplay hitch. One queued frame also keeps first-person input
         // latency bounded; both built-player probes record and enforce this runtime contract.
-        QualitySettings.maxQueuedFrames = 1;
-        // The opening targets 60 fps, so 120 is a useful ceiling when vSync is disabled: enough
-        // headroom for high-refresh displays without burning cycles on 250+ fps queue churn.
-        if (QualitySettings.vSyncCount == 0) Application.targetFrameRate = 120;
+        string[] commandLine = System.Environment.GetCommandLineArgs();
+        QualitySettings.maxQueuedFrames = ResolveMaxQueuedFrames(commandLine);
+        // The opening targets 60 fps. The authored ceiling is higher so the no-vsync contract measures
+        // render cost instead of mostly measuring limiter sleep; the bounded CLI override still exists
+        // for controlled pacing experiments.
+        if (QualitySettings.vSyncCount == 0)
+            Application.targetFrameRate = ResolveTargetFrameRate(commandLine);
 
         playerCamera = GameObject.Find("Player")?.GetComponentInChildren<Camera>();
         if (playerCamera != null)
         {
+            playerCamera.farClipPlane = ResolveCameraFarClip(commandLine);
             playerCamera.allowDynamicResolution = true;
             HDAdditionalCameraData hd = playerCamera.GetComponent<HDAdditionalCameraData>();
             if (hd != null) hd.allowDynamicResolution = true;
@@ -67,7 +106,7 @@ public sealed class GmWendRenderBudget : MonoBehaviour
         Debug.Log($"[GmWendRenderBudget] output=native internal={InternalRenderPercentage:0}% " +
                   $"upscaler={UpscaleFilter} software lodBias={QualitySettings.lodBias:0.00} " +
                   $"lodCrossFade={QualitySettings.enableLODCrossFade} queuedFrames={QualitySettings.maxQueuedFrames} " +
-                  $"targetFps={Application.targetFrameRate}");
+                  $"targetFps={Application.targetFrameRate} farClip={playerCamera?.farClipPlane:0}m");
     }
 
     void RecordResolvedBudget(ScriptableRenderContext context, Camera camera)

@@ -59,9 +59,39 @@ public static class GmHiddenRoomQualityAudit
             issues.Add("GmHiddenRoomController component is missing from SceneSystems");
         }
 
+        foreach (Renderer renderer in Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None))
+        {
+            foreach (Material material in renderer.sharedMaterials)
+            {
+                if (material == null)
+                {
+                    issues.Add($"{HierarchyPath(renderer.transform)} has a missing material and renders magenta in HDRP");
+                    continue;
+                }
+                if (material.shader == null)
+                {
+                    issues.Add($"{HierarchyPath(renderer.transform)} material '{material.name}' has no shader");
+                    continue;
+                }
+
+                string shaderPath = AssetDatabase.GetAssetPath(material.shader);
+                if (string.IsNullOrEmpty(shaderPath) || shaderPath.StartsWith("Resources/") ||
+                    shaderPath.StartsWith("Library/"))
+                    issues.Add($"{HierarchyPath(renderer.transform)} uses built-in shader '{material.shader.name}' and renders magenta in HDRP");
+            }
+        }
+
         issues.AddRange(GmSceneCompositionAudit.ValidateOpenScene(
             GmHiddenRoomBuilder.SceneId, Object.FindAnyObjectByType<GmHiddenRoomShotTour>(), Camera.main));
 
         return issues;
+    }
+
+    static string HierarchyPath(Transform transform)
+    {
+        var parts = new List<string>();
+        for (Transform cursor = transform; cursor != null; cursor = cursor.parent) parts.Add(cursor.name);
+        parts.Reverse();
+        return string.Join("/", parts);
     }
 }

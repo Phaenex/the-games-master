@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
@@ -13,6 +14,21 @@ sealed class GmPerceptualTestTour : GmSceneReviewTour
         new GmReviewShot("detail", new Vector3(0f, 1f, 2f), 0f, 0f),
     };
     protected override IReadOnlyList<GmReviewShot> ReviewShots => Shots;
+}
+
+sealed class GmBackbufferTestTour : GmSceneReviewTour
+{
+    static readonly GmReviewShot[] Shots = {
+        new GmReviewShot("overlay", new Vector3(0f, 1f, 0f), 0f, 0f),
+    };
+    protected override IReadOnlyList<GmReviewShot> ReviewShots => Shots;
+    protected override bool CaptureReviewBackbuffer => true;
+    protected override int DirectCaptureShotCount => 1;
+    protected override IEnumerator BeforeShotSettled(GmReviewShot shot)
+    {
+        yield return null;
+    }
+    protected override void AfterShotCaptured(GmReviewShot shot, string file, Texture2D captured) { }
 }
 
 public sealed class GmPerceptualAuditTests
@@ -36,6 +52,14 @@ public sealed class GmPerceptualAuditTests
     public void TearDown()
     {
         if (scene.IsValid()) EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+    }
+
+    [Test]
+    public void StatefulTourCanDeclareBackbufferCaptureForRuntimeOverlays()
+    {
+        var stateful = new GameObject("StatefulTour").AddComponent<GmBackbufferTestTour>();
+
+        Assert.That(stateful.UsesBackbufferCaptureForAudit, Is.True);
     }
 
     [Test]

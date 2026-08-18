@@ -99,6 +99,28 @@ public class GmSceneDirectorTests
         Object.DestroyImmediate(directorObj);
     }
 
+    [Test]
+    public void CompletingALoadWritesTheDestinationIntoTheRunBeforeItIsSaved()
+    {
+        var directorObj = new GameObject("TestDirector");
+        var director = directorObj.AddComponent<GmSceneDirector>();
+        try
+        {
+            MethodInfo commit = typeof(GmSceneDirector).GetMethod("RecordLoadedScene",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(commit,
+                "the director still has no single place that commits a successful scene load to the run");
+
+            commit.Invoke(director, new object[] { "court" });
+
+            Assert.AreEqual("court", director.CurrentSceneId);
+            Assert.AreEqual("court", GmRunStore.CurrentSceneId,
+                "Continue would reload the stale room instead of the one the player reached");
+            Assert.AreEqual("spawn", GmRunStore.LastCheckpoint);
+        }
+        finally { Object.DestroyImmediate(directorObj); }
+    }
+
     // Not covered here, and not coverable here: TransitionTo/TransitionRoutine, the IsTransitioning
     // reentrancy guard and the OnTransitionStarted/OnTransitionCompleted pair. All of it runs inside
     // a coroutine that loads a scene, which needs the player loop. It belongs in the PlayMode suite

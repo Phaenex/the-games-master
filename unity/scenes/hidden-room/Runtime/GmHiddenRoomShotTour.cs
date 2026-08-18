@@ -16,7 +16,8 @@ public sealed class GmHiddenRoomShotTour : GmSceneReviewTour
         new GmReviewShot("03-mirror-shard3", new Vector3(-1.0f, 1.2f, 0f), -90f, 12f),
         new GmReviewShot("04-journal-archives", new Vector3(-1.0f, 1.5f, 0f), 90f, 0f),
         new GmReviewShot("05-mirror-reconstructed", new Vector3(0.2f, 1.2f, 0f), -90f, 0f),
-        new GmReviewShot("06-room-wide", new Vector3(2.4f, 1.7f, 1.5f), -100f, 10f)
+        new GmReviewShot("06-room-wide", new Vector3(2.4f, 1.7f, 1.5f), -100f, 10f),
+        new GmReviewShot("07-labyrinth-passage", new Vector3(0f, 1.5f, -0.2f), 180f, 4f)
     };
 
     protected override IReadOnlyList<GmReviewShot> ReviewShots => Shots;

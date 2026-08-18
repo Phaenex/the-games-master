@@ -60,36 +60,49 @@ public sealed class GmGameHud : MonoBehaviour
         sanityVignette.style.borderBottomColor = new Color(0.85f, 0.15f, 0.15f, 0f);
         root.Add(sanityVignette);
 
-        // Center reticle
+        // Center reticle (Victorian antique brass compass pip)
         reticle = new VisualElement { name = "CenterReticle" };
         reticle.style.position = Position.Absolute;
         reticle.style.left = Length.Percent(50);
         reticle.style.top = Length.Percent(50);
-        reticle.style.width = 4; reticle.style.height = 4;
-        reticle.style.marginLeft = -2; reticle.style.marginTop = -2;
-        reticle.style.backgroundColor = new Color(0.95f, 0.92f, 0.85f, 0.65f);
+        reticle.style.width = 6; reticle.style.height = 6;
+        reticle.style.marginLeft = -3; reticle.style.marginTop = -3;
+        reticle.style.backgroundColor = new Color(0.95f, 0.85f, 0.58f, 0.85f);
+        reticle.style.borderLeftWidth = 1; reticle.style.borderRightWidth = 1;
+        reticle.style.borderTopWidth = 1; reticle.style.borderBottomWidth = 1;
+        reticle.style.borderLeftColor = new Color(0.45f, 0.32f, 0.15f, 0.9f);
+        reticle.style.borderRightColor = new Color(0.45f, 0.32f, 0.15f, 0.9f);
+        reticle.style.borderTopColor = new Color(0.45f, 0.32f, 0.15f, 0.9f);
+        reticle.style.borderBottomColor = new Color(0.45f, 0.32f, 0.15f, 0.9f);
         root.Add(reticle);
 
-        // Interaction Prompt Panel (bottom-center)
+        // Interaction Prompt Panel (bottom-center beveled velvet letterbox)
         promptPanel = new VisualElement { name = "PromptPanel" };
         promptPanel.style.position = Position.Absolute;
-        promptPanel.style.left = Length.Percent(30);
-        promptPanel.style.right = Length.Percent(30);
+        promptPanel.style.left = Length.Percent(28);
+        promptPanel.style.right = Length.Percent(28);
         promptPanel.style.bottom = 85;
-        promptPanel.style.paddingLeft = 20; promptPanel.style.paddingRight = 20;
-        promptPanel.style.paddingTop = 10; promptPanel.style.paddingBottom = 10;
+        promptPanel.style.paddingLeft = 28; promptPanel.style.paddingRight = 28;
+        promptPanel.style.paddingTop = 14; promptPanel.style.paddingBottom = 14;
+        promptPanel.style.backgroundColor = new Color(0.025f, 0.018f, 0.014f, 0.95f);
+        promptPanel.style.borderLeftWidth = 1; promptPanel.style.borderRightWidth = 1;
+        promptPanel.style.borderTopWidth = 1; promptPanel.style.borderBottomWidth = 1;
+        promptPanel.style.borderLeftColor = new Color(0.82f, 0.68f, 0.38f, 0.80f);
+        promptPanel.style.borderRightColor = new Color(0.82f, 0.68f, 0.38f, 0.80f);
+        promptPanel.style.borderTopColor = new Color(0.82f, 0.68f, 0.38f, 0.80f);
+        promptPanel.style.borderBottomColor = new Color(0.82f, 0.68f, 0.38f, 0.80f);
         promptPanel.style.alignItems = Align.Center;
         promptPanel.style.display = DisplayStyle.None;
 
         promptText = new Label { name = "PromptLabel" };
         promptText.style.fontSize = 20;
-        promptText.style.color = new Color(0.95f, 0.90f, 0.78f);
+        promptText.style.color = new Color(0.96f, 0.92f, 0.82f);
         promptText.style.unityTextAlign = TextAnchor.MiddleCenter;
 
         contextActionText = new Label { name = "ContextActionLabel" };
         contextActionText.style.fontSize = 14;
-        contextActionText.style.color = new Color(0.72f, 0.68f, 0.60f);
-        contextActionText.style.marginTop = 4;
+        contextActionText.style.color = new Color(0.85f, 0.72f, 0.44f);
+        contextActionText.style.marginTop = 5;
         contextActionText.style.unityTextAlign = TextAnchor.MiddleCenter;
 
         promptPanel.Add(promptText);

@@ -1,13 +1,19 @@
+using System;
+using System.IO;
 using NUnit.Framework;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 public sealed class GmOutbuildingClueTests
 {
     GameObject go;
+    string saveDirectory;
 
     [SetUp]
     public void SetUp()
     {
+        saveDirectory = Path.Combine(Path.GetTempPath(), "gm-outbuilding-" + Guid.NewGuid().ToString("N"));
+        GmSaveSystem.ConfigureForTests(Path.Combine(saveDirectory, "save.json"));
         GmRunStore.BeginNewRun();
     }
 
@@ -17,7 +23,9 @@ public sealed class GmOutbuildingClueTests
         if (go != null) Object.DestroyImmediate(go);
         GmOutbuildingClue.ResetRegistryForTests();
         GmRunStore.BeginNewRun();
-        GmSaveSystem.DeleteSave();
+        GmSaveSystem.Flush();
+        GmSaveSystem.ResetTestConfiguration();
+        if (Directory.Exists(saveDirectory)) Directory.Delete(saveDirectory, true);
     }
 
     [Test]

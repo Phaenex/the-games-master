@@ -26,7 +26,7 @@ function validateCommand(command, label, extraAllowed = []) {
   if (!plainObject(command)) throw new Error(`${label} must be an object`);
   const keys = Object.keys(command).sort();
   const allowed = label.endsWith('.tour')
-    ? ['logTag', 'method', 'shots', 'success']
+    ? ['logTag', 'method', 'minimumLuminanceRange', 'shots', 'success']
     : ['method', 'success', ...extraAllowed];
   const extras = keys.filter((key) => !allowed.includes(key));
   if (extras.length) throw new Error(`${label} has unknown field(s): ${extras.join(', ')}`);
@@ -129,6 +129,11 @@ export function validateSceneRegistry(registry) {
     requireString(scene.tour.logTag, `${label}.tour.logTag`, LOG_TAG);
     if (!Number.isInteger(scene.tour.shots) || scene.tour.shots < 1 || scene.tour.shots > 99) {
       throw new Error(`${label}.tour.shots must be an integer from 1 to 99`);
+    }
+    if (scene.tour.minimumLuminanceRange !== undefined &&
+        (!Number.isInteger(scene.tour.minimumLuminanceRange) ||
+         scene.tour.minimumLuminanceRange < 1 || scene.tour.minimumLuminanceRange > 255)) {
+      throw new Error(`${label}.tour.minimumLuminanceRange must be an integer from 1 to 255`);
     }
     if (scene.standalone !== undefined) validateStandalone(scene.standalone, `${label}.standalone`);
     if (scene.probes !== undefined) {

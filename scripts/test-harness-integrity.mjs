@@ -97,6 +97,12 @@ function writeSplitPng(file, topLevel, bottomLevel, size = 32) {
   writeGradientPng(file, size, [1, 1, 1], (x, y) => (y < size * 0.45 ? topLevel : bottomLevel));
 }
 
+/** Mostly-black authored title card: 94% black field, 6% legible warm typography/blocking. */
+function writeColdOpenPng(file, size = 64) {
+  writeGradientPng(file, size, [1, 0.76, 0.42], (x, y) =>
+    y >= Math.floor(size * 0.94) ? 96 + (x / (size - 1)) * 72 : 2);
+}
+
 function run(script, args, env = {}) {
   const result = spawnSync('node', [path.join(REPO_ROOT, 'scripts', script), ...args], {
     cwd: REPO_ROOT, encoding: 'utf8', env: { ...process.env, ...env },
@@ -144,6 +150,25 @@ mustPass('a clean, decodable frame', 'scan-frame-defects.mjs', [goodDir]);
 // The regression that shipped: one good target masking a silent one. This is the case the whole
 // gate exists for, so it must run everywhere, not only where a prior tour left frames behind.
 mustFail('good target paired with an empty one', 'scan-frame-defects.mjs', [goodDir, emptyDir]);
+
+// The title card deliberately uses a nearly black field. Only its two exact proof filenames receive
+// that contract, and they still need a real contrast-bearing authored region. The ordinary-name case
+// prevents this from becoming a generic exemption for black screenshots; the blank exact-name case
+// prevents a failed renderer from hiding behind the title-card name.
+const coldOpenDir = path.join(sandbox, 'cold-open-authored');
+mkdirSync(coldOpenDir, { recursive: true });
+writeColdOpenPng(path.join(coldOpenDir, '01-cold-open-ui.png'));
+const blankColdOpenDir = path.join(sandbox, 'cold-open-blank');
+mkdirSync(blankColdOpenDir, { recursive: true });
+writeGradientPng(path.join(blankColdOpenDir, 'controller-01-cold-open.png'), 64, [1, 1, 1], () => 2);
+const ordinaryBlackDir = path.join(sandbox, 'ordinary-black');
+mkdirSync(ordinaryBlackDir, { recursive: true });
+writeColdOpenPng(path.join(ordinaryBlackDir, '02-spawn-facing-mansion.png'));
+
+mustPass('the authored cold-open title card', 'scan-frame-defects.mjs', [coldOpenDir]);
+mustFail('a blank frame wearing the cold-open filename', 'scan-frame-defects.mjs', [blankColdOpenDir]);
+mustFail('the same near-black composition under an ordinary frame name',
+  'scan-frame-defects.mjs', [ordinaryBlackDir]);
 
 // Colour cast. Every one of the eight real prologue frames passed this scanner while the drive's
 // ground rendered as glowing orange, because brightness percentiles cannot see hue and the magenta

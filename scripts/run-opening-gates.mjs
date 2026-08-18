@@ -65,8 +65,14 @@ const gates = [
     `${unityRoot}/Library/GmSceneIntelligence/standalone-proof/${scene}`,
     `${unityRoot}/Library/GmSceneIntelligence/player-probes/${scene}/walk`,
     `${unityRoot}/Library/GmSceneIntelligence/player-probes/${scene}/walk-review`,
-    `${unityRoot}/Library/GmSceneIntelligence/player-probes/${scene}/walls`,
     `${unityRoot}/Screens/${sceneName}`, '--night'], CONTINUES],
+  // Wall probes deliberately attack the terrain-derived map edge, including positions tens of
+  // metres below the authored route, and face OUT of the playable world. Their upper image band can
+  // therefore be cliff, terrain backside or void rather than sky. Running the night-sky heuristic
+  // there produced a category error: it called a moonlit cliff "daylight". These frames still go
+  // through every pixel-integrity rule; only the player-facing semantic night rule is out of scope.
+  ['captured-frame render defects (physical proof)', 'node', ['scripts/scan-frame-defects.mjs',
+    `${unityRoot}/Library/GmSceneIntelligence/player-probes/${scene}/walls`], CONTINUES],
   ['captured-frame render defects (interior)', 'node', ['scripts/scan-frame-defects.mjs',
     `${unityRoot}/Library/GmSceneIntelligence/player-probes/${scene}/house`, '--interior'], CONTINUES],
 ];

@@ -28,9 +28,14 @@ public static class GmCourtCompositionPlan
         public GameObject judgeChair;
         public GameObject gavel;
         public GameObject soundBlock;
+        public GameObject benchCandles;
         public GameObject benchLightFixture;
         public GameObject benchLight;
+        public GameObject benchDeskLight;
         public GameObject evidenceLight;
+        public GameObject verdictDoors;
+        public GameObject verdictSconces;
+        public GameObject verdictSconceLight;
     }
 
     public static void Author(GameObject owner, SceneRefs refs)
@@ -155,6 +160,10 @@ public static class GmCourtCompositionPlan
             "Carved oak sound block.", GmCompositionRole.Detail,
             GmSpatialRelation.Grounded, surfaceY: 1.85f);
 
+        GmCompositionAuthoring.Element(refs.benchCandles, "bench-candles", "bench-cluster", "court-lighting",
+            "A low cluster of working candles beside the gavel, revealing the verdict surface.",
+            GmCompositionRole.Support, GmSpatialRelation.Grounded, surfaceY: 1.85f);
+
         // The lantern the bench light actually comes from. It was built and stored on refs and then
         // never declared, so the intent below had nothing to name and pointed at the desk instead.
         // Suspended, like the shut-the-box wall sconce: a fixture hung over the dais is not standing
@@ -162,6 +171,28 @@ public static class GmCourtCompositionPlan
         GmCompositionAuthoring.Element(refs.benchLightFixture, "bench-lantern", "bench-cluster", "court-lighting",
             "Iron lantern hung over the dais, the warm source above the bench.",
             GmCompositionRole.Detail, GmSpatialRelation.Suspended);
+
+        // Zone 5: Verdict Exit. This is a route cue, not courtroom dressing, and gets its own small
+        // cluster so the composition audit measures the actual leaves at the south threshold.
+        var exitZone = new GameObject("VerdictExitZone");
+        exitZone.transform.SetParent(owner.transform, false);
+        exitZone.transform.position = new Vector3(0f, 1.5f, -8f);
+        GmCompositionAuthoring.Zone(exitZone, "verdict-exit-zone",
+            "The double doors released by either Court verdict, leading into Shut the Box.",
+            new Vector3(4f, 4f, 4f), minClusters: 1, minElements: 1);
+
+        var exitCluster = new GameObject("VerdictExitCluster");
+        exitCluster.transform.SetParent(exitZone.transform, false);
+        exitCluster.transform.position = new Vector3(0f, 1.2f, -7.78f);
+        GmCompositionAuthoring.Cluster(exitCluster, "verdict-exit-cluster", "verdict-exit-zone",
+            "Paired oak leaves opening onto the next game passage.", "verdict-doors",
+            minSupports: 1, minDetails: 0, requireVariation: false);
+        GmCompositionAuthoring.Element(refs.verdictDoors, "verdict-doors", "verdict-exit-cluster",
+            "court-architecture", "Physical verdict-gated double doors and their real hinge leaves.",
+            GmCompositionRole.Anchor);
+        GmCompositionAuthoring.Element(refs.verdictSconces, "verdict-sconces", "verdict-exit-cluster",
+            "court-lighting", "Paired period wall lamps revealing the verdict-gated threshold.",
+            GmCompositionRole.Support, GmSpatialRelation.Suspended);
 
         // Motivated Lighting
         refs.witnessLight.AddComponent<GmLightIntent>().Configure("court-witness-spot",
@@ -184,6 +215,11 @@ public static class GmCourtCompositionPlan
             "Iron lantern over the dais: the warm source above the sound block and the brass gavel.",
             sourceId: "bench-lantern");
 
+        refs.benchDeskLight.AddComponent<GmLightIntent>().Configure("court-bench-candles",
+            GmLightIntentKind.Practical,
+            "Low candlelight motivated by the working candle cluster beside the gavel.",
+            sourceId: "bench-candles");
+
         // Non-diegetic by admission. There is no fixture anywhere near (0, 3.5, 2.5) -- the nearest
         // candidate is a candle 2.85m away -- so calling this Practical would be inventing a source.
         // CompositionFill is what the contract has for exactly this, and it is the honest label.
@@ -192,7 +228,12 @@ public static class GmCourtCompositionPlan
             "Overhead fill isolating the evidence bar so the juror-facing documents read against the gloom.",
             subjectId: "evidence-table");
 
-        // 8 Review claims
+        refs.verdictSconceLight.AddComponent<GmLightIntent>().Configure("court-verdict-sconces",
+            GmLightIntentKind.Practical,
+            "Paired wall lamps make the resolved-verdict passage readable at the shared fixed exposure.",
+            sourceId: "verdict-sconces");
+
+        // Review claims
         GmCompositionAuthoring.ReviewClaim(owner, "01-court-overview", "judge-bench", "witness-chair",
             "bench-zone", "witness-zone", new Vector2(0.5f, 0.55f), 0.50f,
             "Wide view from court entrance showing witness dock, evidence bar, and bench.");
@@ -224,5 +265,9 @@ public static class GmCourtCompositionPlan
         GmCompositionAuthoring.ReviewClaim(owner, "08-defense-stand", "witness-chair", "dock-rail",
             "witness-zone", "witness-cluster", new Vector2(0.5f, 0.5f), 0.60f,
             "Player view standing at the evidence bar looking directly toward the witness dock.");
+
+        GmCompositionAuthoring.ReviewClaim(owner, "09-verdict-passage-open", "verdict-doors", "",
+            "verdict-exit-cluster", "verdict-exit-zone", new Vector2(0.5f, 0.5f), 0.55f,
+            "Resolved-verdict view proving the leaves clear the onward passage to Shut the Box.");
     }
 }

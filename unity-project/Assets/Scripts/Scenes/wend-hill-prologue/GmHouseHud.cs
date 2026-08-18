@@ -163,8 +163,8 @@ public sealed class GmHouseHud : MonoBehaviour
         for (int i = 0; i < house.PlayerHand.Count; i++)
         {
             int cardIndex = i;
-            GmParlorCard card = house.PlayerHand[i];
-            bool legal = choosing && GmWendParlorRules.IsLegal(house.PlayerHand, i, house.LeadCard);
+            GmCard card = house.PlayerHand[i];
+            bool legal = choosing && GmParlorCore.IsLegal(house.PlayerHand, i, house.LeadCard);
             var button = new Button(() => house.SelectCard(cardIndex))
             {
                 name = $"Card_{i + 1}_{card.Suit}_{card.Rank}",
@@ -207,19 +207,24 @@ public sealed class GmHouseHud : MonoBehaviour
         button.style.unityFontStyleAndWeight = FontStyle.Bold;
         button.style.unityTextGenerator = TextGeneratorType.Standard;
         button.style.color = Pale(1f);
-        button.style.backgroundColor = danger ? new Color(0.38f, 0.07f, 0.06f, 0.96f) : new Color(0.14f, 0.11f, 0.08f, 0.96f);
+        button.style.backgroundColor = danger ? new Color(0.42f, 0.08f, 0.07f, 0.96f) : new Color(0.18f, 0.13f, 0.09f, 0.96f);
+        button.style.borderLeftWidth = 1; button.style.borderRightWidth = 1;
+        button.style.borderTopWidth = 1; button.style.borderBottomWidth = 1;
+        Color border = danger ? new Color(0.85f, 0.25f, 0.20f, 0.9f) : Gold(0.85f);
+        button.style.borderLeftColor = border; button.style.borderRightColor = border;
+        button.style.borderTopColor = border; button.style.borderBottomColor = border;
         actionRow.Add(button);
     }
 
-    static string Name(GmParlorCard? card) => card.HasValue ? card.Value.ShortName.ToUpperInvariant() : "—";
+    static string Name(GmCard? card) => card.HasValue ? card.Value.TableLabel.ToUpperInvariant() : "—";
 
     static VisualElement Panel(string name)
     {
         var panel = new VisualElement { name = name, pickingMode = PickingMode.Position };
-        panel.style.paddingLeft = 24; panel.style.paddingRight = 24;
-        panel.style.paddingTop = 17; panel.style.paddingBottom = 17;
-        panel.style.backgroundColor = new Color(0.012f, 0.010f, 0.009f, 0.95f);
-        var border = new Color(0.40f, 0.29f, 0.16f, 0.82f);
+        panel.style.paddingLeft = 28; panel.style.paddingRight = 28;
+        panel.style.paddingTop = 20; panel.style.paddingBottom = 20;
+        panel.style.backgroundColor = new Color(0.018f, 0.014f, 0.011f, 0.96f);
+        var border = new Color(0.78f, 0.64f, 0.36f, 0.85f);
         panel.style.borderLeftWidth = 1; panel.style.borderRightWidth = 1;
         panel.style.borderTopWidth = 1; panel.style.borderBottomWidth = 1;
         panel.style.borderLeftColor = border; panel.style.borderRightColor = border;
@@ -241,13 +246,13 @@ public sealed class GmHouseHud : MonoBehaviour
 
     static Color Pale(float alpha) => new Color(0.91f, 0.87f, 0.79f, alpha);
     static Color Gold(float alpha) => new Color(0.76f, 0.56f, 0.29f, alpha);
-    static Color SuitColor(GmCardSuit suit, float alpha)
+    static Color SuitColor(GmSuit suit, float alpha)
     {
         return suit switch
         {
-            GmCardSuit.Flames => new Color(0.48f, 0.09f, 0.045f, alpha),
-            GmCardSuit.Eyes => new Color(0.08f, 0.24f, 0.31f, alpha),
-            GmCardSuit.Teeth => new Color(0.30f, 0.27f, 0.20f, alpha),
+            GmSuit.Flames => new Color(0.48f, 0.09f, 0.045f, alpha),
+            GmSuit.Eyes => new Color(0.08f, 0.24f, 0.31f, alpha),
+            GmSuit.Teeth => new Color(0.30f, 0.27f, 0.20f, alpha),
             _ => new Color(0.18f, 0.18f, 0.20f, alpha),
         };
     }

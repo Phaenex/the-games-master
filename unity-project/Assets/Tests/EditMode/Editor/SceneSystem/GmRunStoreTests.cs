@@ -197,6 +197,47 @@ public sealed class GmRunStoreTests
     }
 
     [Test]
+    public void RoomCompletionIsIdempotentAndOnlyTableGamesAdvanceTheTableIndex()
+    {
+        Assert.AreEqual(0, GmRunStore.TableGameIndex);
+        Assert.IsFalse(GmRunStore.IsRoomComplete("parlor"));
+
+        Assert.IsTrue(GmRunStore.CompleteRoom("parlor", countsAsTableGame: true));
+        Assert.IsTrue(GmRunStore.IsRoomComplete("PARLOR"));
+        Assert.AreEqual(1, GmRunStore.TableGameIndex,
+            "finishing the first table game did not carry the run to the next table");
+
+        Assert.IsFalse(GmRunStore.CompleteRoom("parlor", countsAsTableGame: true),
+            "re-entering a completed room advanced the night twice");
+        Assert.AreEqual(1, GmRunStore.TableGameIndex);
+
+        Assert.IsTrue(GmRunStore.CompleteRoom("court", countsAsTableGame: false));
+        Assert.IsTrue(GmRunStore.IsRoomComplete("court"));
+        Assert.AreEqual(1, GmRunStore.TableGameIndex,
+            "the Court is a trial, not one of Aldric's seven table games");
+
+        Assert.IsTrue(GmRunStore.CompleteRoom("shut-the-box", countsAsTableGame: true));
+        Assert.AreEqual(2, GmRunStore.TableGameIndex);
+    }
+
+    [Test]
+    public void RoomCompletionAndTableIndexSurviveSaveLoadAndResetOnNewRun()
+    {
+        GmRunStore.CompleteRoom("parlor", countsAsTableGame: true);
+        GmRunStore.CompleteRoom("court", countsAsTableGame: false);
+        GmSaveData saved = GmRunStore.ToSaveData();
+
+        GmRunStore.BeginNewRun();
+        Assert.AreEqual(0, GmRunStore.TableGameIndex);
+        Assert.IsFalse(GmRunStore.IsRoomComplete("parlor"));
+
+        GmRunStore.LoadFromSaveData(saved);
+        Assert.AreEqual(1, GmRunStore.TableGameIndex);
+        Assert.IsTrue(GmRunStore.IsRoomComplete("parlor"));
+        Assert.IsTrue(GmRunStore.IsRoomComplete("court"));
+    }
+
+    [Test]
     public void SaveDataRoundTripPreservesExactState()
     {
         GmRunStore.RaiseCorruption("test-raise");

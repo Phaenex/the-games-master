@@ -11,6 +11,7 @@ public sealed class GmLabyrinthSceneParts
     public GameObject TorchSconce;
     public GameObject GravelPath;
     public GameObject MirrorPedestal;
+    public GameObject AssembledMirror;
     public GameObject ShrinePillars;
     public GameObject MoonbeamShaft;
     public GameObject HedgeWalls;
@@ -19,10 +20,14 @@ public sealed class GmLabyrinthSceneParts
     public GameObject BoneTotem;
     public GameObject ExitGate;
     public GameObject StonePiers;
-    public GameObject ExitMist;
+    public GameObject ExitLanterns;
     public Light MoonbeamLight;
     public Light TorchLight;
+    public Light TorchLightRight;
     public Light HuntsmanLanternLight;
+    public Light EnvironmentMoonLight;
+    public Light ExitLanternLeftLight;
+    public Light ExitLanternRightLight;
 }
 
 /// <summary>
@@ -82,6 +87,10 @@ public static class GmLabyrinthCompositionPlan
 
         GmCompositionAuthoring.Element(parts.MirrorPedestal, "mirror-pedestal", "shrine-cluster", "maze-architecture",
             "The octagonal stone altar holding the mirror shards.", GmCompositionRole.Anchor);
+
+        GmCompositionAuthoring.Element(parts.AssembledMirror, "assembled-mirror", "shrine-cluster", "shards",
+            "The reconstructed standing mirror raised on the central altar.", GmCompositionRole.Gameplay,
+            GmSpatialRelation.Grounded, surfaceY: 1.2f);
 
         GmCompositionAuthoring.Element(parts.ShrinePillars, "shrine-pillars", "shrine-cluster", "maze-architecture",
             "Four weathered gothic stone pillars.", GmCompositionRole.Support);
@@ -148,8 +157,9 @@ public static class GmLabyrinthCompositionPlan
         GmCompositionAuthoring.Element(parts.StonePiers, "stone-piers", "exit-cluster", "maze-architecture",
             "Twin carved stone piers bearing stag crests.", GmCompositionRole.Support);
 
-        GmCompositionAuthoring.Element(parts.ExitMist, "exit-mist", "exit-cluster", "maze-lighting",
-            "Dense ground fog illuminated by the full moon beyond.", GmCompositionRole.Detail);
+        GmCompositionAuthoring.Element(parts.ExitLanterns, "exit-lanterns", "exit-cluster", "maze-lighting",
+            "Paired period lanterns mounted on the final stone piers.", GmCompositionRole.Detail,
+            GmSpatialRelation.Suspended);
 
         // Both local lights carry authored intent. The torch is a practical and names the sconce the
         // player can see; the moonbeam is environmental and has no fixture to stand next to.
@@ -158,9 +168,18 @@ public static class GmLabyrinthCompositionPlan
             "The amber pool on the threshold comes from the sconce on the arch, not from nowhere.",
             sourceElementId: "entrance-torch");
 
+        GmAdaptiveIntentAuthoring.Light(parts.TorchLightRight.gameObject, "entrance-torch-practical-right",
+            GmLightIntentKind.Practical,
+            "The second brazier completes the paired threshold cue without one source blowing out the arch.",
+            sourceElementId: "entrance-torch");
+
         GmAdaptiveIntentAuthoring.Light(parts.MoonbeamLight.gameObject, "altar-moonbeam",
             GmLightIntentKind.Environmental,
             "Moonlight drops into the one open cell of the maze; the shrine owns no lamp of its own.");
+
+        GmAdaptiveIntentAuthoring.Light(parts.EnvironmentMoonLight.gameObject, "labyrinth-moon-key",
+            GmLightIntentKind.Environmental,
+            "The cool directional night key models the maze beyond the three local pools of light.");
 
         // The lantern burns. An older comment here said whether it should was undecided and that the
         // prop was a plain cube -- both were stale: the prop is the SM_Lantern mesh and the builder
@@ -170,6 +189,13 @@ public static class GmLabyrinthCompositionPlan
             GmLightIntentKind.Practical,
             "The warm pool in the stalk corridor is the Huntsman's own lantern — the prop the player tracks.",
             sourceElementId: "huntsman-lantern");
+
+        GmAdaptiveIntentAuthoring.Light(parts.ExitLanternLeftLight.gameObject, "exit-lantern-left",
+            GmLightIntentKind.Practical,
+            "The west pier lantern reveals the final gate silhouette.", sourceElementId: "exit-lanterns");
+        GmAdaptiveIntentAuthoring.Light(parts.ExitLanternRightLight.gameObject, "exit-lantern-right",
+            GmLightIntentKind.Practical,
+            "The east pier lantern reveals the final gate silhouette.", sourceElementId: "exit-lanterns");
 
         // 8 Review claims.
         // The trailing float reads as a symmetric framing tolerance through the interim ReviewClaim

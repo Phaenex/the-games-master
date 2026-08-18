@@ -49,8 +49,23 @@ public static class GmParlorCompositionPlan
             GmCompositionRole.Gameplay, surfaceY: 0.76f);
 
         GmCompositionAuthoring.Element(Built(built, "banker-lamp"), "banker-lamp", "table-cluster",
-            "parlor-lighting", "Green glass banker's lamp casting focused yellow light onto the table.",
+            "parlor-lighting", "Green-glass table lantern casting focused yellow light onto the cards.",
             GmCompositionRole.Detail, surfaceY: 0.76f);
+
+        GmCompositionAuthoring.Element(Built(built, "parlor-chandelier"), "parlor-chandelier", "table-cluster",
+            "parlor-lighting", "Small iron ceiling practical keeping both players legible beyond the table lantern.",
+            GmCompositionRole.Detail, GmSpatialRelation.Suspended);
+
+        GmCompositionAuthoring.Element(Built(built, "north-moon-window-west"), "north-moon-window-west",
+            "table-cluster", "parlor-windows",
+            "High west window adding cool separation behind the game table and bookcase.",
+            GmCompositionRole.Detail, GmSpatialRelation.AgainstBoundary, "card-table", 6f,
+            blocksRoutes: false);
+        GmCompositionAuthoring.Element(Built(built, "north-moon-window-east"), "north-moon-window-east",
+            "table-cluster", "parlor-windows",
+            "High east window adding cool separation behind the host and hearth chair.",
+            GmCompositionRole.Detail, GmSpatialRelation.AgainstBoundary, "card-table", 6f,
+            blocksRoutes: false);
 
         // Zone 2: Hearth Fire Zone
         var hearthZone = new GameObject("HearthZone");
@@ -105,6 +120,10 @@ public static class GmParlorCompositionPlan
             "cabinet-cluster", "parlor-paper", "Unopened correspondence stacked where the host never reads it.",
             GmCompositionRole.Support, surfaceY: 1.1f);
 
+        GmCompositionAuthoring.Element(Built(built, "cabinet-sconce"), "cabinet-sconce",
+            "cabinet-cluster", "parlor-lighting", "Wall sconce catching the decanter and sealed correspondence.",
+            GmCompositionRole.Detail, GmSpatialRelation.Suspended);
+
         // Zone 4: Entryway & Drapes Zone
         var entryZone = new GameObject("EntryZone");
         entryZone.transform.SetParent(owner.transform, false);
@@ -130,6 +149,16 @@ public static class GmParlorCompositionPlan
             "parlor-hardware", "Brass lock plate that latches shut when the game begins.",
             GmCompositionRole.Detail, GmSpatialRelation.AgainstBoundary, "parlor-doors");
 
+        GmCompositionAuthoring.Element(Built(built, "entry-sconces"), "entry-sconces", "doorway-cluster",
+            "parlor-lighting", "Paired wall sconces revealing the locked double doors and velvet folds.",
+            GmCompositionRole.Detail, GmSpatialRelation.Suspended);
+
+        GmCompositionAuthoring.Element(Built(built, "south-court-transom"), "south-court-transom",
+            "doorway-cluster", "parlor-windows",
+            "Moonlit transom cross-lights the Court threshold and the hearth side of the room.",
+            GmCompositionRole.Detail, GmSpatialRelation.AgainstBoundary, "parlor-doors", 4f,
+            blocksRoutes: false);
+
         // Both practicals in this room have a fixture the player can see, which is what a motivated
         // light asserts. The ceiling fill has none, so claiming a source for it would be a lie about
         // the room; it is authored as the composition fill it actually is, bound to the table it shapes.
@@ -139,57 +168,70 @@ public static class GmParlorCompositionPlan
         GmCompositionAuthoring.Motivate(Built(built, "fireplace-light"), "fireplace-light",
             "fire-embers", "Amber flicker thrown by the dying coals in the hearth.");
 
-        GmAdaptiveIntentAuthoring.Light(Built(built, "ambient-fill-light"), "parlor-ambient-fill",
-            GmLightIntentKind.CompositionFill,
-            "Cold ceiling fill keeping the room off pure black outside the lamp cone, without inventing a second fixture.",
-            subjectElementId: "card-table", maximumSubjectDistance: 4f);
+        GmCompositionAuthoring.Motivate(Built(built, "ambient-fill-light"), "parlor-chandelier-light",
+            "parlor-chandelier", "Low ceiling practical separating both chairs from the surrounding dark paneling.");
 
-        // Author 10 explicit review claims.
+        GmCompositionAuthoring.Motivate(Built(built, "cabinet-sconce-light"), "cabinet-sconce-light",
+            "cabinet-sconce", "Warm wall practical revealing glass, paper, and the sideboard's carved edge.");
+
+        GmCompositionAuthoring.Motivate(Built(built, "entry-sconce-light"), "entry-sconce-light",
+            "entry-sconces", "Paired entry practicals defining the door panels and heavy damask folds.");
+
+        // Author explicit review claims.
         // The trailing float on every one of these is passed through the interim ReviewClaim adapter
         // as a symmetric viewport tolerance. That reading is NOT confirmed and it is Nick's to settle
         // (decision D1 in docs/audit/F1-review-claim-decision.md): the numbers run backwards for a
         // tolerance, and several are wider than the window the visibility test already enforces, so
         // those framing assertions cannot fail. A green composition audit is therefore not evidence
         // that these shots are framed. Do not retune these numbers to move a gate.
-        GmCompositionAuthoring.ReviewClaim(owner, "01-table-perspective", "card-table", "aldric-chair",
-            "table-zone", "hearth-zone", new Vector2(0.5f, 0.4f), 0.50f,
-            "Player view across the green table directly facing Aldric's seat.");
-
-        GmCompositionAuthoring.ReviewClaim(owner, "02-aldric-portrait-framing", "aldric-chair", "card-table",
-            "table-cluster", "table-zone", new Vector2(0.5f, 0.6f), 0.60f,
-            "Close portrait framing of Aldric Voss across the baize.");
-
-        GmCompositionAuthoring.ReviewClaim(owner, "03-card-hand-layout", "card-deck", "card-table",
-            "table-cluster", "table-zone", new Vector2(0.5f, 0.3f), 0.70f,
-            "Legible card hand presentation with 4 distinct custom suits.");
-
-        GmCompositionAuthoring.ReviewClaim(owner, "04-banker-lamp-focus", "banker-lamp", "card-deck",
-            "table-cluster", "table-zone", new Vector2(0.6f, 0.5f), 0.45f,
-            "Downlight cast and green glass reflection illuminating cards.");
-
-        GmCompositionAuthoring.ReviewClaim(owner, "05-hearth-glow", "stone-mantel", "fire-embers",
-            "hearth-cluster", "hearth-zone", new Vector2(0.5f, 0.5f), 0.55f,
-            "Warm amber fireplace shadows playing against dark wood paneling.");
-
-        GmCompositionAuthoring.ReviewClaim(owner, "06-clock-closeup", "stag-clock", "stone-mantel",
-            "hearth-cluster", "hearth-zone", new Vector2(0.5f, 0.6f), 0.40f,
-            "Mantel clock showing roman numerals and the broken stag crest.");
-
-        GmCompositionAuthoring.ReviewClaim(owner, "07-cabinet-corner", "bar-cabinet", "crystal-decanter",
-            "cabinet-cluster", "cabinet-zone", new Vector2(0.4f, 0.5f), 0.50f,
-            "Atmospheric side cabinet corner with crystal reflections.");
-
-        GmCompositionAuthoring.ReviewClaim(owner, "08-entry-drapes", "parlor-doors", "damask-drapes",
-            "doorway-cluster", "entry-zone", new Vector2(0.5f, 0.55f), 0.50f,
-            "Threshold view showing heavy velvet drapes and locked doors.");
-
-        GmCompositionAuthoring.ReviewClaim(owner, "09-the-read-focus", "aldric-chair", "banker-lamp",
-            "table-cluster", "table-zone", new Vector2(0.5f, 0.5f), 0.85f,
-            "Close accusatory view during 'The Read' time-dilation mechanic.");
-
-        GmCompositionAuthoring.ReviewClaim(owner, "10-room-wide", "card-table", "stone-mantel",
-            "table-zone", "hearth-zone", new Vector2(0.5f, 0.5f), 0.40f,
-            "Wide corner establishing shot showing complete parlor mood and lighting balance.");
+        ReviewTable(owner, "01-player-hand-ready", "card-deck", "card-table",
+            "Ready hand and the table HUD before the first lead.");
+        ReviewTable(owner, "02-empty-host-chair-framing", "aldric-chair", "card-table",
+            "The presently empty host chair, named honestly until Aldric has a production rig.");
+        ReviewTable(owner, "03-player-lead-and-aldric-follow", "card-table", "aldric-chair",
+            "Player lead and Aldric judgement across the baize.");
+        ReviewTable(owner, "04-aldric-lead-player-follow", "card-table", "aldric-chair",
+            "Aldric lead with the player's legal follow state visible.");
+        ReviewTable(owner, "05-true-suspicious-contact", "aldric-chair", "banker-lamp",
+            "Observed suspicious contact on a genuinely cheated play.");
+        ReviewTable(owner, "06-false-suspicious-contact", "aldric-chair", "banker-lamp",
+            "Observed suspicious contact on an honest play, without exposing hidden truth in UI.");
+        ReviewTable(owner, "07-focus-true-observed-facts", "card-table", "banker-lamp",
+            "Equivalent focus view with only observed evidence for the cheated suspicious case.");
+        ReviewTable(owner, "08-focus-false-observed-facts", "card-table", "banker-lamp",
+            "Equivalent focus view with only observed evidence for the honest suspicious case.");
+        ReviewTable(owner, "09-correct-read-result", "card-table", "aldric-chair",
+            "Correct Read result projected by the shipping HUD.");
+        ReviewTable(owner, "10-false-read-result", "card-table", "aldric-chair",
+            "False Read consequence projected by the shipping HUD.");
+        ReviewTable(owner, "11-missed-cheat-result", "card-table", "aldric-chair",
+            "Accepted cheated play and its public result.");
+        ReviewTable(owner, "12-locked-read-feedback", "card-table", "banker-lamp",
+            "Locked Read feedback in the equivalent focus view.");
+        ReviewTable(owner, "13-late-read-feedback", "card-table", "banker-lamp",
+            "Late Read feedback after the judgement window has closed.");
+        ReviewTable(owner, "14-trick-result", "card-table", "aldric-chair",
+            "Resolved trick score and continuation state.");
+        ReviewTable(owner, "15-round-result", "card-table", "aldric-chair",
+            "Resolved round score and continuation state.");
+        ReviewTable(owner, "16-player-match-win", "card-table", "aldric-chair",
+            "Player match victory and rematch/exit choice.");
+        ReviewTable(owner, "17-aldric-match-win", "card-table", "aldric-chair",
+            "Aldric match victory and rematch/exit choice.");
+        ReviewTable(owner, "18-rematch-ready", "card-deck", "card-table",
+            "Fresh rematch hand after public confirmation.");
+        ReviewTable(owner, "19-pause-journal", "card-table", "aldric-chair",
+            "Common pause journal over the live table.");
+        ReviewTable(owner, "20-settings-default", "card-table", "aldric-chair",
+            "Common settings at default contrast and text scale.");
+        ReviewTable(owner, "21-settings-high-contrast-200", "card-table", "aldric-chair",
+            "Common settings at high contrast and 200 percent text scale.");
+        ReviewTable(owner, "22-restore-before", "card-table", "banker-lamp",
+            "Observed judgement immediately before the isolated disk restore cycle.");
+        ReviewTable(owner, "23-restore-after", "card-table", "banker-lamp",
+            "The same public table state after a full scene unload and disk reload.");
+        ReviewTable(owner, "24-restore-focus", "card-table", "banker-lamp",
+            "Restored observed evidence opened through the shipping Interact input.");
     }
 
     // A composition marker belongs on the built object or it measures nothing. A missing key means
@@ -201,5 +243,12 @@ public static class GmParlorCompositionPlan
             throw new InvalidOperationException(
                 $"[GmParlor] composition element '{id}' has no object from GmParlorBuilder");
         return go;
+    }
+
+    static void ReviewTable(GameObject owner, string shot, string primary, string secondary,
+        string purpose)
+    {
+        GmCompositionAuthoring.ReviewClaim(owner, shot, primary, secondary,
+            "table-cluster", "table-zone", new Vector2(0.5f, 0.5f), 0.85f, purpose);
     }
 }

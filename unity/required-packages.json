@@ -6,6 +6,12 @@
       "neededBy": "unity/scenes/wend-hill-prologue/Editor/GmWendNavMesh.cs",
       "why": "NavMeshSurface, for baking the prologue's walk corridor. The runtime query API is in com.unity.modules.ai and was always present; only baking needs this package.",
       "note": "2.0.13 is the version Unity 6000.5.3f1 pins in its own package manifest. 2.0.8 fails to compile against this editor, calling the now obsolete-as-error Object.GetInstanceID()."
+    },
+    "com.unity.animation.rigging": {
+      "version": "1.4.1",
+      "neededBy": "the production Aldric and player-body Animator/IK prefab contract",
+      "why": "RigBuilder and contact constraints will layer hand/card IK over authored Humanoid clips without letting Animator events become rules authority.",
+      "note": "Verified against Unity's official registry metadata and the com.unity.animation.rigging-1.4.1.tgz bundled with Unity 6000.5.3f1. Its package.json requires Unity 6000.0.23f1 or newer; 1.4.1 also removes deprecated InstanceID API usage present in 1.4.0-era code."
     }
   }
 }

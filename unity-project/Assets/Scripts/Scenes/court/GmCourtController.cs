@@ -75,6 +75,7 @@ public sealed class GmCourtController : MonoBehaviour
             Phase = GmCourtPhase.Verdict;
             GmRunStore.RecordCatch("court-verdict-cleared");
             GmRunStore.RecordDefiance();
+            GmRunStore.CompleteRoom("court", countsAsTableGame: false);
             OnHearingWon?.Invoke();
         }
 
@@ -103,6 +104,7 @@ public sealed class GmCourtController : MonoBehaviour
                 Phase = GmCourtPhase.Verdict;
                 GmRunStore.RecordMiss();
                 GmRunStore.RaiseCorruption("Hearing lost: Time expired under pressure clock");
+                GmRunStore.CompleteRoom("court", countsAsTableGame: false);
                 OnHearingLost?.Invoke();
                 OnStateChanged?.Invoke();
             }

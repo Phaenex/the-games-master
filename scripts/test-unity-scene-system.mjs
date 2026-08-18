@@ -41,8 +41,25 @@ function countCsharp(dir) {
 test('production registry validates and resolves its default scene', () => {
   const registry = loadSceneRegistry();
   assert.equal(resolveScene(registry).id, 'wend-hill-prologue');
-  assert.equal(resolveScene(registry).tour.shots, 8);
+  assert.equal(resolveScene(registry).tour.shots, 10);
   assert.equal(resolveScene(registry).performance.p95Milliseconds, 16.7);
+});
+
+test('standalone opening evidence includes a distinct cemetery frame and exact eight-frame gate', () => {
+  const probe = readFileSync(path.join(
+    REPO_ROOT, 'unity', 'project', 'Assets', 'Scripts', 'GmStandaloneReviewProbe.cs',
+  ), 'utf8');
+  const cli = readFileSync(path.join(REPO_ROOT, 'scripts', 'unity-cli.mjs'), 'utf8');
+  assert.match(probe, /SetReviewPoseAt\(player, "weathered-marker", "child-marker"/,
+    'cemetery evidence must look through grave markers rather than reusing the chapel target');
+  assert.match(probe, /SetReviewPoseAt\(player, "weathered-marker", "child-marker", 1f, 3\.5f\)/,
+    'the cemetery proof must hold the authored close player-height marker composition');
+  assert.match(probe, /Capture\("06-cemetery-composition\.png"\)/);
+  assert.match(probe, /PASS: 8\/8 player-backbuffer frames/);
+  assert.match(cli, /\^0\[1-8\]-\.\*\\\.png\$/,
+    'the runner must collect all eight exact numbered evidence frames');
+  assert.match(cli, /shots\.length !== 8/);
+  assert.match(cli, /PASS: 8\\\/8 player-backbuffer frames/);
 });
 
 test('runtime Wend Hill catalog stays aligned with the command registry', () => {

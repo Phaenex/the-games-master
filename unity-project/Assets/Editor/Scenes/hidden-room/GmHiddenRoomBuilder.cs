@@ -1,5 +1,6 @@
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.Rendering.HighDefinition;
 using UnityEngine.SceneManagement;
 
@@ -8,6 +9,7 @@ public sealed class GmHiddenRoomProps
     public GameObject RecessDoor;
     public GameObject BrassBolt;
     public GameObject DoorSconce;
+    public GameObject DoorSconceLight;
     public GameObject RolltopDesk;
     public GameObject InvitationLetter;
     public GameObject WaxInkpot;
@@ -36,17 +38,18 @@ public static class GmHiddenRoomBuilder
     public const float DeskSurfaceY = 0.9f;
 
     // 3D Asset Paths
-    const string DeskPath = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Meshes/MediumProps/Desk/SM_Desk.fbx";
+    const string DeskPath = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Prefabs/SM_Desk.prefab";
     const string BookshelfPath = "Assets/ThirdParty/MetalManVictorianInteriors/BookShelf_1.fbx";
     const string MirrorPath = "Assets/ThirdParty/MetalManVictorianInteriors/Mirror_1.fbx";
     const string CarpetPath = "Assets/ThirdParty/MetalManVictorianInteriors/Carpet_1.fbx";
     const string LampPath = "Assets/ThirdParty/MetalManVictorianInteriors/Lamp_2.fbx";
-    const string StoolPath = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Meshes/MediumProps/Stool/SM_Stool.fbx";
-    const string Book1Path = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Meshes/SmallProps/Books/SM_Book_1.fbx";
-    const string Book2Path = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Meshes/SmallProps/Books/SM_Book_2.fbx";
-    const string BottlePath = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Meshes/SmallProps/Bottles/SM_Bottles_1.fbx";
-    const string LanternPath = "Assets/LeartesStudios/Abandoned Village/HDRP/Art/Meshes/Props/SM_Lantern.fbx";
+    const string StoolPath = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Prefabs/SM_Stool.prefab";
+    const string Book1Path = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Prefabs/SM_Book_1.prefab";
+    const string Book2Path = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Prefabs/SM_Book_2.prefab";
+    const string BottlePath = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Prefabs/SM_Bottles_1.prefab";
+    const string LanternPath = "Assets/LeartesStudios/Abandoned Village/HDRP/Art/Prefabs/SM_Lantern.prefab";
     const string HandlePath = "Assets/LeartesStudios/HauntedVillage/Art/Meshes/SM_Handle.fbx";
+    const string DoorPrefabPath = "Assets/LeartesStudios/HauntedVillage/Art/Prefabs/SM_Door_01.prefab";
     const string Cobweb02Path = "Assets/GamesMaster/Props/Cobweb_02.fbx";
     const string Cobweb03Path = "Assets/GamesMaster/Props/Cobweb_03.fbx";
 
@@ -95,6 +98,9 @@ public static class GmHiddenRoomBuilder
         GmInteriorAtmosphere.Apply(null, GmHiddenRoomBuilder.SceneId);
 
         GmPlayerRig.Build(null, new Vector3(0f, 0f, -1.8f), new Vector3(0f, 1.2f, 0f));
+
+        var arrival = systems.AddComponent<GmSceneArrival>();
+        arrival.closingCard = "";
 
         GmSceneBuildUtility.SaveScene(scene, ScenePath);
         Debug.Log("[GmHiddenRoom] BUILD PASS: " + ScenePath);
@@ -188,12 +194,27 @@ public static class GmHiddenRoomBuilder
         northWall.transform.localScale = new Vector3(6f, 3.6f, 0.3f);
         northWall.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
 
-        GameObject southWall = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        southWall.name = "SouthWall";
+        // The panel the player entered through remains the way out. Split the wall around it and
+        // give the opened leaf a short black passage; the previous cube leaf was mounted on a solid
+        // 6m wall, so the secret room was literally a one-way load.
+        var southWall = new GameObject("SouthWall");
         southWall.transform.SetParent(parent, false);
-        southWall.transform.position = new Vector3(0f, 1.8f, -3f);
-        southWall.transform.localScale = new Vector3(6f, 3.6f, 0.3f);
-        southWall.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
+        ArchitectureCube(southWall.transform, "SouthWallLeft", new Vector3(-1.825f, 1.8f, -3f),
+            new Vector3(2.35f, 3.6f, 0.3f), wallMat);
+        ArchitectureCube(southWall.transform, "SouthWallRight", new Vector3(1.825f, 1.8f, -3f),
+            new Vector3(2.35f, 3.6f, 0.3f), wallMat);
+        ArchitectureCube(southWall.transform, "SouthWallHeader", new Vector3(0f, 3f, -3f),
+            new Vector3(1.3f, 1.2f, 0.3f), wallMat);
+        ArchitectureCube(southWall.transform, "ReturnPassageFloor", new Vector3(0f, -0.06f, -3.8f),
+            new Vector3(1.3f, 0.12f, 1.6f), floorMat);
+        ArchitectureCube(southWall.transform, "ReturnPassageCeiling", new Vector3(0f, 2.46f, -3.8f),
+            new Vector3(1.3f, 0.12f, 1.6f), wallMat);
+        ArchitectureCube(southWall.transform, "ReturnPassageLeft", new Vector3(-0.7f, 1.2f, -3.8f),
+            new Vector3(0.1f, 2.4f, 1.6f), wallMat);
+        ArchitectureCube(southWall.transform, "ReturnPassageRight", new Vector3(0.7f, 1.2f, -3.8f),
+            new Vector3(0.1f, 2.4f, 1.6f), wallMat);
+        ArchitectureCube(southWall.transform, "ReturnPassageBlind", new Vector3(0f, 1.2f, -4.65f),
+            new Vector3(1.3f, 2.4f, 0.1f), wallMat);
 
         GameObject eastWall = GameObject.CreatePrimitive(PrimitiveType.Cube);
         eastWall.name = "EastWall";
@@ -209,18 +230,40 @@ public static class GmHiddenRoomBuilder
         westWall.transform.localScale = new Vector3(0.3f, 3.6f, 6f);
         westWall.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
 
-        // Secret panel door
-        GameObject recessDoor = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        recessDoor.name = "RecessDoorPanel";
-        recessDoor.transform.SetParent(parent, false);
-        recessDoor.transform.position = new Vector3(0f, 1.05f, -2.79f);
-        recessDoor.transform.localScale = new Vector3(1.1f, 2.1f, 0.12f);
-        ApplyMaterial(recessDoor, "HDRP/Lit", new Color(0.16f, 0.11f, 0.07f), 0.05f, 0.25f);
+        // Real panel leaf, already standing open because this is the route the player just used.
+        var exitRoot = new GameObject("HiddenRoomExit");
+        exitRoot.transform.SetParent(parent, false);
+        var hinge = new GameObject("RecessDoorHinge");
+        hinge.transform.SetParent(exitRoot.transform, false);
+        hinge.transform.position = new Vector3(-0.65f, 0f, -2.79f);
+        Material doorWood = CreatePbrMaterial(WallpaperAlbedo, WallpaperNormal,
+            new Color(0.16f, 0.09f, 0.04f), 0.3f, 0.02f, Vector2.one);
+        GameObject recessDoor = GmOwnedPropFactory.PlacePrefab(DoorPrefabPath, "RecessDoorPanel",
+            exitRoot.transform, new Vector3(0f, 0f, -2.79f), new Vector3(1.3f, 2.35f, 0.16f),
+            Quaternion.identity, ground: true, surfaceY: 0f, overrideMaterial: doorWood);
+        recessDoor.transform.SetParent(hinge.transform, true);
+        hinge.transform.localRotation = Quaternion.Euler(0f, -96f, 0f);
         props.RecessDoor = recessDoor;
+
+        var transitionObject = new GameObject("LabyrinthTransition");
+        transitionObject.transform.SetParent(exitRoot.transform, false);
+        transitionObject.transform.position = new Vector3(0f, 1.15f, -3.45f);
+        var volume = transitionObject.AddComponent<BoxCollider>();
+        volume.isTrigger = true;
+        volume.size = new Vector3(1.15f, 2.3f, 0.7f);
+        var transition = transitionObject.AddComponent<GmSceneTransitionTrigger>();
+        transition.TargetSceneId = GmLabyrinthBuilder.SceneId;
+        transition.TargetScenePath = GmLabyrinthBuilder.ScenePath;
+        transition.InteractionPrompt = "Back into the night";
+        transition.UseCurtain = true;
+        transition.CompleteRoomOnTransitionId = SceneId;
+        transition.CompletedRoomCountsAsTableGame = false;
 
         // Brass Bolt (Handle FBX)
         GameObject brassBolt = LoadMesh(HandlePath, "BrassBolt", parent,
             new Vector3(0.42f, 1.15f, -2.70f), new Vector3(0.8f, 0.8f, 0.8f), Quaternion.identity);
+        ApplyPbr(brassBolt, "", "", 0.72f, 0.82f, new Color(0.52f, 0.34f, 0.11f));
+        brassBolt.transform.SetParent(hinge.transform, true);
         props.BrassBolt = brassBolt;
 
         // Door Sconce
@@ -228,6 +271,18 @@ public static class GmHiddenRoomBuilder
             new Vector3(-0.6f, 1.8f, -2.85f), new Vector3(0.6f, 0.6f, 0.6f), Quaternion.identity);
         ApplyPbr(doorSconce, LampAlbedo, LampNormal, 0.65f, 0.7f);
         props.DoorSconce = doorSconce;
+    }
+
+    static GameObject ArchitectureCube(Transform parent, string name, Vector3 position,
+        Vector3 scale, Material material)
+    {
+        GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        cube.name = name;
+        cube.transform.SetParent(parent, false);
+        cube.transform.position = position;
+        cube.transform.localScale = scale;
+        cube.GetComponent<MeshRenderer>().sharedMaterial = material;
+        return cube;
     }
 
     static void BuildGameplayProps(Transform parent, GmHiddenRoomProps props)
@@ -323,6 +378,8 @@ public static class GmHiddenRoomBuilder
             new Vector3(0f, 2.8f, -1.8f), Vector3.one * 0.35f, Quaternion.identity);
         GameObject southWeb = LoadMesh(Cobweb03Path, "Cobweb_South", cobwebs.transform,
             new Vector3(0f, 2.8f, 1.8f), Vector3.one * 0.35f, Quaternion.identity);
+        ApplyPbr(northWeb, "", "", 0.05f, 0f, new Color(0.16f, 0.15f, 0.13f));
+        ApplyPbr(southWeb, "", "", 0.05f, 0f, new Color(0.16f, 0.15f, 0.13f));
         props.Cobwebs = cobwebs;
 
         // Archive Step Stool (SM_Stool FBX)
@@ -333,6 +390,18 @@ public static class GmHiddenRoomBuilder
 
     static void BuildLighting(Transform parent, GmHiddenRoomProps props)
     {
+        GameObject doorLightObj = new GameObject("DoorSconceLight");
+        doorLightObj.transform.SetParent(parent, false);
+        doorLightObj.transform.position = new Vector3(-0.42f, 1.9f, -2.52f);
+        Light doorLight = doorLightObj.AddComponent<Light>();
+        doorLight.type = LightType.Point;
+        doorLight.range = 3.2f;
+        doorLight.color = new Color(1f, 0.72f, 0.4f);
+        doorLight.lightUnit = LightUnit.Lumen;
+        doorLight.intensity = GmInteriorAtmosphere.PracticalCeilingLumens;
+        doorLightObj.AddComponent<HDAdditionalLightData>();
+        props.DoorSconceLight = doorLightObj;
+
         // Desk Oil Lantern (SM_Lantern FBX)
         GameObject lanternBody = LoadMesh(LanternPath, "DeskLantern", parent,
             new Vector3(0.5f, DeskSurfaceY + 0.05f, 2.2f), new Vector3(0.5f, 0.5f, 0.5f), Quaternion.identity);
@@ -345,6 +414,7 @@ public static class GmHiddenRoomBuilder
         lantern.type = LightType.Point;
         lantern.range = 4.5f;
         lantern.color = new Color(1.0f, 0.82f, 0.55f);
+        lantern.lightUnit = LightUnit.Lumen;
         lantern.intensity = 180f;
         lanternObj.AddComponent<HDAdditionalLightData>();
         props.DeskLanternLight = lanternObj;
@@ -352,12 +422,13 @@ public static class GmHiddenRoomBuilder
         // Mirror Glow
         GameObject mirrorLightObj = new GameObject("MirrorColdLight");
         mirrorLightObj.transform.SetParent(parent, false);
-        mirrorLightObj.transform.position = new Vector3(-2.2f, 1.5f, 0f);
+        mirrorLightObj.transform.position = new Vector3(-1.65f, 1.45f, -0.55f);
         Light mirrorLight = mirrorLightObj.AddComponent<Light>();
         mirrorLight.type = LightType.Point;
-        mirrorLight.range = 3.5f;
+        mirrorLight.range = 2.4f;
         mirrorLight.color = new Color(0.60f, 0.80f, 1.0f);
-        mirrorLight.intensity = 90f;
+        mirrorLight.lightUnit = LightUnit.Lumen;
+        mirrorLight.intensity = 8f;
         mirrorLightObj.AddComponent<HDAdditionalLightData>();
         props.MirrorColdLight = mirrorLightObj;
         props.MirrorGlowLight = mirrorLightObj;
@@ -375,6 +446,7 @@ public static class GmHiddenRoomBuilder
         shelfLight.type = LightType.Point;
         shelfLight.range = 3.5f;
         shelfLight.color = new Color(0.95f, 0.75f, 0.45f);
+        shelfLight.lightUnit = LightUnit.Lumen;
         shelfLight.intensity = 90f;
         shelfLightObj.AddComponent<HDAdditionalLightData>();
         props.ShelfSconceLight = shelfLightObj;

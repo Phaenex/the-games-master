@@ -6,7 +6,28 @@ using UnityEngine.Rendering.HighDefinition;
 
 public static class GmWendPerformance
 {
-    public const float RenderCorridorMetres = 140f;
+    static readonly string[] FalseObstacleTokens = {
+        "wall", "fence", "door", "wood", "barrel", "crate", "cart", "wagon", "bench",
+        "table", "chair", "rock", "cliff", "canyon", "sandstone", "debris", "prop", "roof",
+        "frame", "house", "building", "cabin", "barn", "shack", "plank", "beam", "ceiling",
+        "post", "sm_",
+    };
+    static readonly string[] FalseVisualObstacleTokens = { "cliff", "canyon", "sandstone", "rock" };
+
+    public static float RenderCorridorMetres => GmFeelConfig.Active.wendRenderCorridorMetres;
+    public static float CameraFarClipMetres => GmFeelConfig.Active.wendCameraFarClipMetres;
+
+    internal static bool IsExcludedFromRendererAudit(Renderer renderer)
+    {
+        if (renderer == null) return true;
+        string rootName = renderer.transform.root.name;
+        return renderer.GetComponent<Terrain>() != null ||
+            renderer.GetComponentInParent<GmWorldAnchor>() != null ||
+            rootName == GmWendOpening.RootName || rootName == "WakeRoom";
+    }
+
+    internal static bool IsRuntimeCulledInterior(Renderer renderer) =>
+        renderer != null && renderer.transform.root.name == GmHouseBeginningBuilder.RootName;
 
     public static int Apply(GmRouteSpline route)
     {
@@ -18,16 +39,25 @@ public static class GmWendPerformance
         int disabled = 0;
         int laneCleared = 0;
         int terrainTreesCleared = ClearTerrainTrees(route);
+        int malformedLodGroupsRepaired = GmWendEstateForest.NormalizeSceneLodGroups();
         (int carvedColliders, int carvedRenderers) = CarveFalseRouteObstacles(route);
         int doorwayCollidersCleared = ClearFalseDoorwayColliders(route);
+        int interiorRenderersAudited = 0;
+        GmWendRuntimeCulling runtimeCulling = Object.FindAnyObjectByType<GmWendRuntimeCulling>();
         foreach (Renderer renderer in Object.FindObjectsByType<Renderer>(FindObjectsInactive.Include,
                      FindObjectsSortMode.None))
         {
             if (!renderer.enabled || !renderer.gameObject.activeInHierarchy) continue;
-            if (renderer.GetComponent<Terrain>() != null || renderer.GetComponentInParent<GmWorldAnchor>() != null ||
-                renderer.transform.root.name == GmWendOpening.RootName ||
-                renderer.transform.root.name == "WakeRoom" ||
-                renderer.transform.root.name == GmHouseBeginningBuilder.RootName) continue;
+            if (IsExcludedFromRendererAudit(renderer)) continue;
+            if (IsRuntimeCulledInterior(renderer))
+            {
+                if (runtimeCulling == null)
+                    throw new System.InvalidOperationException(
+                        "HouseBeginning renderers require GmWendRuntimeCulling before performance authoring");
+                renderer.allowOcclusionWhenDynamic = true;
+                interiorRenderersAudited++;
+                continue;
+            }
             Bounds bounds = renderer.bounds;
             if (Mathf.Max(bounds.size.x, bounds.size.z) > 250f) continue;
             float nearest = float.MaxValue;
@@ -52,11 +82,19 @@ public static class GmWendPerformance
                 "reed", "flower", "ivy", "branch", "trunk", "foliage", "sapling" }
                 .Any(token => hierarchy.Contains(token));
 
+            // Collision bounds on the purchased cliffs stop short of their visual overhang. The
+            // player can walk the route while the camera is literally inside a 35-48m cliff mesh.
+            // Judge those by renderer bounds against the same controller-height capsule. World-scale
+            // SM_Hill terrain is deliberately not in this family and is already excluded by size.
+            bool isVisualRouteBlocker = IsFalseRouteVisualHierarchy(hierarchy) &&
+                IntersectsRouteCapsule(bounds, route);
+
             float clearance = isModularRuinOrDebris ? 18.0f : (nearestSample >= 0 && nearestSample * 15f <= 30f ? 5.5f : 3.5f);
-            if ((isModularRuinOrDebris || isVegetation) && Mathf.Max(bounds.size.x, bounds.size.z) <= 30f &&
-                nearest <= clearance + Mathf.Max(bounds.extents.x, bounds.extents.z))
+            if (((isModularRuinOrDebris || isVegetation) && Mathf.Max(bounds.size.x, bounds.size.z) <= 30f &&
+                 nearest <= clearance + Mathf.Max(bounds.extents.x, bounds.extents.z)) || isVisualRouteBlocker)
             {
                 renderer.enabled = false;
+                EditorUtility.SetDirty(renderer);
                 DisableIntersectingColliders(renderer);
                 disabled++;
                 laneCleared++;
@@ -76,7 +114,7 @@ public static class GmWendPerformance
         Camera playerCamera = GameObject.Find(GmWendBuilder.PlayerName)?.GetComponentInChildren<Camera>();
         if (playerCamera != null)
         {
-            playerCamera.farClipPlane = 220f;
+            playerCamera.farClipPlane = CameraFarClipMetres;
             playerCamera.allowDynamicResolution = true;
             EditorUtility.SetDirty(playerCamera);
             HDAdditionalCameraData hd = playerCamera.GetComponent<HDAdditionalCameraData>();
@@ -131,18 +169,16 @@ public static class GmWendPerformance
         }
         Debug.Log($"[GmWendPerformance] disabled {disabled} renderer(s), including {laneCleared} " +
                   $"vegetation renderer(s), and removed {terrainTreesCleared} terrain vegetation " +
-                  $"instance(s), {carvedColliders} false obstacle collider(s) / {carvedRenderers} " +
+                  $"instance(s), repaired {malformedLodGroupsRepaired} malformed LOD group(s), " +
+                  $"{carvedColliders} false obstacle collider(s) / {carvedRenderers} " +
                   $"matching renderer(s), plus {doorwayCollidersCleared} doorway blocker(s) from the " +
-                  $"walk lane; corridor=" +
+                  $"walk lane; audited {interiorRenderersAudited} runtime-culled interior renderer(s); corridor=" +
                   $"{RenderCorridorMetres:0}m farClip={playerCamera?.farClipPlane:0}m");
         return disabled;
     }
 
     static (int colliders, int renderers) CarveFalseRouteObstacles(GmRouteSpline route)
     {
-        string[] tokens = { "wall", "fence", "door", "wood", "barrel", "crate", "cart", "wagon",
-            "bench", "table", "chair", "rock", "debris", "prop", "roof", "frame", "house", "building",
-            "cabin", "barn", "shack", "plank", "beam", "ceiling", "post", "sm_" };
         var blockers = new List<Collider>();
         var hidden = new HashSet<Renderer>();
         foreach (Collider collider in Object.FindObjectsByType<Collider>(FindObjectsInactive.Include, FindObjectsSortMode.None))
@@ -154,12 +190,11 @@ public static class GmWendPerformance
                 collider.transform.root.name == GmHouseBeginningBuilder.RootName)
                 continue;
             string hierarchy = HierarchyName(collider.transform).ToLowerInvariant();
-            if (!tokens.Any(hierarchy.Contains)) continue;
+            if (!IsFalseRouteObstacleHierarchy(hierarchy)) continue;
             if (!IntersectsRouteCapsule(collider.bounds, route)) continue;
             blockers.Add(collider);
 
-            foreach (Renderer renderer in collider.GetComponentsInChildren<Renderer>(true)
-                         .Concat(collider.GetComponentsInParent<Renderer>(true)))
+            foreach (Renderer renderer in RenderersOwnedByBlocker(collider))
             {
                 if (renderer.transform.root.name != GmWendOpening.RootName &&
                     renderer.transform.root.name != GmWendBounds.RootName)
@@ -181,6 +216,55 @@ public static class GmWendPerformance
             }
         }
         return (blockers.Count, hidden.Count);
+    }
+
+    public static bool IsFalseRouteObstacleHierarchy(string hierarchy)
+    {
+        if (string.IsNullOrWhiteSpace(hierarchy)) return false;
+        string lower = hierarchy.ToLowerInvariant();
+        return FalseObstacleTokens.Any(lower.Contains);
+    }
+
+    public static bool IsFalseRouteVisualHierarchy(string hierarchy)
+    {
+        if (string.IsNullOrWhiteSpace(hierarchy)) return false;
+        string lower = hierarchy.ToLowerInvariant();
+        return FalseVisualObstacleTokens.Any(lower.Contains);
+    }
+
+    /// All visible geometry owned by a route blocker. Imported LOD prefabs commonly put collision
+    /// on one child and every renderer on sibling children; walking only up/down from the collider
+    /// misses those siblings and leaves the obstacle visible after its physics is carved away.
+    public static Renderer[] RenderersOwnedByBlocker(Collider collider)
+    {
+        if (collider == null) return System.Array.Empty<Renderer>();
+        var owned = new HashSet<Renderer>();
+        foreach (Renderer renderer in collider.GetComponentsInChildren<Renderer>(true))
+            if (renderer != null) owned.Add(renderer);
+        foreach (Renderer renderer in collider.GetComponentsInParent<Renderer>(true))
+            if (renderer != null) owned.Add(renderer);
+
+        LODGroup group = collider.GetComponentInParent<LODGroup>();
+        if (group != null)
+        {
+            foreach (LOD lod in group.GetLODs())
+                foreach (Renderer renderer in lod.renderers)
+                    if (renderer != null) owned.Add(renderer);
+            foreach (Renderer renderer in group.GetComponentsInChildren<Renderer>(true))
+                if (renderer != null) owned.Add(renderer);
+        }
+
+        // The purchased village importer also emits plain placed roots under a `Prefabs` container,
+        // with collision and all four LOD meshes as siblings and no shared LODGroup. Once that
+        // placed object's collider is proven to intersect the route, its complete visible owner is
+        // the direct child of Prefabs, not the collider branch alone.
+        Transform placedRoot = collider.transform;
+        while (placedRoot.parent != null && placedRoot.parent.name != "Prefabs")
+            placedRoot = placedRoot.parent;
+        if (placedRoot.parent != null && placedRoot.parent.name == "Prefabs")
+            foreach (Renderer renderer in placedRoot.GetComponentsInChildren<Renderer>(true))
+                if (renderer != null) owned.Add(renderer);
+        return owned.ToArray();
     }
 
     public static bool IntersectsRouteCapsule(Bounds bounds, GmRouteSpline route)

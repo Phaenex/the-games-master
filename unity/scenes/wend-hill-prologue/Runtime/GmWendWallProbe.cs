@@ -1,4 +1,5 @@
-// Walks the real player into each of the four boundary walls and checks they stop.
+// Walks the real player into each of the four boundary walls and the estate gate's fence wings,
+// including offsets beyond the old 45m cutoff, and checks they stop.
 //
 // This exists because "zero catch-plane fires over a 517m walk" is not evidence the walls work. The
 // route never goes near the map edge, so that number says only that the player never tried. A wall
@@ -23,6 +24,7 @@ public sealed class GmWendWallProbe : MonoBehaviour
     const float PushSeconds = 9f;    // at 3.4 m/s that is ~30m of walking into a wall 12m away
     const float SettleSeconds = 3f;
     const float Tolerance = 1.5f;    // controller skin width and collider thickness
+    const float EvidenceRetreat = 4f;
 
     string outputDirectory;
     int missingScreenshots;
@@ -114,6 +116,14 @@ public sealed class GmWendWallProbe : MonoBehaviour
 
             if (past) breached++; else held++;
 
+            // The verdict above belongs to the contact position. Photographing from that same point
+            // put the near plane inside terrain or hard against an invisible boundary collider, so
+            // the evidence showed a wall of clipped pixels instead of the place that was tested.
+            // Retreat only after measurement, back toward the playable side, and keep looking at the
+            // attacked plane. This changes no collision result; it makes the screenshot judgeable.
+            MoveForEvidence(cc, ended - outward * EvidenceRetreat, outward, terrain);
+            yield return new WaitForSecondsRealtime(0.25f);
+
             string tag = past ? "BREACHED" : "held";
             yield return Shot($"{wall.name}-{tag}");
 
@@ -127,8 +137,67 @@ public sealed class GmWendWallProbe : MonoBehaviour
                           "of walking into it.");
         }
 
-        Finish($"{held} wall(s) held, {breached} breached, {missingScreenshots} missing screenshot(s)",
-            breached == 0 && missingScreenshots == 0 ? 0 : 1);
+        GameObject gate = GameObject.Find("EstateGate");
+        if (gate == null) { Finish("no EstateGate; the gate perimeter cannot be attacked", 1); yield break; }
+        GmGateLeaves leaves = gate.GetComponent<GmGateLeaves>();
+        if (leaves == null) { Finish("EstateGate has no GmGateLeaves", 1); yield break; }
+        if (gate.transform.Find("PerimeterWingLeft") == null ||
+            gate.transform.Find("PerimeterWingRight") == null)
+        {
+            Finish("EstateGate is missing a perimeter wing", 1);
+            yield break;
+        }
+
+        leaves.SetClosedImmediate();
+        Physics.SyncTransforms();
+        int gateHeld = 0, gateBreached = 0;
+        foreach (float offset in new[] { -55f, 55f })
+        {
+            Vector3 start = gate.transform.position + gate.transform.right * offset - gate.transform.forward * 2f;
+            float ground = terrain != null
+                ? terrain.SampleHeight(start) + terrain.transform.position.y
+                : gate.transform.position.y;
+            start.y = ground + 1.0f;
+            playerGo.transform.rotation = Quaternion.LookRotation(gate.transform.forward, Vector3.up);
+
+            GmPhysicalIntegrityProbe.BypassAttemptResult attempt =
+                GmPhysicalIntegrityProbe.AttemptBypass(
+                    cc, start, gate.transform.forward, 6f,
+                    gate.transform.position, gate.transform.forward);
+            bool heldByFence = attempt.blocked && !attempt.penetratedBarrier;
+            if (heldByFence) gateHeld++; else gateBreached++;
+
+            MoveForEvidence(cc, attempt.finalPosition - gate.transform.forward * EvidenceRetreat,
+                gate.transform.forward, terrain);
+            yield return new WaitForSecondsRealtime(0.25f);
+
+            string side = offset < 0f ? "Left" : "Right";
+            yield return Shot($"EstateGate-{side}-{Mathf.Abs(offset):0}m-{(heldByFence ? "held" : "BREACHED")}");
+            if (heldByFence)
+                Debug.Log($"[GmWendWallProbe] EstateGate {side} wing held beyond the former 45m cutoff: " +
+                          GmPhysicalIntegrityProbe.Describe(attempt));
+            else
+                Debug.LogError($"[GmWendWallProbe] EstateGate {side} wing BREACHED beyond the former " +
+                               "45m cutoff: " + GmPhysicalIntegrityProbe.Describe(attempt));
+        }
+
+        Finish($"{held} wall(s) held, {breached} wall(s) breached; {gateHeld} gate wing(s) held, " +
+               $"{gateBreached} gate wing(s) breached; {missingScreenshots} missing screenshot(s)",
+            breached == 0 && gateBreached == 0 && missingScreenshots == 0 ? 0 : 1);
+    }
+
+    static void MoveForEvidence(CharacterController controller, Vector3 position, Vector3 look,
+        Terrain terrain)
+    {
+        float ground = terrain != null
+            ? terrain.SampleHeight(position) + terrain.transform.position.y
+            : position.y - 1f;
+        position.y = ground + 1f;
+        controller.enabled = false;
+        controller.transform.SetPositionAndRotation(position,
+            Quaternion.LookRotation(look, Vector3.up));
+        controller.enabled = true;
+        Physics.SyncTransforms();
     }
 
     IEnumerator Shot(string label)

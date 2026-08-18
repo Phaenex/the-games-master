@@ -1,5 +1,6 @@
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.Rendering.HighDefinition;
 using UnityEngine.SceneManagement;
 
@@ -19,6 +20,7 @@ public static class GmCourtBuilder
     const string ScrollPath = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Meshes/SmallProps/Scrolls/SM_Scrolls_1.fbx";
     const string HammerPath = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Meshes/SmallProps/WoodBowls/SM_WoodBowls_Hammer.fbx";
     const string CandlePath = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Meshes/SmallProps/Candles/SM_Candles_1.fbx";
+    const string DoorPrefabPath = "Assets/LeartesStudios/HauntedVillage/Art/Prefabs/SM_Door_01.prefab";
 
     // PBR Textures
     const string WallpaperAlbedo = "Assets/ThirdParty/MetalManVictorianInteriors/Materials/Wall_1_Albedo.psd";
@@ -49,6 +51,7 @@ public static class GmCourtBuilder
 
         var refs = new GmCourtCompositionPlan.SceneRefs();
         BuildArchitecture(environment.transform, refs);
+        BuildOnwardDoors(environment.transform, refs);
         BuildGameplayProps(gameplay.transform, refs);
         BuildLighting(lighting.transform, refs);
 
@@ -65,6 +68,11 @@ public static class GmCourtBuilder
         GmInteriorAtmosphere.Apply(null, GmCourtBuilder.SceneId);
 
         GmPlayerRig.Build(null, new Vector3(0f, 0f, -4f), new Vector3(0f, 1.4f, 2.5f));
+
+        // Opens the persistent curtain raised by the Parlor exit. No ninth-bell card here: that
+        // arithmetic belongs to the one impossible crossing, not every interior doorway.
+        var arrival = systems.AddComponent<GmSceneArrival>();
+        arrival.closingCard = "";
 
         GmSceneBuildUtility.SaveScene(scene, ScenePath);
         Debug.Log("[GmCourt] BUILD PASS: " + ScenePath);
@@ -158,12 +166,28 @@ public static class GmCourtBuilder
         northWall.transform.localScale = new Vector3(14f, 6f, 0.3f);
         northWall.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
 
-        GameObject southWall = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        southWall.name = "SouthWall";
+        // The doorway the player arrived through is the one the house returns after the verdict,
+        // but it no longer leads where it came from. Reusing that architectural fact avoids adding
+        // an arbitrary fifth door to a tribunal with one strict axis, and keeps the impossible-manor
+        // rule visible without dialogue. The opening is real; no decorative leaf on a solid cube.
+        var southWall = new GameObject("SouthWall");
         southWall.transform.SetParent(parent, false);
-        southWall.transform.position = new Vector3(0f, 3f, -8f);
-        southWall.transform.localScale = new Vector3(14f, 6f, 0.3f);
-        southWall.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
+        ArchitectureCube(southWall.transform, "SouthWallLeft", new Vector3(-4.1f, 3f, -8f),
+            new Vector3(5.8f, 6f, 0.3f), wallMat);
+        ArchitectureCube(southWall.transform, "SouthWallRight", new Vector3(4.1f, 3f, -8f),
+            new Vector3(5.8f, 6f, 0.3f), wallMat);
+        ArchitectureCube(southWall.transform, "SouthWallHeader", new Vector3(0f, 4.35f, -8f),
+            new Vector3(2.4f, 3.3f, 0.3f), wallMat);
+        ArchitectureCube(southWall.transform, "ShutBoxPassageFloor", new Vector3(0f, -0.06f, -8.8f),
+            new Vector3(2.4f, 0.12f, 1.6f), floorMat);
+        ArchitectureCube(southWall.transform, "ShutBoxPassageCeiling", new Vector3(0f, 2.66f, -8.8f),
+            new Vector3(2.4f, 0.12f, 1.6f), wallMat);
+        ArchitectureCube(southWall.transform, "ShutBoxPassageLeft", new Vector3(-1.25f, 1.3f, -8.8f),
+            new Vector3(0.1f, 2.6f, 1.6f), wallMat);
+        ArchitectureCube(southWall.transform, "ShutBoxPassageRight", new Vector3(1.25f, 1.3f, -8.8f),
+            new Vector3(0.1f, 2.6f, 1.6f), wallMat);
+        ArchitectureCube(southWall.transform, "ShutBoxPassageBlind", new Vector3(0f, 1.3f, -9.65f),
+            new Vector3(2.4f, 2.6f, 0.1f), wallMat);
 
         GameObject eastWall = GameObject.CreatePrimitive(PrimitiveType.Cube);
         eastWall.name = "EastWall";
@@ -197,6 +221,7 @@ public static class GmCourtBuilder
         // which is also the entire cause of shot 07 filling the frame at viewport height 1.00.
         GameObject judgeDesk = LoadMesh(DeskPath, "JudgeBenchDesk", parent,
             new Vector3(0f, 1.0331f, 6f), new Vector3(1.2f, 1f, 1f), Quaternion.identity);
+        ApplyPbr(judgeDesk, TableAlbedo, TableNormal, 0.42f, 0.02f);
         refs.judgeBench = judgeDesk;
 
         // Same leak, worse consequence: lossy scale (5.5, 1.32, 2.75) made the chair 4.4m wide, and
@@ -214,6 +239,86 @@ public static class GmCourtBuilder
         juryTier.transform.localScale = new Vector3(3f, 1.2f, 10f);
         ApplyMaterial(juryTier, "HDRP/Lit", new Color(0.22f, 0.15f, 0.10f), 0.05f, 0.4f);
         refs.juryTier = juryTier;
+    }
+
+    static void BuildOnwardDoors(Transform parent, GmCourtCompositionPlan.SceneRefs refs)
+    {
+        var doors = new GameObject("VerdictDoors");
+        doors.transform.SetParent(parent, false);
+        refs.verdictDoors = doors;
+        Material wood = CreatePbrMaterial(TableAlbedo, TableNormal,
+            new Color(0.25f, 0.11f, 0.045f), 0.38f, 0.02f, Vector2.one);
+        Transform leftHinge = null;
+        Transform rightHinge = null;
+
+        for (int side = -1; side <= 1; side += 2)
+        {
+            var hinge = new GameObject(side < 0 ? "VerdictDoorLeftHinge" : "VerdictDoorRightHinge");
+            hinge.transform.SetParent(doors.transform, false);
+            hinge.transform.position = new Vector3(side * 1.2f, 0f, -7.78f);
+            Vector3 center = new Vector3(side * 0.6f, 0f, -7.78f);
+            GameObject leaf = GmOwnedPropFactory.PlacePrefab(DoorPrefabPath,
+                side < 0 ? "VerdictDoorLeft" : "VerdictDoorRight", doors.transform,
+                center, new Vector3(1.2f, 2.5f, 0.16f), Quaternion.identity,
+                ground: true, surfaceY: 0f, overrideMaterial: wood);
+            leaf.transform.SetParent(hinge.transform, true);
+            if (side < 0) leftHinge = hinge.transform; else rightHinge = hinge.transform;
+        }
+
+        var blocker = doors.AddComponent<BoxCollider>();
+        blocker.center = new Vector3(0f, 1.25f, -7.78f);
+        blocker.size = new Vector3(2.4f, 2.5f, 0.16f);
+
+        var transitionObject = new GameObject("ShutTheBoxTransition");
+        transitionObject.transform.SetParent(doors.transform, false);
+        transitionObject.transform.position = new Vector3(0f, 1.2f, -8.4f);
+        var volume = transitionObject.AddComponent<BoxCollider>();
+        volume.isTrigger = true;
+        volume.size = new Vector3(2.2f, 2.4f, 0.7f);
+        var transition = transitionObject.AddComponent<GmSceneTransitionTrigger>();
+        transition.TargetSceneId = GmShutTheBoxBuilder.SceneId;
+        transition.TargetScenePath = GmShutTheBoxBuilder.ScenePath;
+        transition.InteractionPrompt = "The quieter game is waiting";
+        transition.UseCurtain = true;
+
+        var exit = doors.AddComponent<GmSequenceExit>();
+        exit.Configure(SceneId, transition, volume, blocker, leftHinge, rightHinge,
+            new Vector3(0f, -98f, 0f), new Vector3(0f, 98f, 0f), authorClosed: true);
+
+        var sconces = new GameObject("VerdictDoorSconces");
+        sconces.transform.SetParent(parent, false);
+        for (int side = -1; side <= 1; side += 2)
+        {
+            GameObject fixture = LoadMesh(LampPath, side < 0 ? "VerdictSconceLeft" : "VerdictSconceRight",
+                sconces.transform, new Vector3(side * 1.55f, 2.15f, -7.65f),
+                new Vector3(0.52f, 0.52f, 0.52f), Quaternion.identity);
+            ApplyPbr(fixture, LampAlbedo, LampNormal, 0.65f, 0.7f);
+        }
+        refs.verdictSconces = sconces;
+
+        var lightObject = new GameObject("VerdictDoorSconceLight");
+        lightObject.transform.SetParent(parent, false);
+        lightObject.transform.position = new Vector3(0f, 2.05f, -7.25f);
+        Light verdictLight = lightObject.AddComponent<Light>();
+        verdictLight.type = LightType.Point;
+        verdictLight.range = 4.5f;
+        verdictLight.color = new Color(1f, 0.76f, 0.44f);
+        verdictLight.lightUnit = LightUnit.Lumen;
+        verdictLight.intensity = GmInteriorAtmosphere.PracticalCeilingLumens;
+        lightObject.AddComponent<HDAdditionalLightData>();
+        refs.verdictSconceLight = lightObject;
+    }
+
+    static GameObject ArchitectureCube(Transform parent, string name, Vector3 position,
+        Vector3 scale, Material material)
+    {
+        GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        cube.name = name;
+        cube.transform.SetParent(parent, false);
+        cube.transform.position = position;
+        cube.transform.localScale = scale;
+        cube.GetComponent<MeshRenderer>().sharedMaterial = material;
+        return cube;
     }
 
     static void BuildGameplayProps(Transform parent, GmCourtCompositionPlan.SceneRefs refs)
@@ -268,8 +373,11 @@ public static class GmCourtBuilder
         refs.evidenceTable = evidenceTable;
 
         // Tabletop Sculpted Candles
-        LoadMesh(CandlePath, "CourtEvidenceCandle", parent,
+        GameObject evidenceCandle = LoadMesh(CandlePath, "CourtEvidenceCandle", parent,
             new Vector3(-0.9f, 0.8f, 2.5f), new Vector3(0.7f, 0.7f, 0.7f), Quaternion.identity);
+        // This pack mesh carries a non-HDRP material when instantiated directly. In a camera render
+        // it was a saturated magenta hook on an otherwise black evidence table.
+        ApplyPbr(evidenceCandle, "", "", 0.28f, 0f, new Color(0.72f, 0.56f, 0.32f));
 
         // 3 Wax Seals
         GameObject waxSealsGroup = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
@@ -315,6 +423,7 @@ public static class GmCourtBuilder
 
         GameObject evidenceDocket = LoadMesh(ScrollPath, "EvidenceDocket", evidenceTable.transform,
             new Vector3(0.3f, 0.9102f, 0f), new Vector3(0.4f, 0.4f, 0.4f), Quaternion.identity);
+        ApplyPbr(evidenceDocket, "", "", 0.18f, 0f, new Color(0.58f, 0.43f, 0.25f));
         refs.evidenceDocket = evidenceDocket;
 
         // Gavel (Wood Hammer FBX). Named BrassGavel because GmCourtQualityAudit looks for exactly
@@ -325,6 +434,7 @@ public static class GmCourtBuilder
         // shots 05 and 07 could not see the gavel: it was behind the camera.
         GameObject gavel = LoadMesh(HammerPath, "BrassGavel", parent,
             new Vector3(0.15f, 2.0559f, 5.85f), new Vector3(0.6f, 0.6f, 0.6f), Quaternion.Euler(0, 45f, 0));
+        ApplyPbr(gavel, "", "", 0.5f, 0.15f, new Color(0.32f, 0.17f, 0.07f));
         refs.gavel = gavel;
 
         // NOTE: Cube() assigns transform.position (WORLD) after SetParent, so its Vector3 is a world
@@ -333,6 +443,12 @@ public static class GmCourtBuilder
         // drag shots 04 and 06 off screen entirely. Passing `parent` here makes world and local agree.
         refs.soundBlock = Cube(parent, "SoundBlock", new Vector3(-0.15f, 1.9941f, 5.85f),
             new Vector3(0.2f, 0.04f, 0.2f), new Color(0.18f, 0.12f, 0.07f), 0.05f, 0.4f);
+
+        GameObject benchCandles = LoadMesh(CandlePath, "JudgeBenchCandles", parent,
+            new Vector3(-0.72f, 2.005f, 5.72f), new Vector3(0.34f, 0.34f, 0.34f),
+            Quaternion.Euler(0f, 18f, 0f));
+        ApplyPbr(benchCandles, "", "", 0.28f, 0f, new Color(0.72f, 0.56f, 0.32f));
+        refs.benchCandles = benchCandles;
 
         // Sounding Rail
         Cube(parent, "SoundingRail", new Vector3(0f, 0.95f, 1.8f),
@@ -352,12 +468,27 @@ public static class GmCourtBuilder
         judgeLightObj.transform.position = new Vector3(0f, 4.5f, 4f);
         Light judgeLight = judgeLightObj.AddComponent<Light>();
         judgeLight.type = LightType.Spot;
+        judgeLightObj.transform.rotation = Quaternion.LookRotation(
+            new Vector3(0f, 1.6f, 5.7f) - judgeLightObj.transform.position);
         judgeLight.range = 8f;
-        judgeLight.spotAngle = 80f;
+        judgeLight.spotAngle = 50f;
         judgeLight.color = new Color(1.0f, 0.90f, 0.70f);
+        judgeLight.lightUnit = LightUnit.Lumen;
         judgeLight.intensity = 650f;
         judgeLightObj.AddComponent<HDAdditionalLightData>();
         refs.benchLight = judgeLightObj;
+
+        GameObject deskLightObj = new GameObject("JudgeBenchCandleLight");
+        deskLightObj.transform.SetParent(parent, false);
+        deskLightObj.transform.position = new Vector3(-0.72f, 2.35f, 5.72f);
+        Light deskLight = deskLightObj.AddComponent<Light>();
+        deskLight.type = LightType.Point;
+        deskLight.range = 3.2f;
+        deskLight.color = new Color(1f, 0.68f, 0.34f);
+        deskLight.lightUnit = LightUnit.Lumen;
+        deskLight.intensity = GmInteriorAtmosphere.PracticalCeilingLumens;
+        deskLightObj.AddComponent<HDAdditionalLightData>();
+        refs.benchDeskLight = deskLightObj;
 
         // Evidence Spotlight
         GameObject evidenceLightObj = new GameObject("EvidenceSpotlight");
@@ -365,9 +496,12 @@ public static class GmCourtBuilder
         evidenceLightObj.transform.position = new Vector3(0f, 3.5f, 2.5f);
         Light evidenceLight = evidenceLightObj.AddComponent<Light>();
         evidenceLight.type = LightType.Spot;
+        evidenceLightObj.transform.rotation = Quaternion.LookRotation(
+            new Vector3(0f, 0.8f, 2.5f) - evidenceLightObj.transform.position);
         evidenceLight.range = 5f;
         evidenceLight.spotAngle = 45f;
         evidenceLight.color = new Color(0.95f, 0.85f, 0.65f);
+        evidenceLight.lightUnit = LightUnit.Lumen;
         evidenceLight.intensity = 400f;
         evidenceLightObj.AddComponent<HDAdditionalLightData>();
         // Handed to the plan so it can carry authored intent. Without this field the plan
@@ -387,6 +521,7 @@ public static class GmCourtBuilder
         juryLight.type = LightType.Point;
         juryLight.range = 6f;
         juryLight.color = new Color(0.95f, 0.75f, 0.45f);
+        juryLight.lightUnit = LightUnit.Lumen;
         juryLight.intensity = 180f;
         juryLightObj.AddComponent<HDAdditionalLightData>();
         refs.juryLight = juryLightObj;
@@ -404,6 +539,7 @@ public static class GmCourtBuilder
         witnessLight.type = LightType.Point;
         witnessLight.range = 4.5f;
         witnessLight.color = new Color(0.80f, 0.85f, 0.95f);
+        witnessLight.lightUnit = LightUnit.Lumen;
         witnessLight.intensity = 120f;
         witnessLightObj.AddComponent<HDAdditionalLightData>();
         refs.witnessLight = witnessLightObj;

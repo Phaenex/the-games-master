@@ -18,24 +18,8 @@ public sealed class GmHostAI : MonoBehaviour
         if (hand == null || hand.Count == 0)
             throw new ArgumentException("Hand cannot be empty");
 
-        LastPlayWasCheated = false;
-
-        // Strategic lead: prefer high non-trump cards to pull trumps, or lead high flames if short.
-        // Any non-trump displaces a trump, so the rank comparison only ever runs within one of the
-        // two groups: it picks the highest side suit, and falls to the highest Flame on a trump hand.
-        GmCard bestLead = hand[0];
-        foreach (var card in hand)
-        {
-            bool cardIsTrump = card.Suit == GmSuit.Flames;
-            bool bestIsTrump = bestLead.Suit == GmSuit.Flames;
-            if (cardIsTrump && !bestIsTrump) continue;
-            if ((!cardIsTrump && bestIsTrump) || card.Rank > bestLead.Rank)
-            {
-                bestLead = card;
-            }
-        }
-
-        return bestLead;
+        ResetLastPlay();
+        return hand[GmParlorCore.ChooseAldricLead(hand, GmAldricLeadPolicy.HighestSideSuit)];
     }
 
     /// <summary>
@@ -47,86 +31,34 @@ public sealed class GmHostAI : MonoBehaviour
         if (hand == null || hand.Count == 0)
             throw new ArgumentException("Hand cannot be empty");
 
-        LastPlayWasCheated = false;
-
-        // Find all strictly legal moves
-        var legalCards = new List<GmCard>();
-        foreach (var card in hand)
-        {
-            if (GmDeckUtility.IsLegalPlay(hand, playerLeadCard, card))
-                legalCards.Add(card);
-        }
-
-        // Find best legal card that wins the trick
-        GmCard? winningLegalCard = null;
-        foreach (var card in legalCards)
-        {
-            bool leadWins = GmDeckUtility.LeadWinsTrick(playerLeadCard, card);
-            if (!leadWins) // Follow (Host) wins
-            {
-                if (!winningLegalCard.HasValue || card.Rank < winningLegalCard.Value.Rank)
-                {
-                    winningLegalCard = card; // Smallest card that still wins
-                }
-            }
-        }
-
-        if (winningLegalCard.HasValue)
-        {
-            // Aldric wins legally without needing to cheat
-            return winningLegalCard.Value;
-        }
-
-        // Aldric cannot win legally. Check if reactive cheating triggers:
-        // Canon Rule: Aldric cheats ONLY when about to lose, never from safety.
+        ResetLastPlay();
+        _ = hostTricksWon;
         bool playerAtMatchPoint = playerTricksWon >= 3;
-        bool cheatTriggered = CheatArmed || playerAtMatchPoint;
+        bool allowCheat = (CheatArmed || playerAtMatchPoint) && GmRunStore.CorruptionTier >= 1;
+        GmAldricPlay play = GmParlorCore.ChooseAldricFollow(
+            hand, playerLeadCard, allowCheat, GmAldricFollowPolicy.ShippingHighestWinningFlame);
 
-        // The palm has to come out of the hand he is actually holding: GmParlorRules.PlayHostCard
-        // rejects any card HostHand does not contain, so a fabricated Flame announces a cheat that
-        // the table then refuses, leaving the turn stuck on a play the AI already reported as made.
-        if (cheatTriggered && GmRunStore.CorruptionTier >= 1 &&
-            TryPalmWinningFlames(hand, playerLeadCard, out GmCard palmed))
+        // This adapter returns a card and the shipping table requires that card to be physically
+        // present in HostHand. The shared core's impossible eight pays a real index, but it needs the
+        // later match controller to remove that index separately. Until then, stay honest instead of
+        // claiming a cheat this component's public API cannot execute.
+        if (play.CheatKind == GmParlorCheatKind.ImpossibleEighthRank)
+            play = GmParlorCore.ChooseAldricFollow(
+                hand, playerLeadCard, false, GmAldricFollowPolicy.ShippingHighestWinningFlame);
+
+        if (play.Cheated)
         {
-            // Execute reactive cheat: Palm a winning Trump he is not allowed to play
             LastPlayWasCheated = true;
             LastCheatType = "parlor-palm-flames";
             OnCheatExecuted?.Invoke(LastCheatType);
-            Debug.Log($"[GmHostAI] Aldric Voss executed reactive cheat: Palmed {palmed.ShortName}!");
-
-            return palmed;
+            Debug.Log($"[GmHostAI] Aldric Voss executed reactive cheat: Palmed {play.Card.ShortName}!");
         }
-
-        // If not cheating, play the lowest legal discard
-        GmCard lowestDiscard = legalCards[0];
-        foreach (var card in legalCards)
-        {
-            if (card.Rank < lowestDiscard.Rank) lowestDiscard = card;
-        }
-
-        return lowestDiscard;
+        return play.Card;
     }
 
-    /// <summary>
-    /// Highest Flame in hand that takes the trick from the player's lead. Only a trump can qualify
-    /// at this point: a higher card of the led suit would have been a legal follow, and every legal
-    /// winner was already taken above. Returns false when the hand holds no such card, in which case
-    /// there is no palm to make and Aldric discards without claiming a cheat he cannot play.
-    /// </summary>
-    static bool TryPalmWinningFlames(List<GmCard> hand, GmCard playerLeadCard, out GmCard palmed)
+    void ResetLastPlay()
     {
-        palmed = default;
-        bool found = false;
-        foreach (var card in hand)
-        {
-            if (card.Suit != GmSuit.Flames) continue;
-            if (GmDeckUtility.LeadWinsTrick(playerLeadCard, card)) continue;
-            if (!found || card.Rank > palmed.Rank)
-            {
-                palmed = card;
-                found = true;
-            }
-        }
-        return found;
+        LastPlayWasCheated = false;
+        LastCheatType = string.Empty;
     }
 }

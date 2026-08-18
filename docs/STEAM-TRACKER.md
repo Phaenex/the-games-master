@@ -16,7 +16,13 @@ but the delivery numbers reset to the engine that ships.
 This file tracks **Unity truth**. Where a thing is "done in web, absent in Unity," it reads 0% with the
 web work credited as design source, because a player on Steam cannot play a design source.
 
-> **2026-08-13 update.** Unity EditMode went from **not compiling at all** to **294/296 passing**
+> **2026-08-17 update.** The 08-16 handoff is still the last full opening-gate pack. Content since
+> then: a walkable Entry Hall hub stub (Session 1 proven, Session 2 library authored but not rebuilt),
+> plus an uncommitted Parlor physical slice. STEAM-TRACKER bars below the 08-13 paragraph were stale
+> (Entry Hall/Parlor/shards/endings still at 0%). Live plan: `docs/HANDOFF-2026-08-17.md`.
+> Inherit no later chat's 886/886 or "whole mansion" claim.
+
+> **2026-08-13 update (historical).** Unity EditMode went from **not compiling at all** to **294/296 passing**
 > this session. The opening blocker (47 CS0117 errors, all `GmCompositionAuthoring.ReviewClaim(...)`,
 > a method that didn't exist) is resolved for 5 of the 6 Phase 1-7 scenes — `docs/audit/
 > F1-review-claim-decision.md` documents the interim adapter and what it assumes. **Court's 2 tests
@@ -33,18 +39,18 @@ web work credited as design source, because a player on Steam cannot play a desi
 > `ReviewClaim` call and its Roslyn compile test still passes. The 47 bad calls were hand-authored.
 
 ```
-Overall (Unity/Steam): [███░░░░░░░░░░░░░░░░░]  17%
+Overall (Unity/Steam): [████░░░░░░░░░░░░░░░░]  22%
 
-Phase  0 Prologue        [██████████████████░░]  92%  re-measured 2026-08-15: gates 1-7 PASS (3-7 for the first time), gate 8 FAIL p95 19.25ms vs 16.70 — best p95 on record, see below
-Phase  1 Entry Hall      [░░░░░░░░░░░░░░░░░░░░]   0%  design source: Entry Hall.dc.html (76K)
-Phase  2 Parlor          [░░░░░░░░░░░░░░░░░░░░]   0%  design source: Parlor prototype (52K), the only playable game
-Phase  3 Court           [░░░░░░░░░░░░░░░░░░░░]   0%  design source: Court.dc.html (36K) + evidence draft
-Phase  4 Shut the Box    [█████░░░░░░░░░░░░░░░]  25%  rules 23/23 green in-engine; no board, AI, or UI
-Phase  5 Shards + save   [░░░░░░░░░░░░░░░░░░░░]   0%  blocks the true ending
-Phase  6 Hidden room     [░░░░░░░░░░░░░░░░░░░░]   0%  gated behind STB tile-9
-Phase  7 Labyrinth       [░░░░░░░░░░░░░░░░░░░░]   0%  design first, per roadmap
-Phase  8 Six endings     [░░░░░░░░░░░░░░░░░░░░]   0%  none are coded anywhere, in any engine
-Phase  9 Steam layer     [█░░░░░░░░░░░░░░░░░░░]   5%  distributable universal macOS app + controller path green; Steam/Windows integration untouched
+Phase  0 Prologue        [██████████████████░░]  92%  08-16 gates 14/14 on a trusted host; Nick walk still open
+Phase  1 Entry Hall      [██████░░░░░░░░░░░░░░]  30%  walkable hub Session 1; library authored, not rebuilt
+Phase  2 Parlor          [████░░░░░░░░░░░░░░░░]  20%  rules + physical slice in source; not shipping-proven tonight
+Phase  3 Court           [██░░░░░░░░░░░░░░░░░░]  10%  scene spine only; LOCKED behind Nick's Phase 0 walk
+Phase  4 Shut the Box    [██████░░░░░░░░░░░░░░]  30%  rules + tile-9 path in source; no finished match UI
+Phase  5 Shards + save   [████████░░░░░░░░░░░░]  40%  shared run store + save round-trip; true ending still needs 8 catches
+Phase  6 Hidden room     [██░░░░░░░░░░░░░░░░░░]  10%  scaffold + transition; player-facing journals remain
+Phase  7 Labyrinth       [██░░░░░░░░░░░░░░░░░░]  10%  scaffold + Huntsman machine; not a finished chase
+Phase  8 Six endings     [████░░░░░░░░░░░░░░░░]  20%  resolver reachable; authored presentation remains
+Phase  9 Steam layer     [██░░░░░░░░░░░░░░░░░░]   8%  macOS player + controller path; Steam/Windows untouched
 Phase 10 Ship polish     [░░░░░░░░░░░░░░░░░░░░]   0%
 ```
 

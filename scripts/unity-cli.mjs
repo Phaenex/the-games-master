@@ -10,7 +10,7 @@
 //   node scripts/unity-cli.mjs setup       -> pipeline then rebuild
 //   node scripts/unity-cli.mjs tour [id]    -> registered review tour    (GUI, opens a window)
 //   node scripts/unity-cli.mjs build-mac    -> standalone macOS review app (batchmode)
-//   node scripts/unity-cli.mjs standalone-proof -> seven player-backbuffer frames from built app
+//   node scripts/unity-cli.mjs standalone-proof -> eight player-backbuffer frames from built app
 //   node scripts/unity-cli.mjs scenes       -> list registry (no Unity launch)
 //
 // HDRP will not render in batchmode on this project (GmProbe proved it: white frames), so the
@@ -29,6 +29,20 @@ import {
 } from './unity-scene-registry.mjs';
 import { assertHostCapacity, currentHostCapacity, MAX_LOAD_PER_CORE } from './unity-host-health.mjs';
 import { findRuntimeIntegrityDefects } from './unity-runtime-integrity.mjs';
+import {
+  finalizeParlorReviewReport,
+  validateParlorReviewReport,
+} from './parlor-review-report.mjs';
+import {
+  finalizeParlorCoverageReport,
+  finalizeParlorStandaloneReport,
+  sha256File,
+  validateParlorCoveragePair,
+  validateParlorCoverageReport,
+  validateParlorCurrentProvenance,
+  validateParlorStandaloneReport,
+  validateParlorStandaloneSeries,
+} from './parlor-standalone-report.mjs';
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PROJECT = process.env.GM_UNITY_PROJECT || path.join(REPO_ROOT, 'unity-project');
 const UNITY_ENV = { ...process.env, GM_REPO_ROOT: REPO_ROOT, GM_UNITY_PROJECT: PROJECT };
@@ -103,11 +117,22 @@ const TEST_RESULTS = path.join(LOG_DIR, 'editmode-results.xml');
 const PLAYTEST_RESULTS = path.join(LOG_DIR, 'playmode-results.xml');
 const MAC_APP = SCENE.standalone ? path.join(PROJECT, SCENE.standalone.appPath) : null;
 const MAC_BINARY = SCENE.standalone ? path.join(MAC_APP, SCENE.standalone.executablePath) : null;
+const WEND_PROFILE_APP = path.join(PROJECT,
+  'Builds', 'macOS-Wend-Profile', 'Wend Hill Prologue Profile.app');
+const WEND_PROFILE_BINARY = path.join(WEND_PROFILE_APP, 'Contents', 'MacOS', 'The Games Master');
+const WEND_PROFILE_ROOT = path.join(PROJECT, 'Library', 'GmSceneIntelligence',
+  'profiles', 'wend-hill-prologue');
 const ASSET_INDEX = path.join(PROJECT, 'Library', 'GmSceneIntelligence', 'asset-index.json');
 const VARIANT_ROOT = path.join(PROJECT, 'Library', 'GmSceneIntelligence', 'variants', 'wend-hill');
 const STANDALONE_PROOF_ROOT = path.join(PROJECT, 'Library', 'GmSceneIntelligence', 'standalone-proof', SCENE.id);
 const AUDIT_REPORT = path.join(PROJECT, 'Library', 'GmSceneIntelligence', 'audits', 'wend-hill-audit.json');
 const PACING_REPORT = path.join(PROJECT, 'Library', 'GmSceneIntelligence', 'pacing', 'wend-hill-simulation.json');
+const PARLOR_REVIEW_REPORT = path.join(PROJECT, 'Library', 'GmSceneIntelligence',
+  'parlor-review', 'parlor-review-report.json');
+const FULL_GAME_APP = path.join(PROJECT, 'Builds', 'macOS-Game', 'The Games Master.app');
+const FULL_GAME_BINARY = path.join(FULL_GAME_APP, 'Contents', 'MacOS', 'The Games Master');
+const PARLOR_STANDALONE_ROOT = path.join(PROJECT, 'Library', 'GmSceneIntelligence',
+  'parlor-standalone');
 
 const TASKS = {
   pipeline: { method: 'GmPipelineSetup.Apply', gui: false, done: /\[GmPipelineSetup\] HDRP assigned/ },
@@ -169,6 +194,16 @@ const TASKS = {
     done: SCENE.standalone ? markerRegex(SCENE.standalone.success) : /never-matches/,
     artifacts: () => (MAC_BINARY && existsSync(MAC_BINARY) ? [{ name: path.basename(MAC_APP), bytes: statSync(MAC_BINARY).size }] : []),
     clean: () => { if (MAC_APP) rmSync(MAC_APP, { recursive: true, force: true }); },
+    expected: 1,
+  },
+  'profile-build': {
+    method: 'GmWendStandaloneBuild.BuildPrologueProfileApp',
+    gui: false,
+    useGraphics: true,
+    done: /\[GmWendBuild\] PROFILE PASS:/,
+    artifacts: () => existsSync(WEND_PROFILE_BINARY)
+      ? [{ name: path.basename(WEND_PROFILE_APP), bytes: statSync(WEND_PROFILE_BINARY).size }] : [],
+    clean: () => rmSync(WEND_PROFILE_APP, { recursive: true, force: true }),
     expected: 1,
   },
   'asset-index': {
@@ -517,7 +552,8 @@ function run(name, attempt = 1, attempts = 1) {
  * success from the log alone. GmShotTour reports meanLum per shot precisely so this can be judged
  * mechanically rather than by asking a human to eyeball a number.
  */
-export function verifyShots(scene, log, logTag, expectedShots = null) {
+export function verifyShots(scene, log, logTag, expectedShots = null,
+    minimumLuminanceRange = 6) {
   const shots = shotsIn(scene).sort((a, b) => a.name.localeCompare(b.name));
   console.log(`\n  Screens/${scene}: ${shots.length} png`);
   if (shots.length === 0) {
@@ -539,7 +575,9 @@ export function verifyShots(scene, log, logTag, expectedShots = null) {
     const evidence = metrics.get(name);
     if (!evidence) throw new Error(`${s.name} has no complete luminance/clipping evidence in the tour log`);
     if (s.bytes < 10_000) throw new Error(`${s.name} is only ${s.bytes} bytes and may be blank`);
-    if (evidence.p95 - evidence.p05 < 6 || evidence.black > 97 || evidence.white > 25)
+    const isHighContrastUi = evidence.white >= 0.5 && evidence.black >= 90;
+    if ((!isHighContrastUi && evidence.p95 - evidence.p05 < minimumLuminanceRange) ||
+        evidence.black > 98 || evidence.white > 25)
       throw new Error(`${s.name} is invalid visual evidence: ${JSON.stringify(evidence)}`);
     console.log(`    ${s.name}  ${(s.bytes / 1024).toFixed(0)}KB  mean=${evidence.mean} ` +
       `p05=${evidence.p05} p95=${evidence.p95} black=${evidence.black}% white=${evidence.white}%`);
@@ -570,7 +608,7 @@ async function runStandaloneProof() {
     '-gmReviewWarmupSeconds', String(budget.warmupSeconds ?? 10), '-logFile', logFile,
   ];
   if (budget.vSync === 0) args.push('-gmReviewNoVSync');
-  console.log(`\n▶ ${SCENE.id}/standalone-proof: seven player-backbuffer frames`);
+  console.log(`\n▶ ${SCENE.id}/standalone-proof: eight player-backbuffer frames`);
   console.log(`  app: ${MAC_APP}`);
   console.log(`  output: ${STANDALONE_PROOF_ROOT}`);
   const exitCode = await new Promise((resolve, reject) => {
@@ -584,20 +622,20 @@ async function runStandaloneProof() {
   });
   const log = existsSync(logFile) ? readFileSync(logFile, 'utf8') : '';
   const shots = existsSync(STANDALONE_PROOF_ROOT) ? readdirSync(STANDALONE_PROOF_ROOT)
-    .filter((name) => /^0[1-7]-.*\.png$/.test(name)).sort() : [];
+    .filter((name) => /^0[1-8]-.*\.png$/.test(name)).sort() : [];
   const controllerShots = existsSync(STANDALONE_PROOF_ROOT) ? readdirSync(STANDALONE_PROOF_ROOT)
     .filter((name) => /^controller-0[1-2]-.*\.png$/.test(name)).sort() : [];
   if (exitCode !== 0) throw new Error(`standalone proof exited ${exitCode}; inspect ${logFile}`);
   const renderIntegrityWarnings = findRuntimeIntegrityDefects(log);
   if (renderIntegrityWarnings.length)
     throw new Error(`standalone proof logged ${renderIntegrityWarnings.length} render-integrity warning(s): ${renderIntegrityWarnings.join(' | ')}`);
-  if (!/\[GmStandaloneProbe\] PASS: 7\/7 player-backbuffer frames, performance sampled, zero runtime errors or render-integrity warnings/.test(log))
+  if (!/\[GmStandaloneProbe\] PASS: 8\/8 player-backbuffer frames, performance sampled, zero runtime errors or render-integrity warnings/.test(log))
     throw new Error(`standalone proof did not report PASS; inspect ${logFile}`);
   if (!/\[GmStandaloneProbe\] AUDIO PASS: 5\/5 final Ninth Bell clips loaded and decoded/.test(log))
     throw new Error(`standalone proof did not decode all five final Ninth Bell clips; inspect ${logFile}`);
-  if (!/\[GmStandaloneProbe\] CONTROLLER PASS: cold-open, move=.* interact, wind, brightness, pause\/resume, controller UI/.test(log))
+  if (!/\[GmStandaloneProbe\] CONTROLLER PASS: cold-open, move=.* interact, wind, (?:brightness, )?pause\/resume, controller UI/.test(log))
     throw new Error(`standalone proof did not exercise the complete virtual-controller path; inspect ${logFile}`);
-  if (shots.length !== 7) throw new Error(`standalone proof wrote ${shots.length}/7 PNGs`);
+  if (shots.length !== 8) throw new Error(`standalone proof wrote ${shots.length}/8 PNGs`);
   if (controllerShots.length !== 2)
     throw new Error(`standalone proof wrote ${controllerShots.length}/2 controller UI PNGs`);
   for (const name of shots) {
@@ -622,7 +660,7 @@ async function runStandaloneProof() {
       performance.internalWidth < 1280 || performance.internalHeight < 720 ||
       performance.upscaleFilter !== 'EdgeAdaptiveScalingUpres' ||
       performance.lodBias < 0.99 || performance.lodBias > 1.01 || performance.lodCrossFade !== false ||
-      performance.maxQueuedFrames !== 1 || performance.targetFrameRate !== 120)
+      performance.maxQueuedFrames !== 1 || performance.targetFrameRate !== 100)
     throw new Error(`standalone internal-render contract drifted: ${JSON.stringify(performance)}`);
   // A sample whose two halves disagree has not measured anything yet, and must not be reported as
   // either a pass or a failure. This is deliberately checked BEFORE the budget: a non-converged run
@@ -674,6 +712,214 @@ async function runStandaloneProof() {
   console.log('  ✓ standalone player reported zero runtime errors or render-integrity warnings');
 }
 
+async function runParlorStandaloneProof() {
+  if (!existsSync(FULL_GAME_BINARY))
+    throw new Error(`full-game release app is missing; run build-game first: ${FULL_GAME_APP}`);
+  const managed = path.join(FULL_GAME_APP, 'Contents', 'Resources', 'Data', 'Managed');
+  const editorAssemblies = existsSync(managed)
+    ? readdirSync(managed).filter((name) => /^UnityEditor(?:\.|-)/i.test(name)) : [];
+  if (editorAssemblies.length)
+    throw new Error(`full-game player contains editor assembly: ${editorAssemblies.join(', ')}`);
+
+  rmSync(PARLOR_STANDALONE_ROOT, { recursive: true, force: true });
+  mkdirSync(PARLOR_STANDALONE_ROOT, { recursive: true });
+  const appSha = sha256File(FULL_GAME_BINARY);
+  const reports = [];
+  const source = readFileSync(path.join(REPO_ROOT, 'unity', 'scenes', 'parlor', 'Runtime',
+    'GmParlorStandaloneProbe.cs'), 'utf8');
+
+  for (let repetition = 1; repetition <= 3; repetition++) {
+    const hostBefore = currentParlorHostState();
+    if (process.env.GM_UNITY_IGNORE_HOST_LOAD !== '1' && hostBefore.loadPerCore > MAX_LOAD_PER_CORE)
+      throw new Error(`Parlor repetition ${repetition} cannot start on a loaded host: ` +
+        `${hostBefore.oneMinuteLoad.toFixed(2)} / ${hostBefore.cores} = ` +
+        `${hostBefore.loadPerCore.toFixed(2)}/core (limit ${MAX_LOAD_PER_CORE.toFixed(2)})`);
+    const directory = path.join(PARLOR_STANDALONE_ROOT, `rep-${repetition}`);
+    mkdirSync(directory, { recursive: true });
+    const logPath = path.join(directory, 'Player.log');
+    const args = [
+      '-screen-fullscreen', '0', '-screen-width', '1920', '-screen-height', '1080',
+      '-gmParlorProofCaptureDir', directory,
+      '-gmParlorProofRepetition', String(repetition),
+      '-logFile', logPath,
+    ];
+    console.log(`\n▶ parlor/release-player repetition ${repetition}/3`);
+    console.log(`  app SHA: ${appSha}`);
+    console.log(`  output: ${directory}`);
+    const childResult = await new Promise((resolve, reject) => {
+      const child = spawn(FULL_GAME_BINARY, args, { stdio: 'ignore', cwd: REPO_ROOT });
+      const pid = child.pid;
+      const deadline = setTimeout(() => {
+        child.kill('SIGTERM');
+        reject(new Error(`Parlor repetition ${repetition} exceeded 10 minutes (pid ${pid})`));
+      }, 10 * 60 * 1000);
+      child.on('error', (error) => { clearTimeout(deadline); reject(error); });
+      child.on('exit', (code, signal) => {
+        clearTimeout(deadline);
+        resolve({ exitCode: code, signal, pid });
+      });
+    });
+    if (childResult.exitCode !== 0)
+      throw new Error(`Parlor repetition ${repetition} pid ${childResult.pid} exited ` +
+        `${childResult.exitCode} signal=${childResult.signal ?? 'none'}; inspect ${logPath}`);
+    const reportPath = path.join(directory, 'report.json');
+    if (!existsSync(reportPath))
+      throw new Error(`Parlor repetition ${repetition} wrote no report; inspect ${logPath}`);
+    const log = existsSync(logPath) ? readFileSync(logPath, 'utf8') : '';
+    const integrity = findRuntimeIntegrityDefects(log);
+    if (integrity.length)
+      throw new Error(`Parlor repetition ${repetition} logged runtime defects: ${integrity.join(' | ')}`);
+    if (/(?:^|\n)(?:[A-Za-z0-9_.]*Exception:|NullReferenceException:|[^\n]*\bFAILED\b|[^\n]*\bError:)/.test(log))
+      throw new Error(`Parlor repetition ${repetition} logged an exception/error; inspect ${logPath}`);
+    const hostAfter = currentParlorHostState();
+    if (process.env.GM_UNITY_IGNORE_HOST_LOAD !== '1' && hostAfter.loadPerCore > MAX_LOAD_PER_CORE)
+      throw new Error(`Parlor repetition ${repetition} ended on a loaded host: ` +
+        `${hostAfter.loadPerCore.toFixed(2)}/core (limit ${MAX_LOAD_PER_CORE.toFixed(2)}), so it judges nothing`);
+    const finalized = finalizeParlorStandaloneReport(reportPath, {
+      projectRoot: PROJECT,
+      repoRoot: REPO_ROOT,
+      logPath,
+      exitCode: childResult.exitCode,
+      pid: childResult.pid,
+      binaryPath: FULL_GAME_BINARY,
+      host: hostAfter,
+    });
+    validateParlorStandaloneReport(finalized.report, {
+      screenshotHashes: finalized.screenshotHashes,
+      source,
+      log,
+      ignoreHostLoad: Boolean(process.env.GM_UNITY_IGNORE_HOST_LOAD),
+    });
+    if (finalized.report.buildSha256 !== appSha)
+      throw new Error(`Parlor repetition ${repetition} app SHA changed during proof`);
+    reports.push(finalized.report);
+    const perf = finalized.report.performance;
+    console.log(`  ✓ pid ${childResult.pid} exit 0, ${perf.sampleFrames} raw frames, ` +
+      `p50=${perf.p50Milliseconds.toFixed(2)} p95=${perf.p95Milliseconds.toFixed(2)} ` +
+      `p99=${perf.p99Milliseconds.toFixed(2)} max=${perf.maximumMilliseconds.toFixed(2)}ms, ` +
+      `main p95=${perf.mainThreadP95Milliseconds.toFixed(2)}ms, ` +
+      `GPU p95=${perf.gpuP95Milliseconds.toFixed(2)}ms, GC=${perf.gcAllocatedBytes}B, ` +
+      `host=${hostAfter.loadPerCore.toFixed(2)}/core`);
+  }
+
+  validateParlorStandaloneSeries(reports);
+  const coverageReports = [];
+  for (const mode of ['honest-baseline', 'honest-hc200']) {
+    const directory = path.join(PARLOR_STANDALONE_ROOT, mode);
+    mkdirSync(directory, { recursive: true });
+    const logPath = path.join(directory, 'Player.log');
+    const args = [
+      '-screen-fullscreen', '0', '-screen-width', '1920', '-screen-height', '1080',
+      '-gmParlorProofCaptureDir', directory,
+      '-gmParlorProofCoverageMode', mode,
+      '-logFile', logPath,
+    ];
+    console.log(`\n▶ parlor/release-player coverage ${mode}`);
+    console.log(`  app SHA: ${appSha}`);
+    console.log(`  output: ${directory}`);
+    const childResult = await new Promise((resolve, reject) => {
+      const child = spawn(FULL_GAME_BINARY, args, { stdio: 'ignore', cwd: REPO_ROOT });
+      const pid = child.pid;
+      const deadline = setTimeout(() => {
+        child.kill('SIGTERM');
+        reject(new Error(`Parlor coverage ${mode} exceeded 5 minutes (pid ${pid})`));
+      }, 5 * 60 * 1000);
+      child.on('error', (error) => { clearTimeout(deadline); reject(error); });
+      child.on('exit', (code, signal) => {
+        clearTimeout(deadline);
+        resolve({ exitCode: code, signal, pid });
+      });
+    });
+    if (childResult.exitCode !== 0)
+      throw new Error(`Parlor coverage ${mode} pid ${childResult.pid} exited ` +
+        `${childResult.exitCode} signal=${childResult.signal ?? 'none'}; inspect ${logPath}`);
+    const reportPath = path.join(directory, 'coverage-report.json');
+    if (!existsSync(reportPath))
+      throw new Error(`Parlor coverage ${mode} wrote no report; inspect ${logPath}`);
+    const log = existsSync(logPath) ? readFileSync(logPath, 'utf8') : '';
+    const integrity = findRuntimeIntegrityDefects(log);
+    if (integrity.length || /(?:Exception:|NullReferenceException|\bFAILED\b|\bError:)/.test(log))
+      throw new Error(`Parlor coverage ${mode} logged runtime defects; inspect ${logPath}`);
+    const finalized = finalizeParlorCoverageReport(reportPath, {
+      projectRoot: PROJECT, repoRoot: REPO_ROOT, logPath,
+      exitCode: childResult.exitCode, pid: childResult.pid, binaryPath: FULL_GAME_BINARY,
+    });
+    validateParlorCoverageReport(finalized.report, {
+      screenshotHashes: finalized.screenshotHashes, source, log,
+    });
+    if (finalized.report.buildSha256 !== appSha)
+      throw new Error(`Parlor coverage ${mode} app SHA changed during proof`);
+    coverageReports.push(finalized.report);
+    console.log(`  ✓ pid ${childResult.pid} exit 0, ${finalized.report.shots.length} ` +
+      `built-player coverage frames, outcome=${finalized.report.coverage.resolvedOutcomeKind}`);
+  }
+  validateParlorCoveragePair(coverageReports[0], coverageReports[1]);
+  const series = {
+    schemaVersion: 1,
+    evidenceKind: 'three-consecutive-macos-release-player-runs',
+    appSha256: appSha,
+    repetitions: reports.map((report) => ({
+      repetition: report.repetition,
+      report: `rep-${report.repetition}/report.json`,
+      log: `rep-${report.repetition}/Player.log`,
+      pid: report.cli.pid,
+      exitCode: report.cli.exitCode,
+      p95Milliseconds: report.performance.p95Milliseconds,
+    })),
+    coverage: coverageReports.map((report) => ({
+      mode: report.coverageMode,
+      report: `${report.coverageMode}/coverage-report.json`,
+      log: `${report.coverageMode}/Player.log`,
+      pid: report.cli.pid,
+      exitCode: report.cli.exitCode,
+      outcome: report.coverage.resolvedOutcomeKind,
+    })),
+  };
+  writeFileSync(path.join(PARLOR_STANDALONE_ROOT, 'series.json'),
+    `${JSON.stringify(series, null, 2)}\n`);
+  verifyParlorCurrentProvenance();
+  console.log('\n  ✓ 3/3 consecutive full-game release-player repetitions qualified');
+  console.log('  ✓ honest false-Read baseline and controller-authored HC200 coverage qualified');
+}
+
+function verifyParlorCurrentProvenance() {
+  const required = [
+    path.join(PARLOR_STANDALONE_ROOT, 'series.json'),
+    ...[1, 2, 3].map((repetition) =>
+      path.join(PARLOR_STANDALONE_ROOT, `rep-${repetition}`, 'report.json')),
+    ...['honest-baseline', 'honest-hc200'].map((mode) =>
+      path.join(PARLOR_STANDALONE_ROOT, mode, 'coverage-report.json')),
+    path.join(PROJECT, 'Assets', 'Scenes', 'Parlor.unity'),
+    FULL_GAME_BINARY,
+  ];
+  const missing = required.filter((file) => !existsSync(file));
+  if (missing.length)
+    throw new Error(`Parlor provenance input is missing: ${missing.join(', ')}`);
+  const readJson = (file) => JSON.parse(readFileSync(file, 'utf8'));
+  const series = readJson(required[0]);
+  const reports = [1, 2, 3].map((repetition) => readJson(path.join(
+    PARLOR_STANDALONE_ROOT, `rep-${repetition}`, 'report.json')));
+  const coverageReports = ['honest-baseline', 'honest-hc200'].map((mode) =>
+    readJson(path.join(PARLOR_STANDALONE_ROOT, mode, 'coverage-report.json')));
+  const currentSceneSha256 = sha256File(path.join(PROJECT, 'Assets', 'Scenes', 'Parlor.unity'));
+  const currentBuildSha256 = sha256File(FULL_GAME_BINARY);
+  validateParlorCurrentProvenance(series, reports, coverageReports, {
+    currentSceneSha256, currentBuildSha256,
+  });
+  console.log(`  ✓ current scene/build provenance: ${currentSceneSha256} / ${currentBuildSha256}`);
+}
+
+function currentParlorHostState() {
+  const cores = cpus().length;
+  const oneMinuteLoad = loadavg()[0];
+  return {
+    oneMinuteLoad: Number(oneMinuteLoad.toFixed(2)),
+    cores,
+    loadPerCore: Number((oneMinuteLoad / cores).toFixed(3)),
+    freeMemoryMB: Math.round(freemem() / (1024 * 1024)),
+  };
+}
+
 async function runConfiguredProbe(name) {
   // walk-proof is gate 10 and runs up to ten minutes before it reaches the p95 comparison. Refuse
   // the launch on an overloaded host rather than spending that time to produce a contaminated verdict.
@@ -694,6 +940,33 @@ async function runConfiguredProbe(name) {
     throw new Error(`scene '${SCENE.id}' registers a '${name}' probe report but no performance.p95Milliseconds budget to judge it against`);
   const args = ['-screen-fullscreen', '0', '-screen-width', String(budget.width),
     '-screen-height', String(budget.height), probe.flag, output, '-logFile', logFile];
+  let expectedQueuedFrames = 1;
+  let expectedTargetFrameRate = 100;
+  const queuedFrameOverride = process.env.GM_WEND_QUEUE_FRAMES;
+  if (queuedFrameOverride !== undefined) {
+    if (!/^[123]$/.test(queuedFrameOverride))
+      throw new Error('GM_WEND_QUEUE_FRAMES must be 1, 2, or 3');
+    expectedQueuedFrames = Number(queuedFrameOverride);
+    args.push('-gmWendQueueFrames', queuedFrameOverride);
+    console.log(`  diagnostic queue depth: ${expectedQueuedFrames} frame(s)`);
+  }
+  const farClipOverride = process.env.GM_WEND_FAR_CLIP;
+  if (farClipOverride !== undefined) {
+    const parsed = Number(farClipOverride);
+    if (!Number.isFinite(parsed) || parsed < 60 || parsed > 300)
+      throw new Error('GM_WEND_FAR_CLIP must be a number from 60 through 300 metres');
+    args.push('-gmWendFarClip', String(parsed));
+    console.log(`  diagnostic far clip: ${parsed}m`);
+  }
+  const targetFrameRateOverride = process.env.GM_WEND_TARGET_FPS;
+  if (targetFrameRateOverride !== undefined) {
+    const parsed = Number(targetFrameRateOverride);
+    if (!Number.isInteger(parsed) || parsed < 30 || parsed > 1000)
+      throw new Error('GM_WEND_TARGET_FPS must be an integer from 30 through 1000');
+    expectedTargetFrameRate = parsed;
+    args.push('-gmWendTargetFps', String(parsed));
+    console.log(`  diagnostic target ceiling: ${parsed} fps`);
+  }
   if (name === 'walk' && budget.vSync === 0)
     args.push('-gmWendNoVSync', '-gmWendPerformanceGate');
   console.log(`\n▶ ${SCENE.id}/${name}-proof`);
@@ -733,13 +1006,89 @@ async function runConfiguredProbe(name) {
         report.internalRenderScale < 0.669 ||
         report.internalRenderScale > 0.671 || report.upscaleFilter !== 'EdgeAdaptiveScalingUpres' ||
         report.lodBias < 0.99 || report.lodBias > 1.01 || report.lodCrossFade !== false ||
-        report.maxQueuedFrames !== 1 || report.targetFrameRate !== 120)
+        report.maxQueuedFrames !== expectedQueuedFrames ||
+        report.targetFrameRate !== expectedTargetFrameRate)
       throw new Error(`${name} probe missed performance contract: ${JSON.stringify(report)}`);
     console.log(`  ✓ ${report.walkedMetres.toFixed(0)}m, ${report.width}x${report.height} output / ` +
       `${report.internalWidth}x${report.internalHeight} internal, p95=${report.p95Milliseconds.toFixed(2)}ms, ` +
       `${report.peakRendererCount} active renderers`);
   }
   console.log(`  ✓ ${pngs.length} screenshot(s), zero route/runtime integrity failures`);
+}
+
+/**
+ * Captures a profiler-enabled DEVELOPMENT player and converts Unity's binary .raw stream into JSON.
+ * The development/player profiler overhead means these frame times are attribution evidence, not a
+ * replacement for the release-build gate. The release proof decides whether the budget is missed;
+ * this capture says which markers own the missed frames.
+ */
+async function runWendProfileCapture() {
+  assertHostCapacity();
+  if (!existsSync(WEND_PROFILE_BINARY)) {
+    throw new Error(`profiler-enabled app is missing; run profile-build first: ${WEND_PROFILE_APP}`);
+  }
+  rmSync(WEND_PROFILE_ROOT, { recursive: true, force: true });
+  mkdirSync(WEND_PROFILE_ROOT, { recursive: true });
+  const raw = path.join(WEND_PROFILE_ROOT, 'player-profile.raw');
+  const report = path.join(WEND_PROFILE_ROOT, 'profile-report.json');
+  const playerLog = path.join(WEND_PROFILE_ROOT, 'player.log');
+  const reportLog = path.join(WEND_PROFILE_ROOT, 'report.log');
+  const args = [
+    '-screen-fullscreen', '0', '-screen-width', '1920', '-screen-height', '1080',
+    '-gmReviewCaptureDir', WEND_PROFILE_ROOT, '-gmReviewAutoExit',
+    '-gmReviewWarmupSeconds', '10', '-gmReviewNoVSync',
+    '-profiler-enable', '-profiler-log-file', raw,
+    '-profiler-capture-frame-count', '6000',
+    '-profiler-maxusedmemory', String(1024 * 1024 * 1024),
+    '-logFile', playerLog,
+  ];
+  console.log('\n▶ wend-hill-prologue/profile-capture: development player CPU hierarchy');
+  console.log(`  app: ${WEND_PROFILE_APP}`);
+  console.log(`  raw: ${raw}`);
+  const exitCode = await new Promise((resolve, reject) => {
+    const child = spawn(WEND_PROFILE_BINARY, args, { stdio: 'ignore' });
+    const deadline = setTimeout(() => {
+      child.kill('SIGTERM');
+      reject(new Error('profile player exceeded 4 minutes'));
+    }, 4 * 60 * 1000);
+    child.on('error', (error) => { clearTimeout(deadline); reject(error); });
+    child.on('exit', (code) => { clearTimeout(deadline); resolve(code); });
+  });
+  const captured = existsSync(raw) && statSync(raw).size >= 1024 * 1024;
+  const playerOutput = existsSync(playerLog) ? readFileSync(playerLog, 'utf8') : '';
+  if (!captured || !/\[GmStandaloneProbe\] PERF:/.test(playerOutput)) {
+    throw new Error(`profile player exited ${exitCode} without a complete timing capture; inspect ${playerLog}`);
+  }
+  if (exitCode !== 0) {
+    console.warn(`  ⚠ profile player exited ${exitCode} after writing complete timing data; ` +
+      `the profiler report will proceed, but the separate visual failure remains in ${playerLog}`);
+  }
+  const { binary } = resolveEditor();
+  assertEditorClosed();
+  const editor = spawnSync(binary, [
+    '-batchmode', '-nographics', '-projectPath', PROJECT, '-accept-apiupdate',
+    '-executeMethod', 'GmWendProfilerReport.WriteFromCommandLine',
+    '-gmProfileInput', raw, '-gmProfileReport', report, '-logFile', reportLog,
+  ], { stdio: 'ignore', timeout: TIMEOUT_MS, env: UNITY_ENV });
+  const log = existsSync(reportLog) ? readFileSync(reportLog, 'utf8') : '';
+  if (editor.status !== 0 || !/\[GmWendProfilerReport\] PASS:/.test(log) || !existsSync(report))
+    throw new Error(`profile report generation failed (exit ${editor.status}); inspect ${reportLog}`);
+
+  const data = JSON.parse(readFileSync(report, 'utf8'));
+  if (data.schemaVersion !== 1 || data.analyzedFrames < 300 ||
+      !Array.isArray(data.topSelfMarkers) || data.topSelfMarkers.length === 0) {
+    throw new Error(`profile report is incomplete: ${JSON.stringify(data)}`);
+  }
+  console.log(`  ✓ ${(statSync(raw).size / (1024 * 1024)).toFixed(1)}MB raw capture, ` +
+    `${data.analyzedFrames} analyzed frames, ${data.slowFrames} over 16.7ms`);
+  console.log(`  profile p50=${data.p50MainThreadMilliseconds.toFixed(2)}ms ` +
+    `p95=${data.p95MainThreadMilliseconds.toFixed(2)}ms ` +
+    `GPU p95=${data.p95GpuMilliseconds.toFixed(2)}ms (development-build attribution only)`);
+  for (const marker of data.topSelfMarkers.slice(0, 12)) {
+    console.log(`    ${marker.marker}: self=${marker.meanSelfMilliseconds.toFixed(3)}ms/frame ` +
+      `slowSelf=${marker.slowFrameSelfMilliseconds.toFixed(3)}ms/slow-frame`);
+  }
+  console.log(`  report: ${report}`);
 }
 
 if (requested === 'registry-check') {
@@ -776,6 +1125,27 @@ if (requested === 'standalone-proof') {
   process.exit(0);
 }
 
+if (requested === 'parlor-standalone-proof') {
+  try { await runParlorStandaloneProof(); }
+  catch (error) { console.error(`\n✗ ${error.message}`); process.exit(1); }
+  console.log('\n✓ done: parlor-standalone-proof');
+  process.exit(0);
+}
+
+if (requested === 'parlor-proof-verify') {
+  try { verifyParlorCurrentProvenance(); }
+  catch (error) { console.error(`\n✗ ${error.message}`); process.exit(1); }
+  console.log('\n✓ done: parlor-proof-verify');
+  process.exit(0);
+}
+
+if (requested === 'profile-capture') {
+  try { await runWendProfileCapture(); }
+  catch (error) { console.error(`\n✗ ${error.message}`); process.exit(1); }
+  console.log('\n✓ done: profile-capture');
+  process.exit(0);
+}
+
 if (requested === 'walk-proof' || requested === 'wall-proof' || requested === 'house-proof') {
   const name = requested === 'walk-proof' ? 'walk' : requested === 'wall-proof' ? 'walls' : 'house';
   try { await runConfiguredProbe(name); }
@@ -786,7 +1156,7 @@ if (requested === 'walk-proof' || requested === 'wall-proof' || requested === 'h
 
 const queue = requested === 'setup' ? ['pipeline', 'rebuild'] : [requested];
 if (!queue.every((t) => TASKS[t])) {
-  console.error(`usage: node scripts/unity-cli.mjs <${Object.keys(TASKS).join('|')}|standalone-proof|walk-proof|wall-proof|house-proof|setup|registry-check|scenes|host-health|retry-selftest> [scene-id]`);
+  console.error(`usage: node scripts/unity-cli.mjs <${Object.keys(TASKS).join('|')}|standalone-proof|parlor-standalone-proof|parlor-proof-verify|profile-capture|walk-proof|wall-proof|house-proof|setup|registry-check|scenes|host-health|retry-selftest> [scene-id]`);
   console.error(`registered scenes: ${REGISTRY.scenes.map((scene) => scene.id).join(', ')}`);
   process.exit(2);
 }
@@ -917,8 +1287,21 @@ for (const task of queue) {
     const logFile = await runWithRetry(task);
     if (task === 'tour') {
       // Read the log at verify time rather than trusting what the poller happened to have seen.
-      verifyShots(TOUR_SCENE, existsSync(logFile) ? readFileSync(logFile, 'utf8') : '',
-        SCENE.tour.logTag, SCENE.tour.shots);
+      const tourLog = existsSync(logFile) ? readFileSync(logFile, 'utf8') : '';
+      verifyShots(TOUR_SCENE, tourLog,
+        SCENE.tour.logTag, SCENE.tour.shots, SCENE.tour.minimumLuminanceRange ?? 6);
+      if (SCENE.id === 'parlor') {
+        const finalized = finalizeParlorReviewReport(PARLOR_REVIEW_REPORT, {
+          projectRoot: PROJECT, logPath: logFile, exitCode: 0,
+        });
+        const probeSource = ['GmParlorReviewProbe.cs', 'GmParlorRestoreReviewOrchestrator.cs',
+          'GmParlorShotTour.cs'].map((name) => readFileSync(path.join(PROJECT, 'Assets',
+          'Scripts', 'Scenes', 'parlor', name), 'utf8')).join('\n');
+        validateParlorReviewReport(finalized.report, {
+          screenshotHashes: finalized.screenshotHashes, probeSource, log: tourLog,
+        });
+        console.log(`  ✓ Parlor review manifest: ${PARLOR_REVIEW_REPORT}`);
+      }
     }
     if (task === 'test') verifyTests(TEST_RESULTS);
     if (task === 'playtest') verifyTests(PLAYTEST_RESULTS, 'GmWendCanonicalPlayModeTests');

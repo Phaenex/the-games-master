@@ -15,10 +15,22 @@ public sealed class GmCourtShotTour : GmSceneReviewTour
         new GmReviewShot("05-gavel-tarnish-tell", new Vector3(0.25f, 2.3f, 4.8f), 0f, 22f),
         new GmReviewShot("06-shard2-placement", new Vector3(0.6f, 1.4f, 1.7f), 15f, 25f),
         new GmReviewShot("07-bench-elevation", new Vector3(0f, 0.8f, 3.8f), 0f, -12f),
-        new GmReviewShot("08-defense-stand", new Vector3(0f, 1.5f, 0.8f), 180f, 12f)
+        new GmReviewShot("08-defense-stand", new Vector3(0f, 1.5f, 0.8f), 180f, 12f),
+        new GmReviewShot("09-verdict-passage-open", new Vector3(0f, 1.55f, -4.8f), 180f, 4f)
     };
 
     protected override IReadOnlyList<GmReviewShot> ReviewShots => Shots;
+
+    protected override void BeforeTour() => GmRunStore.BeginNewRun();
+
+    protected override void BeforeShot(GmReviewShot shot)
+    {
+        if (shot.Name != "09-verdict-passage-open") return;
+        GmRunStore.CompleteRoom("court", countsAsTableGame: false);
+        foreach (var exit in FindObjectsByType<GmSequenceExit>(FindObjectsInactive.Include,
+                     FindObjectsSortMode.None))
+            exit.SnapOpenForReview();
+    }
 }
 
 #if UNITY_EDITOR

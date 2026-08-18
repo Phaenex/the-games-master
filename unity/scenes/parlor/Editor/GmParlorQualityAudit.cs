@@ -55,15 +55,44 @@ public static class GmParlorQualityAudit
         {
             if (systems.GetComponent<GmParlorRules>() == null)
                 issues.Add("GmParlorRules component is missing from SceneSystems");
-            if (systems.GetComponent<GmHostAI>() == null)
-                issues.Add("GmHostAI component is missing from SceneSystems");
-            if (systems.GetComponent<GmTheReadController>() == null)
-                issues.Add("GmTheReadController component is missing from SceneSystems");
+            if (systems.GetComponent<GmParlorController>() == null)
+                issues.Add("GmParlorController component is missing from SceneSystems");
+            if (systems.GetComponent<GmParlorInput>() == null)
+                issues.Add("GmParlorInput component is missing from SceneSystems");
+            if (systems.GetComponent<GmParlorFocusView>() == null)
+                issues.Add("GmParlorFocusView component is missing from SceneSystems");
+            if (systems.GetComponent<GmParlorHud>() == null)
+                issues.Add("GmParlorHud component is missing from SceneSystems");
+            if (systems.GetComponent<GmHostAI>() != null)
+                issues.Add("legacy GmHostAI component must not be shipping scene authority");
+            if (HasComponentNamed(systems, "GmTheReadController"))
+                issues.Add("legacy GmTheReadController bypasses canonical outcome persistence");
         }
+
+        GmParlorCardView[] cards = Object.FindObjectsByType<GmParlorCardView>(
+            FindObjectsInactive.Include, FindObjectsSortMode.None);
+        if (cards.Length != GmParlorCore.TotalCards)
+            issues.Add($"physical Parlor card count is {cards.Length}, expected {GmParlorCore.TotalCards}");
+        if (Object.FindAnyObjectByType<GmParlorPropBinder>() == null)
+            issues.Add("GmParlorPropBinder component is missing");
+        if (Object.FindAnyObjectByType<GmParlorPresentationCoordinator>() == null)
+            issues.Add("GmParlorPresentationCoordinator component is missing");
+        GmParlorAldricPresenter presenter = Object.FindAnyObjectByType<GmParlorAldricPresenter>();
+        if (presenter == null || !presenter.IsConfigured)
+            issues.Add("configured GmParlorAldricPresenter is missing");
+        if (Object.FindAnyObjectByType<GmParlorEvidenceLog>() == null)
+            issues.Add("GmParlorEvidenceLog component is missing");
 
         issues.AddRange(GmSceneCompositionAudit.ValidateOpenScene(
             GmParlorBuilder.SceneId, Object.FindAnyObjectByType<GmParlorShotTour>(), Camera.main));
 
         return issues;
+    }
+
+    static bool HasComponentNamed(GameObject target, string typeName)
+    {
+        foreach (Component component in target.GetComponents<Component>())
+            if (component != null && component.GetType().Name == typeName) return true;
+        return false;
     }
 }

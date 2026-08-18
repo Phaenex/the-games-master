@@ -1,21 +1,28 @@
 // The boot menu is the object that makes every ending reachable, so it gets tested as such rather
 // than as a screen with three labels on it.
+using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.TestTools;
 using UnityEngine.UIElements;
+using Object = UnityEngine.Object;
 
 public sealed class GmBootMenuTests
 {
     GameObject host;
     GmBootMenu menu;
     readonly List<GameObject> spawned = new List<GameObject>();
+    string saveDirectory;
 
     [SetUp]
     public void SetUp()
     {
-        GmSaveSystem.DeleteSave();
+        saveDirectory = Path.Combine(Path.GetTempPath(), "gm-boot-" + Guid.NewGuid().ToString("N"));
+        GmSaveSystem.ConfigureForTests(Path.Combine(saveDirectory, "save.json"));
         GmRunStore.BeginNewRun();
         host = new GameObject("BootMenuFixture");
         menu = host.AddComponent<GmBootMenu>();
@@ -24,7 +31,6 @@ public sealed class GmBootMenuTests
     [TearDown]
     public void TearDown()
     {
-        GmSaveSystem.DeleteSave();
         if (host != null) Object.DestroyImmediate(host);
         // The director is DontDestroyOnLoad and static-backed; leaving one behind would let a later
         // test pass because an earlier test created it.
@@ -32,6 +38,9 @@ public sealed class GmBootMenuTests
             Object.DestroyImmediate(director.gameObject);   // GmSceneDirector.OnDestroy clears the static
         foreach (var extra in spawned) if (extra != null) Object.DestroyImmediate(extra);
         spawned.Clear();
+        GmSaveSystem.Flush();
+        GmSaveSystem.ResetTestConfiguration();
+        if (Directory.Exists(saveDirectory)) Directory.Delete(saveDirectory, true);
     }
 
     [Test]
@@ -128,6 +137,89 @@ public sealed class GmBootMenuTests
     }
 
     [Test]
+    public void ColdRestartNewRunImportsOnlyDurableAccessibilityPreferences()
+    {
+        GmAccessibilitySettings.SetCaptions(true);
+        GmAccessibilitySettings.SetReducedMotion(true);
+        GmAccessibilitySettings.SetVibration(false);
+        GmAccessibilitySettings.SetMonoAudio(true);
+        GmAccessibilitySettings.SetHighContrast(true);
+        GmAccessibilitySettings.SetTextScale(1.8f);
+        GmRunStore.RecordCatch("old-run-catch");
+        GmRunStore.RaiseCorruption("old-run");
+        GmRunStore.CurrentSceneId = "court";
+        Assert.That(GmSaveSystem.Save(), Is.True, GmSaveSystem.LastError);
+
+        // Simulate a cold process: run state and accessibility statics are defaults while disk stays.
+        GmRunStore.BeginNewRun();
+        ResetAccessibilityToColdDefaults();
+        int runEvents = 0;
+        Action changed = () => runEvents++;
+        GmRunStore.OnStateChanged += changed;
+        try
+        {
+            menu.NewRun();
+        }
+        finally
+        {
+            GmRunStore.OnStateChanged -= changed;
+        }
+
+        Assert.That(GmAccessibilitySettings.Captions, Is.True);
+        Assert.That(GmAccessibilitySettings.ReducedMotion, Is.True);
+        Assert.That(GmAccessibilitySettings.Vibration, Is.False);
+        Assert.That(GmAccessibilitySettings.MonoAudio, Is.True);
+        Assert.That(GmAccessibilitySettings.HighContrast, Is.True);
+        Assert.That(GmAccessibilitySettings.TextScale, Is.EqualTo(1.8f).Within(0.001f));
+        Assert.That(GmRunStore.CheatsCaughtCount, Is.Zero,
+            "New Run imported the previous run while trying to recover preferences");
+        Assert.That(GmRunStore.CorruptionTier, Is.EqualTo(GmRunStore.MinCorruptionTier));
+        Assert.That(GmRunStore.CurrentSceneId, Is.EqualTo(GmBootMenu.PrologueSceneId));
+        Assert.That(runEvents, Is.EqualTo(1),
+            "accessibility-only import leaked stale run-state events before BeginNewRun");
+    }
+
+    [Test]
+    public void CorruptSaveCannotBlockNewRun()
+    {
+        Directory.CreateDirectory(saveDirectory);
+        File.WriteAllText(GmSaveSystem.SavePath, "{not-json");
+        string entered = null;
+        menu.OnStartRun += id => entered = id;
+
+        Assert.DoesNotThrow(() => menu.NewRun());
+
+        Assert.That(entered, Is.EqualTo(GmBootMenu.PrologueSceneId));
+        Assert.That(GmRunStore.CheatsCaughtCount, Is.Zero);
+    }
+
+    [TestCase(-1)]
+    [TestCase(2)]
+    public void UnknownPreferenceVersionDoesNotMutateLiveSettingsOrBlockNewRun(int version)
+    {
+        Directory.CreateDirectory(saveDirectory);
+        File.WriteAllText(GmSaveSystem.SavePath, JsonUtility.ToJson(new GmSaveData
+        {
+            accessibilitySettingsVersion = version,
+            accessibilityCaptions = false,
+            accessibilityVibration = true,
+            accessibilityTextScale = 1f,
+        }));
+        GmAccessibilitySettings.SetCaptions(true);
+        GmAccessibilitySettings.SetVibration(false);
+        GmAccessibilitySettings.SetTextScale(1.7f);
+        string entered = null;
+        menu.OnStartRun += id => entered = id;
+
+        menu.NewRun();
+
+        Assert.That(entered, Is.EqualTo(GmBootMenu.PrologueSceneId));
+        Assert.That(GmAccessibilitySettings.Captions, Is.True);
+        Assert.That(GmAccessibilitySettings.Vibration, Is.False);
+        Assert.That(GmAccessibilitySettings.TextScale, Is.EqualTo(1.7f).Within(0.001f));
+    }
+
+    [Test]
     public void AResumeIntoAnUnknownSceneRefusesRatherThanGuessing()
     {
         GmRunStore.CurrentSceneId = "a-room-that-does-not-exist";
@@ -158,10 +250,10 @@ public sealed class GmBootMenuTests
     }
 
     [Test]
-    public void TheMenuDrawsThreeRowsAndMarksFocusOnTwoChannels()
+    public void TheMenuDrawsSettingsBeforeGameplayAndMarksFocusOnTwoChannels()
     {
         VisualElement root = BuildUi(menu);
-        foreach (string name in new[] { "BootContinue", "BootNewRun", "BootQuit" })
+        foreach (string name in new[] { "BootContinue", "BootNewRun", "BootSettings", "BootQuit" })
             Assert.IsNotNull(root.Q<VisualElement>(name), $"the {name} row is missing");
         Assert.IsNotNull(root.Q<Label>("BootTitle"));
 
@@ -179,16 +271,79 @@ public sealed class GmBootMenuTests
     }
 
     [Test]
+    public void BootAppliesGlobalTextScaleAndHighContrastToItsRealTree()
+    {
+        GmAccessibilitySettings.SetTextScale(2f);
+        GmAccessibilitySettings.SetHighContrast(true);
+
+        VisualElement root = BuildUi(menu);
+        Label title = root.Q<Label>("BootTitle");
+
+        Assert.That(title.style.fontSize.value.value, Is.EqualTo(92f).Within(0.01f));
+        Assert.That(root.ClassListContains("gm-high-contrast"), Is.True);
+        Assert.That(root.Q<VisualElement>("BootSettings"), Is.Not.Null);
+    }
+
+    [Test]
+    public void BootAndSharedSettingsUseTheRuntimeSafeStandardTextGenerator()
+    {
+        VisualElement root = BuildUi(menu);
+        var text = root.Query<TextElement>().ToList();
+        Assert.That(text, Is.Not.Empty);
+        Assert.That(root.Q<Toggle>("CaptionsToggle"), Is.Not.Null);
+        Assert.That(root.Q<Slider>("TextScaleSlider"), Is.Not.Null);
+        foreach (TextElement element in text)
+            Assert.That(element.style.unityTextGenerator.value,
+                Is.EqualTo(TextGeneratorType.Standard),
+                $"Boot dynamic text '{element.name}' can hit Unity 6's missing ICU path");
+    }
+
+    [Test]
     public void FocusSkipsContinueEntirelyWhenThereIsNothingToContinue()
     {
         BuildUi(menu);
         menu.Refresh();
         Assert.AreEqual(GmBootMenu.Row.NewRun, menu.Focused);
         menu.MoveFocus(1);
+        Assert.AreEqual(GmBootMenu.Row.Settings, menu.Focused);
+        menu.MoveFocus(1);
         Assert.AreEqual(GmBootMenu.Row.Quit, menu.Focused);
         menu.MoveFocus(1);
         Assert.AreEqual(GmBootMenu.Row.NewRun, menu.Focused,
             "focus landed on a disabled Continue while wrapping");
+    }
+
+    [Test]
+    public void MenuInputMapHasKeyboardAndGamepadParity()
+    {
+        var controls = Resources.Load<InputActionAsset>("Input/GmControls");
+        Assert.IsNotNull(controls, "Resources/Input/GmControls.inputactions is missing");
+        InputActionMap input = controls.FindActionMap("Menu");
+        Assert.IsNotNull(input, "GmControls has no Menu action map");
+
+        AssertBindings(input, "Navigate", "<Keyboard>/w", "<Keyboard>/a", "<Keyboard>/s",
+            "<Keyboard>/d", "<Keyboard>/upArrow", "<Keyboard>/leftArrow", "<Keyboard>/downArrow",
+            "<Keyboard>/rightArrow", "<Gamepad>/dpad", "<Gamepad>/leftStick");
+        AssertBindings(input, "Submit", "<Keyboard>/enter", "<Keyboard>/space", "<Gamepad>/buttonSouth");
+        AssertBindings(input, "Cancel", "<Keyboard>/escape", "<Gamepad>/buttonEast");
+        AssertBindings(input, "Quit", "<Keyboard>/q", "<Gamepad>/buttonNorth");
+    }
+
+    static void AssertBindings(InputActionMap map, string actionName, params string[] requiredPaths)
+    {
+        InputAction action = map.FindAction(actionName);
+        Assert.IsNotNull(action, $"Menu/{actionName} is missing");
+        string[] actual = action.bindings.Select(binding => binding.effectivePath).ToArray();
+        foreach (string path in requiredPaths)
+            CollectionAssert.Contains(actual, path, $"Menu/{actionName} has no {path} binding");
+    }
+
+    static void ResetAccessibilityToColdDefaults()
+    {
+        typeof(GmRunStore).Assembly.GetType("GmAccessibilitySettings")?.GetMethod(
+            "ResetToDefaultsForTests", System.Reflection.BindingFlags.Public |
+            System.Reflection.BindingFlags.NonPublic |
+            System.Reflection.BindingFlags.Static)?.Invoke(null, null);
     }
 
     static VisualElement BuildUi(GmBootMenu target)

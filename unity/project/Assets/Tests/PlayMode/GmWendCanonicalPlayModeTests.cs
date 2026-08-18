@@ -49,7 +49,7 @@ public sealed class GmWendCanonicalPlayModeTests
         Assert.AreEqual(13, anchors.Count(anchor => anchor.name.StartsWith("POI_")));
         Assert.IsNotNull(GameObject.Find("WakeRoom/WakePose"));
         Assert.IsNotNull(FindBehaviour("GmMansionIdentity"));
-        Assert.AreEqual(8, Property<int>(FindBehaviour("GmWendStoryTour"), "ShotCount"));
+        Assert.AreEqual(10, Property<int>(FindBehaviour("GmWendStoryTour"), "ShotCount"));
         yield return null;
     }
 

@@ -225,6 +225,7 @@ public static class GmWendBuilder
 
         var controls = player.AddComponent<GmPlayer>();
         controls.walkSpeed = WalkSpeed;
+        player.AddComponent<GmPauseMenu>();
         return spawn;
     }
 

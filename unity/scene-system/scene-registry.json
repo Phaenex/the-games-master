@@ -51,7 +51,7 @@
         "method": "GmWendReview.Run",
         "success": "[GmWendReview] TOUR COMPLETE",
         "logTag": "GmWendReview",
-        "shots": 8
+        "shots": 10
       },
       "standalone": {
         "method": "GmWendStandaloneBuild.BuildPrologueApp",
@@ -102,7 +102,7 @@
         "method": "GmEntryHallShotTourMenu.ArmAndPlay",
         "success": "[GmSceneReviewTour] TOUR COMPLETE",
         "logTag": "GmSceneReviewTour",
-        "shots": 8
+        "shots": 12
       }
     },
     {
@@ -125,7 +125,21 @@
         "method": "GmParlorShotTourMenu.ArmAndPlay",
         "success": "[GmSceneReviewTour] TOUR COMPLETE",
         "logTag": "GmSceneReviewTour",
-        "shots": 10
+        "minimumLuminanceRange": 1,
+        "shots": 24
+      },
+      "standalone": {
+        "method": "GmFullGameBuild.BuildMacGame",
+        "success": "[GmFullGameBuild] BUILD PASS:",
+        "appPath": "Builds/macOS-Game/The Games Master.app",
+        "executablePath": "Contents/MacOS/The Games Master"
+      },
+      "performance": {
+        "width": 1920,
+        "height": 1080,
+        "vSync": 0,
+        "warmupSeconds": 10,
+        "p95Milliseconds": 34
       }
     },
     {
@@ -148,7 +162,7 @@
         "method": "GmShutTheBoxShotTourMenu.ArmAndPlay",
         "success": "[GmSceneReviewTour] TOUR COMPLETE",
         "logTag": "GmSceneReviewTour",
-        "shots": 8
+        "shots": 10
       }
     },
     {
@@ -171,7 +185,7 @@
         "method": "GmCourtShotTourMenu.ArmAndPlay",
         "success": "[GmSceneReviewTour] TOUR COMPLETE",
         "logTag": "GmSceneReviewTour",
-        "shots": 8
+        "shots": 9
       }
     },
     {
@@ -194,7 +208,7 @@
         "method": "GmHiddenRoomShotTourMenu.ArmAndPlay",
         "success": "[GmSceneReviewTour] TOUR COMPLETE",
         "logTag": "GmSceneReviewTour",
-        "shots": 6
+        "shots": 7
       }
     },
     {

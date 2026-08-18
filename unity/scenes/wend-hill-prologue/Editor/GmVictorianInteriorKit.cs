@@ -149,6 +149,18 @@ public static class GmVictorianInteriorKit
         return PlacePrefab(prefab, VisualPrefix + objectName, parent, targetCenter, targetSize, worldRotation, material);
     }
 
+    public static GameObject PlaceGrounded(string modelName, string objectName, Transform parent,
+        Vector3 targetCenter, Vector3 targetSize, Quaternion worldRotation, string materialFamily,
+        float surfaceY = 0f, Color? tintOverride = null)
+    {
+        GameObject instance = Place(modelName, objectName, parent, targetCenter, targetSize,
+            worldRotation, materialFamily, tintOverride);
+        if (!TryBounds(instance, out Bounds bounds)) return instance;
+
+        instance.transform.position += Vector3.up * (surfaceY - bounds.min.y);
+        return instance;
+    }
+
     public static GameObject PlaceWithMaterial(string assetPath, string objectName, Transform parent,
         Vector3 targetCenter, Vector3 targetSize, Quaternion worldRotation, Material material)
     {

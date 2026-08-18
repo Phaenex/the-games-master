@@ -61,8 +61,8 @@ public sealed class GmHouseBeginning : MonoBehaviour, IGmInteractionReceiver
     };
 
     readonly HashSet<string> portraitIds = new HashSet<string>();
-    readonly List<GmParlorCard> playerHand = new List<GmParlorCard>();
-    readonly List<GmParlorCard> aldricHand = new List<GmParlorCard>();
+    readonly List<GmCard> playerHand = new List<GmCard>();
+    readonly List<GmCard> aldricHand = new List<GmCard>();
 
     GmHouseProgress progress;
     GmPlayer player;
@@ -84,18 +84,18 @@ public sealed class GmHouseBeginning : MonoBehaviour, IGmInteractionReceiver
     bool bonesReturned;
     bool currentCheat;
     string currentTell = "";
-    GmParlorCard? leadCard;
-    GmParlorCard? playerCard;
-    GmParlorCard? aldricCard;
+    GmCard? leadCard;
+    GmCard? playerCard;
+    GmCard? aldricCard;
 
     public GmHousePhase Phase { get; private set; } = GmHousePhase.WaitingForCrossing;
     public GmParlorTurnPhase TurnPhase { get; private set; }
     public GmHouseProgress Progress => progress;
-    public IReadOnlyList<GmParlorCard> PlayerHand => playerHand;
-    public IReadOnlyList<GmParlorCard> AldricHand => aldricHand;
-    public GmParlorCard? LeadCard => leadCard;
-    public GmParlorCard? PlayerCard => playerCard;
-    public GmParlorCard? AldricCard => aldricCard;
+    public IReadOnlyList<GmCard> PlayerHand => playerHand;
+    public IReadOnlyList<GmCard> AldricHand => aldricHand;
+    public GmCard? LeadCard => leadCard;
+    public GmCard? PlayerCard => playerCard;
+    public GmCard? AldricCard => aldricCard;
     public int PortraitsRead => portraitIds.Count;
     public int RoundNumber => roundNumber;
     public int TrickNumber => trickNumber;
@@ -351,29 +351,31 @@ public sealed class GmHouseBeginning : MonoBehaviour, IGmInteractionReceiver
             // cheat over a legal winner; the same pure rules method decides all three responses.
             playerHand.AddRange(new[]
             {
-                new GmParlorCard(GmCardSuit.Flames, 1),
-                new GmParlorCard(GmCardSuit.Eyes, 5), new GmParlorCard(GmCardSuit.Eyes, 7),
-                new GmParlorCard(GmCardSuit.Teeth, 5), new GmParlorCard(GmCardSuit.Teeth, 7),
-                new GmParlorCard(GmCardSuit.Bones, 5), new GmParlorCard(GmCardSuit.Bones, 7),
+                new GmCard(GmSuit.Flames, 1),
+                new GmCard(GmSuit.Eyes, 5), new GmCard(GmSuit.Eyes, 7),
+                new GmCard(GmSuit.Teeth, 5), new GmCard(GmSuit.Teeth, 7),
+                new GmCard(GmSuit.Bones, 5), new GmCard(GmSuit.Bones, 7),
             });
             aldricHand.AddRange(new[]
             {
-                new GmParlorCard(GmCardSuit.Eyes, 1), new GmParlorCard(GmCardSuit.Eyes, 2),
-                new GmParlorCard(GmCardSuit.Eyes, 3), new GmParlorCard(GmCardSuit.Teeth, 1),
-                new GmParlorCard(GmCardSuit.Teeth, 2), new GmParlorCard(GmCardSuit.Bones, 1),
-                new GmParlorCard(GmCardSuit.Bones, 2),
+                new GmCard(GmSuit.Eyes, 1), new GmCard(GmSuit.Eyes, 2),
+                new GmCard(GmSuit.Eyes, 3), new GmCard(GmSuit.Teeth, 1),
+                new GmCard(GmSuit.Teeth, 2), new GmCard(GmSuit.Bones, 1),
+                new GmCard(GmSuit.Bones, 2),
             });
         }
         else
         {
-            List<GmParlorCard> deck = GmWendParlorRules.ShuffledDeck(41009 + roundNumber * 97);
-            for (int i = 0; i < GmWendParlorRules.HandSize; i++)
+            List<GmCard> deck = GmParlorCore.ShuffledDeck(41009 + roundNumber * 97);
+            for (int i = 0; i < GmParlorCore.HandSize; i++)
             {
                 playerHand.Add(deck[i * 2]);
                 aldricHand.Add(deck[i * 2 + 1]);
             }
         }
-        playerHand.Sort((a, b) => a.Suit != b.Suit ? a.Suit.CompareTo(b.Suit) : a.Rank.CompareTo(b.Rank));
+        playerHand.Sort((a, b) => a.Suit != b.Suit
+            ? TableSuitOrder(a.Suit).CompareTo(TableSuitOrder(b.Suit))
+            : a.Rank.CompareTo(b.Rank));
         TurnPhase = GmParlorTurnPhase.ChooseCard;
         SetupTrick();
     }
@@ -389,11 +391,11 @@ public sealed class GmHouseBeginning : MonoBehaviour, IGmInteractionReceiver
         RevealedCard = "";
         if (!playerLeads)
         {
-            int choice = GmWendParlorRules.ChooseAldricLead(aldricHand);
+            int choice = GmParlorCore.ChooseAldricLead(aldricHand);
             aldricCard = aldricHand[choice];
             leadCard = aldricCard;
             aldricHand.RemoveAt(choice);
-            TableMessage = $"Aldric leads {aldricCard.Value.ShortName}. Follow {aldricCard.Value.Suit} if you can.";
+            TableMessage = $"Aldric leads {aldricCard.Value.TableLabel}. Follow {aldricCard.Value.Suit} if you can.";
         }
         else TableMessage = "Your lead. Choose a card.";
         TurnPhase = GmParlorTurnPhase.ChooseCard;
@@ -404,7 +406,7 @@ public sealed class GmHouseBeginning : MonoBehaviour, IGmInteractionReceiver
     {
         if (Phase != GmHousePhase.ParlorGame || TurnPhase != GmParlorTurnPhase.ChooseCard ||
             index < 0 || index >= playerHand.Count) return false;
-        if (!GmWendParlorRules.IsLegal(playerHand, index, leadCard))
+        if (!GmParlorCore.IsLegal(playerHand, index, leadCard))
         {
             TableMessage = $"You must follow {leadCard.Value.Suit} while you hold it.";
             TouchUi();
@@ -416,7 +418,8 @@ public sealed class GmHouseBeginning : MonoBehaviour, IGmInteractionReceiver
         if (playerLeads)
         {
             leadCard = playerCard;
-            GmAldricPlay response = GmWendParlorRules.ChooseAldricFollow(aldricHand, playerCard.Value, true);
+            GmAldricPlay response = GmParlorCore.ChooseAldricFollow(
+                aldricHand, playerCard.Value, true, GmAldricFollowPolicy.HouseFirstHeldFlame);
             aldricCard = response.Card;
             aldricHand.RemoveAt(response.RemovedIndex);
             currentCheat = response.Cheated;
@@ -424,7 +427,7 @@ public sealed class GmHouseBeginning : MonoBehaviour, IGmInteractionReceiver
         }
         TableMessage = currentCheat && ReadUnlocked
             ? "The cards disagree with themselves. Allow the trick—or Read Aldric's hand."
-            : $"You played {playerCard.Value.ShortName}. Aldric played {aldricCard.Value.ShortName}.";
+            : $"You played {playerCard.Value.TableLabel}. Aldric played {aldricCard.Value.TableLabel}.";
         TurnPhase = GmParlorTurnPhase.JudgePlay;
         TouchUi();
         return true;
@@ -463,15 +466,18 @@ public sealed class GmHouseBeginning : MonoBehaviour, IGmInteractionReceiver
         if (!playerCard.HasValue || !aldricCard.HasValue) return;
         GmTrickOwner winner;
         if (caught) winner = GmTrickOwner.Player;
-        else if (playerLeads) winner = GmWendParlorRules.Winner(playerCard.Value, aldricCard.Value);
-        else winner = GmWendParlorRules.Winner(aldricCard.Value, playerCard.Value) == GmTrickOwner.Player
-            ? GmTrickOwner.Aldric : GmTrickOwner.Player;
+        else if (playerLeads)
+            winner = GmParlorCore.LeadWins(playerCard.Value, aldricCard.Value)
+                ? GmTrickOwner.Player : GmTrickOwner.Aldric;
+        else
+            winner = GmParlorCore.LeadWins(aldricCard.Value, playerCard.Value)
+                ? GmTrickOwner.Aldric : GmTrickOwner.Player;
 
-        if (playerCard.Value.Suit == GmCardSuit.Eyes && aldricHand.Count > 0)
-            RevealedCard = $"EYES: the edge of {aldricHand[0].ShortName} shows in Aldric's hand.";
-        if (winner == GmTrickOwner.Player && playerCard.Value.Suit == GmCardSuit.Teeth && aldricHand.Count > 0)
-            RevealedCard = $"TEETH: Aldric must expose {aldricHand[aldricHand.Count - 1].ShortName}.";
-        if (winner == GmTrickOwner.Aldric && playerCard.Value.Suit == GmCardSuit.Bones && !bonesReturned)
+        if (playerCard.Value.Suit == GmSuit.Eyes && aldricHand.Count > 0)
+            RevealedCard = $"EYES: the edge of {aldricHand[0].TableLabel} shows in Aldric's hand.";
+        if (winner == GmTrickOwner.Player && playerCard.Value.Suit == GmSuit.Teeth && aldricHand.Count > 0)
+            RevealedCard = $"TEETH: Aldric must expose {aldricHand[aldricHand.Count - 1].TableLabel}.";
+        if (winner == GmTrickOwner.Aldric && playerCard.Value.Suit == GmSuit.Bones && !bonesReturned)
         {
             bonesReturned = true;
             playerHand.Add(playerCard.Value);
@@ -559,8 +565,19 @@ public sealed class GmHouseBeginning : MonoBehaviour, IGmInteractionReceiver
     public bool ReviewPlayFirstLegalCard()
     {
         if (TurnPhase != GmParlorTurnPhase.ChooseCard) return false;
-        for (int i = 0; i < playerHand.Count; i++) if (GmWendParlorRules.IsLegal(playerHand, i, leadCard)) return SelectCard(i);
+        for (int i = 0; i < playerHand.Count; i++) if (GmParlorCore.IsLegal(playerHand, i, leadCard)) return SelectCard(i);
         return false;
+    }
+
+    static int TableSuitOrder(GmSuit suit)
+    {
+        return suit switch
+        {
+            GmSuit.Flames => 0,
+            GmSuit.Eyes => 1,
+            GmSuit.Teeth => 2,
+            _ => 3,
+        };
     }
 
     void TouchUi() => UiRevision++;

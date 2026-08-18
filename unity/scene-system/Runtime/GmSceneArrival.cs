@@ -44,9 +44,12 @@ public sealed class GmSceneArrival : MonoBehaviour
 
         yield return curtain.Open(irisSeconds);
 
-        curtain.ShowCard(closingCard);
-        yield return new WaitForSeconds(cardSeconds);
-        curtain.ShowCard("");
+        if (!string.IsNullOrWhiteSpace(closingCard))
+        {
+            curtain.ShowCard(closingCard);
+            yield return new WaitForSeconds(cardSeconds);
+            curtain.ShowCard("");
+        }
 
         if (player != null) player.SetControlBlocked(false);
         HasArrived = true;

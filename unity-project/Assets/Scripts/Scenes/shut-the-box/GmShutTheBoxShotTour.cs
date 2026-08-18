@@ -17,10 +17,27 @@ public sealed class GmShutTheBoxShotTour : GmSceneReviewTour
         new GmReviewShot("05-tile9-door-seam", new Vector3(1.0f, 1.4f, 0f), 90f, 8f),
         new GmReviewShot("06-hold-verb-framing", new Vector3(0f, 1.1f, -1.3f), 0f, 15f),
         new GmReviewShot("07-alcove-mood", new Vector3(-1.4f, 1.6f, -1.5f), 30f, 0f),
-        new GmReviewShot("08-room-wide", new Vector3(-2.5f, 1.8f, -2.5f), 45f, 15f)
+        new GmReviewShot("08-room-wide", new Vector3(-2.5f, 1.8f, -2.5f), 45f, 15f),
+        new GmReviewShot("09-hidden-passage-open", new Vector3(1.0f, 1.4f, 0f), 90f, 8f),
+        new GmReviewShot("10-labyrinth-passage-open", new Vector3(0f, 2.4f, -1.1f), 180f, 23f)
     };
 
     protected override IReadOnlyList<GmReviewShot> ReviewShots => Shots;
+
+    protected override void BeforeTour() => GmRunStore.BeginNewRun();
+
+    protected override void BeforeShot(GmReviewShot shot)
+    {
+        if (shot.Name == "09-hidden-passage-open")
+            GmRunStore.RecordCatch("stb-tile-9-door-latch");
+        else if (shot.Name == "10-labyrinth-passage-open")
+            GmRunStore.CompleteRoom("shut-the-box", countsAsTableGame: true);
+        else return;
+
+        foreach (var exit in FindObjectsByType<GmSequenceExit>(FindObjectsInactive.Include,
+                     FindObjectsSortMode.None))
+            exit.SnapOpenForReview();
+    }
 }
 
 #if UNITY_EDITOR

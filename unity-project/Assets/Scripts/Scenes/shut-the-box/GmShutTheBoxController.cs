@@ -13,6 +13,14 @@ public enum GmShutBoxPhase
     SecretDoorOpened
 }
 
+public enum GmShutBoxOutcome
+{
+    None,
+    PlayerWon,
+    HostWon,
+    Draw
+}
+
 public sealed class GmShutTheBoxController : MonoBehaviour
 {
     public ShutBoxState PlayerBoard { get; private set; }
@@ -23,10 +31,12 @@ public sealed class GmShutTheBoxController : MonoBehaviour
     public int DiceSum => Die1 + Die2;
 
     public GmShutBoxPhase Phase { get; private set; } = GmShutBoxPhase.NotStarted;
+    public GmShutBoxOutcome Outcome { get; private set; } = GmShutBoxOutcome.None;
     public bool SecretDoorUnlocked { get; private set; } = false;
 
     public event Action OnStateChanged;
     public event Action<string> OnSecretDoorTriggered;
+    public event Action<GmShutBoxOutcome> OnGameCompleted;
 
     void Awake()
     {
@@ -38,6 +48,7 @@ public sealed class GmShutTheBoxController : MonoBehaviour
         PlayerBoard = ShutBoxRules.FreshBox();
         HostBoard = ShutBoxRules.FreshBox();
         Phase = GmShutBoxPhase.PlayerRolling;
+        Outcome = GmShutBoxOutcome.None;
         SecretDoorUnlocked = false;
         OnStateChanged?.Invoke();
     }
@@ -52,7 +63,20 @@ public sealed class GmShutTheBoxController : MonoBehaviour
 
         if (Phase == GmShutBoxPhase.PlayerRolling)
         {
-            Phase = GmShutBoxPhase.PlayerSelecting;
+            if (ShutBoxRules.LegalMoves(PlayerBoard, DiceSum).Count == 0)
+            {
+                ShutBoxRules.LockBox(PlayerBoard);
+                Phase = GmShutBoxPhase.HostTurn;
+                FinishIfResolved();
+            }
+            else
+            {
+                Phase = GmShutBoxPhase.PlayerSelecting;
+            }
+        }
+        else
+        {
+            PlayHostRoll();
         }
 
         OnStateChanged?.Invoke();
@@ -70,7 +94,8 @@ public sealed class GmShutTheBoxController : MonoBehaviour
         {
             if (PlayerBoard.Sum == 0)
             {
-                Phase = GmShutBoxPhase.GameOver;
+                ShutBoxRules.LockBox(PlayerBoard);
+                FinishMatch();
             }
             else
             {
@@ -80,6 +105,81 @@ public sealed class GmShutTheBoxController : MonoBehaviour
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Voluntary stop before the player's next roll. Once dice are on the table the player must
+    /// resolve that roll or be stuck; banking after seeing it would erase the press-your-luck rule.
+    /// </summary>
+    public bool BankPlayerBox()
+    {
+        if (Phase != GmShutBoxPhase.PlayerRolling || PlayerBoard.Locked) return false;
+        ShutBoxRules.LockBox(PlayerBoard);
+        Phase = GmShutBoxPhase.HostTurn;
+        FinishIfResolved();
+        OnStateChanged?.Invoke();
+        return true;
+    }
+
+    /// <summary>Host-side stop, public so input/dev drivers and deterministic tests use one rule.</summary>
+    public bool BankHostBox()
+    {
+        if (Phase != GmShutBoxPhase.HostTurn || HostBoard.Locked) return false;
+        ShutBoxRules.LockBox(HostBoard);
+        FinishIfResolved();
+        if (Phase != GmShutBoxPhase.GameOver)
+            Phase = PlayerBoard.Locked ? GmShutBoxPhase.HostTurn : GmShutBoxPhase.PlayerRolling;
+        OnStateChanged?.Invoke();
+        return true;
+    }
+
+    void PlayHostRoll()
+    {
+        // Once the player's box is locked, Aldric banks a guaranteed lower score instead of taking
+        // a meaningless risk. Equal is not a guaranteed win, so he keeps rolling on a tie.
+        if (PlayerBoard.Locked && HostBoard.Sum < PlayerBoard.Sum)
+        {
+            BankHostBox();
+            return;
+        }
+
+        int[] move = ShutBoxRules.PickLegalMove(HostBoard, DiceSum);
+        if (move == null)
+        {
+            ShutBoxRules.LockBox(HostBoard);
+            FinishIfResolved();
+        }
+        else
+        {
+            ShutBoxRules.ApplyMove(HostBoard, move);
+            if (HostBoard.Sum == 0)
+            {
+                ShutBoxRules.LockBox(HostBoard);
+                FinishMatch();
+            }
+        }
+
+        if (Phase == GmShutBoxPhase.GameOver) return;
+        Phase = PlayerBoard.Locked ? GmShutBoxPhase.HostTurn : GmShutBoxPhase.PlayerRolling;
+    }
+
+    void FinishIfResolved()
+    {
+        if ((PlayerBoard.Locked && HostBoard.Locked) || PlayerBoard.Sum == 0 || HostBoard.Sum == 0)
+            FinishMatch();
+    }
+
+    void FinishMatch()
+    {
+        if (Phase == GmShutBoxPhase.GameOver) return;
+        Outcome = PlayerBoard.Sum < HostBoard.Sum ? GmShutBoxOutcome.PlayerWon
+            : HostBoard.Sum < PlayerBoard.Sum ? GmShutBoxOutcome.HostWon
+            : GmShutBoxOutcome.Draw;
+        Phase = GmShutBoxPhase.GameOver;
+        GmRunStore.CompleteRoom("shut-the-box", countsAsTableGame: true);
+        OnGameCompleted?.Invoke(Outcome);
+        Debug.Log($"[GmShutTheBoxController] MATCH COMPLETE: {Outcome} " +
+                  $"(player {PlayerBoard.Sum}, host {HostBoard.Sum})");
     }
 
     /// <summary>
@@ -97,7 +197,6 @@ public sealed class GmShutTheBoxController : MonoBehaviour
         if (result.OpensHiddenDoor)
         {
             SecretDoorUnlocked = true;
-            Phase = GmShutBoxPhase.SecretDoorOpened;
             GmRunStore.RecordCatch("stb-tile-9-door-latch");
             OnSecretDoorTriggered?.Invoke("Phase 6 Hidden Room unlocked via Tile 9");
             Debug.Log("[GmShutBoxController] TILE 9 HOLD TRIGGERED: Secret Panel Door Unlatched!");

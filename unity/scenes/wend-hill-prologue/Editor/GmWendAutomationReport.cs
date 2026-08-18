@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -13,6 +14,7 @@ using UnityEngine;
 public static class GmWendAutomationReport
 {
     public const string ReportFileName = "wend-hill-audit.json";
+    static readonly MethodInfo IntersectRayMeshMethod = FindIntersectRayMeshMethod();
 
     public static GmSceneAuditReport BuildReport(IReadOnlyList<string> failures, string fingerprint)
     {
@@ -334,6 +336,159 @@ public static class GmWendAutomationReport
         Debug.Log($"[GmWendEnvironment] SURFACES\n{output}");
         Debug.Log("[GmWendEnvironment] PASS: terrain coverage and nearby cliff materials reported");
         EditorApplication.Exit(0);
+    }
+
+    /// Read-only geometry interrogation for the canonical arrival shot. The composition contract
+    /// can prove that the car's bounds intersect the camera frustum while still missing a renderer
+    /// wrapped around the camera or blocking nearly the entire image. Report the saved objects and
+    /// collision ray before moving another authored coordinate by eye.
+    public static void ReportArrivalShotGeometry()
+    {
+        EditorSceneManager.OpenScene(GmWendBuilder.ScenePath, OpenSceneMode.Single);
+        GmRouteSpline route = UnityEngine.Object.FindAnyObjectByType<GmRouteSpline>();
+        GmWorldAnchor carAnchor = GmWorldAnchor.Find("arrival-car");
+        GameObject car = GameObject.Find($"{GmWendOpening.RootName}/ArrivalCar");
+        if (route == null || carAnchor == null || car == null)
+            throw new InvalidOperationException("arrival geometry report needs route, anchor and ArrivalCar");
+
+        Renderer[] carRenderers = car.GetComponentsInChildren<Renderer>(true)
+            .Where(renderer => renderer.GetComponentInParent<Light>() == null)
+            .ToArray();
+        if (carRenderers.Length == 0)
+            throw new InvalidOperationException("ArrivalCar has no renderer bounds to report");
+        Bounds carBounds = carRenderers[0].bounds;
+        foreach (Renderer renderer in carRenderers.Skip(1)) carBounds.Encapsulate(renderer.bounds);
+
+        Vector3 routeStart = route.PointAt(0f);
+        Vector3 right = Vector3.Cross(Vector3.up, route.TangentAt(0f)).normalized;
+        var candidates = new Dictionary<string, Vector3> {
+            ["route-20"] = route.PointAt(20f),
+            ["route-8"] = route.PointAt(8f),
+            ["route0-right3.5"] = routeStart + right * 3.5f,
+            ["route0-right-8"] = routeStart - right * 8f,
+            ["car-forward8"] = carBounds.center + route.TangentAt(0f).normalized * 8f,
+        };
+        Terrain terrain = Terrain.activeTerrain;
+        Renderer[] renderers = UnityEngine.Object.FindObjectsByType<Renderer>(FindObjectsInactive.Exclude,
+                FindObjectsSortMode.None)
+            .Where(renderer => renderer.enabled)
+            .ToArray();
+        var output = new StringBuilder();
+        output.AppendLine($"mesh-ray method={IntersectRayMeshMethod?.DeclaringType?.FullName}." +
+                          $"{IntersectRayMeshMethod?.Name ?? "missing"}");
+        output.AppendLine($"route0={routeStart} tangent={route.TangentAt(0f)} right={right}");
+        output.AppendLine($"car anchor={carAnchor.transform.position} boundsCenter={carBounds.center} " +
+                          $"boundsSize={carBounds.size}");
+        foreach (Renderer renderer in carRenderers.OrderBy(renderer => HierarchyPath(renderer.transform),
+                     StringComparer.Ordinal))
+            output.AppendLine($"car-renderer '{HierarchyPath(renderer.transform)}' center=" +
+                              $"{renderer.bounds.center} size={renderer.bounds.size} " +
+                              $"materials=[{string.Join(",", renderer.sharedMaterials.Select(material => material?.name))}]");
+        GameObject carPrefab = GmVillageEstate.FindPrefab("RealisticCar03_HD_Exterior_LOD0");
+        if (carPrefab != null)
+        {
+            output.AppendLine($"car-prefab rootEuler={carPrefab.transform.localEulerAngles} " +
+                              $"rootRotation={carPrefab.transform.localRotation} scale={carPrefab.transform.localScale}");
+            GameObject probe = (GameObject)PrefabUtility.InstantiatePrefab(carPrefab);
+            probe.name = "ArrivalCarOrientationProbe";
+            foreach (Renderer renderer in probe.GetComponentsInChildren<Renderer>(true)
+                         .Where(renderer => renderer.name.IndexOf("Body_LOD0", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                             renderer.name.IndexOf("Wheel", StringComparison.OrdinalIgnoreCase) >= 0)
+                         .OrderBy(renderer => renderer.name, StringComparer.Ordinal))
+                output.AppendLine($"car-prefab-renderer '{renderer.name}' center={renderer.bounds.center} " +
+                                  $"size={renderer.bounds.size}");
+            UnityEngine.Object.DestroyImmediate(probe);
+        }
+        foreach (Collider collider in UnityEngine.Object.FindObjectsByType<Collider>(
+                     FindObjectsInactive.Include, FindObjectsSortMode.None)
+                 .Where(collider => HierarchyPath(collider.transform).IndexOf("cliff",
+                     StringComparison.OrdinalIgnoreCase) >= 0 ||
+                     HierarchyPath(collider.transform).IndexOf("canyon",
+                     StringComparison.OrdinalIgnoreCase) >= 0 ||
+                     HierarchyPath(collider.transform).IndexOf("hill",
+                     StringComparison.OrdinalIgnoreCase) >= 0))
+        {
+            string hierarchy = HierarchyPath(collider.transform);
+            Renderer[] owned = GmWendPerformance.RenderersOwnedByBlocker(collider);
+            output.AppendLine($"blocker '{hierarchy}' enabled={collider.enabled} " +
+                              $"token={GmWendPerformance.IsFalseRouteObstacleHierarchy(hierarchy)} " +
+                              $"intersects={GmWendPerformance.IntersectsRouteCapsule(collider.bounds, route)} " +
+                              $"bounds={collider.bounds} owned={owned.Length} " +
+                              $"ownedEnabled={owned.Count(renderer => renderer != null && renderer.enabled)}");
+        }
+        foreach (var candidate in candidates)
+        {
+            Vector3 camera = candidate.Value;
+            if (terrain != null)
+                camera.y = terrain.SampleHeight(camera) + terrain.transform.position.y + 1.7f;
+            Vector3 delta = carBounds.center - camera;
+            string hitName = "clear";
+            if (Physics.Raycast(camera, delta.normalized, out RaycastHit hit, delta.magnitude))
+                hitName = $"{HierarchyPath(hit.collider.transform)} at {hit.distance:0.00}m";
+            string enclosing = string.Join(" | ", renderers
+                .Where(renderer => renderer.bounds.Contains(camera))
+                .Take(8)
+                .Select(renderer => $"{HierarchyPath(renderer.transform)} " +
+                    $"size={renderer.bounds.size} material={renderer.sharedMaterial?.name}"));
+            string nearest = string.Join(" | ", renderers
+                .OrderBy(renderer => renderer.bounds.SqrDistance(camera))
+                .Take(5)
+                .Select(renderer => $"{HierarchyPath(renderer.transform)} " +
+                    $"distance={Mathf.Sqrt(renderer.bounds.SqrDistance(camera)):0.00}m"));
+            string meshHits = string.Join(" | ", ExactMeshHits(camera, carBounds.center, car.transform)
+                .Take(8)
+                .Select(candidateHit => $"{candidateHit.path} at {candidateHit.distance:0.00}m"));
+            output.AppendLine($"{candidate.Key}: camera={camera} carDistance={delta.magnitude:0.00}m " +
+                              $"ray={hitName}\n  meshRay=[{meshHits}]\n  enclosing=[{enclosing}]\n  nearest=[{nearest}]");
+        }
+
+        Debug.Log($"[GmWendArrivalGeometry] REPORT\n{output}");
+        EditorApplication.Exit(0);
+    }
+
+    static IEnumerable<(string path, float distance)> ExactMeshHits(Vector3 origin, Vector3 target,
+        Transform subject)
+    {
+        Vector3 delta = target - origin;
+        if (delta.sqrMagnitude < 0.0001f) yield break;
+        Ray ray = new Ray(origin, delta.normalized);
+        var hits = new List<(string path, float distance)>();
+        foreach (MeshFilter filter in UnityEngine.Object.FindObjectsByType<MeshFilter>(
+                     FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+        {
+            Renderer renderer = filter.GetComponent<Renderer>();
+            if (renderer == null || !renderer.enabled || filter.sharedMesh == null ||
+                filter.transform.IsChildOf(subject)) continue;
+            if (!renderer.bounds.IntersectRay(ray)) continue;
+            if (!TryIntersectRayMesh(ray, filter.sharedMesh, filter.transform.localToWorldMatrix,
+                    out RaycastHit hit)) continue;
+            if (hit.distance <= 0.001f || hit.distance >= delta.magnitude) continue;
+            hits.Add((HierarchyPath(filter.transform), hit.distance));
+        }
+        foreach (var hit in hits.OrderBy(candidate => candidate.distance)) yield return hit;
+    }
+
+    static bool TryIntersectRayMesh(Ray ray, Mesh mesh, Matrix4x4 matrix, out RaycastHit hit)
+    {
+        hit = default;
+        if (IntersectRayMeshMethod == null) return false;
+        object[] arguments = { ray, mesh, matrix, hit };
+        bool intersected = (bool)IntersectRayMeshMethod.Invoke(null, arguments);
+        if (intersected) hit = (RaycastHit)arguments[3];
+        return intersected;
+    }
+
+    static MethodInfo FindIntersectRayMeshMethod()
+    {
+        foreach (Type type in typeof(HandleUtility).Assembly.GetTypes())
+        {
+            MethodInfo method = type.GetMethods(BindingFlags.Static | BindingFlags.Public |
+                                                BindingFlags.NonPublic)
+                .FirstOrDefault(candidate => candidate.Name == "IntersectRayMesh" &&
+                    candidate.GetParameters().Length == 4);
+            if (method != null) return method;
+        }
+        return null;
     }
 
     static string HierarchyPath(Transform transform)

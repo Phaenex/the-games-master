@@ -7,6 +7,11 @@
 > Established 2026-08-03. Ordered by **dependency**, not by phase number — see "Why this order".
 > Delivery bars live here and in `STEAM-TRACKER.md`; this file carries the task-level detail.
 
+> **Current authority, 2026-08-17:** this chat and `docs/HANDOFF-2026-08-17.md`. Active queue is
+> Hub Session 2 (North Library closeout), then Sessions 3–6, then Parlor shipping proof. Lane A's
+> human gates and the five missing table games remain. The 08-16 handoff is the last full opening-gate
+> pack, not the current house-content inventory.
+
 ## How to read and update this
 
 - Bars are 20 chars, weighted delivery estimates, **not** test scores.
@@ -16,10 +21,10 @@
 - Status: `TODO` · `WIP` · `RED` (built but failing) · `DONE` · `NICK` (human gate, agent cannot clear)
 
 ```
-Overall (Unity/Steam)   [████░░░░░░░░░░░░░░░░]  19%
+Overall (Unity/Steam)   [██████░░░░░░░░░░░░░░]  scene spine and opening proof complete; game content remains
 ```
 
-## Why this order (three deliberate departures from phase numbering)
+## Why this order (four deliberate departures from phase numbering)
 
 1. **Shared state (`cheatsCaught`) moves ahead of all three games.** STEAM-TRACKER §Phase 5 says it
    outright: *"until `cheatsCaught` is shared state, Court's and Shut the Box's catches cannot count
@@ -44,20 +49,20 @@ Overall (Unity/Steam)   [████░░░░░░░░░░░░░░�
 ## LANE G — Physical/logic integrity audit (2026-08-13, BLOCKING, top priority)
 
 ```
-Gate defect confirmed          [██████████████████░░]  90%  fix built into the scene, approach never chosen
+Gate defect confirmed          [████████████████████] 100%  DONE — rebuilt and adversarially proven
 Sweep for sibling defects       [████████████████████] 100%  DONE 2026-08-15 — found worse than the gate
-G0 house collision              [░░░░░░░░░░░░░░░░░░░░]   0%  NICK — canon-critical, blocks everything
+G0 house collision              [████████████████████] 100%  DONE — authored shell rebuilt and proven
 ```
 
 | # | Task | Status | TEST |
 |---|---|---|---|
-| **G0** | **THE ESTATE HOUSE HAS NO COLLISION AT ALL — walk through the front wall, the interior, and out the back.** Not the doors; the whole building. Verified three ways: `haunted_victorian_house.fbx.meta:94` is `addColliders: 0` (as are all 9 owned FBX); nothing anywhere adds a collider to the manor (the ones in `GmHouseBeginningBuilder.cs` build the separate interior pocket at z≈358-402); and `GmWendOpening.BuildManor`'s footprint loop actively **disables** any collider it finds there. `GmMansion.SealTheDoors()` is `r.enabled = false` — it hides a renderer, it does not seal. Destroys Threshold Refusal: `GmThreshold` still prints "The doors did not open" from route projection while the player stands inside the house. Three fixes with different costs (flip `addColliders`; author a collision shell — recommended; single porch blocking volume) — see `docs/NICK-NEEDED.md`. | **NICK** to pick the approach | adversarial bypass sweep at the porch face must fail to penetrate |
-| **G0b** | **Fix the asymmetry that produces this defect class.** `GmWendPerformance` has three passes that delete/disable colliders by name token ("wall", "door", "house", "building", "fence"), and `GmWendSceneContract.cs:249-252` fails the build if purchased doorway colliders still seal the route — hard automated pressure to REMOVE collision, with no counterpart check anywhere asserting anything is still solid. Add the missing counterpart: named barriers must be provably solid. | TODO (after G0's approach is chosen) | a contract assertion that each named barrier stops a CharacterController |
-| G1 | ~~Audit every "locked/blocked/closed" narrative beat for matching physical enforcement~~ **DONE 2026-08-15.** Findings ranked: G0 (house, worst) · chapel door has zero owned geometry and leans entirely on a purchased prefab whose door colliders are exactly what the carving passes hunt · Shut the Box's tile-9 secret door and the Hidden Room recess are flag-only (pre-broken rather than exploitable — none of the 6 scaffold scenes contain a player yet) · velvet rope is a 0.12m bar at y=1.04 with open space over and under it · all imported Victorian furniture and all 13 grounds POI props have their colliders destroyed on placement. Reference implementations that ARE correct: the map-edge boundary walls (real colliders, and the only barrier in the repo with adversarial proof) and the Parlor door (state flag and collider move together). | DONE | — |
-| G2 | **Fix the estate gate** — Nick has not chosen an approach. **A fix has nevertheless already been built and saved into `WendHill_Prologue.unity`** (a `GateBarrier` BoxCollider gated on `IsClosed`, plus 45m perimeter fence wings each side with real colliders), in uncommitted work, with no commit selecting the approach. The wings are solid and un-climbable (`SimpleMove`, no jump). Residual hole: the wings stop at ±45m with nothing beyond but terrain, and the lock still fires from route projection alone, so it triggers for a player who never came within 45m of the gate. | **NICK** — confirm or replace the approach that was already built | adversarial walk-around probe at offsets BEYOND ±45m must fail to bypass |
-| G3 | Build the adversarial "try to walk around/through anything the game claims is blocked" probe pattern once and reuse it for every finding G1 surfaces | TODO | the probe itself, run against the fixed gate as its first proof |
-| G4 | Root-cause the second, unrelated walk-proof stall at (-23.96, 0.57, -39.52), ~158m in — found 2026-08-13, not yet investigated | TODO | `npm run unity:proof:walk`, 0 stalls |
-| G5 | Root-cause and fix the coach-house stall at waypoint 32 (~324m, "Coach doors, and chalk under the moss") — the new interior's trigger volume/geometry is blocking the walk path; needs an actual in-editor visual look, not just code review | TODO | `npm run unity:proof:walk`, 0 stalls near the coach house |
+| **G0** | Estate house collision shell, including Threshold Refusal at the porch face. | DONE 2026-08-15 | rebuilt saved-scene contract plus house/porch physical proof |
+| **G0b** | Counterpart guards for named barriers, so collision-carving pressure cannot silently erase required solids. | DONE 2026-08-15 | contract and adversarial physical proof both go red on missing solids |
+| G1 | Audit every "locked/blocked/closed" claim for matching physical enforcement. The sweep found the missing house shell, short gate wings and route obstructions that G0-G5 subsequently closed. Scaffold door flags now lead into production scene transitions; they are not evidence of animated physical doors. | DONE 2026-08-15 | findings recorded and shipping-opening barriers adversarially re-proven |
+| G2 | Estate gate barrier plus terrain-following perimeter wings reaching the map boundary. | DONE 2026-08-16 | wall proof holds both ±55 m attacks |
+| G3 | Reusable adversarial wall/bypass probe across gate wings and all four map boundaries. | DONE 2026-08-16 | 6/6 physical captures, zero integrity failures |
+| G4 | Former ~158 m route stall. | DONE 2026-08-16 | 435/435 m, 43 NavMesh segments, 0 stalls/fallbacks |
+| G5 | Former coach-house route stall. | DONE 2026-08-16 | 435/435 m, 43 NavMesh segments, 0 stalls/fallbacks |
 
 ---
 
@@ -138,54 +143,47 @@ introduced a fresh self-contradiction in `Art Direction.dc.html` (reverted to or
 findings from the 196-item audit — this pass targeted the compile chain and the systems that gate
 it, not the full backlog. No commit, no push.
 
-## LANE F — Audit blockers (2026-08-13)
+## LANE F — Audit blockers (2026-08-13, resolved 2026-08-16)
 
 ```
-Unity EditMode           [███████████████████░]  324/332  ✗  measured 2026-08-15 — 8 fail, not 2
-Gates 3-12               [░░░░░░░░░░░░░░░░░░░░]   STRUCTURALLY BLOCKED, not merely un-run (see below)
+Unity EditMode           [████████████████████]  455/455
+Opening gates            [████████████████████]   14/14, 0 failed, 0 skipped
 ```
 
 | # | Task | Status | TEST |
 |---|---|---|---|
-| F1 | **Review-claim authoring API mismatch.** Six `*CompositionPlan.cs` files called `GmCompositionAuthoring.ReviewClaim(...)`, a method that didn't exist. Resolved with a documented interim adapter on `GmCompositionAuthoring` (`docs/audit/F1-review-claim-decision.md` — read this before trusting any framing result) plus real geometry/camera fixes for **entry-hall, hidden-room, labyrinth, parlor, shut-the-box** — all 5 now pass. **Court's composition wiring is untouched on purpose** (hard lock, below) | 5/6 DONE, Court **NICK** | `node scripts/unity-cli.mjs test`: 5 scenes pass |
-| F1b | **Court composition wiring** — 26 issues (11 elements with no renderer, 3 unmotivated lights, 3 under-authored cluster minimums, 9 shot-framing failures). Fixing means reattaching composition markers to real Court geometry, which is content work Court's hard lock reserves for after Nick's Phase 0 walk | **NICK** (unblocks after walk) | `GmCourtBuildTests` both tests |
+| F1 | **Review-claim authoring API mismatch.** All six generated rooms now use the supported composition API and pass their strict plans. | DONE | current EditMode suite and scene-system contract |
+| F1b | **Court composition wiring.** Markers are attached to real geometry, light intent is authored and review framing passes. | DONE | `GmCourtBuildTests` |
 | F2 | Duplicate `GmParlorRules` class (prologue vs parlor) | DONE | verified: EditMode compiles past CS0101 |
-| F3 | `GmShutTheBoxController` → nonexistent `ShutBoxRules` methods | DONE | verified; `Hold` left unimplemented on purpose |
+| F3 | `GmShutTheBoxController` → nonexistent `ShutBoxRules` methods | DONE | controller rules calls and Hold paths compile and pass focused tests |
 | F4 | `GmWendOpening.RoadSurfaceY` missing; HDRP `lightTypeExtent`/`LightUnit` namespace issues (6 call sites) | DONE | verified compiles |
-| F5 | `System.Linq` missing in 3 scene test files; 6 `BuildTests.cs` files missing scene teardown | DONE | verified: EditMode 294/296 |
+| F5 | `System.Linq` missing in 3 scene test files; 6 `BuildTests.cs` files missing scene teardown | DONE | verified: EditMode 455/455 |
 | F6 | **Bridge `GmHouseProgress` into `GmRunStore`** | DONE — bridged; the house-caps-at-4-vs-store-caps-at-5 gap is confirmed intentional pacing, not a conflict (Nick, 2026-08-14): Parlor/Court/Shut the Box call `GmRunStore.RaiseCorruption` directly, uncapped, and are what can carry a run to Tier 5/Ending D — the House alone must never end a run in Corrupted Host | DONE | EditMode: a house catch is readable via `GmRunStore` |
-| F7 | **Wire the wired-to-nothing systems** — audio manager now actually plays clips, pause-menu tabs now render real content, credits UI now reads the real catalog. Save/load and scene-transition wiring are still open: there is no boot/title scene to call `GmSaveSystem.Load()` or instantiate `GmSceneDirector` from, and auto-resume vs. explicit Continue is a UX call | PARTIAL | one test per system asserting a **production** call path exists |
+| F7 | **Wire the wired-to-nothing systems.** Audio, pause tabs, credits, explicit Continue, save/load, the persistent scene director and production transitions all have callers and tests. | DONE | full PlayMode scene-chain proof plus focused EditMode tests |
 | F8 | **Attribution gate & records** — `CREDITS.txt` and `assets/sfx/license.txt` tracked in git; `npm run verify:attribution` green (5 CC-BY entries accounted for) and wired into `npm run gates` | DONE | `npm run verify:attribution` green **and** invoked by gates |
-| F9 | **The verification harness is itself defective** — 86 confirmed findings in `scripts/`. `verify-unity-full.mjs` throws an uncaught `TypeError` on every run and has never once passed; ~12 more capture/verify scripts collect real error evidence and never check it | TODO | each script fails when given a known-bad input |
-| F10 | `scan-frame-defects.mjs` counts undecodable frames as clean, and treats a missing target directory as zero frames | TODO | corrupt PNG in a target dir fails the run |
+| F9 | **Shipping verification harness.** Every production gate has reachable failure handling; its meta-gate runs paired bad/good inputs. Unreachable legacy scripts are archive debt, not evidence. | DONE | 22/22 paired reject/accept cases |
+| F10 | `scan-frame-defects.mjs` rejects undecodable frames and missing target directories. | DONE | corrupt and absent fixtures both observed failing in the meta-gate |
 
-**Gates 3-12 have never run against a compiling build — and cannot, as currently wired.**
-Measured 2026-08-15 (real batchmode run, Unity 6000.5.3f1): EditMode is **324/332, 8 failing**, not
-294/296 with 2 failing. The 8 are Court (2, hard-locked by design), Hidden Room (2), Labyrinth (2)
-and Shut the Box (2) — three scenes beyond the one the tracker named.
-
-`run-opening-gates.mjs:11` runs gate 2 as the **entire** unfiltered EditMode suite and line 54
-breaks on first failure, so Court's by-design failures make gates 3-12 unreachable no matter what
-else is fixed. Running `npm run gates` today cannot produce evidence past gate 2. See
-`docs/TESTING.md` → "The gate-2 deadlock". **NICK**: this needs a policy call (scope gate 2 to the
-scene under test plus shared systems, or carry an explicit documented Court exclusion).
+The gate-2 deadlock and the composition failures are closed. The current production command reaches
+all 14 gates and reports 0 failed and 0 skipped. Historical failures remain below only as incident
+records; they are not the current state.
 
 ## LANE A — Phase 0 exit (blocking everything)
 
 Phase 0 must close before Court by project rule, and Nick's walk is the gate.
 
 ```
-Phase 0 Prologue        [██████████████████░░]  92%
+Phase 0 Prologue        [███████████████████░]  objective gates green; Nick walk pending
 ```
 
 | # | Task | Status | Bar | TEST | VIS |
 |---|---|---|---|---|---|
-| A1 | **Indoor/outdoor visibility rule for `HouseBeginning`** — replace the blanket culling exemption (`GmWendRuntimeCulling.cs:39,47`) with a real rule; ~12 soft-shadow point lights currently live across all 435 outdoor m | RED | `[░░░░░░░░░░░░░░░░░░░░]` 0% | `npm run unity:proof:walk` p95 ≤16.7ms | `walk-*.png` contact sheet — no popping at the manor approach |
-| A2 | **Stop `GmWendPerformance` excluding the interior** (`:30`) — the audit structurally cannot catch this regression class again | TODO | `[░░░░░░░░░░░░░░░░░░░░]` 0% | new EditMode test: audit sees `HouseBeginning` renderers | — |
-| A3 | **Standalone p95 back under budget** | RED | `[░░░░░░░░░░░░░░░░░░░░]` 0% | `npm run unity:proof:mac` p95 ≤16.7ms | 7 composition frames clean |
-| A4 | **Gate piers render as material, not voids** — `GmWendOpening.cs:447` primitive cube at Metallic 0.42; measured RGB (1.1,0.0,0.8) std 0.75 vs adjacent wall (17.9,9.9,8.3) std 16.6 under the same lamp | TODO | `[░░░░░░░░░░░░░░░░░░░░]` 0% | EditMode: no unlit primitive in the gate rig | `tour-02-gate.png` — piers read as iron |
-| A5 | **Cemetery gets a real built-player frame** — `05-cemetery-composition.png` is authored to look at the *chapel* (`GmStandaloneReviewProbe.cs:116`); rename it and add a genuine cemetery shot | TODO | `[░░░░░░░░░░░░░░░░░░░░]` 0% | proof frame count +1 | new `cemetery` frame showing markers/monument |
-| A6 | Record host load + free RAM into `performance.json` so a p95 number is never ambiguous again | TODO | `[░░░░░░░░░░░░░░░░░░░░]` 0% | schema test | — |
+| A1 | **Indoor/outdoor visibility rule for `HouseBeginning`** — runtime culling now derives the interior bounds, hides 233 interior renderers/lights outdoors, and reveals them on crossing/proximity without touching the estate | DONE | `[████████████████████]` 100% | route p95 11.36ms; standalone p95 10.25ms | current walk/porch evidence clean; no approach pop flagged |
+| A2 | **Stop `GmWendPerformance` excluding the interior** — the performance pass now audits all 233 HouseBeginning renderers, preserves them for `GmWendRuntimeCulling`, and the saved-scene contract rejects any pre-disabled interior renderer | DONE | `[████████████████████]` 100% | regression seen red; EditMode 455/455; scene contract 20/20 | — |
+| A3 | **Standalone p95 back under budget** | DONE | `[████████████████████]` 100% | final built-player proof p95 10.25ms at 0.48 load/core | 8/8 composition frames; 11/11 standalone captures clean |
+| A4 | **Gate piers render as material, not voids** — piers are authored combined masonry meshes using the owned Victorian mantel-stone surface, with separate wrought-iron leaves and terrain-following wings | DONE | `[████████████████████]` 100% | saved gate rig audited; wall proof 6/6 | current gate evidence passes the exterior scanner |
+| A5 | **Cemetery gets a real built-player frame** — the eight-frame player proof now has separate chapel and cemetery views; deterministic marker dressing, a measured 2.6 m owned cross monument and a protected sightline make the ground read as a cemetery | DONE | `[████████████████████]` 100% | standalone proof 8/8; EditMode 455/455; scene contract 20/20 | `06-cemetery-composition.png` inspected directly; 11/11 standalone frames pass the night scanner |
+| A6 | Record host load + free RAM into `performance.json` so a p95 number is never ambiguous again | DONE | `[████████████████████]` 100% | report contains one-minute load, core count, load/core and free-memory MB; loaded-host timing is rejected | final standalone: 0.48/core, 3496MB free |
 | A7 | Salmon ground cast at arrival (R:G:B 213:131:94) — reads sunset not moonlit | NICK | `[░░░░░░░░░░░░░░░░░░░░]` 0% | — | `tour-01-arrival.png` |
 | A8 | Modern SUV vs gothic estate — the oldest unresolved art mismatch | NICK | `[██████████░░░░░░░░░░]` 50% | — | `02-spawn-facing-mansion.png` |
 | A9 | 4m45 pacing — tense or slow? | NICK | `[░░░░░░░░░░░░░░░░░░░░]` 0% | — | full walkthrough MP4 |
@@ -213,7 +211,7 @@ Phase B (coach house interior)           [░░░░░░░░░░░░�
 | # | Task | Status | TEST |
 |---|---|---|---|
 | R1 | Reckoning schedule core + seeding + `GmFeelConfig` fields, ships at `authority=0` (byte-identical to today) | TODO | EditMode: bound/monotonicity/seeded-replay tests; existing PlayMode `285f` assertion unchanged |
-| R2 | Coach house interior, clue persistence, probe/registry/gate wiring | **BLOCKED on A1** — every additional interior room compounds the exact perf regression A1 exists to fix; do not start until A1 has a measured p95 number | `-gmOutbuildingProof` probe PASS; `npm run gates` clean x2 |
+| R2 | Coach house interior, clue persistence, probe/registry/gate wiring | TODO after R1; the former A1 performance blocker is closed | `-gmOutbuildingProof` probe PASS; `npm run gates` clean x2 |
 | R3 | Chapel / shed / icehouse — later slice, scope not yet decided | TODO (post-R2 walk) | — |
 
 **F6 is closed (2026-08-14)**, so the Reckoning's optional corruption bridge (default off, routed
@@ -227,18 +225,18 @@ Ending D on its own, by the same confirmed-intentional design as the rest of the
 Cheap, unblocks everything, currently scattered at the end of the roadmap.
 
 ```
-Phase 5 Shards + save   [░░░░░░░░░░░░░░░░░░░░]   0%
+Phase 5 shared state    [████████████████████]  100%  core state, save, Continue and credits shipped
 ```
 
 | # | Task | Status | Bar | TEST | VIS |
 |---|---|---|---|---|---|
-| B1 | **`cheatsCaught` as shared cross-scene state** — the single hard blocker on the true ending | TODO | `[░░░░░░░░░░░░░░░░░░░░]` 0% | EditMode: catch in scene X readable in scene Y | HUD tally frame |
-| B2 | Corruption / Sanity cross-scene model | TODO | `[░░░░░░░░░░░░░░░░░░░░]` 0% | EditMode state transitions | — |
-| B3 | Defiance / Compliance — drives 4 of 6 endings | TODO | `[░░░░░░░░░░░░░░░░░░░░]` 0% | EditMode | — |
-| B4 | Shard model + display (3 required for true ending) | TODO | `[░░░░░░░░░░░░░░░░░░░░]` 0% | EditMode collect/persist | shard UI frame |
-| B5 | Save / load round-trip | TODO | `[░░░░░░░░░░░░░░░░░░░░]` 0% | round-trip EditMode test | — |
-| B6 | Continue button | TODO | `[░░░░░░░░░░░░░░░░░░░░]` 0% | PlayMode boot-into-save | menu frame |
-| B7 | **CC-BY attribution / credits screen** — legal ship requirement (gravyart mansion CC-BY-4.0, plus `CREDITS.txt` + `assets/sfx/license.txt` audit) | TODO | `[░░░░░░░░░░░░░░░░░░░░]` 0% | test: every sourced asset has a credit line | credits screen frame |
+| B1 | **`cheatsCaught` as shared cross-scene state** | DONE | `[████████████████████]` 100% | catch in one system is readable in the shared run store | HUD tally covered |
+| B2 | Corruption / Sanity cross-scene model | DONE | `[████████████████████]` 100% | EditMode state and clamp tests | — |
+| B3 | Defiance / Compliance — ending inputs | DONE | `[████████████████████]` 100% | EditMode state and ending-priority tests | — |
+| B4 | Shard model + display (3 required for true ending) | DONE | `[████████████████████]` 100% | collect, persist and all-three state tests | shard tally covered |
+| B5 | Save / load round-trip | DONE | `[████████████████████]` 100% | exact-state round-trip test | — |
+| B6 | Continue button | DONE | `[████████████████████]` 100% | unavailable/valid/invalid-save paths tested | boot menu frame |
+| B7 | **CC-BY attribution / credits screen** | DONE | `[████████████████████]` 100% | attribution gate and production catalog screen | credits UI covered |
 
 ---
 
@@ -248,8 +246,8 @@ Parlor first: it is the complexity budget every other room is scoped against, an
 of the true ending's 8+ cheats caught.
 
 ```
-Phase 1 Entry Hall      [████░░░░░░░░░░░░░░░░]  20%   interior shell EXISTS in-engine (gate 9 green)
-Phase 2 Parlor          [██░░░░░░░░░░░░░░░░░░]  10%   shell built; no card game
+Phase 1 Entry Hall      [██████░░░░░░░░░░░░░░]  30%   Session 1 hub proven; library authored, not rebuilt
+Phase 2 Parlor          [████░░░░░░░░░░░░░░░░]  20%   physical slice in source; not shipping-proven tonight
 Phase 4 Shut the Box    [█████░░░░░░░░░░░░░░░]  25%   rules 23/23; no board/AI/UI
 Phase 3 Court           [░░░░░░░░░░░░░░░░░░░░]   0%   LOCKED behind Nick's Phase 0 walk
 ```
@@ -269,6 +267,10 @@ Phase 3 Court           [░░░░░░░░░░░░░░░░░░�
 | C1.5 | Shard #1 behind Percival | TODO | EditMode + B4 | — |
 | C1.6 | 22 interior POIs, two-layer examines | TODO | PlayMode: E at each, line asserted | POI sweep |
 | C1.7 | Letter reveal stage 1 — ends "a friend" | TODO | story-canon check | letter frame |
+| **H1** | Walkable hub Session 1: doors, stairs, 2F, Percival | DONE 2026-08-17 | EditMode 906/906, CC climb/block, audit, 12/12 tour (FLAKY retry) | `docs/playtest/screenshots/entry-hall-tour-*.png` (clock now dark wood; 09 orange-cast is pre-existing 5.37) |
+| **H2** | North Library + Weighted Shelf | WIP | authored C# present; needs sync/rebuild/EditMode/interior tour | none yet |
+
+**Hub campaign leftover:** H2 closeout, then Sessions 3–6 (2F gallery/Marr, attic, cellar/vault, remaining minigame doors). H1 is a climbable house stub. H2 is source, not a proven room.
 
 **Canon trap:** "a friend" (the letter's signer = Aldric) and "the friend in the walls" (the host
 before Aldric, never resolved) are different things sharing a word. Keep distinct in every line.
@@ -321,7 +323,7 @@ Rigging only appears once he is threatened. That is what makes the reveal land.
 ```
 Phase 6 Hidden room     [░░░░░░░░░░░░░░░░░░░░]   0%   gated behind STB tile-9
 Phase 7 Labyrinth       [░░░░░░░░░░░░░░░░░░░░]   0%   design doc BEFORE code
-Phase 8 Six endings     [░░░░░░░░░░░░░░░░░░░░]   0%   none coded in any engine
+Phase 8 Six endings     [████████░░░░░░░░░░░░]  resolver and reachable trigger shipped; authored presentation remains
 ```
 
 | # | Task | Status | TEST | VIS |
@@ -331,7 +333,7 @@ Phase 8 Six endings     [░░░░░░░░░░░░░░░░░░�
 | D3 | The Huntsman — closes faster only when already near the limit | TODO | PlayMode | — |
 | D4 | Mirrors (the only ones in the game) | TODO | EditMode | 3 mirror states |
 | D5 | Shard #3 — found only by stopping to look | TODO | PlayMode | — |
-| D6 | Six endings: Escape / Replacement / Pact / Collection / Cheat(true) / Hollow | TODO | EditMode: each reachable | 6 ending frames |
+| D6 | Six endings: resolution logic and production trigger are reachable; authored ending presentation remains | WIP | EditMode branches + PlayMode ending trigger | 6 ending frames still needed |
 | D7 | **Verify 8+ cheats-caught is actually reachable** — reasoned plausible, never playtested; it gates the true ending | TODO | full-playthrough sim | — |
 
 **Deliberate absence:** the Labyrinth has no catch mechanic and no tell-glint. Forcing a catch there
@@ -359,7 +361,7 @@ Phase 10 Ship polish    [░░░░░░░░░░░░░░░░░░�
 | E9 | Store page: capsule art, trailer, screenshots | NICK | — | — |
 | E10 | Performance on target hardware (not just this M5) | TODO | hardware matrix | — |
 | E11 | 9-persona panel review | TODO | — | — |
-| E12 | The commit/push conversation (everything to date is uncommitted) | NICK | — | — |
+| E12 | The commit/push conversation (64 commits are local; the current continuation is uncommitted) | NICK | — | — |
 
 **Controller support and the macOS build pipeline are already 100%** — universal signed app, virtual
 gamepad proof, 2 controller UI frames.
@@ -369,42 +371,30 @@ gamepad proof, 2 controller UI frames.
 ## Standing verification
 
 ```bash
-npm run test:fast        # 50 tests, editor-free, no Unity — the quick check
-npm run gates            # THE command: all 11 opening gates, stops at first failure
+npm run test:fast        # portable editor-free quick suite
+npm run gates            # THE command: all 14 opening gates, stops at first failure
 npm run unity:proof:walk # full 435m route, p95 + stalls + nav fallbacks
-npm run unity:proof:mac  # 7 story + 2 controller frames, 5 cues, p95
+npm run unity:proof:mac  # 8 composition + 3 controller-state captures, cues + p95
 ```
 
 **Requires:** Unity closed · `node_modules` installed · host load <3.0/core · sandbox must permit `ps`.
 
-## Current gate state (measured 2026-08-13, end of session — SUPERSEDES the 2026-08-03 block below)
+## Current gate state (measured 2026-08-16)
 
 ```
-Unity EditMode           [███████████████████░]  324/332  ✗  superseded by the 2026-08-15 measured run
-Gates executed            [█░░░░░░░░░░░░░░░░░░░]   1/12    portable ✓; EditMode now FAILS, 3-12 unreachable
+Unity EditMode           [████████████████████]  455/455
+Unity PlayMode           [████████████████████]   18/18
+Opening contract         [████████████████████]   20/20
+Harness meta-gate        [████████████████████]   22/22 paired reject/accept cases
+Opening gates            [████████████████████]   14/14, 0 failed, 0 skipped
 ```
 
-**Unity EditMode compiles and runs for the first time on record for the six Phase 1-7 scene
-folders** (`entry-hall`, `court`, `parlor`, `shut-the-box`, `hidden-room`, `labyrinth`). The
-session opened with EditMode unable to compile at all (47 CS0117 errors, every one
-`GmCompositionAuthoring.ReviewClaim(...)` — a method that didn't exist). By the end: **294 of 296
-EditMode tests pass.** The two that don't are Court's, left failing on purpose — Court is
-content-locked behind Nick's Phase 0 walk, and closing its composition-audit failures means
-re-parenting geometry, which is content work, not a compile fix. See **F1** below.
+The production command now reaches the whole stack: portable checks, EditMode, PlayMode, rebuild,
+saved-scene contract, visual tour, macOS player, standalone proof, house proof, full-route proof,
+physical boundary proof and frame scanners. The current run must still be read from its own log;
+the historical wrapper failures are recorded in `docs/TESTING.md`.
 
-Gates 3-12 (PlayMode, rebuild, tour, build-mac, standalone-proof, walk-proof, wall-proof,
-frame-defect scan) were **not run this session** — EditMode was the blocker all the way through
-until the final hour, so there was no compiling build to run them against until now. They carry no
-current evidence; run `npm run gates` fresh before trusting any number below Gate 2.
-
-18 compile errors across 6 defect classes were found and fixed this session (F2-F7), plus 4
-composition-geometry passes across 5 non-locked scenes, verified against a from-scratch
-replica of the audit's actual `WorldToViewportPoint` math (numbers below are load-bearing, not
-eyeballed). Every claim above was read from captured run output, never a completion notice: the harness
-repeatedly reported "exit code 0" on background runs while their own logs ended in a real
-failure — recorded in `docs/TESTING.md`.
-
-### Superseded — measured 2026-08-03
+### Historical incident record — measured 2026-08-03, do not use as current evidence
 
 ```
 Gates executed          [████████████████████]  11/11

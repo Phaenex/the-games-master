@@ -74,4 +74,45 @@ public sealed class GmSceneTransitionTriggerTests
         }
         finally { Object.DestroyImmediate(prop); Object.DestroyImmediate(volume); }
     }
+
+    [Test]
+    public void AnOptionalRoomBanksCompletionWhenItsExitIsActuallyUsed()
+    {
+        GmRunStore.BeginNewRun();
+        var volume = new GameObject("HiddenRoomExit");
+        try
+        {
+            var trigger = volume.AddComponent<GmSceneTransitionTrigger>();
+            trigger.CompleteRoomOnTransitionId = "hidden-room";
+            trigger.CompletedRoomCountsAsTableGame = false;
+
+            trigger.TriggerTransition();
+
+            Assert.IsTrue(GmRunStore.IsRoomComplete("hidden-room"));
+            Assert.AreEqual(0, GmRunStore.TableGameIndex);
+        }
+        finally { Object.DestroyImmediate(volume); }
+    }
+
+    [Test]
+    public void ARequiredCompletionRefusesWithoutConsumingTheOneShot()
+    {
+        GmRunStore.BeginNewRun();
+        var volume = new GameObject("SecretExit");
+        try
+        {
+            var trigger = volume.AddComponent<GmSceneTransitionTrigger>();
+            trigger.RequiredCompletedRoomId = "shut-the-box";
+
+            trigger.TriggerTransition();
+            Assert.IsFalse(trigger.IsTriggered,
+                "opening Tile 9 during the match discarded the unfinished board");
+
+            GmRunStore.CompleteRoom("shut-the-box", countsAsTableGame: true);
+            trigger.TriggerTransition();
+            Assert.IsTrue(trigger.IsTriggered,
+                "the early refusal consumed the one-shot and made the secret permanently unreachable");
+        }
+        finally { Object.DestroyImmediate(volume); }
+    }
 }

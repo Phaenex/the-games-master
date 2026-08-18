@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
 using UnityEngine.UIElements;
 
 public enum GmPauseTab
@@ -14,8 +16,8 @@ public enum GmPauseTab
 public sealed class GmPauseMenu : MonoBehaviour
 {
     // Accessibility bounds are a feel call as much as a layout one, so they come from GmFeelConfig.
-    public static float MinTextScale => GmFeelConfig.Active.minTextScale;
-    public static float MaxTextScale => GmFeelConfig.Active.maxTextScale;
+    public static float MinTextScale => GmAccessibilitySettings.MinTextScale;
+    public static float MaxTextScale => GmAccessibilitySettings.MaxTextScale;
 
     const int TitleFontSize = 24;
     const int TabFontSize = 18;
@@ -35,8 +37,12 @@ public sealed class GmPauseMenu : MonoBehaviour
     static readonly Color DimColor = new Color(0.48f, 0.45f, 0.42f);
 
     public static bool IsPaused { get; private set; } = false;
-    public static bool ReduceMotion { get; private set; } = false;
-    public static float TextScale { get; private set; } = 1.0f;
+    public static bool Captions => GmAccessibilitySettings.Captions;
+    public static bool ReduceMotion => GmAccessibilitySettings.ReducedMotion;
+    public static bool Vibration => GmAccessibilitySettings.Vibration;
+    public static bool MonoAudio => GmAccessibilitySettings.MonoAudio;
+    public static bool HighContrast => GmAccessibilitySettings.HighContrast;
+    public static float TextScale => GmAccessibilitySettings.TextScale;
 
     public GmPauseTab ActiveTab { get; private set; } = GmPauseTab.Journal;
 
@@ -50,22 +56,56 @@ public sealed class GmPauseMenu : MonoBehaviour
     Label promptLabel;
 
     GmPlayer player;
-    // Set once a scene with its own bespoke pause overlay is detected (wend-hill-prologue's
-    // GmPrologueHud), never re-checked -- a scene's HUD roster doesn't change at runtime, and
-    // polling FindAnyObjectByType every frame for a answer that can't change is wasted work.
-    bool ownerConflictChecked;
-    bool suppressedByOtherPauseUi;
+    InputActionAsset ownedControls;
+    InputActionMap menuInput;
+    InputAction navigateAction;
+    InputAction submitAction;
+    InputAction cancelAction;
+    bool inputActive;
+    bool navigationHeld;
+    GmAccessibilitySettingsView settingsView;
 
     readonly List<Button> tabButtons = new List<Button>();
 
-    // Text scale has no global consumer, so the menu at least applies it to its own type. Each
-    // tracked element keeps its authored size and is rescaled in place, never rebuilt, so dragging
-    // the slider does not destroy the slider being dragged.
+    // Each tracked element keeps its authored size and is rescaled in place, never rebuilt, so
+    // dragging the global text-size slider does not destroy the slider being dragged.
     readonly List<(VisualElement Element, int BaseFontSize)> scaledText =
         new List<(VisualElement, int)>();
 
     public event Action<bool> OnPauseStateChanged;
     public event Action<GmPauseTab> OnTabChanged;
+    public bool HasRequiredActions => menuInput != null && navigateAction != null &&
+        submitAction != null && cancelAction != null;
+    public int FocusedTabIndex { get; private set; }
+    public bool SettingsFocusActive { get; private set; }
+    public int SettingsFocusIndex => settingsView?.FocusIndex ?? 0;
+    public bool HasPendingSettingsSave => GmAccessibilitySettings.HasPendingSave;
+
+    void Awake()
+    {
+        EnsureInput();
+    }
+
+    void EnsureInput()
+    {
+        if (ownedControls != null) return;
+        InputActionAsset shared = Resources.Load<InputActionAsset>("Input/GmControls");
+        if (shared == null) return;
+        ownedControls = Instantiate(shared);
+        ownedControls.name = "GmPauseMenuControls";
+        menuInput = ownedControls.FindActionMap("Menu");
+        navigateAction = menuInput?.FindAction("Navigate");
+        submitAction = menuInput?.FindAction("Submit");
+        cancelAction = menuInput?.FindAction("Cancel");
+    }
+
+    void OnEnable() => EnableInput();
+
+    void OnDisable()
+    {
+        FlushSettingsBoundary();
+        DisableInput();
+    }
 
     void Start()
     {
@@ -79,21 +119,89 @@ public sealed class GmPauseMenu : MonoBehaviour
     // ever decides whether to be visible.
     void Update()
     {
-        if (suppressedByOtherPauseUi) return;
-        if (!ownerConflictChecked)
-        {
-            ownerConflictChecked = true;
-            if (FindAnyObjectByType<GmPrologueHud>() != null)
-            {
-                suppressedByOtherPauseUi = true;
-                return;
-            }
-        }
-
         if (player == null) player = FindAnyObjectByType<GmPlayer>();
         if (player == null) return;
 
         SyncWithPlayer(player);
+        if (!IsPaused || navigateAction == null) return;
+        Vector2 navigation = ReadNavigation();
+        if (Mathf.Abs(navigation.x) < 0.5f && Mathf.Abs(navigation.y) < 0.5f)
+        {
+            navigationHeld = false;
+            return;
+        }
+        if (navigationHeld) return;
+        navigationHeld = true;
+        if (SettingsFocusActive)
+        {
+            if (Mathf.Abs(navigation.y) >= Mathf.Abs(navigation.x))
+                settingsView?.MoveFocus(navigation.y > 0f ? -1 : 1);
+            else
+                settingsView?.AdjustFocused(navigation.x > 0f ? 1 : -1);
+        }
+        else if (Mathf.Abs(navigation.x) >= 0.5f)
+        {
+            MoveMenuFocus(navigation.x > 0f ? 1 : -1);
+        }
+    }
+
+    void EnableInput()
+    {
+        if (inputActive || !HasRequiredActions) return;
+        submitAction.performed += OnSubmit;
+        cancelAction.performed += OnCancel;
+        menuInput.Enable();
+        inputActive = true;
+        navigationHeld = false;
+    }
+
+    void DisableInput()
+    {
+        if (inputActive)
+        {
+            submitAction.performed -= OnSubmit;
+            cancelAction.performed -= OnCancel;
+        }
+        if (menuInput != null && menuInput.enabled) menuInput.Disable();
+        inputActive = false;
+        navigationHeld = false;
+    }
+
+    void OnSubmit(InputAction.CallbackContext _)
+    {
+        if (OwnsAuthoritativePause()) ActivateFocusedItem();
+    }
+
+    void OnCancel(InputAction.CallbackContext _)
+    {
+        if (!OwnsAuthoritativePause()) return;
+        if (SettingsFocusActive)
+        {
+            SettingsFocusActive = false;
+            settingsView?.SetFocusVisible(false);
+            RenderActiveTab();
+            FlushSettingsBoundary();
+            return;
+        }
+        player ??= FindAnyObjectByType<GmPlayer>();
+        if (player != null) player.SetPaused(false);
+        else SetPauseState(false);
+    }
+
+    bool OwnsAuthoritativePause()
+    {
+        player ??= FindAnyObjectByType<GmPlayer>();
+        if (player == null) return IsPaused;
+        if (!player.IsPaused) return false;
+        // Input callbacks run before MonoBehaviour.Update. Mirror the authoritative player here so
+        // the first button on the frame after Pause is neither rejected nor consumed by gameplay.
+        if (!IsPaused) SetPauseState(true);
+        return true;
+    }
+
+    Vector2 ReadNavigation()
+    {
+        return navigateAction.ReadValue<Vector2>();
     }
 
     // Split out of Update() so EditMode tests -- which never pump Unity's per-frame Update loop for
@@ -105,15 +213,20 @@ public sealed class GmPauseMenu : MonoBehaviour
 
         if (IsPaused && promptLabel != null)
         {
-            // Matches GmPrologueHud's exact wording for the same GmPlayer bindings (Cancel/Quit) --
-            // one project convention, not a second one invented here. Tab switching has no gamepad
-            // binding of its own; the tab buttons are mouse/keyboard-clickable only today.
-            promptLabel.text = activePlayer.UsingGamepad ? "A  Resume      Y  Quit" : "Esc  Resume      Q  Quit";
+            // One project convention for the same GmPlayer bindings. Navigation and selection are
+            // owned by the cloned Menu map, while GmPlayer retains pause and quit ownership.
+            promptLabel.text = activePlayer.UsingGamepad
+                ? "D-pad  Navigate      A  Select      B  Resume      Y  Quit"
+                : "Arrows  Navigate      Enter  Select      Esc  Resume      Q  Quit";
         }
     }
 
     void BuildUi()
     {
+        EnsureInput();
+        EnableInput();
+        GmAccessibilitySettings.OnChanged -= HandleAccessibilityChanged;
+        GmAccessibilitySettings.OnChanged += HandleAccessibilityChanged;
         panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
         panelSettings.name = "GmPausePanelSettings";
         panelSettings.scaleMode = PanelScaleMode.ScaleWithScreenSize;
@@ -133,50 +246,60 @@ public sealed class GmPauseMenu : MonoBehaviour
         root.name = "GmPauseMenuRoot";
         root.style.position = Position.Absolute;
         root.style.left = 0; root.style.right = 0; root.style.top = 0; root.style.bottom = 0;
-        root.style.backgroundColor = new Color(0.02f, 0.015f, 0.012f, 0.94f);
+        root.style.backgroundColor = new Color(0.015f, 0.010f, 0.008f, 0.94f);
         root.style.alignItems = Align.Center;
         root.style.justifyContent = Justify.Center;
         root.style.display = DisplayStyle.None;
 
         menuContainer = new VisualElement { name = "PauseMenuContainer" };
         menuContainer.style.width = 1200;
-        menuContainer.style.height = 750;
+        menuContainer.style.height = 760;
+        menuContainer.style.backgroundColor = new Color(0.045f, 0.025f, 0.018f, 0.97f);
         menuContainer.style.borderLeftWidth = 2; menuContainer.style.borderRightWidth = 2;
         menuContainer.style.borderTopWidth = 2; menuContainer.style.borderBottomWidth = 2;
-        menuContainer.style.borderLeftColor = new Color(0.72f, 0.58f, 0.32f, 0.6f);
-        menuContainer.style.borderRightColor = new Color(0.72f, 0.58f, 0.32f, 0.6f);
-        menuContainer.style.borderTopColor = new Color(0.72f, 0.58f, 0.32f, 0.6f);
-        menuContainer.style.borderBottomColor = new Color(0.72f, 0.58f, 0.32f, 0.6f);
-        menuContainer.style.paddingLeft = 40; menuContainer.style.paddingRight = 40;
-        menuContainer.style.paddingTop = 30; menuContainer.style.paddingBottom = 30;
+        menuContainer.style.borderLeftColor = new Color(0.82f, 0.68f, 0.38f, 0.85f);
+        menuContainer.style.borderRightColor = new Color(0.82f, 0.68f, 0.38f, 0.85f);
+        menuContainer.style.borderTopColor = new Color(0.82f, 0.68f, 0.38f, 0.85f);
+        menuContainer.style.borderBottomColor = new Color(0.82f, 0.68f, 0.38f, 0.85f);
+        menuContainer.style.paddingLeft = 45; menuContainer.style.paddingRight = 45;
+        menuContainer.style.paddingTop = 32; menuContainer.style.paddingBottom = 32;
 
         // Title
         titleLabel = new Label("THE GAMES MASTER — DOSSIER") { name = "PauseTitle" };
         titleLabel.style.fontSize = TitleFontSize;
         titleLabel.style.color = GildColor;
         titleLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+        titleLabel.style.letterSpacing = 2;
         menuContainer.Add(titleLabel);
 
         // Tab Headers Row
         tabHeaderRow = new VisualElement { name = "TabHeaderRow" };
         tabHeaderRow.style.flexDirection = FlexDirection.Row;
         tabHeaderRow.style.justifyContent = Justify.SpaceAround;
-        tabHeaderRow.style.marginTop = 20;
-        tabHeaderRow.style.paddingBottom = 15;
+        tabHeaderRow.style.marginTop = 22;
+        tabHeaderRow.style.paddingBottom = 16;
         tabHeaderRow.style.borderBottomWidth = 1;
-        tabHeaderRow.style.borderBottomColor = new Color(0.5f, 0.4f, 0.25f, 0.4f);
+        tabHeaderRow.style.borderBottomColor = new Color(0.65f, 0.52f, 0.30f, 0.45f);
         menuContainer.Add(tabHeaderRow);
 
         tabButtons.Clear();
         foreach ((GmPauseTab tab, string label) in TabLabels)
         {
-            var button = new Button(() => SwitchTab(tab)) { name = $"Tab_{tab}", text = label };
+            var button = new Button(() => SwitchTab(tab))
+            {
+                name = $"Tab_{tab}",
+                text = label,
+                // GmPauseMenu's cloned Menu map is the sole controller owner. Pointer clicks stay
+                // enabled, while UI Toolkit cannot also submit a focused tab for the same A edge.
+                focusable = false,
+            };
             button.style.fontSize = TabFontSize;
             button.style.backgroundColor = new Color(0f, 0f, 0f, 0f);
             button.style.borderLeftWidth = 0; button.style.borderRightWidth = 0;
             button.style.borderTopWidth = 0; button.style.borderBottomWidth = 0;
-            button.style.paddingLeft = 12; button.style.paddingRight = 12;
-            button.style.marginLeft = 0; button.style.marginRight = 0;
+            button.style.paddingLeft = 16; button.style.paddingRight = 16;
+            button.style.paddingTop = 6; button.style.paddingBottom = 6;
+            button.style.marginLeft = 4; button.style.marginRight = 4;
             tabButtons.Add(button);
             tabHeaderRow.Add(button);
         }
@@ -184,6 +307,8 @@ public sealed class GmPauseMenu : MonoBehaviour
         tabContentContainer = new VisualElement { name = "TabContentContainer" };
         tabContentContainer.style.flexGrow = 1;
         tabContentContainer.style.marginTop = 20;
+        tabContentContainer.style.paddingLeft = 12;
+        tabContentContainer.style.paddingRight = 12;
         menuContainer.Add(tabContentContainer);
 
         // Tabs alone give no way to tell a player how to leave. GmPlayer's Update loop already
@@ -199,6 +324,7 @@ public sealed class GmPauseMenu : MonoBehaviour
 
         root.Add(menuContainer);
         RenderActiveTab();
+        HandleAccessibilityChanged();
     }
 
     public void TogglePause()
@@ -208,6 +334,7 @@ public sealed class GmPauseMenu : MonoBehaviour
 
     public void SetPauseState(bool pause)
     {
+        if (!pause && IsPaused) FlushSettingsBoundary();
         IsPaused = pause;
         // Time.timeScale/AudioListener.pause/pointer lock belong to GmPlayer.SetPaused, the single
         // owner every scene shares -- this menu only mirrors the state it's told, matching the
@@ -220,8 +347,12 @@ public sealed class GmPauseMenu : MonoBehaviour
 
         if (pause)
         {
+            FocusedTabIndex = Array.FindIndex(TabLabels, item => item.Tab == ActiveTab);
+            if (FocusedTabIndex < 0) FocusedTabIndex = 0;
+            SettingsFocusActive = false;
             SwitchTab(ActiveTab);
         }
+        else SettingsFocusActive = false;
 
         OnPauseStateChanged?.Invoke(pause);
     }
@@ -229,8 +360,31 @@ public sealed class GmPauseMenu : MonoBehaviour
     public void SwitchTab(GmPauseTab tab)
     {
         ActiveTab = tab;
+        FocusedTabIndex = Array.FindIndex(TabLabels, item => item.Tab == tab);
         RenderActiveTab();
         OnTabChanged?.Invoke(tab);
+    }
+
+    public void MoveMenuFocus(int delta)
+    {
+        FocusedTabIndex = (FocusedTabIndex + delta % TabLabels.Length + TabLabels.Length) %
+            TabLabels.Length;
+        SwitchTab(TabLabels[FocusedTabIndex].Tab);
+    }
+
+    public void ActivateFocusedItem()
+    {
+        if (SettingsFocusActive)
+        {
+            settingsView?.ActivateFocused();
+            return;
+        }
+        if (ActiveTab == GmPauseTab.Settings)
+        {
+            SettingsFocusActive = true;
+            settingsView?.SetFocusVisible(true);
+            RenderActiveTab();
+        }
     }
 
     void RenderActiveTab()
@@ -246,6 +400,10 @@ public sealed class GmPauseMenu : MonoBehaviour
         {
             bool active = i < TabLabels.Length && TabLabels[i].Tab == ActiveTab;
             tabButtons[i].style.color = active ? GildColor : DimColor;
+            bool controllerFocused = IsPaused && !SettingsFocusActive && active;
+            tabButtons[i].EnableInClassList("gm-controller-focus", controllerFocused);
+            tabButtons[i].style.borderBottomWidth = controllerFocused ? 3 : 0;
+            tabButtons[i].style.borderBottomColor = GildColor;
             scaledText.Add((tabButtons[i], TabFontSize));
         }
 
@@ -267,6 +425,8 @@ public sealed class GmPauseMenu : MonoBehaviour
         }
 
         ApplyTextScale();
+        ApplyHighContrastPalette();
+        GmUiText.UseStandardGenerator(root);
     }
 
     // Nothing in the runtime records ledger entries yet, so this tab states the empty case rather
@@ -308,27 +468,12 @@ public sealed class GmPauseMenu : MonoBehaviour
 
     void BuildSettingsTab()
     {
-        var reduceMotion = new Toggle("Reduce motion") { name = "ReduceMotionToggle", value = ReduceMotion };
-        reduceMotion.labelElement.style.color = InkColor;
-        reduceMotion.RegisterValueChangedCallback(evt => SetReduceMotion(evt.newValue));
-        tabContentContainer.Add(reduceMotion);
-        scaledText.Add((reduceMotion, HeadingFontSize));
-
-        var textScale = new Slider("Text size", MinTextScale, MaxTextScale)
-        {
-            name = "TextScaleSlider",
-            value = TextScale,
-            showInputField = true,
-        };
-        textScale.labelElement.style.color = InkColor;
-        textScale.style.marginTop = 12;
-        textScale.RegisterValueChangedCallback(evt =>
-        {
-            SetTextScale(evt.newValue);
-            ApplyTextScale();
-        });
-        tabContentContainer.Add(textScale);
-        scaledText.Add((textScale, HeadingFontSize));
+        settingsView = new GmAccessibilitySettingsView(HandleAccessibilityChanged);
+        VisualElement settingsRoot = settingsView.Build("PauseSettingsPanel");
+        tabContentContainer.Add(settingsRoot);
+        foreach (VisualElement element in settingsRoot.Children())
+            scaledText.Add((element, HeadingFontSize));
+        settingsView.SetFocusVisible(SettingsFocusActive);
     }
 
     Label TabLine(string text, int baseFontSize, Color color)
@@ -352,6 +497,9 @@ public sealed class GmPauseMenu : MonoBehaviour
 
     void OnDestroy()
     {
+        FlushSettingsBoundary();
+        DisableInput();
+        GmAccessibilitySettings.OnChanged -= HandleAccessibilityChanged;
         // Only resets this menu's own visibility flag. Must NOT touch Time.timeScale here:
         // GmPlayer owns that and has its own OnDestroy that restores it correctly. If this menu is
         // torn down (scene swap) while GmPlayer is still alive and paused, forcing timeScale back
@@ -359,17 +507,74 @@ public sealed class GmPauseMenu : MonoBehaviour
         // would unfreeze while GmPlayer still believes it's showing a pause screen.
         IsPaused = false;
         if (panelSettings != null) Destroy(panelSettings);
+        if (ownedControls != null) Destroy(ownedControls);
+    }
+
+    void OnApplicationPause(bool pausedByApplication)
+    {
+        if (pausedByApplication) FlushSettingsBoundary();
+    }
+
+    void OnApplicationQuit() => FlushSettingsBoundary();
+
+    void FlushSettingsBoundary()
+    {
+        if (!GmAccessibilitySettings.HasPendingSave) return;
+        if (!GmAccessibilitySettings.FlushPendingSave())
+            Debug.LogError($"[GmPauseMenu] Accessibility settings remain pending: {GmSaveSystem.LastError}");
     }
 
     public static void SetReduceMotion(bool enabled)
     {
-        ReduceMotion = enabled;
+        GmAccessibilitySettings.SetReducedMotion(enabled);
         Debug.Log($"[GmPauseMenu] Reduce motion set to: {enabled}");
     }
 
     public static void SetTextScale(float scale)
     {
-        TextScale = Mathf.Clamp(scale, MinTextScale, MaxTextScale);
+        GmAccessibilitySettings.SetTextScale(scale);
         Debug.Log($"[GmPauseMenu] Text scale set to: {TextScale:F2}");
+    }
+
+    public static void SetCaptions(bool enabled) => GmAccessibilitySettings.SetCaptions(enabled);
+    public static void SetVibration(bool enabled) => GmAccessibilitySettings.SetVibration(enabled);
+    public static void SetMonoAudio(bool enabled) => GmAccessibilitySettings.SetMonoAudio(enabled);
+    public static void SetHighContrast(bool enabled) => GmAccessibilitySettings.SetHighContrast(enabled);
+
+    void HandleAccessibilityChanged()
+    {
+        ApplyTextScale();
+        if (root == null || menuContainer == null) return;
+        root.Q<Toggle>("CaptionsToggle")?.SetValueWithoutNotify(Captions);
+        root.Q<Toggle>("ReduceMotionToggle")?.SetValueWithoutNotify(ReduceMotion);
+        root.Q<Toggle>("VibrationToggle")?.SetValueWithoutNotify(Vibration);
+        root.Q<Toggle>("MonoAudioToggle")?.SetValueWithoutNotify(MonoAudio);
+        root.Q<Toggle>("HighContrastToggle")?.SetValueWithoutNotify(HighContrast);
+        root.Q<Slider>("TextScaleSlider")?.SetValueWithoutNotify(TextScale);
+        settingsView?.Refresh();
+        root.style.backgroundColor = HighContrast
+            ? new Color(0f, 0f, 0f, 0.985f)
+            : new Color(0.02f, 0.015f, 0.012f, 0.94f);
+        Color border = HighContrast ? Color.white : new Color(0.72f, 0.58f, 0.32f, 0.6f);
+        menuContainer.style.borderLeftColor = border;
+        menuContainer.style.borderRightColor = border;
+        menuContainer.style.borderTopColor = border;
+        menuContainer.style.borderBottomColor = border;
+        ApplyHighContrastPalette();
+    }
+
+    void ApplyHighContrastPalette()
+    {
+        if (!HighContrast || root == null) return;
+        foreach (Label label in root.Query<Label>().ToList()) label.style.color = Color.white;
+        if (titleLabel != null) titleLabel.style.color = Color.white;
+        if (promptLabel != null) promptLabel.style.color = Color.white;
+        for (int index = 0; index < tabButtons.Count; index++)
+        {
+            bool active = index < TabLabels.Length && TabLabels[index].Tab == ActiveTab;
+            tabButtons[index].style.color = active ? new Color(1f, 0.86f, 0.3f) : Color.white;
+            tabButtons[index].style.borderBottomColor = Color.white;
+        }
+        settingsView?.Refresh();
     }
 }

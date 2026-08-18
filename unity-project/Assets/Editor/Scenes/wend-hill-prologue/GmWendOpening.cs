@@ -21,6 +21,8 @@ public static class GmWendOpening
     /// this builder creates, which made both a permanent no-op that nothing reported.
     public const string WalkDeckName = "RouteWalkDeck";
     const string WalkDeckMeshPath = "Assets/Scenes/Generated/GmWendRouteWalkDeck.asset";
+    const string LanternPrefabPath =
+        "Assets/LeartesStudios/Abandoned Village/HDRP/Art/Prefabs/SM_Lantern.prefab";
     const float WalkDeckLift = 0.22f;
 
     static readonly (string id, string verb, float metres, float lateral)[] Pois =
@@ -101,9 +103,13 @@ public static class GmWendOpening
         BuildGate(root.transform, spline);
         BuildManor(root.transform, spline);
         int pois = BuildPois(root.transform, spline, ref anchors);
+        AlignChapelAnchorsToRenderedDoor();
         // Requires the coach-doors POI anchor BuildPois just created above.
         GmWendOutbuildings.Build(root.transform, spline);
         GmWendEstateForest.Apply(root.transform, spline);
+        GmWendEstateForest.ClearCemeterySightline();
+        GmWendEstateForest.ClearChapelSightline(spline);
+        GmWendOutbuildings.ClearCoachHouseVegetation();
         GmWendFoliage.Apply();
         BuildStoryAnchors(root.transform, spline, ref anchors);
         BuildWakeRoom(ref anchors);
@@ -112,6 +118,9 @@ public static class GmWendOpening
 
         int repaired = GmWendColliderRepair.Apply();
         int disabled = GmWendPerformance.Apply(spline);
+        var composition = new GameObject("Composition");
+        composition.transform.SetParent(root.transform, true);
+        GmWendCompositionPlan.Author(composition, spline);
         GmSceneBuildUtility.MarkScene(root, "wend-hill-prologue", "Wend Hill Prologue");
 
         List<string> anchorIssues = GmWorldAnchor.ValidateScene();
@@ -206,6 +215,28 @@ public static class GmWendOpening
             count++;
         }
         return count;
+    }
+
+    static void AlignChapelAnchorsToRenderedDoor()
+    {
+        GmWorldAnchor chapel = GmWorldAnchor.Find("chapel");
+        GmWorldAnchor chapelDoor = GmWorldAnchor.Find("chapel-door");
+        if (chapel == null || chapelDoor == null)
+            throw new InvalidOperationException("chapel alignment requires both chapel anchors");
+
+        Renderer door = UnityEngine.Object.FindObjectsByType<Renderer>(FindObjectsInactive.Include,
+                FindObjectsSortMode.None)
+            .Where(renderer => renderer.enabled &&
+                renderer.name.StartsWith("SM_Church_Door", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(renderer => renderer.bounds.SqrDistance(chapel.transform.position))
+            .FirstOrDefault();
+        if (door == null)
+            throw new InvalidOperationException("canonical opening has no rendered SM_Church_Door geometry");
+
+        Vector3 seated = new Vector3(door.bounds.center.x, door.bounds.min.y, door.bounds.center.z);
+        chapel.transform.position = seated;
+        chapelDoor.transform.position = seated;
+        Debug.Log($"[GmWendOpening] chapel anchors seated on '{door.name}' at {seated}");
     }
 
     static void BuildMarker(Transform parent, string id)
@@ -320,7 +351,7 @@ public static class GmWendOpening
         car.name = "ArrivalCar";
         if (car.transform.parent == null) car.transform.SetParent(parent, true);
         car.transform.position = anchor.transform.position;
-        car.transform.rotation = Quaternion.LookRotation(route.TangentAt(0f), Vector3.up);
+        car.transform.rotation = ArrivalCarRotation(route.TangentAt(0f));
         Renderer[] renderers = car.GetComponentsInChildren<Renderer>(true);
         if (renderers.Length > 0)
         {
@@ -343,12 +374,10 @@ public static class GmWendOpening
             bounds = renderers[0].bounds;
             foreach (Renderer renderer in renderers.Skip(1)) bounds.Encapsulate(renderer.bounds);
 
-            var paint = new Material(Shader.Find("HDRP/Lit")) { name = "GmArrivalCarPaint" };
-            paint.SetColor("_BaseColor", new Color(0.075f, 0.082f, 0.09f));
-            paint.SetFloat("_Metallic", 0.52f);
-            paint.SetFloat("_Smoothness", 0.48f);
-            foreach (Renderer renderer in renderers)
-                renderer.sharedMaterials = renderer.sharedMaterials.Select(_ => paint).ToArray();
+            StyleArrivalCar(renderers);
+
+            AddArrivalCarHeadlamps(car.transform, bounds, route.TangentAt(0f));
+            AddArrivalCarMoonKey(car.transform, bounds, route.TangentAt(0f));
 
             Bounds clearance = bounds;
             clearance.Expand(new Vector3(2.5f, 1f, 2.5f));
@@ -362,6 +391,159 @@ public static class GmWendOpening
                 foreach (Collider collider in renderer.GetComponentsInChildren<Collider>(true)) collider.enabled = false;
             }
         }
+    }
+
+    public static Quaternion ArrivalCarRotation(Vector3 routeForward)
+    {
+        routeForward.y = 0f;
+        if (routeForward.sqrMagnitude < 0.001f)
+            throw new ArgumentException("arrival car needs a horizontal route direction", nameof(routeForward));
+        // This FBX imports with its wheel side on positive local Y. A conventional world-up
+        // LookRotation put all four wheels above the roof. Roll the asset basis once while keeping
+        // local forward on the route tangent.
+        return Quaternion.LookRotation(-routeForward.normalized, Vector3.down);
+    }
+
+    public static void StyleArrivalCar(IEnumerable<Renderer> renderers)
+    {
+        Shader hdrp = Shader.Find("HDRP/Lit");
+        if (hdrp == null) throw new InvalidOperationException("HDRP/Lit is unavailable for the arrival car");
+        foreach (Renderer renderer in renderers.Where(candidate => candidate != null))
+        {
+            Material[] sourceMaterials = renderer.sharedMaterials;
+            if (sourceMaterials.Length == 0) sourceMaterials = new Material[] { null };
+            var styled = new Material[sourceMaterials.Length];
+            for (int slot = 0; slot < sourceMaterials.Length; slot++)
+            {
+                Material source = sourceMaterials[slot];
+                string semantic = (renderer.name + "/" + source?.name).ToLowerInvariant();
+                Color color;
+                float metallic;
+                float smoothness;
+                if (semantic.Contains("glass"))
+                {
+                    color = new Color(0.012f, 0.016f, 0.018f);
+                    metallic = 0.05f;
+                    smoothness = 0.82f;
+                }
+                else if (semantic.Contains("grill") || semantic.Contains("grille") ||
+                         semantic.Contains("chrome") || semantic.Contains("parts") ||
+                         semantic.Contains("metal"))
+                {
+                    color = new Color(0.17f, 0.145f, 0.105f);
+                    metallic = 0.76f;
+                    smoothness = 0.54f;
+                }
+                else if (semantic.Contains("light") || semantic.Contains("lamp"))
+                {
+                    color = new Color(0.46f, 0.25f, 0.085f);
+                    metallic = 0.18f;
+                    smoothness = 0.62f;
+                }
+                else if (semantic.Contains("wheel") || semantic.Contains("tire") ||
+                         semantic.Contains("tyre"))
+                {
+                    color = new Color(0.027f, 0.024f, 0.021f);
+                    metallic = 0.08f;
+                    smoothness = 0.22f;
+                }
+                else
+                {
+                    color = new Color(0.14f, 0.068f, 0.038f);
+                    metallic = 0.42f;
+                    smoothness = 0.46f;
+                }
+
+                Material material = source != null && source.shader == hdrp
+                    ? new Material(source)
+                    : new Material(hdrp);
+                material.name = $"GmArrivalCar_{renderer.name}_{slot}";
+                CopyCarTexture(source, material, "_BaseColorMap", "_MainTex");
+                CopyCarTexture(source, material, "_NormalMap", "_BumpMap");
+                material.SetColor("_BaseColor", color);
+                material.SetFloat("_Metallic", metallic);
+                material.SetFloat("_Smoothness", smoothness);
+                styled[slot] = material;
+            }
+            renderer.sharedMaterials = styled;
+        }
+    }
+
+    static void CopyCarTexture(Material source, Material destination, string destinationProperty,
+        string legacyProperty)
+    {
+        if (source == null || !destination.HasProperty(destinationProperty)) return;
+        Texture texture = source.HasProperty(destinationProperty) ? source.GetTexture(destinationProperty) : null;
+        if (texture == null && source.HasProperty(legacyProperty)) texture = source.GetTexture(legacyProperty);
+        if (texture != null) destination.SetTexture(destinationProperty, texture);
+    }
+
+    public static void AddArrivalCarHeadlamps(Transform car, Bounds bodyBounds, Vector3 forward)
+    {
+        if (car == null) throw new ArgumentNullException(nameof(car));
+        forward.y = 0f;
+        if (forward.sqrMagnitude < 0.001f)
+            throw new ArgumentException("arrival-car headlamps need a horizontal vehicle direction", nameof(forward));
+        forward.Normalize();
+        Vector3 right = Vector3.Cross(Vector3.up, forward).normalized;
+        float forwardExtent = Mathf.Abs(forward.x) * bodyBounds.extents.x +
+                              Mathf.Abs(forward.z) * bodyBounds.extents.z;
+        float rightExtent = Mathf.Abs(right.x) * bodyBounds.extents.x +
+                            Mathf.Abs(right.z) * bodyBounds.extents.z;
+        Vector3 front = bodyBounds.center + forward * Mathf.Max(0.1f, forwardExtent - 0.16f);
+        front.y = Mathf.Lerp(bodyBounds.min.y, bodyBounds.max.y, 0.58f);
+        Quaternion aim = Quaternion.LookRotation((forward + Vector3.down * 0.035f).normalized, Vector3.up);
+
+        for (int side = -1; side <= 1; side += 2)
+        {
+            var mount = new GameObject(side < 0 ? "ArrivalHeadlampLeft" : "ArrivalHeadlampRight");
+            mount.transform.SetParent(car, true);
+            mount.transform.SetPositionAndRotation(front + right * rightExtent * 0.56f * side, aim);
+            string fixtureName = side < 0 ? "ArrivalLanternLeftFixture" : "ArrivalLanternRightFixture";
+            GmOwnedPropFactory.PlacePrefab(LanternPrefabPath, fixtureName, mount.transform,
+                mount.transform.position - forward * 0.04f, new Vector3(0.24f, 0.22f, 0.18f), aim);
+
+            Light light = mount.AddComponent<Light>();
+            light.type = LightType.Spot;
+            light.color = new Color(1f, 0.67f, 0.36f);
+            light.range = 22f;
+            light.spotAngle = 46f;
+            light.innerSpotAngle = 29f;
+            light.shadows = LightShadows.None;
+            var hd = mount.AddComponent<HDAdditionalLightData>();
+            hd.lightUnit = LightUnit.Lumen;
+            hd.intensity = 780f;
+            hd.range = 22f;
+            hd.affectsVolumetric = false;
+        }
+    }
+
+    public static Light AddArrivalCarMoonKey(Transform car, Bounds bodyBounds, Vector3 forward)
+    {
+        if (car == null) throw new ArgumentNullException(nameof(car));
+        forward.y = 0f;
+        if (forward.sqrMagnitude < 0.001f)
+            throw new ArgumentException("arrival-car moon key needs a horizontal vehicle direction", nameof(forward));
+        forward.Normalize();
+        Vector3 right = Vector3.Cross(Vector3.up, forward).normalized;
+        var go = new GameObject("ArrivalMoonlightKey");
+        go.transform.SetParent(car, true);
+        go.transform.position = bodyBounds.center + forward * 4.2f + right * 3.2f + Vector3.up * 5.4f;
+        go.transform.rotation = Quaternion.LookRotation((bodyBounds.center - go.transform.position).normalized,
+            Vector3.up);
+        Light light = go.AddComponent<Light>();
+        light.type = LightType.Spot;
+        light.color = new Color(0.42f, 0.56f, 1f);
+        light.range = 16f;
+        light.spotAngle = 68f;
+        light.innerSpotAngle = 44f;
+        light.shadows = LightShadows.None;
+        var hd = go.AddComponent<HDAdditionalLightData>();
+        hd.lightUnit = LightUnit.Lumen;
+        hd.intensity = 1200f;
+        hd.range = 16f;
+        hd.affectsVolumetric = false;
+        return light;
     }
 
     static void BuildWalkDeck(Transform parent, IReadOnlyList<Vector3> points)
@@ -418,8 +600,10 @@ public static class GmWendOpening
         var rig = new GameObject("EstateGate");
         rig.transform.SetParent(parent, true);
         rig.transform.SetPositionAndRotation(center, Quaternion.LookRotation(forward, Vector3.up));
-        MakeGateCube(rig.transform, "PierLeft", new Vector3(-2.7f, 1.65f, 0f), new Vector3(0.65f, 3.3f, 0.65f));
-        MakeGateCube(rig.transform, "PierRight", new Vector3(2.7f, 1.65f, 0f), new Vector3(0.65f, 3.3f, 0.65f));
+        Material stone = GmVictorianInteriorKit.Surface("mantel", "EstateGateStone", new Vector2(1f, 2f),
+            new Color(0.46f, 0.44f, 0.40f));
+        BuildGatePierArt(rig.transform, "PierLeft", -2.7f, stone);
+        BuildGatePierArt(rig.transform, "PierRight", 2.7f, stone);
         Transform left = MakeLeaf(rig.transform, "LeafLeft", -2.35f, 1f);
         Transform rightLeaf = MakeLeaf(rig.transform, "LeafRight", 2.35f, -1f);
 
@@ -434,35 +618,135 @@ public static class GmWendOpening
         MakeGateLantern(rig.transform, new Vector3(-2.7f, 3.45f, 0.15f));
         MakeGateLantern(rig.transform, new Vector3(2.7f, 3.45f, 0.15f));
 
-        BuildPerimeterWing(rig.transform, -1f, 2.7f, 45f);
-        BuildPerimeterWing(rig.transform, 1f, 2.7f, 45f);
+        Bounds world = GmWendBounds.WorldBounds();
+        BuildPerimeterWingArt(rig.transform, -1f, 2.7f,
+            PerimeterWingEnd(world, center, rig.transform.right, -1f));
+        BuildPerimeterWingArt(rig.transform, 1f, 2.7f,
+            PerimeterWingEnd(world, center, rig.transform.right, 1f));
     }
 
-    static void BuildPerimeterWing(Transform parent, float side, float startX, float endX)
+    internal static float PerimeterWingEnd(
+        Bounds world, Vector3 gateCenter, Vector3 gateRight, float side)
     {
+        if (side != -1f && side != 1f) throw new ArgumentOutOfRangeException(nameof(side));
+        Vector3 direction = gateRight.normalized * side;
+        if (direction.sqrMagnitude < 0.99f)
+            throw new ArgumentException("gate right axis must be non-zero", nameof(gateRight));
+
+        float xDistance = AxisBoundaryDistance(
+            gateCenter.x, direction.x, world.min.x, world.max.x);
+        float zDistance = AxisBoundaryDistance(
+            gateCenter.z, direction.z, world.min.z, world.max.z);
+        float distance = Mathf.Min(xDistance, zDistance);
+        if (!float.IsFinite(distance) || distance <= 2.7f)
+            throw new InvalidOperationException(
+                $"estate gate at {gateCenter} cannot connect its {side:+0;-0} wing to world bounds {world}");
+        return distance;
+    }
+
+    static float AxisBoundaryDistance(float origin, float direction, float min, float max)
+    {
+        if (Mathf.Abs(direction) < 0.0001f) return float.PositiveInfinity;
+        float edge = direction > 0f ? max : min;
+        float distance = (edge - origin) / direction;
+        return distance > 0f ? distance : float.PositiveInfinity;
+    }
+
+    internal static GameObject BuildPerimeterWingArt(Transform parent, float side, float startX, float endX)
+    {
+        if (parent == null) throw new ArgumentNullException(nameof(parent));
+        if (side != -1f && side != 1f) throw new ArgumentOutOfRangeException(nameof(side));
+        if (endX <= startX) throw new ArgumentException("fence wing end must be beyond its start");
+
+        var wing = new GameObject(side < 0f ? "PerimeterWingLeft" : "PerimeterWingRight");
+        wing.transform.SetParent(parent, false);
         float span = endX - startX;
         int sections = Mathf.CeilToInt(span / 3.5f);
         float sectionWidth = span / sections;
+        var stoneBoxes = new List<Matrix4x4>();
+        var ironBoxes = new List<Matrix4x4>();
 
         for (int i = 0; i < sections; i++)
         {
             float x1 = side * (startX + i * sectionWidth);
             float x2 = side * (startX + (i + 1) * sectionWidth);
             float midX = (x1 + x2) * 0.5f;
+            float y1 = SampleFenceGroundY(parent, x1);
+            float y2 = SampleFenceGroundY(parent, x2);
+            float midY = (y1 + y2) * 0.5f;
+            Vector3 sectionAxis = new Vector3(x2 - x1, y2 - y1, 0f);
+            float sectionLength = sectionAxis.magnitude;
+            Quaternion sectionRotation = Quaternion.FromToRotation(Vector3.right, sectionAxis.normalized);
 
-            MakeGateCube(parent, $"WallBase_{side}_{i}", new Vector3(midX, 0.6f, 0f), new Vector3(sectionWidth, 1.2f, 0.45f));
-            MakeGateCube(parent, $"RailTop_{side}_{i}", new Vector3(midX, 2.3f, 0f), new Vector3(sectionWidth, 0.08f, 0.08f));
-            MakeGateCube(parent, $"RailMid_{side}_{i}", new Vector3(midX, 1.3f, 0f), new Vector3(sectionWidth, 0.08f, 0.08f));
+            stoneBoxes.Add(BoxMatrix(new Vector3(midX, midY + 0.45f, 0f),
+                sectionRotation, new Vector3(sectionLength + 0.04f, 0.9f, 0.5f)));
+            ironBoxes.Add(BoxMatrix(new Vector3(midX, midY + 2.28f, 0f),
+                sectionRotation, new Vector3(sectionLength + 0.04f, 0.10f, 0.10f)));
+            ironBoxes.Add(BoxMatrix(new Vector3(midX, midY + 1.35f, 0f),
+                sectionRotation, new Vector3(sectionLength + 0.04f, 0.09f, 0.09f)));
 
-            int pickets = Mathf.FloorToInt(sectionWidth / 0.35f);
+            int pickets = Mathf.Max(4, Mathf.FloorToInt(sectionWidth / 0.48f));
             for (int p = 0; p < pickets; p++)
             {
                 float px = Mathf.Lerp(x1, x2, (p + 0.5f) / pickets);
-                MakeGateCube(parent, $"Picket_{side}_{i}_{p}", new Vector3(px, 1.8f, 0f), new Vector3(0.06f, 1.1f, 0.06f));
+                float py = SampleFenceGroundY(parent, px);
+                ironBoxes.Add(BoxMatrix(new Vector3(px, py + 1.77f, 0f),
+                    Quaternion.identity, new Vector3(0.075f, 1.75f, 0.075f)));
+                ironBoxes.Add(BoxMatrix(new Vector3(px, py + 2.68f, 0f),
+                    Quaternion.Euler(0f, 0f, 45f), new Vector3(0.13f, 0.22f, 0.13f)));
             }
 
-            MakeGateCube(parent, $"Pier_{side}_{i}", new Vector3(x2, 1.35f, 0f), new Vector3(0.45f, 2.7f, 0.45f));
+            if (i % 2 == 1 || i == sections - 1)
+            {
+                stoneBoxes.Add(BoxMatrix(new Vector3(x2, y2 + 1.15f, 0f),
+                    Quaternion.identity, new Vector3(0.48f, 2.3f, 0.48f)));
+                stoneBoxes.Add(BoxMatrix(new Vector3(x2, y2 + 2.34f, 0f),
+                    Quaternion.Euler(0f, 45f, 0f), new Vector3(0.62f, 0.16f, 0.62f)));
+            }
+
+            var collisionSection = new GameObject($"FenceCollision_{i:00}");
+            collisionSection.transform.SetParent(wing.transform, false);
+            collisionSection.transform.localPosition = new Vector3(midX, midY + 1.35f, 0f);
+            collisionSection.transform.localRotation = sectionRotation;
+            BoxCollider collision = collisionSection.AddComponent<BoxCollider>();
+            collision.size = new Vector3(sectionLength + 0.04f, 2.7f, 0.5f);
         }
+
+        Material stone = GmVictorianInteriorKit.Surface("mantel", "EstateFenceStone", new Vector2(4f, 1f),
+            new Color(0.43f, 0.41f, 0.37f));
+        Material iron = GmHouseBeginningBuilder.Mat("EstateFenceIron",
+            new Color(0.15f, 0.14f, 0.125f), 0.38f, 0.18f);
+        CreateCombinedBoxVisual("Stonework", wing.transform, stoneBoxes, stone);
+        CreateCombinedBoxVisual("WroughtIron", wing.transform, ironBoxes, iron);
+
+        return wing;
+    }
+
+    static float SampleFenceGroundY(Transform gate, float localX)
+    {
+        Terrain terrain = Terrain.activeTerrain;
+        if (terrain == null) return 0f;
+        Vector3 world = gate.TransformPoint(new Vector3(localX, 0f, 0f));
+        float ground = terrain.SampleHeight(world) + terrain.transform.position.y;
+        return gate.InverseTransformPoint(new Vector3(world.x, ground, world.z)).y;
+    }
+
+    static void BuildGatePierArt(Transform parent, string name, float x, Material stone)
+    {
+        var root = new GameObject(name).transform;
+        root.SetParent(parent, false);
+        root.localPosition = new Vector3(x, 0f, 0f);
+        var boxes = new List<Matrix4x4>
+        {
+            BoxMatrix(new Vector3(0f, 0.18f, 0f), Quaternion.identity, new Vector3(1.05f, 0.36f, 1.05f)),
+            BoxMatrix(new Vector3(0f, 1.55f, 0f), Quaternion.identity, new Vector3(0.76f, 2.45f, 0.76f)),
+            BoxMatrix(new Vector3(0f, 2.84f, 0f), Quaternion.identity, new Vector3(0.96f, 0.14f, 0.96f)),
+            BoxMatrix(new Vector3(0f, 3.12f, 0f), Quaternion.Euler(0f, 45f, 0f), new Vector3(0.42f, 0.42f, 0.42f)),
+        };
+        CreateCombinedBoxVisual("Masonry", root, boxes, stone);
+        BoxCollider collider = root.gameObject.AddComponent<BoxCollider>();
+        collider.center = new Vector3(0f, 1.65f, 0f);
+        collider.size = new Vector3(0.8f, 3.3f, 0.8f);
     }
 
     static void MakeGateLantern(Transform parent, Vector3 localPosition)
@@ -470,6 +754,8 @@ public static class GmWendOpening
         var go = new GameObject("GateLantern");
         go.transform.SetParent(parent, false);
         go.transform.localPosition = localPosition;
+        GmOwnedPropFactory.PlacePrefab(LanternPrefabPath, "GateLanternFixture", go.transform,
+            go.transform.position, new Vector3(0.52f, 0.78f, 0.52f), parent.rotation);
         var light = go.AddComponent<Light>();
         light.type = LightType.Point;
         light.color = new Color(1f, 0.48f, 0.18f);
@@ -486,35 +772,56 @@ public static class GmWendOpening
         var pivot = new GameObject(name).transform;
         pivot.SetParent(parent, false);
         pivot.localPosition = new Vector3(x, 0f, 0f);
-        MakeGateCube(pivot, "TopRail", new Vector3(direction * 1.15f, 2.25f, 0f), new Vector3(2.3f, 0.12f, 0.12f));
-        MakeGateCube(pivot, "BottomRail", new Vector3(direction * 1.15f, 0.45f, 0f), new Vector3(2.3f, 0.12f, 0.12f));
+        var boxes = new List<Matrix4x4>
+        {
+            BoxMatrix(new Vector3(direction * 1.15f, 2.25f, 0f), Quaternion.identity, new Vector3(2.3f, 0.12f, 0.12f)),
+            BoxMatrix(new Vector3(direction * 1.15f, 0.45f, 0f), Quaternion.identity, new Vector3(2.3f, 0.12f, 0.12f)),
+            BoxMatrix(new Vector3(direction * 1.15f, 1.35f, 0f), Quaternion.Euler(0f, 0f, direction * 38f),
+                new Vector3(2.7f, 0.10f, 0.10f)),
+        };
         for (int i = 0; i < 6; i++)
-            MakeGateCube(pivot, $"Bar{i:D2}", new Vector3(direction * (0.2f + i * 0.38f), 1.35f, 0f),
-                new Vector3(0.08f, 2.1f, 0.08f));
+        {
+            float barX = direction * (0.2f + i * 0.38f);
+            boxes.Add(BoxMatrix(new Vector3(barX, 1.38f, 0f), Quaternion.identity,
+                new Vector3(0.08f, 2.0f, 0.08f)));
+            boxes.Add(BoxMatrix(new Vector3(barX, 2.45f, 0f), Quaternion.Euler(0f, 0f, 45f),
+                new Vector3(0.14f, 0.22f, 0.14f)));
+        }
+        Material iron = GmHouseBeginningBuilder.Mat("EstateGateLeafIron",
+            new Color(0.15f, 0.14f, 0.125f), 0.4f, 0.2f);
+        CreateCombinedBoxVisual("WroughtLeaf", pivot, boxes, iron);
         return pivot;
     }
 
-    static void MakeGateCube(Transform parent, string name, Vector3 localPosition, Vector3 size)
+    static Matrix4x4 BoxMatrix(Vector3 position, Quaternion rotation, Vector3 size) =>
+        Matrix4x4.TRS(position, rotation, size);
+
+    static GameObject CreateCombinedBoxVisual(string name, Transform parent,
+        IReadOnlyList<Matrix4x4> transforms, Material material)
     {
-        GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        go.name = name;
-        go.transform.SetParent(parent, false);
-        go.transform.localPosition = localPosition;
-        go.transform.localScale = size;
-        Renderer renderer = go.GetComponent<Renderer>();
-        if (renderer != null)
+        Mesh cube = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
+        if (cube == null) throw new InvalidOperationException("Unity cube mesh is unavailable for authored gate geometry");
+        var combines = new CombineInstance[transforms.Count];
+        for (int i = 0; i < transforms.Count; i++)
         {
-            // Metallic 0.42 scaled the already-dark diffuse down by 42% while the specular half of
-            // the BRDF had no probe to reflect at night, so the piers measured RGB (1.1, 0.0, 0.8)
-            // std 0.75 — a black void — against the stone wall beside them at (17.9, 9.9, 8.3)
-            // std 16.6 under the same lamp. Painted wrought iron is a dielectric with a sheen, not
-            // a mirror: drop metallic, lift the base so the lamp has something to catch.
-            var material = new Material(Shader.Find("HDRP/Lit")) { name = "GmGateIron" };
-            material.SetColor("_BaseColor", new Color(0.20f, 0.185f, 0.165f));
-            material.SetFloat("_Metallic", 0.05f);
-            material.SetFloat("_Smoothness", 0.42f);
-            renderer.sharedMaterial = material;
+            combines[i].mesh = cube;
+            combines[i].transform = transforms[i];
         }
+        var mesh = new Mesh { name = "GmAuthored" + name };
+        mesh.indexFormat = transforms.Count * cube.vertexCount > 65535
+            ? UnityEngine.Rendering.IndexFormat.UInt32
+            : UnityEngine.Rendering.IndexFormat.UInt16;
+        mesh.CombineMeshes(combines, true, true, false);
+        mesh.RecalculateBounds();
+
+        var visual = new GameObject(name);
+        visual.transform.SetParent(parent, false);
+        visual.AddComponent<MeshFilter>().sharedMesh = mesh;
+        MeshRenderer renderer = visual.AddComponent<MeshRenderer>();
+        renderer.sharedMaterial = material;
+        renderer.shadowCastingMode = ShadowCastingMode.On;
+        renderer.receiveShadows = true;
+        return visual;
     }
 
     static void BuildManor(Transform parent, GmRouteSpline route)
@@ -565,6 +872,8 @@ public static class GmWendOpening
         var go = new GameObject(name);
         go.transform.SetParent(parent, true);
         go.transform.position = position;
+        GmOwnedPropFactory.PlacePrefab(LanternPrefabPath, name + "Fixture", go.transform,
+            position, new Vector3(0.52f, 0.78f, 0.52f), parent.rotation);
         var light = go.AddComponent<Light>();
         light.type = LightType.Point;
         light.color = new Color(1f, 0.47f, 0.2f);

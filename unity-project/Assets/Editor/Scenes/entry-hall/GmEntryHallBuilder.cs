@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using UnityEditor;
+using UnityEditor.Rendering.HighDefinition;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.Rendering.HighDefinition;
 using UnityEngine.SceneManagement;
 
@@ -11,9 +13,22 @@ public static class GmEntryHallBuilder
     public const string DisplayName = "Entry Hall";
     public const string ScenePath = "Assets/Scenes/EntryHall.unity";
 
+    public const string LibraryKeyClueId = "key:brass_skeleton_key";
+    public const string LibraryLeverClueId = GmWeightedShelf.LeverClueId;
+    public const string LibraryDoorId = "door_library";
+    public const string ConservatoryDoorId = "door_conservatory";
+    public const string FrontDoorId = "door_front";
+    public const string CellarDoorId = "door_cellar";
+    public const string PercivalDoorId = "door_percival";
+    public const string MarrDoorId = "door_marr";
+    public const string BarredGuestDoorId = "door_barred_guest";
+    public const string AtticHatchId = "door_attic_hatch";
+    public const float SecondFloorY = 3.4f;
+
     [MenuItem("GamesMaster/Scenes/Rebuild Entry Hall")]
     public static void Build()
     {
+        GmVictorianInteriorKit.Prepare();
         Scene scene = GmSceneBuildUtility.CreateEmptyScene();
         var systems = new GameObject("SceneSystems");
         GmSceneBuildUtility.MarkScene(systems, SceneId, DisplayName);
@@ -31,6 +46,9 @@ public static class GmEntryHallBuilder
         BuildGameplayProps(gameplay.transform, authored);
         BuildDressing(environment.transform, authored);
         BuildLighting(lighting.transform, authored);
+        BuildParlorDoorway(environment.transform, authored);
+        BuildFoyerCrossroads(environment.transform, gameplay.transform, authored, lighting.transform);
+        BuildSecondFloor(environment.transform, authored, lighting.transform);
 
         var composition = new GameObject("Composition");
         GmEntryHallCompositionPlan.Author(composition, authored);
@@ -45,6 +63,9 @@ public static class GmEntryHallBuilder
         GmInteriorAtmosphere.Apply(null, GmEntryHallBuilder.SceneId);
 
         GmPlayerRig.Build(null, new Vector3(0f, 0f, -6f), new Vector3(0f, 1.6f, 0f));
+        systems.AddComponent<GmGameHud>();
+        var design = systems.AddComponent<GmDesignRuntime>();
+        design.designFile = "entry-hall-design.json";
         systems.AddComponent<GmEntryHallShotTour>();
 
         // This is the room the ninth bell delivers you to, so it owns the second half of that
@@ -52,7 +73,6 @@ public static class GmEntryHallBuilder
         // it because the load that carries the player here destroys GmCrossing. Does nothing at all
         // unless the curtain is raised, so entering the hall any other way starts normally.
         systems.AddComponent<GmSceneArrival>();
-        BuildParlorDoorway(environment.transform, authored);
 
         GmSceneBuildUtility.SaveScene(scene, ScenePath);
         Debug.Log("[GmEntryHall] BUILD PASS: " + ScenePath);
@@ -68,46 +88,129 @@ public static class GmEntryHallBuilder
         floor.transform.localScale = new Vector3(12f, 0.2f, 20f);
         GmSceneBuildUtility.ApplyVictorianSurface(floor, "floor", 2.2f);
 
-        // Carpet Runner
-        GameObject runner = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        runner.name = "CarpetRunner";
+        // The runner uses five real carpet sections. Stretching one carpet to the hall's 7.5:1
+        // footprint would either crush its pile flat or widen it across most of the room.
+        var runner = new GameObject("CarpetRunner");
         runner.transform.SetParent(parent, false);
-        runner.transform.position = new Vector3(0f, 0.01f, 0f);
-        runner.transform.localScale = new Vector3(2.4f, 0.02f, 18f);
-        GmSceneBuildUtility.ApplyVictorianSurface(runner, "carpet", 3f);
-        GmSceneBuildUtility.MakeDecorativeOverlay(runner);
+        for (int section = 0; section < 5; section++)
+        {
+            float z = -7f + section * 3.5f;
+            GmOwnedPropFactory.PlacePrefab(
+                "Assets/ThirdParty/MetalManVictorianInteriors/Carpet_1.fbx",
+                $"HallRunner_{section + 1:00}", runner.transform,
+                new Vector3(0f, 0.01f, z), new Vector3(2.4f, 0f, 3.5f),
+                Quaternion.identity, ground: true, surfaceY: 0.01f,
+                overrideMaterial: GmVictorianInteriorKit.Surface("carpet", "EntryHall_Runner", Vector2.one,
+                    new Color(0.34f, 0.055f, 0.065f)));
+        }
 
-        // Left Wall (Wood Panel)
-        GameObject leftWall = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        leftWall.name = "LeftWall";
+        // West wall, split around the barred conservatory opening near the wake vestibule so the
+        // portrait run further north keeps a continuous surface.
+        var leftWall = new GameObject("LeftWall");
         leftWall.transform.SetParent(parent, false);
-        leftWall.transform.position = new Vector3(-6f, 3f, 0f);
-        leftWall.transform.localScale = new Vector3(0.3f, 6f, 20f);
-        GmSceneBuildUtility.ApplyVictorianSurface(leftWall, "wall", 2.6f);
+        WallSlab(leftWall.transform, "LeftWallNorthRun", new Vector3(-6f, 3f, 1.325f),
+            new Vector3(0.3f, 6f, 17.35f));
+        WallSlab(leftWall.transform, "LeftWallSouthRun", new Vector3(-6f, 3f, -9.325f),
+            new Vector3(0.3f, 6f, 1.35f));
+        WallSlab(leftWall.transform, "LeftWallConservatoryHeader", new Vector3(-6f, 4.05f, -8f),
+            new Vector3(0.3f, 3.9f, 1.3f));
+        WallSlab(leftWall.transform, "LeftWallConservatoryLintel", new Vector3(-6f, 2.28f, -8f),
+            new Vector3(0.34f, 0.36f, 1.38f));
 
-        // Right Wall (Wood Panel)
-        GameObject rightWall = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        rightWall.name = "RightWall";
+        // Right wall, built around the parlor opening. A single wall cube used to sit behind the
+        // open leaves and transition trigger, so the route existed in code but was physically
+        // impassable. Keep one architectural root for lint/audit purposes and give each solid run
+        // its own collider.
+        var rightWall = new GameObject("RightWall");
         rightWall.transform.SetParent(parent, false);
-        rightWall.transform.position = new Vector3(6f, 3f, 0f);
-        rightWall.transform.localScale = new Vector3(0.3f, 6f, 20f);
-        GmSceneBuildUtility.ApplyVictorianSurface(rightWall, "wall", 2.6f);
 
-        // North Wall (Staircase wall)
-        GameObject northWall = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        northWall.name = "NorthWall";
+        GameObject rightWallSouth = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        rightWallSouth.name = "RightWallSouthRun";
+        rightWallSouth.transform.SetParent(rightWall.transform, false);
+        rightWallSouth.transform.position = new Vector3(6f, 3f, -2.6f);
+        rightWallSouth.transform.localScale = new Vector3(0.3f, 6f, 14.8f);
+        GmSceneBuildUtility.ApplyVictorianSurface(rightWallSouth, "wall", 2.6f);
+
+        GameObject rightWallNorth = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        rightWallNorth.name = "RightWallNorthRun";
+        rightWallNorth.transform.SetParent(rightWall.transform, false);
+        rightWallNorth.transform.position = new Vector3(6f, 3f, 8.6f);
+        rightWallNorth.transform.localScale = new Vector3(0.3f, 6f, 2.8f);
+        GmSceneBuildUtility.ApplyVictorianSurface(rightWallNorth, "wall", 2.6f);
+
+        GameObject rightWallHeader = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        rightWallHeader.name = "RightWallParlorHeader";
+        rightWallHeader.transform.SetParent(rightWall.transform, false);
+        rightWallHeader.transform.position = new Vector3(6f, 4.35f, 6f);
+        rightWallHeader.transform.localScale = new Vector3(0.3f, 3.3f, 2.4f);
+        GmSceneBuildUtility.ApplyVictorianSurface(rightWallHeader, "wall", 2.6f);
+
+        // A short return beyond the opening hides the exterior HDRP sky while the destination scene
+        // is still unloaded. It is deliberately deeper than the trigger so the player transitions
+        // before reaching the backing wall, but the view through the doors still has floor, ceiling,
+        // side reveals, and a shadowed interior plane to establish believable depth.
+        var threshold = new GameObject("ParlorThresholdInterior");
+        threshold.transform.SetParent(rightWall.transform, false);
+
+        GameObject thresholdFloor = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        thresholdFloor.name = "ParlorThresholdFloor";
+        thresholdFloor.transform.SetParent(threshold.transform, false);
+        thresholdFloor.transform.position = new Vector3(7.1f, -0.08f, 6f);
+        thresholdFloor.transform.localScale = new Vector3(2.2f, 0.16f, 2.4f);
+        GmSceneBuildUtility.ApplyVictorianSurface(thresholdFloor, "floor", 2.2f);
+
+        GameObject thresholdCeiling = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        thresholdCeiling.name = "ParlorThresholdCeiling";
+        thresholdCeiling.transform.SetParent(threshold.transform, false);
+        thresholdCeiling.transform.position = new Vector3(7.1f, 2.78f, 6f);
+        thresholdCeiling.transform.localScale = new Vector3(2.2f, 0.16f, 2.4f);
+        GmSceneBuildUtility.ApplyVictorianSurface(thresholdCeiling, "ceiling", 2.4f);
+
+        for (int side = -1; side <= 1; side += 2)
+        {
+            GameObject reveal = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            reveal.name = side < 0 ? "ParlorThresholdSouthReveal" : "ParlorThresholdNorthReveal";
+            reveal.transform.SetParent(threshold.transform, false);
+            reveal.transform.position = new Vector3(7.1f, 1.35f, 6f + side * 1.16f);
+            reveal.transform.localScale = new Vector3(2.2f, 2.7f, 0.16f);
+            GmSceneBuildUtility.ApplyVictorianSurface(reveal, "wall", 2.6f);
+        }
+
+        GameObject thresholdBacking = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        thresholdBacking.name = "ParlorThresholdBacking";
+        thresholdBacking.transform.SetParent(threshold.transform, false);
+        thresholdBacking.transform.position = new Vector3(8.18f, 1.35f, 6f);
+        thresholdBacking.transform.localScale = new Vector3(0.16f, 2.7f, 2.4f);
+        GmSceneBuildUtility.ApplyVictorianSurface(thresholdBacking, "wall", 2.6f);
+
+        // North wall: library door west at ground, solid under the 2F arch, 2F archway at landing
+        // height so the stairs can actually deliver a body onto the gallery.
+        var northWall = new GameObject("NorthWall");
         northWall.transform.SetParent(parent, false);
-        northWall.transform.position = new Vector3(0f, 3f, 10f);
-        northWall.transform.localScale = new Vector3(12f, 6f, 0.3f);
-        GmSceneBuildUtility.ApplyVictorianSurface(northWall, "wall", 2.6f);
+        WallSlab(northWall.transform, "NorthWallWestJamb", new Vector3(-5.675f, 3f, 10f),
+            new Vector3(0.65f, 6f, 0.3f));
+        WallSlab(northWall.transform, "NorthWallLibraryHeader", new Vector3(-4.7f, 4.05f, 10f),
+            new Vector3(1.3f, 3.9f, 0.3f));
+        WallSlab(northWall.transform, "NorthWallLibraryLintel", new Vector3(-4.7f, 2.28f, 10f),
+            new Vector3(1.38f, 0.36f, 0.34f));
+        WallSlab(northWall.transform, "NorthWallBetween", new Vector3(-2.675f, 3f, 10f),
+            new Vector3(2.75f, 6f, 0.3f));
+        WallSlab(northWall.transform, "NorthWallArchSill", new Vector3(0f, 1.7f, 10f),
+            new Vector3(2.6f, 3.4f, 0.3f));
+        WallSlab(northWall.transform, "NorthWallArchHeader", new Vector3(0f, 5.95f, 10f),
+            new Vector3(2.6f, 0.3f, 0.3f));
+        WallSlab(northWall.transform, "NorthWallEastRun", new Vector3(3.65f, 3f, 10f),
+            new Vector3(4.7f, 6f, 0.3f));
 
-        // South Wall (Entrance / Wake wall)
-        GameObject southWall = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        southWall.name = "SouthWall";
+        // South wall, split around the barred front doors. Threshold Refusal stays physical.
+        var southWall = new GameObject("SouthWall");
         southWall.transform.SetParent(parent, false);
-        southWall.transform.position = new Vector3(0f, 3f, -10f);
-        southWall.transform.localScale = new Vector3(12f, 6f, 0.3f);
-        GmSceneBuildUtility.ApplyVictorianSurface(southWall, "wall", 2.6f);
+        WallSlab(southWall.transform, "SouthWallWestRun", new Vector3(-3.55f, 3f, -10f),
+            new Vector3(4.9f, 6f, 0.3f));
+        WallSlab(southWall.transform, "SouthWallEastRun", new Vector3(3.55f, 3f, -10f),
+            new Vector3(4.9f, 6f, 0.3f));
+        WallSlab(southWall.transform, "SouthWallFrontHeader", new Vector3(0f, 4.3f, -10f),
+            new Vector3(2.2f, 3.4f, 0.3f));
 
         // Ceiling
         GameObject ceiling = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -121,57 +224,71 @@ public static class GmEntryHallBuilder
     static void BuildGameplayProps(Transform parent, Dictionary<string, GameObject> authored)
     {
         // Console table
-        GameObject table = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        table.name = "ConsoleTable";
-        table.transform.SetParent(parent, false);
-        table.transform.position = new Vector3(0f, 0.45f, -1f);
-        table.transform.localScale = new Vector3(1.8f, 0.9f, 0.7f);
-        ApplyMaterial(table, "HDRP/Lit", new Color(0.18f, 0.10f, 0.06f), 0.05f, 0.5f);
+        GameObject table = ImportedProp(parent, "ConsoleTable", "Table_2",
+            new Vector3(0f, 0.45f, -1f), new Vector3(1.8f, 0.9f, 0.7f),
+            Quaternion.identity, "table");
         authored["console-table"] = table;
 
-        // Ledger Book
-        GameObject ledger = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        ledger.name = "GuestLedger";
-        ledger.transform.SetParent(table.transform, false);
-        ledger.transform.localPosition = new Vector3(0f, 0.55f, 0f);
-        ledger.transform.localScale = new Vector3(0.45f, 0.08f, 0.35f);
-        ApplyMaterial(ledger, "HDRP/Lit", new Color(0.35f, 0.20f, 0.12f), 0.0f, 0.3f);
+        // Open ledger, fitted from the real book prefab and grounded to the measured tabletop.
+        var ledger = new GameObject("GuestLedger");
+        ledger.transform.SetParent(table.transform, true);
+        ledger.transform.position = new Vector3(0f, 0.94f, -1f);
+        GmOwnedPropFactory.PlacePrefab(
+            "Assets/LeartesStudios/WitchVillage/HDRP/Art/Prefabs/SM_Book_2.prefab",
+            "GuestLedger", ledger.transform, ledger.transform.position,
+            new Vector3(0.50f, 0.09f, 0.38f), Quaternion.Euler(90f, 0f, 0f),
+            ground: true, surfaceY: 0.90f);
+        var ledgerCollider = ledger.AddComponent<BoxCollider>();
+        ledgerCollider.size = new Vector3(0.50f, 0.09f, 0.38f);
         authored["ledger-book"] = ledger;
 
-        // Quill and inkwell resting beside the ledger where the last guest signed it.
-        GameObject quill = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        quill.name = "LedgerQuill";
-        quill.transform.SetParent(table.transform, false);
-        quill.transform.localPosition = new Vector3(0.45f, 0.55f, 0.12f);
-        quill.transform.localScale = new Vector3(0.05f, 0.03f, 0.28f);
-        ApplyMaterial(quill, "HDRP/Lit", new Color(0.10f, 0.08f, 0.06f), 0.1f, 0.35f);
+        // No owned pack contains a quill. This is an authored feather silhouette paired with a real
+        // glass bottle as the inkwell, not a stretched cube pretending to be both objects.
+        var quill = new GameObject("LedgerQuill");
+        quill.transform.SetParent(table.transform, true);
+        quill.transform.position = new Vector3(0.48f, 0.91f, -0.96f);
+        GmOwnedPropFactory.CreateQuill("AuthoredQuill", quill.transform,
+            new Vector3(0.48f, 0.925f, -0.94f), Quaternion.Euler(90f, 18f, 0f),
+            new Vector3(0.42f, 0.42f, 0.42f),
+            CreateMaterial("EntryHall_Quill", new Color(0.63f, 0.56f, 0.45f), 0f, 0.24f));
+        GmOwnedPropFactory.PlacePrefab(
+            "Assets/LeartesStudios/WitchVillage/HDRP/Art/Prefabs/SM_Bottles_4.prefab",
+            "LedgerInkwell", quill.transform, new Vector3(0.34f, 0.95f, -0.90f),
+            new Vector3(0.10f, 0.12f, 0.10f), Quaternion.identity,
+            ground: true, surfaceY: 0.90f);
         authored["ledger-quill"] = quill;
 
         // Portrait gallery on left wall (9 portraits)
         var gallery = new GameObject("PortraitGallery");
         gallery.transform.SetParent(parent, false);
-        gallery.transform.position = new Vector3(-5.8f, 2.2f, 0f);
+        gallery.transform.position = Vector3.zero;
 
         string[] names = { "Edwin Marr", "Caspian Dufresne", "Halvard Pike", "Solveig Hale",
                            "Theo Gall", "Barnaby Quill", "Imogen Thale", "Constance", "Percival" };
+        string[] slugs = { "edwin-marr", "caspian-dufresne", "halvard-pike", "solveig-hale",
+                           "theo-gall", "barnaby-quill", "imogen-thale", "constance", "percival" };
+        Material brass = CreateMaterial("EntryHall_Nameplate", new Color(0.48f, 0.31f, 0.10f), 0.72f, 0.42f);
 
         for (int i = 0; i < names.Length; i++)
         {
             float zOffset = -6f + i * 1.5f;
-            GameObject portrait = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            portrait.name = $"Portrait_{i + 1}_{names[i]}";
+            var portrait = new GameObject($"Portrait_{i + 1}_{names[i]}");
             portrait.transform.SetParent(gallery.transform, false);
-            portrait.transform.localPosition = new Vector3(0f, 0f, zOffset);
-            portrait.transform.localScale = new Vector3(0.08f, 1.2f, 0.9f);
-            ApplyMaterial(portrait, "HDRP/Lit", new Color(0.6f, 0.5f, 0.3f), 0.4f, 0.4f);
+            portrait.transform.position = new Vector3(-5.78f, 2.2f, zOffset);
+            GmVictorianInteriorKit.Place($"Picture_{i % 8 + 1}", $"HallPortraitFrame_{i + 1:00}",
+                portrait.transform, portrait.transform.position, new Vector3(0.12f, 1.24f, 0.92f),
+                Quaternion.Euler(0f, -90f, 0f), "picture");
+            GmOwnedPropFactory.CreateRoundedProp("PortraitCanvas", portrait.transform,
+                new Vector3(-5.715f, 2.2f, zOffset), Quaternion.Euler(0f, -90f, 0f),
+                new Vector3(0.72f, 1.02f, 0.025f), 0.012f,
+                GmVictorianInteriorKit.Portrait(slugs[i]));
 
             // Brass nameplate
-            GameObject plate = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            plate.name = $"Plate_{names[i]}";
-            plate.transform.SetParent(portrait.transform, false);
-            plate.transform.localPosition = new Vector3(0.6f, -0.6f, 0f);
-            plate.transform.localScale = new Vector3(0.1f, 0.12f, 0.6f);
-            ApplyMaterial(plate, "HDRP/Lit", new Color(0.85f, 0.75f, 0.35f), 0.7f, 0.6f);
+            GameObject plate = GmOwnedPropFactory.CreateRoundedProp($"Plate_{names[i]}", portrait.transform,
+                new Vector3(-5.70f, 1.53f, zOffset), Quaternion.Euler(0f, -90f, 0f),
+                new Vector3(0.56f, 0.13f, 0.035f), 0.025f, brass);
+            AddWorldText($"Name_{slugs[i]}", names[i], plate.transform,
+                new Vector3(0f, 0f, -0.021f), Quaternion.identity, 0.0105f);
 
             // The composition plan needs a real renderer to attach its markers to, not a proxy:
             // Marr's and Percival's are the two portraits the plan names directly.
@@ -179,58 +296,105 @@ public static class GmEntryHallBuilder
             if (i == names.Length - 1) authored["percival-frame"] = portrait;
         }
 
-        // Shard #1 behind Percival
-        GameObject shard = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        shard.name = "MirrorShard_1";
-        shard.transform.SetParent(gallery.transform, false);
-        shard.transform.localPosition = new Vector3(0.05f, -0.2f, 6.0f);
-        shard.transform.localScale = new Vector3(0.02f, 0.25f, 0.15f);
-        ApplyMaterial(shard, "HDRP/Lit", new Color(0.9f, 0.95f, 1.0f), 0.9f, 0.95f);
+        // Shard #1 is a triangular prism with a mirror material, visible behind Percival's loose edge.
+        GameObject shard = GmOwnedPropFactory.CreateMirrorShard("MirrorShard_1", gallery.transform,
+            new Vector3(-5.64f, 1.93f, 6.06f), Quaternion.Euler(0f, -90f, 16f),
+            new Vector3(0.34f, 0.46f, 0.055f),
+            CreateMaterial("EntryHall_MirrorShard", new Color(0.46f, 0.62f, 0.68f), 0.86f, 0.92f));
+        shard.AddComponent<BoxCollider>().size = new Vector3(1f, 1f, 1f);
         authored["shard-one"] = shard;
 
-        // Staircase representation
-        GameObject stairs = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        stairs.name = "GrandStaircase";
+        // Two full-depth measured flights create the broad silhouette the room calls "grand". The
+        // previous single asset was fitted into a 3m depth box; uniform scaling then crushed its
+        // 2.74m native width to roughly 1.3m, which is why the reviewed stair read as a black slot.
+        var stairs = new GameObject("GrandStaircase");
         stairs.transform.SetParent(parent, false);
-        stairs.transform.position = new Vector3(0f, 1.5f, 8.5f);
-        stairs.transform.localScale = new Vector3(5f, 3f, 3f);
-        stairs.transform.rotation = Quaternion.Euler(30f, 0f, 0f);
-        ApplyMaterial(stairs, "HDRP/Lit", new Color(0.2f, 0.12f, 0.08f), 0.05f, 0.35f);
+        stairs.transform.position = new Vector3(0f, 0f, 8.4f);
+        for (int side = -1; side <= 1; side += 2)
+        {
+            GmVictorianInteriorKit.PlaceGrounded("Stair",
+                side < 0 ? "GrandStairLeft" : "GrandStairRight", stairs.transform,
+                new Vector3(side * 1.15f, 0f, 8.4f), new Vector3(2.2f, 3.4f, 5.0f),
+                Quaternion.Euler(0f, side * 3f, 0f), "stair", surfaceY: 0f);
+        }
+        BuildWalkableTreads(stairs.transform);
         authored["grand-staircase"] = stairs;
     }
 
-    // The wake-cluster and stair-cluster composition elements named a settee, a marble side table
-    // and a newel post that nothing above ever built. Blockout primitives in the same idiom as the
-    // props above, placed where the composition plan already expects them.
+    // The wake-cluster and stair-cluster composition elements remain separate logical roots because
+    // the composition plan measures those roots, but every visible child comes from owned art.
     static void BuildDressing(Transform parent, Dictionary<string, GameObject> authored)
     {
         // Low settee where the player regains footing after the porch knockout.
-        GameObject settee = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        settee.name = "WakeSettee";
-        settee.transform.SetParent(parent, false);
-        settee.transform.position = new Vector3(0f, 0.25f, -8f);
-        settee.transform.localScale = new Vector3(1.6f, 0.5f, 0.6f);
-        ApplyMaterial(settee, "HDRP/Lit", new Color(0.30f, 0.05f, 0.10f), 0.0f, 0.2f); // worn velvet
+        GameObject settee = ImportedProp(parent, "WakeSettee", "Couch_2",
+            new Vector3(0f, 0.25f, -8f), new Vector3(1.6f, 0.5f, 0.6f),
+            Quaternion.identity, "couch", new Color(0.30f, 0.05f, 0.10f));
         authored["wake-settee"] = settee;
 
         // Small marble table beside the settee -- the wake-cluster's own purpose text already
         // promised one; it just never had geometry until now.
-        GameObject wakeTable = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        wakeTable.name = "WakeTable";
-        wakeTable.transform.SetParent(parent, false);
-        wakeTable.transform.position = new Vector3(1.3f, 0.25f, -8f);
-        wakeTable.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
-        ApplyMaterial(wakeTable, "HDRP/Lit", new Color(0.75f, 0.74f, 0.72f), 0.1f, 0.55f); // marble
+        GameObject wakeTable = ImportedProp(parent, "WakeTable", "Table_3",
+            new Vector3(1.3f, 0.25f, -8f), new Vector3(0.5f, 0.5f, 0.5f),
+            Quaternion.identity, "table", new Color(0.75f, 0.74f, 0.72f));
         authored["wake-table"] = wakeTable;
 
         // Carved newel post at the base of the grand staircase.
-        GameObject newel = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        newel.name = "StairNewel";
+        var newel = new GameObject("StairNewel");
         newel.transform.SetParent(parent, false);
-        newel.transform.position = new Vector3(2.0f, 0.4f, 6.0f);
-        newel.transform.localScale = new Vector3(0.2f, 0.8f, 0.2f);
-        ApplyMaterial(newel, "HDRP/Lit", new Color(0.18f, 0.11f, 0.07f), 0.05f, 0.4f);
+        newel.transform.position = new Vector3(2.0f, 0f, 6.0f);
+        GmOwnedPropFactory.PlacePrefab(
+            "Assets/LeartesStudios/WitchVillage/HDRP/Art/Meshes/Architecture/SculptedPost/SM_SculptedPost.fbx",
+            "StairNewel", newel.transform, new Vector3(2.0f, 0f, 6.0f),
+            new Vector3(0.38f, 0.95f, 0.38f), Quaternion.identity,
+            ground: true, surfaceY: 0f,
+            overrideMaterial: CreateMaterial("EntryHall_NewelWood",
+                new Color(0.17f, 0.07f, 0.03f), 0.03f, 0.36f));
         authored["stair-newel"] = newel;
+
+        // The central runner remains the circulation spine. Dress the two long perimeter bands so
+        // the hall reads as an occupied estate interior instead of a table and stair on an empty set.
+        // Every imported object is fitted from its renderer bounds; none of these coordinates assume
+        // the source FBX pivot or native scale.
+        ImportedProp(parent, "EastConsole", "Table_2",
+            new Vector3(5.28f, 0.44f, -3.65f), new Vector3(0.70f, 0.88f, 1.75f),
+            Quaternion.Euler(0f, 90f, 0f), "table", new Color(0.25f, 0.12f, 0.065f));
+
+        var eastMirror = new GameObject("EastHallMirror");
+        eastMirror.transform.SetParent(parent, false);
+        eastMirror.transform.position = new Vector3(5.72f, 2.25f, -3.65f);
+        GmVictorianInteriorKit.Place("Mirror_1", "EastHallMirror", eastMirror.transform,
+            eastMirror.transform.position, new Vector3(0.14f, 1.55f, 1.02f),
+            Quaternion.Euler(0f, -90f, 0f), "mirror");
+
+        ImportedProp(parent, "GalleryChairSouth", "Chair_1",
+            new Vector3(-4.78f, 0.52f, -4.65f), new Vector3(0.78f, 1.04f, 0.78f),
+            Quaternion.Euler(0f, 82f, 0f), "chair", new Color(0.30f, 0.075f, 0.085f));
+        ImportedProp(parent, "GalleryChairNorth", "Chair_2",
+            new Vector3(-4.78f, 0.58f, 3.95f), new Vector3(0.82f, 1.16f, 0.82f),
+            Quaternion.Euler(0f, 98f, 0f), "chair", new Color(0.20f, 0.055f, 0.065f));
+
+        ImportedProp(parent, "StairSideTable", "Table_3",
+            new Vector3(-4.75f, 0.36f, 7.65f), new Vector3(0.72f, 0.72f, 0.72f),
+            Quaternion.identity, "table", new Color(0.28f, 0.14f, 0.07f));
+
+        var landingClock = new GameObject("LandingClock");
+        landingClock.transform.SetParent(parent, false);
+        landingClock.transform.position = new Vector3(4.72f, 0f, 7.85f);
+        GmOwnedPropFactory.PlacePrefab("Assets/GamesMaster/Props/Vintage_Grantfather_Clock.fbx",
+            "LandingClock", landingClock.transform, new Vector3(4.72f, 1.15f, 7.85f),
+            new Vector3(0.88f, 2.30f, 0.72f), Quaternion.Euler(90f, -18f, 0f),
+            ground: true, surfaceY: 0f,
+            overrideMaterial: CreateMaterial("EntryHall_LandingClockWood",
+                new Color(0.12f, 0.07f, 0.04f), 0.03f, 0.40f));
+        Renderer[] clockRenderers = landingClock.GetComponentsInChildren<Renderer>(true);
+        if (clockRenderers.Length > 0)
+        {
+            Bounds clockBounds = clockRenderers[0].bounds;
+            for (int i = 1; i < clockRenderers.Length; i++) clockBounds.Encapsulate(clockRenderers[i].bounds);
+            var clockBody = landingClock.AddComponent<BoxCollider>();
+            clockBody.center = landingClock.transform.InverseTransformPoint(clockBounds.center);
+            clockBody.size = clockBounds.size;
+        }
     }
 
     static void BuildLighting(Transform parent, Dictionary<string, GameObject> authored)
@@ -238,32 +402,36 @@ public static class GmEntryHallBuilder
         // Chandelier fixture (the visible iron frame the light hangs from) + its light. Composition
         // markers measure elements through their renderers, so the light alone (no renderer) can
         // never stand in for the "hall-chandelier" element the plan describes.
-        GameObject chandelierFixture = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        chandelierFixture.name = "ChandelierFixture";
+        var chandelierFixture = new GameObject("ChandelierFixture");
         chandelierFixture.transform.SetParent(parent, false);
-        chandelierFixture.transform.position = new Vector3(0f, 4.8f, 0f);
-        chandelierFixture.transform.localScale = new Vector3(0.6f, 0.3f, 0.6f);
-        ApplyMaterial(chandelierFixture, "HDRP/Lit", new Color(0.12f, 0.11f, 0.10f), 0.6f, 0.3f); // wrought iron
+        chandelierFixture.transform.position = new Vector3(0f, 4.8f, 4.5f);
+        GmVictorianInteriorKit.Place("Lamp_1_LOD0", "HallChandelier", chandelierFixture.transform,
+            chandelierFixture.transform.position, new Vector3(1.15f, 0.92f, 1.15f),
+            Quaternion.identity, "lamp");
         authored["hall-chandelier"] = chandelierFixture;
 
         GameObject chandelierObj = new GameObject("ChandelierLight");
         chandelierObj.transform.SetParent(parent, false);
-        chandelierObj.transform.position = new Vector3(0f, 4.8f, 0f);
+        chandelierObj.transform.position = new Vector3(0f, 4.8f, 4.5f);
         Light chandelier = chandelierObj.AddComponent<Light>();
         chandelier.type = LightType.Point;
         chandelier.range = 14f;
         chandelier.color = new Color(1.0f, 0.88f, 0.72f);
+        chandelier.lightUnit = LightUnit.Candela;
         chandelier.intensity = 800f;
-        chandelierObj.AddComponent<HDAdditionalLightData>();
+        HDAdditionalLightData chandelierHd = chandelierObj.AddComponent<HDAdditionalLightData>();
+        chandelierHd.lightUnit = LightUnit.Candela;
+        chandelierHd.intensity = 800f;
         authored["chandelier-light"] = chandelierObj;
 
         // Ledger lamp fixture (green glass shade) + light
-        GameObject ledgerLampFixture = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        ledgerLampFixture.name = "LedgerLampFixture";
+        var ledgerLampFixture = new GameObject("LedgerLampFixture");
         ledgerLampFixture.transform.SetParent(parent, false);
-        ledgerLampFixture.transform.position = new Vector3(0.4f, 1.05f, -1f);
-        ledgerLampFixture.transform.localScale = new Vector3(0.15f, 0.3f, 0.15f);
-        ApplyMaterial(ledgerLampFixture, "HDRP/Lit", new Color(0.1f, 0.35f, 0.15f), 0.2f, 0.8f); // green glass
+        ledgerLampFixture.transform.position = new Vector3(0.4f, 0.9f, -1f);
+        GmVictorianInteriorKit.PlaceGrounded("Lamp_2", "LedgerBankerLamp", ledgerLampFixture.transform,
+            new Vector3(0.4f, 0.9f, -1f), new Vector3(0.32f, 0.46f, 0.34f),
+            Quaternion.identity, "lamp", surfaceY: 0.9f,
+            tintOverride: new Color(0.16f, 0.42f, 0.22f));
         authored["ledger-lamp"] = ledgerLampFixture;
 
         GameObject ledgerLampObj = new GameObject("LedgerLampLight");
@@ -286,21 +454,24 @@ public static class GmEntryHallBuilder
         // settee from any camera that also looks north into the hall -- it is always behind such a
         // camera by construction. This is the same "plan and builder drifted apart" class the wake
         // settee/table/newel needed above, just on a lit fixture instead of a bare id.
-        GameObject wakeLampFixture = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        wakeLampFixture.name = "WakeLampFixture";
+        var wakeLampFixture = new GameObject("WakeLampFixture");
         wakeLampFixture.transform.SetParent(parent, false);
-        wakeLampFixture.transform.position = new Vector3(-1.0f, 1.55f, -8.1f);
-        wakeLampFixture.transform.localScale = new Vector3(0.18f, 0.28f, 0.1f);
-        ApplyMaterial(wakeLampFixture, "HDRP/Lit", new Color(0.55f, 0.42f, 0.20f), 0.5f, 0.5f); // tarnished brass
+        wakeLampFixture.transform.position = new Vector3(-1.0f, 1.72f, -8.1f);
+        GmVictorianInteriorKit.Place("Lamp_2", "WakeGasSconce", wakeLampFixture.transform,
+            wakeLampFixture.transform.position, new Vector3(0.34f, 0.56f, 0.38f),
+            Quaternion.Euler(0f, 180f, 0f), "lamp");
         authored["wake-lamp"] = wakeLampFixture;
+        authored["wake-lamp-light"] = CreatePointLight(parent, "WakeSconceLight",
+            new Vector3(-1.0f, 1.72f, -7.85f), 4.5f, 35f,
+            new Color(1.0f, 0.64f, 0.30f));
 
         // Gallery wall sconces: fixtures + lights
-        GameObject sconce1Fixture = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        sconce1Fixture.name = "GallerySconceFixture_1";
+        var sconce1Fixture = new GameObject("GallerySconceFixture_1");
         sconce1Fixture.transform.SetParent(parent, false);
-        sconce1Fixture.transform.position = new Vector3(-5.2f, 2.5f, -3f);
-        sconce1Fixture.transform.localScale = new Vector3(0.18f, 0.28f, 0.1f);
-        ApplyMaterial(sconce1Fixture, "HDRP/Lit", new Color(0.55f, 0.42f, 0.20f), 0.5f, 0.5f);
+        sconce1Fixture.transform.position = new Vector3(-5.72f, 2.5f, -3f);
+        GmVictorianInteriorKit.Place("Lamp_2", "GallerySconceSouth", sconce1Fixture.transform,
+            sconce1Fixture.transform.position, new Vector3(0.28f, 0.48f, 0.34f),
+            Quaternion.Euler(0f, 90f, 0f), "lamp");
         authored["gallery-sconce-1"] = sconce1Fixture;
 
         GameObject sconce1 = new GameObject("GallerySconce_1");
@@ -314,17 +485,17 @@ public static class GmEntryHallBuilder
         sconce1.AddComponent<HDAdditionalLightData>();
         authored["gallery-sconce-1-light"] = sconce1;
 
-        GameObject sconce2Fixture = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        sconce2Fixture.name = "GallerySconceFixture_2";
+        var sconce2Fixture = new GameObject("GallerySconceFixture_2");
         sconce2Fixture.transform.SetParent(parent, false);
-        sconce2Fixture.transform.position = new Vector3(-5.2f, 2.5f, 3f);
-        sconce2Fixture.transform.localScale = new Vector3(0.18f, 0.28f, 0.1f);
-        ApplyMaterial(sconce2Fixture, "HDRP/Lit", new Color(0.55f, 0.42f, 0.20f), 0.5f, 0.5f);
+        sconce2Fixture.transform.position = new Vector3(-5.72f, 2.5f, 5.1f);
+        GmVictorianInteriorKit.Place("Lamp_2", "GallerySconceNorth", sconce2Fixture.transform,
+            sconce2Fixture.transform.position, new Vector3(0.28f, 0.48f, 0.34f),
+            Quaternion.Euler(0f, 90f, 0f), "lamp");
         authored["gallery-sconce-2"] = sconce2Fixture;
 
         GameObject sconce2 = new GameObject("GallerySconce_2");
         sconce2.transform.SetParent(parent, false);
-        sconce2.transform.position = new Vector3(-5.2f, 2.5f, 3f);
+        sconce2.transform.position = new Vector3(-5.2f, 2.5f, 5.1f);
         Light sc2 = sconce2.AddComponent<Light>();
         sc2.type = LightType.Point;
         sc2.range = 5f;
@@ -332,19 +503,136 @@ public static class GmEntryHallBuilder
         sc2.intensity = 200f;
         sconce2.AddComponent<HDAdditionalLightData>();
         authored["gallery-sconce-2-light"] = sconce2;
+
+        // The north end was previously lit only from the chandelier at z=0, leaving the stair and
+        // the newly built doorway as silhouettes. These are visible east-wall gas fixtures, each
+        // paired with the local practical it motivates in the composition plan.
+        var stairFixture = new GameObject("StairSconceFixture");
+        stairFixture.transform.SetParent(parent, false);
+        stairFixture.transform.position = new Vector3(5.72f, 2.55f, 7.45f);
+        GmVictorianInteriorKit.Place("Lamp_2", "StairGasSconce", stairFixture.transform,
+            stairFixture.transform.position, new Vector3(0.30f, 0.50f, 0.36f),
+            Quaternion.Euler(0f, -90f, 0f), "lamp");
+        authored["stair-sconce"] = stairFixture;
+        GameObject stairSconceLight = CreatePointLight(parent, "StairSconceLight",
+            new Vector3(4.30f, 2.55f, 7.20f), 7f, 35f,
+            new Color(1.0f, 0.72f, 0.44f));
+        HDAdditionalLightData stairHd = stairSconceLight.GetComponent<HDAdditionalLightData>();
+        stairSconceLight.GetComponent<Light>().lightUnit = LightUnit.Candela;
+        stairHd.lightUnit = LightUnit.Candela;
+        stairHd.intensity = 35f;
+        authored["stair-sconce-light"] = stairSconceLight;
+
+        var stairWestFixture = new GameObject("StairWestSconceFixture");
+        stairWestFixture.transform.SetParent(parent, false);
+        stairWestFixture.transform.position = new Vector3(-5.72f, 2.55f, 7.45f);
+        GmVictorianInteriorKit.Place("Lamp_2", "StairWestGasSconce", stairWestFixture.transform,
+            stairWestFixture.transform.position, new Vector3(0.30f, 0.50f, 0.36f),
+            Quaternion.Euler(0f, 90f, 0f), "lamp");
+        authored["stair-west-sconce"] = stairWestFixture;
+        GameObject stairWestLight = CreatePointLight(parent, "StairWestSconceLight",
+            new Vector3(-4.30f, 2.55f, 7.20f), 7f, 35f,
+            new Color(1.0f, 0.72f, 0.44f));
+        stairWestLight.GetComponent<Light>().lightUnit = LightUnit.Candela;
+        HDAdditionalLightData stairWestHd = stairWestLight.GetComponent<HDAdditionalLightData>();
+        stairWestHd.lightUnit = LightUnit.Candela;
+        stairWestHd.intensity = 35f;
+        authored["stair-west-sconce-light"] = stairWestLight;
+
+        var doorFixture = new GameObject("ParlorDoorSconceFixture");
+        doorFixture.transform.SetParent(parent, false);
+        doorFixture.transform.position = new Vector3(5.72f, 2.40f, 4.65f);
+        GmVictorianInteriorKit.Place("Lamp_2", "ParlorDoorGasSconce", doorFixture.transform,
+            doorFixture.transform.position, new Vector3(0.28f, 0.47f, 0.34f),
+            Quaternion.Euler(0f, -90f, 0f), "lamp");
+        authored["parlor-door-sconce"] = doorFixture;
+        authored["parlor-door-sconce-light"] = CreatePointLight(parent, "ParlorDoorSconceLight",
+            new Vector3(5.38f, 2.40f, 4.65f), 5f, 35f,
+            new Color(1.0f, 0.70f, 0.42f));
+
+        GmInteriorMoonWindow.Result westMoon = GmInteriorMoonWindow.Build(parent,
+            "NorthMoonWindowWest", new Vector3(-3.45f, 4.15f, 9.82f),
+            new Vector3(-3.8f, 1.15f, 5.5f), new Vector2(1.45f, 2.15f), 190f);
+        authored["north-moon-window-west"] = westMoon.fixture;
+        authored["north-moon-light-west"] = westMoon.light;
+        GmInteriorMoonWindow.Result eastMoon = GmInteriorMoonWindow.Build(parent,
+            "NorthMoonWindowEast", new Vector3(3.45f, 4.15f, 9.82f),
+            new Vector3(3.8f, 1.15f, 7.0f), new Vector2(1.45f, 2.15f), 190f);
+        authored["north-moon-window-east"] = eastMoon.fixture;
+        authored["north-moon-light-east"] = eastMoon.light;
+    }
+
+    static GameObject CreatePointLight(Transform parent, string name, Vector3 position,
+        float range, float lumens, Color color)
+    {
+        var lightObject = new GameObject(name);
+        lightObject.transform.SetParent(parent, false);
+        lightObject.transform.position = position;
+        Light light = lightObject.AddComponent<Light>();
+        light.type = LightType.Point;
+        light.range = range;
+        light.color = color;
+        light.intensity = lumens;
+        HDAdditionalLightData hd = lightObject.AddComponent<HDAdditionalLightData>();
+        hd.lightUnit = LightUnit.Lumen;
+        hd.intensity = lumens;
+        hd.range = range;
+        return lightObject;
     }
 
     static void ApplyMaterial(GameObject go, string shaderName, Color color, float metallic, float smoothness)
     {
         Renderer r = go.GetComponent<Renderer>();
         if (r == null) return;
-        Shader s = Shader.Find(shaderName);
-        if (s == null) s = Shader.Find("HDRP/Lit");
-        Material mat = new Material(s);
-        mat.SetColor("_BaseColor", color);
-        mat.SetFloat("_Metallic", metallic);
-        mat.SetFloat("_Smoothness", smoothness);
-        r.sharedMaterial = mat;
+        r.sharedMaterial = CreateMaterial(go.name + "_Material", color, metallic, smoothness, shaderName);
+    }
+
+    static Material CreateMaterial(string name, Color color, float metallic, float smoothness,
+        string shaderName = "HDRP/Lit")
+    {
+        Shader shader = Shader.Find(shaderName) ?? Shader.Find("HDRP/Lit");
+        if (shader == null)
+            throw new InvalidOperationException("[GmEntryHall] HDRP/Lit shader is unavailable");
+        var material = new Material(shader) { name = name };
+        if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", color);
+        if (material.HasProperty("_Metallic")) material.SetFloat("_Metallic", metallic);
+        if (material.HasProperty("_Smoothness")) material.SetFloat("_Smoothness", smoothness);
+        if (!HDShaderUtils.ResetMaterialKeywords(material))
+            Debug.LogWarning($"[GmEntryHall] HDRP keyword reset rejected '{name}'");
+        return material;
+    }
+
+    static void AddWorldText(string objectName, string text, Transform parent,
+        Vector3 localPosition, Quaternion localRotation, float characterSize)
+    {
+        var label = new GameObject(objectName);
+        label.transform.SetParent(parent, false);
+        label.transform.localPosition = localPosition;
+        label.transform.localRotation = localRotation;
+        TextMesh mesh = label.AddComponent<TextMesh>();
+        mesh.text = text;
+        mesh.anchor = TextAnchor.MiddleCenter;
+        mesh.alignment = TextAlignment.Center;
+        mesh.characterSize = characterSize;
+        mesh.fontSize = 64;
+        mesh.color = new Color(0.08f, 0.045f, 0.02f);
+        mesh.richText = false;
+    }
+
+    static GameObject ImportedProp(Transform parent, string name, string modelName,
+        Vector3 targetCenter, Vector3 targetSize, Quaternion rotation, string materialFamily,
+        Color? tintOverride = null, float surfaceY = 0f)
+    {
+        var root = new GameObject(name);
+        root.transform.SetParent(parent, true);
+        root.transform.position = targetCenter;
+
+        var collider = root.AddComponent<BoxCollider>();
+        collider.size = targetSize;
+
+        GmVictorianInteriorKit.PlaceGrounded(modelName, name, root.transform, targetCenter, targetSize,
+            rotation, materialFamily, surfaceY: surfaceY, tintOverride: tintOverride);
+        return root;
     }
 
     /// The way to the table.
@@ -366,14 +654,24 @@ public static class GmEntryHallBuilder
 
         var doorway = new GameObject("ParlorDoorway");
         doorway.transform.SetParent(parent, false);
+        authored["parlor-doorway"] = doorway;
 
-        // Frame, so the opening reads as a door and not a hole in the panelling.
-        GameObject lintel = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        lintel.name = "ParlorDoorLintel";
+        Material doorWood = CreateMaterial("EntryHall_ParlorDoorWood",
+            new Color(0.34f, 0.15f, 0.065f), 0.03f, 0.34f);
+
+        // Two measured carved frames articulate the double opening. The old single stretched cube
+        // read as a construction beam in the review frame and carried no period detail at all.
+        var lintel = new GameObject("ParlorDoorLintel");
         lintel.transform.SetParent(doorway.transform, false);
-        lintel.transform.position = new Vector3(WallX - 0.12f, 3.05f, DoorZ);
-        lintel.transform.localScale = new Vector3(0.28f, 0.35f, Opening + 0.5f);
-        ApplyMaterial(lintel, "HDRP/Lit", new Color(0.26f, 0.16f, 0.10f), 0.06f, 0.35f);
+        for (int side = -1; side <= 1; side += 2)
+        {
+            GmOwnedPropFactory.PlacePrefab(
+                "Assets/LeartesStudios/HauntedVillage/Art/Prefabs/SM_DoorFrame.prefab",
+                side < 0 ? "ParlorDoorFrameSouth" : "ParlorDoorFrameNorth", lintel.transform,
+                new Vector3(WallX - 0.12f, 1.1f, DoorZ + side * 0.58f),
+                new Vector3(0.18f, 2.35f, 1.28f), Quaternion.identity,
+                ground: true, surfaceY: 0f, overrideMaterial: doorWood);
+        }
         authored["parlor-door-lintel"] = lintel;
 
         // Both leaves, standing open. The house does not open its front doors; it has no reservation
@@ -381,13 +679,28 @@ public static class GmEntryHallBuilder
         // player can decline by not walking through it.
         for (int side = -1; side <= 1; side += 2)
         {
-            GameObject leaf = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            leaf.name = side < 0 ? "ParlorDoorLeafSouth" : "ParlorDoorLeafNorth";
+            string leafName = side < 0 ? "ParlorDoorLeafSouth" : "ParlorDoorLeafNorth";
+            var leaf = new GameObject(leafName);
             leaf.transform.SetParent(doorway.transform, false);
-            leaf.transform.position = new Vector3(WallX - 0.55f, 1.45f, DoorZ + side * (Opening * 0.5f + 0.25f));
-            leaf.transform.localScale = new Vector3(0.9f, 2.9f, 0.08f);
-            leaf.transform.rotation = Quaternion.Euler(0f, side * 24f, 0f);
-            ApplyMaterial(leaf, "HDRP/Lit", new Color(0.20f, 0.11f, 0.07f), 0.10f, 0.35f);
+            // Swing each centre around its outer jamb. Translating two barely rotated slabs away
+            // from the opening made the near leaf fill the review frame and hid the threshold.
+            // The hinge calculation keeps the clear opening centred while both leaves fold into
+            // the hall by the same amount.
+            float swingAngle = side * 65f;
+            Vector3 hinge = new Vector3(WallX - 0.05f, 1.10f,
+                DoorZ + side * Opening * 0.5f);
+            Vector3 closedCenterFromHinge = new Vector3(0f, 0f, -side * Opening * 0.25f);
+            Vector3 center = hinge + Quaternion.Euler(0f, swingAngle, 0f) * closedCenterFromHinge;
+            leaf.transform.SetPositionAndRotation(center, Quaternion.Euler(0f, swingAngle, 0f));
+            GmOwnedPropFactory.PlacePrefab(
+                side < 0
+                    ? "Assets/LeartesStudios/HauntedVillage/Art/Prefabs/SM_Door_01.prefab"
+                    : "Assets/LeartesStudios/HauntedVillage/Art/Prefabs/SM_Door_02.prefab",
+                leafName, leaf.transform, center, new Vector3(0f, 2.2f, 1.17f),
+                Quaternion.Euler(0f, swingAngle, 0f), ground: true, surfaceY: 0f,
+                overrideMaterial: doorWood);
+            BoxCollider collider = leaf.AddComponent<BoxCollider>();
+            collider.size = new Vector3(0.12f, 2.2f, 1.17f);
         }
 
         // The volume itself, set INSIDE the opening rather than across the hall, so brushing past the
@@ -403,5 +716,486 @@ public static class GmEntryHallBuilder
         trigger.TargetSceneId = GmParlorBuilder.SceneId;
         trigger.TargetScenePath = GmParlorBuilder.ScenePath;
         trigger.InteractionPrompt = "Through the double doors, to the table";
+
+        var parlorDoor = doorway.AddComponent<GmEstateDoor>();
+        parlorDoor.Configure("door_parlor", "Parlor Doors", "", "",
+            locked: false, barred: false, openAng: 0f, leaf: doorway.transform,
+            secret: false, openAtStart: true);
+        parlorDoor.EnsureBarrier(new Vector3(0.2f, 2.4f, Opening));
+    }
+
+    static GameObject WallSlab(Transform parent, string name, Vector3 position, Vector3 scale)
+    {
+        GameObject slab = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        slab.name = name;
+        slab.transform.SetParent(parent, false);
+        slab.transform.position = position;
+        slab.transform.localScale = scale;
+        GmSceneBuildUtility.ApplyVictorianSurface(slab, "wall", 2.6f);
+        return slab;
+    }
+
+    static GameObject FloorSlab(Transform parent, string name, Vector3 position, Vector3 scale)
+    {
+        GameObject slab = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        slab.name = name;
+        slab.transform.SetParent(parent, false);
+        slab.transform.position = position;
+        slab.transform.localScale = scale;
+        GmSceneBuildUtility.ApplyVictorianSurface(slab, "floor", 2.2f);
+        return slab;
+    }
+
+    static GameObject CeilingSlab(Transform parent, string name, Vector3 position, Vector3 scale)
+    {
+        GameObject slab = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        slab.name = name;
+        slab.transform.SetParent(parent, false);
+        slab.transform.position = position;
+        slab.transform.localScale = scale;
+        GmSceneBuildUtility.ApplyVictorianSurface(slab, "ceiling", 2.6f);
+        return slab;
+    }
+
+    static void AddBarrierCollider(Transform parent, string name, Vector3 position, Vector3 size)
+    {
+        var holder = new GameObject(name);
+        holder.transform.SetParent(parent, false);
+        holder.transform.position = position;
+        var box = holder.AddComponent<BoxCollider>();
+        box.size = size;
+    }
+
+    static void BuildWalkableTreads(Transform stairs)
+    {
+        const int Steps = 14;
+        const float Rise = 0.24f;
+        const float Run = 0.24f;
+        const float Width = 2.2f;
+        const float StartZ = 6.4f;
+        var treads = new GameObject("StairTreads");
+        treads.transform.SetParent(stairs, false);
+        for (int i = 0; i < Steps; i++)
+        {
+            float top = (i + 1) * Rise;
+            AddBarrierCollider(treads.transform, $"StairTread_{i + 1:00}",
+                new Vector3(0f, top - 0.04f, StartZ + i * Run),
+                new Vector3(Width, 0.08f, Run + 0.04f));
+        }
+
+        AddBarrierCollider(treads.transform, "StairStringerWest",
+            new Vector3(-Width * 0.5f - 0.06f, 1.7f, StartZ + (Steps * Run) * 0.5f),
+            new Vector3(0.12f, 3.5f, Steps * Run + 0.4f));
+        AddBarrierCollider(treads.transform, "StairStringerEast",
+            new Vector3(Width * 0.5f + 0.06f, 1.7f, StartZ + (Steps * Run) * 0.5f),
+            new Vector3(0.12f, 3.5f, Steps * Run + 0.4f));
+
+        // Hall-side landing against the north wall, top flush with SecondFloorY (14 * 0.24 = 3.36).
+        // Parent it beside the staircase, not under it: the composition audit measures
+        // grand-staircase through every renderer underneath, and a 2F slab in that AABB
+        // makes the climb shot read as a full-frame wall.
+        FloorSlab(stairs.parent, "StairLanding", new Vector3(0f, SecondFloorY - 0.1f, 9.95f),
+            new Vector3(4.8f, 0.2f, 1.15f));
+    }
+
+    static void BuildFoyerCrossroads(Transform environment, Transform gameplay,
+        Dictionary<string, GameObject> authored, Transform lighting)
+    {
+        Material doorWood = CreateMaterial("EntryHall_EstateDoorWood",
+            new Color(0.34f, 0.15f, 0.065f), 0.03f, 0.34f);
+
+        GmEstateDoor front = GmEstateDoorFactory.Place(environment, "FrontDoors",
+            new Vector3(0f, 1.3f, -10f), 2.2f, 2.6f, GmEstateDoorFacing.South,
+            FrontDoorId, "Front Doors", locked: false, barred: true, secret: false,
+            wood: doorWood);
+        authored["front-doors"] = front.gameObject;
+
+        GmEstateDoor conservatory = GmEstateDoorFactory.Place(environment, "ConservatoryDoor",
+            new Vector3(-6f, 1.2f, -8f), 1.3f, 2.4f, GmEstateDoorFacing.West,
+            ConservatoryDoorId, "Conservatory Door", locked: false, barred: true,
+            wood: doorWood);
+        authored["conservatory-door"] = conservatory.gameObject;
+
+        GmEstateDoor library = GmEstateDoorFactory.Place(environment, "LibraryDoor",
+            new Vector3(-4.7f, 1.2f, 10f), 1.3f, 2.4f, GmEstateDoorFacing.North,
+            LibraryDoorId, "Library Door", locked: true, barred: false, secret: false,
+            requiredKey: LibraryKeyClueId, keyName: "Brass Skeleton Key", wood: doorWood);
+        authored["library-door"] = library.gameObject;
+
+        // Under-stair access is the east flank of the rising flights, not the south face.
+        // The south face is the first tread. A panel there (0, 6.55) stopped a body at y=0.23.
+        GmEstateDoor cellar = GmEstateDoorFactory.Place(environment, "CellarPanel",
+            new Vector3(2.28f, 1.05f, 8.35f), 1.15f, 2.05f, GmEstateDoorFacing.West,
+            CellarDoorId, "Cellar Panel", locked: true, barred: false, secret: true,
+            requiredKey: LibraryLeverClueId, keyName: "bookcase lever", wood: doorWood);
+        authored["cellar-panel"] = cellar.gameObject;
+
+        BuildNorthLibrary(environment, authored, lighting);
+
+        var key = new GameObject("BrassSkeletonKey");
+        key.transform.SetParent(gameplay, false);
+        key.transform.position = new Vector3(1.3f, 0.58f, -8f);
+        GmOwnedPropFactory.CreateRoundedProp("BrassSkeletonKeyMesh", key.transform,
+            key.transform.position, Quaternion.Euler(0f, 35f, 12f),
+            new Vector3(0.16f, 0.035f, 0.045f), 0.012f,
+            CreateMaterial("EntryHall_SkeletonKey", new Color(0.62f, 0.44f, 0.16f), 0.72f, 0.46f));
+        key.AddComponent<BoxCollider>().size = new Vector3(0.22f, 0.08f, 0.10f);
+        var item = key.AddComponent<GmEstateKeyItem>();
+        item.Configure(LibraryKeyClueId, "Brass Skeleton Key",
+            "Acquired the Brass Skeleton Key.",
+            "An ornate, tarnished brass key bearing the Blackwood crest. The library lock looks to match.");
+        authored["brass-skeleton-key"] = key;
+    }
+
+    static void BuildNorthLibrary(Transform parent, Dictionary<string, GameObject> authored,
+        Transform lighting)
+    {
+        var library = new GameObject("NorthLibrary");
+        library.transform.SetParent(parent, false);
+        authored["library-stub"] = library;
+
+        FloorSlab(library.transform, "LibraryFloor", new Vector3(-6.7f, -0.1f, 13.2f),
+            new Vector3(8.8f, 0.2f, 6.4f));
+        CeilingSlab(library.transform, "LibraryCeiling", new Vector3(-6.7f, 3.12f, 13.2f),
+            new Vector3(8.8f, 0.16f, 6.4f));
+        WallSlab(library.transform, "LibraryWestWall", new Vector3(-11.1f, 1.55f, 13.2f),
+            new Vector3(0.3f, 3.1f, 6.4f));
+        WallSlab(library.transform, "LibraryEastWallSouth", new Vector3(-2.3f, 1.55f, 11.05f),
+            new Vector3(0.3f, 3.1f, 2.1f));
+        WallSlab(library.transform, "LibraryEastWallNorth", new Vector3(-2.3f, 1.55f, 15.35f),
+            new Vector3(0.3f, 3.1f, 2.1f));
+        WallSlab(library.transform, "LibraryEastWallHeader", new Vector3(-2.3f, 2.55f, 13.2f),
+            new Vector3(0.3f, 1.1f, 2.2f));
+        WallSlab(library.transform, "LibraryEastNicheBack", new Vector3(-1.92f, 1.55f, 13.2f),
+            new Vector3(0.28f, 3.1f, 2.25f));
+        WallSlab(library.transform, "LibraryNorthWall", new Vector3(-6.7f, 1.55f, 16.4f),
+            new Vector3(8.8f, 3.1f, 0.3f));
+
+        Color bookcaseTint = new Color(0.36f, 0.22f, 0.12f);
+        GameObject westSouth = ImportedProp(library.transform, "LibraryWestBaySouth", "BookShelf_1",
+            new Vector3(-10.55f, 1.4f, 11.35f), new Vector3(0.55f, 2.8f, 1.7f),
+            Quaternion.Euler(0f, 90f, 0f), "bookcase", bookcaseTint);
+        GameObject westMid = ImportedProp(library.transform, "LibraryWestBayMid", "BookShelf_1",
+            new Vector3(-10.55f, 1.4f, 13.2f), new Vector3(0.55f, 2.8f, 1.7f),
+            Quaternion.Euler(0f, 90f, 0f), "bookcase", bookcaseTint);
+        GameObject westNorth = ImportedProp(library.transform, "LibraryWestBayNorth", "BookShelf_1",
+            new Vector3(-10.55f, 1.4f, 15.05f), new Vector3(0.55f, 2.8f, 1.7f),
+            Quaternion.Euler(0f, 90f, 0f), "bookcase", bookcaseTint);
+        GameObject northWest = ImportedProp(library.transform, "LibraryNorthBayWest", "BookShelf_1",
+            new Vector3(-8.85f, 1.4f, 15.95f), new Vector3(1.7f, 2.8f, 0.5f),
+            Quaternion.Euler(0f, 180f, 0f), "bookcase", bookcaseTint);
+        GameObject northCenter = ImportedProp(library.transform, "LibraryStubShelf", "BookShelf_1",
+            new Vector3(-4.7f, 1.4f, 15.95f), new Vector3(1.8f, 2.8f, 0.5f),
+            Quaternion.Euler(0f, 180f, 0f), "bookcase", bookcaseTint);
+        GameObject eastNorth = ImportedProp(library.transform, "LibraryEastBayNorth", "BookShelf_1",
+            new Vector3(-2.85f, 1.4f, 15.15f), new Vector3(0.55f, 2.8f, 1.55f),
+            Quaternion.Euler(0f, -90f, 0f), "bookcase", bookcaseTint);
+        authored["library-stub-shelf"] = northCenter;
+        authored["library-west-bay"] = westMid;
+
+        GameObject table = ImportedProp(library.transform, "LibraryReadingTable", "Table_2",
+            new Vector3(-7.35f, 0.42f, 13.2f), new Vector3(1.55f, 0.84f, 0.85f),
+            Quaternion.Euler(0f, 90f, 0f), "table", new Color(0.28f, 0.13f, 0.06f));
+        authored["library-reading-table"] = table;
+        ImportedProp(library.transform, "LibraryChairSouth", "Chair_1",
+            new Vector3(-7.35f, 0.52f, 12.25f), new Vector3(0.72f, 1.04f, 0.72f),
+            Quaternion.Euler(0f, 8f, 0f), "chair", new Color(0.26f, 0.07f, 0.06f));
+        ImportedProp(library.transform, "LibraryChairNorth", "Chair_2",
+            new Vector3(-7.35f, 0.56f, 14.15f), new Vector3(0.76f, 1.12f, 0.76f),
+            Quaternion.Euler(0f, 172f, 0f), "chair", new Color(0.22f, 0.06f, 0.05f));
+
+        authored["library-ladder"] = BuildLibraryLadder(library.transform,
+            new Vector3(-10.05f, 0f, 14.35f));
+
+        var eleanor = new GameObject("LibraryEleanorNote");
+        eleanor.transform.SetParent(library.transform, false);
+        eleanor.transform.position = new Vector3(-10.22f, 1.42f, 13.2f);
+        GmOwnedPropFactory.PlacePrefab(
+            "Assets/LeartesStudios/WitchVillage/HDRP/Art/Prefabs/SM_Scrolls_2.prefab",
+            "LibraryEleanorNote", eleanor.transform, eleanor.transform.position,
+            new Vector3(0.22f, 0.05f, 0.16f), Quaternion.Euler(0f, 90f, 8f),
+            ground: false);
+        eleanor.AddComponent<BoxCollider>().size = new Vector3(0.28f, 0.12f, 0.20f);
+        BindExamine(eleanor, "library-eleanor-note",
+            "A margin in Eleanor Blackwood's hand: \"The shelf in the east wall is a lock. The books are the key. Even the order in which he loses follows a pattern.\"",
+            "She underlined east. Not these west stacks.");
+        authored["library-eleanor-note"] = eleanor;
+
+        var inscription = GmOwnedPropFactory.CreateRoundedProp("LibraryInscription",
+            library.transform, new Vector3(-2.48f, 2.22f, 13.2f),
+            Quaternion.Euler(0f, -90f, 0f), new Vector3(1.85f, 0.16f, 0.04f), 0.012f,
+            CreateMaterial("EntryHall_LibraryInscription", new Color(0.32f, 0.16f, 0.07f), 0.04f, 0.3f));
+        AddWorldText("LibraryInscriptionText", "Every game has an order. Even this one.",
+            inscription.transform, new Vector3(0f, 0f, -0.022f), Quaternion.identity, 0.008f);
+        inscription.AddComponent<BoxCollider>().size = new Vector3(1.9f, 0.2f, 0.08f);
+        BindExamine(inscription, "library-inscription",
+            "Carved into the east frame: \"Every game has an order. Even this one.\"",
+            "Five notches in the rail below. Roman numerals on the spines.");
+        authored["library-inscription"] = inscription;
+
+        BuildWeightedShelf(library.transform, authored,
+            new[] { westSouth.transform, westMid.transform, westNorth.transform,
+                northWest.transform, eastNorth.transform });
+
+        var doorLamp = new GameObject("LibraryStubLamp");
+        doorLamp.transform.SetParent(lighting, false);
+        doorLamp.transform.position = new Vector3(-4.7f, 2.35f, 10.85f);
+        GmVictorianInteriorKit.Place("Lamp_2", "LibraryStubSconce", doorLamp.transform,
+            doorLamp.transform.position, new Vector3(0.28f, 0.46f, 0.32f),
+            Quaternion.Euler(0f, 180f, 0f), "lamp");
+        authored["library-stub-lamp"] = doorLamp;
+        authored["library-stub-lamp-light"] = CreatePointLight(lighting, "LibraryStubLight",
+            new Vector3(-4.7f, 2.25f, 11.05f), 5.5f, 28f, new Color(1.0f, 0.72f, 0.42f));
+
+        var tableLamp = new GameObject("LibraryReadingLamp");
+        tableLamp.transform.SetParent(lighting, false);
+        tableLamp.transform.position = new Vector3(-7.05f, 1.18f, 13.2f);
+        GmVictorianInteriorKit.Place("Lamp_1_LOD0", "LibraryReadingLamp", tableLamp.transform,
+            tableLamp.transform.position, new Vector3(0.28f, 0.42f, 0.28f),
+            Quaternion.identity, "lamp");
+        authored["library-reading-lamp"] = tableLamp;
+        authored["library-reading-lamp-light"] = CreatePointLight(lighting, "LibraryReadingLight",
+            new Vector3(-7.05f, 1.12f, 13.2f), 5f, 26f, new Color(1.0f, 0.74f, 0.44f));
+
+        var shelfLamp = new GameObject("LibraryShelfLamp");
+        shelfLamp.transform.SetParent(lighting, false);
+        shelfLamp.transform.position = new Vector3(-3.15f, 2.35f, 13.2f);
+        GmVictorianInteriorKit.Place("Lamp_2", "LibraryShelfSconce", shelfLamp.transform,
+            shelfLamp.transform.position, new Vector3(0.28f, 0.46f, 0.32f),
+            Quaternion.Euler(0f, -90f, 0f), "lamp");
+        authored["library-shelf-lamp"] = shelfLamp;
+        authored["library-shelf-lamp-light"] = CreatePointLight(lighting, "LibraryShelfLight",
+            new Vector3(-3.35f, 2.22f, 13.2f), 5f, 26f, new Color(1.0f, 0.7f, 0.4f));
+    }
+
+    static GameObject BuildLibraryLadder(Transform parent, Vector3 origin)
+    {
+        var ladder = new GameObject("LibraryLadder");
+        ladder.transform.SetParent(parent, false);
+        ladder.transform.position = origin;
+        Material rail = CreateMaterial("EntryHall_LibraryLadder",
+            new Color(0.22f, 0.11f, 0.05f), 0.03f, 0.32f);
+        Quaternion lean = Quaternion.Euler(0f, 90f, 8f);
+        GmOwnedPropFactory.CreateRoundedProp("LadderRailLeft", ladder.transform,
+            origin + new Vector3(0f, 1.35f, -0.18f), lean, new Vector3(0.05f, 2.7f, 0.05f), 0.012f, rail);
+        GmOwnedPropFactory.CreateRoundedProp("LadderRailRight", ladder.transform,
+            origin + new Vector3(0f, 1.35f, 0.18f), lean, new Vector3(0.05f, 2.7f, 0.05f), 0.012f, rail);
+        for (int rung = 0; rung < 7; rung++)
+        {
+            float y = 0.28f + rung * 0.36f;
+            GmOwnedPropFactory.CreateRoundedProp($"LadderRung_{rung + 1:00}", ladder.transform,
+                origin + new Vector3(0.02f, y, 0f), lean, new Vector3(0.04f, 0.035f, 0.42f), 0.01f, rail);
+        }
+        Material iron = CreateMaterial("EntryHall_LibraryLadderWheel",
+            new Color(0.12f, 0.11f, 0.1f), 0.55f, 0.4f);
+        GmOwnedPropFactory.CreateRoundedProp("LadderWheelSouth", ladder.transform,
+            origin + new Vector3(0.06f, 0.06f, -0.18f), Quaternion.identity,
+            new Vector3(0.12f, 0.12f, 0.05f), 0.04f, iron);
+        GmOwnedPropFactory.CreateRoundedProp("LadderWheelNorth", ladder.transform,
+            origin + new Vector3(0.06f, 0.06f, 0.18f), Quaternion.identity,
+            new Vector3(0.12f, 0.12f, 0.05f), 0.04f, iron);
+        var body = ladder.AddComponent<BoxCollider>();
+        body.center = new Vector3(0.04f, 1.35f, 0f);
+        body.size = new Vector3(0.28f, 2.7f, 0.5f);
+        return ladder;
+    }
+
+    static void BuildWeightedShelf(Transform library, Dictionary<string, GameObject> authored,
+        Transform[] tiltOnSolve)
+    {
+        var caseRoot = new GameObject("WeightedShelfCase");
+        caseRoot.transform.SetParent(library, false);
+        caseRoot.transform.position = new Vector3(-2.72f, 1.38f, 13.2f);
+        authored["library-weighted-shelf"] = caseRoot;
+        var caseBlock = caseRoot.AddComponent<BoxCollider>();
+        caseBlock.center = Vector3.zero;
+        caseBlock.size = new Vector3(0.42f, 1.9f, 2.1f);
+
+        Material railWood = CreateMaterial("EntryHall_WeightedRail",
+            new Color(0.3f, 0.14f, 0.06f), 0.04f, 0.28f);
+        GmOwnedPropFactory.CreateRoundedProp("WeightedRail", caseRoot.transform,
+            new Vector3(-2.72f, 1.18f, 13.2f), Quaternion.identity,
+            new Vector3(0.22f, 0.05f, 2.05f), 0.012f, railWood);
+
+        Color[] leather =
+        {
+            new Color(0.42f, 0.12f, 0.1f),
+            new Color(0.14f, 0.28f, 0.16f),
+            new Color(0.32f, 0.18f, 0.08f),
+            new Color(0.1f, 0.07f, 0.04f),
+            new Color(0.28f, 0.06f, 0.1f)
+        };
+
+        var books = new Transform[GmWeightedShelf.SlotCount];
+        var slots = new Vector3[GmWeightedShelf.SlotCount];
+        var rotations = new Quaternion[GmWeightedShelf.SlotCount];
+        Quaternion spineFace = Quaternion.Euler(0f, -90f, 0f);
+        for (int i = 0; i < GmWeightedShelf.SlotCount; i++)
+        {
+            float z = 12.4f + i * 0.4f;
+            slots[i] = new Vector3(-2.78f, 1.38f, z);
+            rotations[i] = spineFace;
+            var book = new GameObject("WeightedBook_" + GmWeightedShelf.Numerals[i]);
+            book.transform.SetParent(caseRoot.transform, false);
+            book.transform.SetPositionAndRotation(slots[i], spineFace);
+            Material hide = CreateMaterial("EntryHall_WeightedBook_" + i, leather[i], 0.02f, 0.22f);
+            GmOwnedPropFactory.CreateRoundedProp("WeightedBookMesh_" + i, book.transform,
+                slots[i], spineFace, new Vector3(0.16f, 0.28f, 0.055f), 0.01f, hide);
+            AddWorldText("WeightedSpine_" + i, GmWeightedShelf.SpineLabel(i), book.transform,
+                new Vector3(0f, 0f, -0.03f), Quaternion.identity, 0.0065f);
+            var collider = book.AddComponent<BoxCollider>();
+            collider.size = new Vector3(0.18f, 0.3f, 0.08f);
+            var interact = book.AddComponent<GmInteractable>();
+            interact.Configure(GmWeightedShelf.BookInteractionId(i), "Move", 2.6f, 10f,
+                GmInteractionRepeatPolicy.RepeatSecond);
+            string second = i == 2
+                ? "A scrap tucked in The Middlegame, Marguerite's hand: \"III is correctly placed. Start from there.\""
+                : "Five notches. The titles name the phases of a game.";
+            interact.BindContent(
+                $"{GmWeightedShelf.SpineLabel(i)}. The rail under it is notched.", second);
+            books[i] = book.transform;
+        }
+
+        var lever = new GameObject("LibraryBrassLever");
+        lever.transform.SetParent(library, false);
+        lever.transform.position = new Vector3(-2.55f, 1.32f, 13.2f);
+        GmOwnedPropFactory.CreateRoundedProp("LibraryBrassLeverMesh", lever.transform,
+            lever.transform.position, Quaternion.Euler(0f, 0f, 18f),
+            new Vector3(0.18f, 0.035f, 0.045f), 0.01f,
+            CreateMaterial("EntryHall_LibraryLever", new Color(0.62f, 0.44f, 0.16f), 0.72f, 0.46f));
+        lever.AddComponent<BoxCollider>().size = new Vector3(0.22f, 0.08f, 0.1f);
+        BindExamine(lever, "library-lever",
+            "A brass catch released by the ordered shelf. The under-stair panel should give now.",
+            "The latch is already open.");
+        authored["library-lever"] = lever;
+
+        var shelf = caseRoot.AddComponent<GmWeightedShelf>();
+        shelf.Bind(books, slots, rotations, caseRoot.transform, lever.transform, tiltOnSolve,
+            new Vector3(0.38f, 0f, 0f));
+    }
+
+    static void BindExamine(GameObject go, string id, string first, string second)
+    {
+        var interact = go.GetComponent<GmInteractable>() ?? go.AddComponent<GmInteractable>();
+        interact.Configure(id, "Examine", 2.8f, 8f, GmInteractionRepeatPolicy.RepeatSecond);
+        interact.BindContent(first, second);
+    }
+
+    static void BuildSecondFloor(Transform parent, Dictionary<string, GameObject> authored,
+        Transform lighting)
+    {
+        Material doorWood = CreateMaterial("EntryHall_UpperDoorWood",
+            new Color(0.32f, 0.14f, 0.06f), 0.03f, 0.34f);
+
+        var gallery = new GameObject("SecondFloorGallery");
+        gallery.transform.SetParent(parent, false);
+        authored["second-floor-landing"] = FloorSlab(gallery.transform, "SecondFloorLanding",
+            new Vector3(0f, SecondFloorY - 0.1f, 13.2f),
+            new Vector3(4.8f, 0.2f, 6.2f));
+        FloorSlab(gallery.transform, "SecondFloorWestWing", new Vector3(-5.05f, SecondFloorY - 0.1f, 13.2f),
+            new Vector3(5.3f, 0.2f, 6.2f));
+        FloorSlab(gallery.transform, "SecondFloorEastWing", new Vector3(5.05f, SecondFloorY - 0.1f, 13.2f),
+            new Vector3(5.3f, 0.2f, 6.2f));
+        CeilingSlab(gallery.transform, "SecondFloorCeiling", new Vector3(0f, 6.2f, 13.2f),
+            new Vector3(11.6f, 0.2f, 6.2f));
+        WallSlab(gallery.transform, "GalleryNorthWallWest", new Vector3(-4.4f, 4.8f, 16.2f),
+            new Vector3(2.8f, 2.8f, 0.3f));
+        WallSlab(gallery.transform, "GalleryNorthWallMid", new Vector3(0f, 4.8f, 16.2f),
+            new Vector3(3.6f, 2.8f, 0.3f));
+        WallSlab(gallery.transform, "GalleryNorthWallEast", new Vector3(4.4f, 4.8f, 16.2f),
+            new Vector3(2.8f, 2.8f, 0.3f));
+        WallSlab(gallery.transform, "GalleryNorthMarrHeader", new Vector3(-2.4f, 5.975f, 16.2f),
+            new Vector3(1.2f, 0.45f, 0.3f));
+        WallSlab(gallery.transform, "GalleryNorthBarredHeader", new Vector3(2.4f, 5.975f, 16.2f),
+            new Vector3(1.2f, 0.45f, 0.3f));
+        WallSlab(gallery.transform, "GalleryEastWall", new Vector3(5.8f, 4.8f, 13.2f),
+            new Vector3(0.3f, 2.8f, 6.2f));
+        WallSlab(gallery.transform, "GalleryWestWallNorth", new Vector3(-5.8f, 4.8f, 15.075f),
+            new Vector3(0.3f, 2.8f, 2.45f));
+        WallSlab(gallery.transform, "GalleryWestWallSouth", new Vector3(-5.8f, 4.8f, 11.325f),
+            new Vector3(0.3f, 2.8f, 2.45f));
+        WallSlab(gallery.transform, "GalleryWestHeader", new Vector3(-5.8f, 5.975f, 13.2f),
+            new Vector3(0.3f, 0.45f, 1.3f));
+
+        GmEstateDoor percivalDoor = GmEstateDoorFactory.Place(gallery.transform, "PercivalDoor",
+            new Vector3(-5.8f, SecondFloorY + 1.2f, 13.2f), 1.3f, 2.3f, GmEstateDoorFacing.West,
+            PercivalDoorId, "Percival's Door", locked: false, barred: false, startOpen: true,
+            wood: doorWood);
+        authored["percival-door"] = percivalDoor.gameObject;
+
+        GmEstateDoor marr = GmEstateDoorFactory.Place(gallery.transform, "MarrDoor",
+            new Vector3(-2.4f, SecondFloorY + 1.2f, 16.2f), 1.2f, 2.3f, GmEstateDoorFacing.North,
+            MarrDoorId, "Lady Marr's Study", locked: true, barred: false,
+            requiredKey: "key:lady_marr", keyName: "Lady Marr's key", wood: doorWood);
+        authored["marr-door"] = marr.gameObject;
+
+        GmEstateDoor barredGuest = GmEstateDoorFactory.Place(gallery.transform, "BarredGuestDoor",
+            new Vector3(2.4f, SecondFloorY + 1.2f, 16.2f), 1.2f, 2.3f, GmEstateDoorFacing.North,
+            BarredGuestDoorId, "Barricaded Guest Room", locked: false, barred: true,
+            wood: doorWood);
+        authored["barred-guest-door"] = barredGuest.gameObject;
+
+        GmEstateDoor hatch = GmEstateDoorFactory.Place(gallery.transform, "AtticHatch",
+            new Vector3(4.4f, 5.55f, 13.2f), 1.05f, 0.85f, GmEstateDoorFacing.North,
+            AtticHatchId, "Attic Hatch", locked: true, barred: false,
+            requiredKey: "key:attic_hatch", keyName: "attic key", openAngle: 70f, wood: doorWood);
+        authored["attic-hatch"] = hatch.gameObject;
+
+        BuildPercivalRoom(parent, authored, lighting);
+
+        var landingLamp = new GameObject("LandingUpperLamp");
+        landingLamp.transform.SetParent(lighting, false);
+        landingLamp.transform.position = new Vector3(0f, 5.15f, 13.0f);
+        GmVictorianInteriorKit.Place("Lamp_1_LOD0", "LandingUpperFixture", landingLamp.transform,
+            landingLamp.transform.position, new Vector3(0.7f, 0.55f, 0.7f),
+            Quaternion.identity, "lamp");
+        authored["landing-upper-lamp"] = landingLamp;
+        authored["landing-upper-lamp-light"] = CreatePointLight(lighting, "LandingUpperLight",
+            new Vector3(0f, 5.05f, 13.0f), 7f, 40f, new Color(1.0f, 0.78f, 0.52f));
+    }
+
+    static void BuildPercivalRoom(Transform parent, Dictionary<string, GameObject> authored,
+        Transform lighting)
+    {
+        var room = new GameObject("PercivalBedroom");
+        room.transform.SetParent(parent, false);
+        FloorSlab(room.transform, "PercivalFloor", new Vector3(-8.6f, SecondFloorY - 0.1f, 13.2f),
+            new Vector3(5.4f, 0.2f, 5.0f));
+        CeilingSlab(room.transform, "PercivalCeiling", new Vector3(-8.6f, 6.2f, 13.2f),
+            new Vector3(5.4f, 0.2f, 5.0f));
+        WallSlab(room.transform, "PercivalWestWall", new Vector3(-11.2f, 4.8f, 13.2f),
+            new Vector3(0.3f, 2.8f, 5.0f));
+        WallSlab(room.transform, "PercivalNorthWall", new Vector3(-8.6f, 4.8f, 15.6f),
+            new Vector3(5.4f, 2.8f, 0.3f));
+        WallSlab(room.transform, "PercivalSouthWall", new Vector3(-8.6f, 4.8f, 10.8f),
+            new Vector3(5.4f, 2.8f, 0.3f));
+
+        var bed = new GameObject("PercivalBed");
+        bed.transform.SetParent(room.transform, false);
+        bed.transform.position = new Vector3(-9.6f, SecondFloorY, 13.8f);
+        GmOwnedPropFactory.PlacePrefab("Assets/GamesMaster/Props/GothicBed.fbx",
+            "PercivalBed", bed.transform, new Vector3(-9.6f, SecondFloorY + 0.7f, 13.8f),
+            new Vector3(2.1f, 1.4f, 1.6f), Quaternion.Euler(90f, 90f, 0f),
+            ground: true, surfaceY: SecondFloorY,
+            overrideMaterial: CreateMaterial("EntryHall_PercivalBed",
+                new Color(0.14f, 0.07f, 0.045f), 0.04f, 0.28f));
+        bed.AddComponent<BoxCollider>().size = new Vector3(2.1f, 1.2f, 1.6f);
+        authored["percival-bed"] = bed;
+
+        GameObject desk = ImportedProp(room.transform, "PercivalDesk", "Table_3",
+            new Vector3(-10.05f, SecondFloorY + 0.36f, 12.15f), new Vector3(0.85f, 0.72f, 0.85f),
+            Quaternion.Euler(0f, 90f, 0f), "table", surfaceY: SecondFloorY);
+        authored["percival-desk"] = desk;
+        authored["percival-room"] = room;
+
+        var lamp = new GameObject("PercivalLamp");
+        lamp.transform.SetParent(lighting, false);
+        lamp.transform.position = new Vector3(-8.6f, 5.05f, 13.2f);
+        GmVictorianInteriorKit.Place("Lamp_2", "PercivalSconce", lamp.transform,
+            lamp.transform.position, new Vector3(0.28f, 0.46f, 0.32f),
+            Quaternion.Euler(0f, 90f, 0f), "lamp");
+        authored["percival-lamp"] = lamp;
+        authored["percival-lamp-light"] = CreatePointLight(lighting, "PercivalLight",
+            new Vector3(-8.35f, 4.95f, 13.2f), 5.5f, 32f, new Color(1.0f, 0.74f, 0.46f));
     }
 }

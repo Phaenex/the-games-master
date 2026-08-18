@@ -8,6 +8,9 @@ in and how each piece is proven.
 
 ## Why the order changed
 
+The bullets below record the 2026-08-15 diagnosis that forced the reorder. Phase A and the opening
+instrumentation have since shipped; the current status table at the end of this file is authoritative.
+
 The old order is the story's order: Prologue → Entry Hall → Parlor → Court → Shut the Box → Shards →
 Hidden Room → Labyrinth → Endings → Steam. That is the order a *player* meets the game. It is the
 wrong order to *build* it, and this project has the scars to prove it:
@@ -58,55 +61,37 @@ pacing, fear. Those go to Nick with evidence attached.
 
 ---
 
-# PHASE A — The spine (makes the game playable end to end, even while empty)
+# PHASE A — The spine — DONE 2026-08-16
 
-**Why first:** every one of these is a dependency of something already built. Until they exist, six
-finished rooms stay unreachable and no ending can resolve. This is the phase that converts "systems
-that pass tests" into "a game."
+This phase now converts the tested systems into a production scene chain. It proves reachability and
+state continuity; it does not claim that the five missing table games have been authored.
 
-### A1 · Boot/title scene
-The single highest-leverage missing object in the project.
-- **Build:** a `Boot` scene: title, New Run, Continue (disabled with no save), Quit. Instantiates
-  `GmSceneDirector` with `DontDestroyOnLoad`, calls `GmSaveSystem.Load()` on Continue, calls
-  `GmRunStore.BeginNewRun()` on New Run.
-- **Prove:** PlayMode — Continue is disabled with no save file; New Run enters the Prologue with a
-  cleared store; Continue restores a written save and lands at `GmRunStore.CurrentSceneId`.
-- **Unblocks:** A2, A3, A4, every ending, save/load, and the ability to play the game at all.
-- **Nick:** auto-resume vs explicit Continue is a UX call.
+### A1 · Boot/title scene — DONE
+`Boot` presents explicit Continue, New Run and Quit choices. Continue is disabled without a valid
+save; New Run clears the store; Continue restores the save and resumes its recorded scene.
 
-### A2 · One player rig, six scenes
-- **Build:** extract the `GmPlayer` + `CharacterController` + camera + `GmInteractionScanner` rig
-  from `GmWendBuilder` into a shared builder helper. Place it in entry-hall, parlor, court,
-  shut-the-box, hidden-room, labyrinth, each at an authored spawn.
-- **Prove:** EditMode per scene — exactly one `GmPlayer`, spawn is on the navmesh/floor, camera is
-  `Camera.main`. PlayMode — the player can move and interact in each.
-- **Unblocks:** every room's mechanic becomes reachable for the first time; `GmPauseMenu` gains
-  somewhere to appear.
+### A2 · One player rig, six scenes — DONE
+Entry Hall, Parlor, Court, Shut the Box, Hidden Room and Labyrinth each contain one shared player
+rig at an authored, audited spawn. Their scene-build tests validate camera, player and spawn state.
 
-### A3 · Scene transitions wired
-- **Build:** place `GmSceneTransitionTrigger` volumes at the real doorways: Prologue→Entry Hall (the
-  crossing already does this), Entry Hall→Parlor, Parlor→Court, Court→Shut the Box, Shut the
-  Box→Hidden Room (tile-9 gated), →Labyrinth. Write `GmRunStore.CurrentSceneId` on every transition
-  (today it is never assigned, so every save records a stale scene).
-- **Prove:** PlayMode — walking each trigger loads the next scene with run state intact; the saved
-  `currentSceneId` matches where the player actually is.
+### A3 · Scene transitions wired — DONE
+The production chain runs Boot → Prologue → Entry Hall → Parlor → Court → Shut the Box → Hidden
+Room → Labyrinth. Every successful transition writes `GmRunStore.CurrentSceneId`; failed scene
+loads leave both the director and save state on the room the player actually occupies.
 
-### A4 · Ending resolution reachable
-- **Build:** call `ResolveAndShowEnding()` at the real end-of-run points; build the ending screen.
-- **Prove:** PlayMode, one test per ending, each driving *real* state rather than poking the store:
-  A True Escape (3 shards + 8 catches), B Defiant Sacrifice, C Host Succession, D Corrupted Host
-  (tier 5), E Madness (sanity 0), F Trapped Loop. Plus a priority-collision test — today every
-  ending test triggers exactly one condition in isolation, so a swapped branch would ship.
+### A4 · Ending resolution reachable — DONE
+Labyrinth completion reaches `GmEndingTrigger`, which calls the persistent scene director's ending
+resolver. Unit tests cover all six resolution branches and priority collisions; PlayMode drives the
+production scene chain through an ending.
 
-### A5 · Save/load round trip
-- **Build:** save on transition and on ending; load from Boot.
-- **Prove:** write → quit → load → every `GmRunStore` field matches, including `LastCheckpoint` and
-  `CurrentSceneId`, which today have no production writers at all.
+### A5 · Save/load round trip — DONE
+Transitions save the entered scene, endings save final state, and Boot restores the complete run.
+The exact-state round-trip covers catches, shards, corruption, sanity, defiance, compliance,
+checkpoint and current scene.
 
-**Phase A exit gate:** a headless full-run added to the gates table that plays Boot → Prologue →
-Entry Hall → Parlor → an ending, asserting nine tolls, crossing entered, and an ending resolved,
-across **three walk profiles**: obedient straight line, full-grounds detour, and lateral fence
-bypass. This is the run that proves the game exists.
+**Phase A exit proof:** PlayMode drives Boot → Prologue → Entry Hall → Parlor → Court → Shut the
+Box → Hidden Room → Labyrinth → ending with run state preserved. The separate built-player opening
+proof covers the complete 435 m route and the adversarial wall proof covers six bypass attacks.
 
 ---
 
@@ -117,32 +102,24 @@ bypass. This is the run that proves the game exists.
 unchecked.
 
 ### B1 · CompositionPlan for `wend-hill-prologue`
-- **Build:** `GmWendPrologueCompositionPlan.cs` declaring zones/clusters/elements for the drive, the
-  gate, the porch, the wake room, the entry hall and the parlor interior, with `surfaceY` on every
-  grounded element and authored intent on every local light.
-- **Prove:** the scene passes `GmSceneCompositionAudit`. **Expect this to go red first** — that is
-  the point. It is the only way to answer "is the wake room right?"
-- **Note:** this directly answers a question that is currently unanswerable.
+- **DONE 2026-08-16:** `GmWendCompositionPlan.cs` declares the drive, gate, chapel, grounds, manor,
+  wake/house interiors, review subjects and every enabled local light. The saved opening passes the
+  strict `GmSceneCompositionAudit`; deleting intent or a visible practical source makes it fail.
 
-### B2 · Close the collision asymmetry
-`GmWendPerformance` deletes colliders by name token ("wall", "door", "house", "fence") and
-`GmWendSceneContract` *fails the build* if purchased doorway colliders still seal the route — hard
-automated pressure to remove collision, with **no counterpart check that anything is still solid**.
-That asymmetry is the machine that produced the walk-through house.
-- **Build:** a contract assertion that every named barrier stops a `CharacterController`.
-- **Prove:** wire `GmPhysicalIntegrityProbe.SweepLateralBypass` (already written, still uncalled)
-  against the porch face, the gate, and each boundary wall, at offsets **beyond** the barrier's own
-  width — the bypass lives where nobody authored geometry.
+### B2 · Close the collision asymmetry — DONE
+The saved-scene contract now requires the house shell, porch refusal, estate gate and terrain-
+following boundary barriers. The built-player wall proof attacks all four map edges and both gate
+wings beyond the old ±45 m endpoints; all six attacks are stopped.
 
-### B3 · Stop the audit excluding the interior (`A2` in the old lane)
-`GmWendPerformance:30` skips `HouseBeginning`, so the audit structurally cannot catch the regression
-class that caused the current perf wall. Remove the exclusion; add an EditMode test that the audit
-sees `HouseBeginning` renderers.
+### B3 · Audit the interior that ships — DONE
+`GmWendPerformance` audits all 233 `HouseBeginning` renderers, preserves them for runtime culling,
+and fails if the culler is absent. The saved-scene contract rejects any interior renderer disabled
+before discovery. The regression test was observed red before it passed.
 
-### B4 · Fix the harness's remaining theater
-`verify-gate-stars.mjs:97` prints `PASS` unconditionally. `verify-unity-full.mjs:260` asserts a value
-it wrote itself. 51 of 68 scripts in `scripts/` are unreachable from `package.json`, including every
-`verify-*.mjs`. **Decide wire-in vs delete before investing another hour in their assertions.**
+### B4 · Fix the shipping harness's remaining theater — DONE
+The gate harness now has 22 paired reject/accept cases, including corrupt and missing frame input,
+and the production command runs all 14 gates. Unreachable legacy scripts remain historical cleanup,
+not evidence and not part of the shipping gate path.
 
 ---
 
@@ -159,9 +136,10 @@ Each room repeats the same chunk shape. Listed once, applied to all six.
 > 6. **Review** — panel pass on the room as an experience, then fix, then two clean runs.
 
 ### C1 · Entry Hall *(Phase 1)* — the hub
-Nine portraits, the ledger, Shard #1 behind Percival. **Today Shard #1 is placed as a prop with no
-collection code anywhere** — the True Escape ending is unreachable because of it. Wire it first.
-Reduce the parlor gate from "ledger + 3 portraits" if pacing (see E1) says so.
+Nine portraits, the ledger, Shard #1 behind Percival. The shipping House path collects the shard
+into shared slot 0 and the generated Entry Hall places it visibly. The remaining room-content work
+is player-facing examine/pickup parity and evidence for the generated room, plus Nick's pacing call
+on the ledger-and-portraits gate.
 
 ### C2 · Parlor *(Phase 2)* — the first real game
 The most complete logic in the project: full 4-suit trick-taking, legal-follow enforcement, a host AI
@@ -169,17 +147,19 @@ that only cheats when about to lose a match-point trick, and the Read's time-dil
 UI, hand rendering, and input. **The card deck is currently a `CreatePrimitive` cube.**
 
 ### C3 · Court *(Phase 3)* — the trial
-Real phase machine and evidence logic already tested. Needs the Court composition wiring finished
-(lock lifted 2026-08-15), the gavel, and Shard #2's collection path.
+The phase machine, evidence logic, composition wiring, owned gavel and Shard #2 collection path are
+implemented and tested. Remaining work is the player-facing hearing UI/input, pacing and reviewed
+presentation of a complete hearing.
 
 ### C4 · Shut the Box *(Phase 4)* — dice and the tile-9 door
-Rules engine is the deepest in the project (420 lines, own test suite, 23/23). Needs the board, the
-dice, the AI turn, the UI, and the tile-9 Hold that unlocks the Hidden Room — **today that unlock
-sets a bool and moves no geometry.**
+The rules engine, board shell, controller and tile-9 catch path are implemented. Holding Tile 9 now
+rotates a physical panel, removes its blocker and arms the Hidden Room transition. The remaining
+content work is the player-facing dice/AI turn/UI presentation and full-match evidence.
 
 ### C5 · Hidden Room *(Phase 6)* — the mirror
 Shard #3, the original invitation, the eight journals. Re-entry safety is already carefully designed
-and tested. Needs the recess door to actually open.
+and tested. The recess door is authored open on arrival and the onward Labyrinth transition exists;
+the remaining work is the player-facing journal, shard and assembled-mirror interaction flow.
 
 ### C6 · Labyrinth *(Phase 7)* — the chase
 Huntsman AI is a real state machine. The "generator" is a fixed pattern with an unused seed — decide
@@ -190,9 +170,9 @@ whether it stays authored or becomes procedural before building content on top o
 # PHASE D — The systems that span rooms
 
 ### D1 · Three shards, one true ending
-Shard #1 (Entry Hall) has no collection path; #2 (Court) and #3 (Hidden Room) call
-`GmRunStore.CollectShard` directly. Unify, and prove `AllShardsCollected` can become true *through
-real play* — today it cannot.
+The House, Court and Hidden Room paths bank slots 0, 1 and 2 in `GmRunStore`; collection and
+`AllShardsCollected` are tested. The remaining true-ending reachability risk is earning eight catches
+through authored play, because five promised table games and their approved rules are still absent.
 
 ### D2 · Corruption schedule
 The mechanism exists and is clamped and tested; **what raises the tier is deliberately undecided.**
@@ -200,7 +180,8 @@ Parlor/Court/Shut the Box already call `RaiseCorruption` uncapped; the House cap
 deliver Ending D alone (confirmed intentional, 2026-08-15). **Nick:** the schedule itself.
 
 ### D3 · The six endings, authored
-Text, art and the conditions each reads. Blocked on A4 for reachability, D1 for the true ending.
+Resolution logic and the production ending trigger are reachable. Authored ending text, art, audio,
+six reviewed frames and the missing table-game catch economy remain.
 
 ### D4 · Sanity, symptoms and the second channel
 The count has one output channel and `GmSymptoms` filters it — fixed for the bell 2026-08-15, but the
@@ -242,16 +223,20 @@ countdown timer wearing a bell. More hand, still no face.
 
 ---
 
-## Current state, honestly (2026-08-15)
+## Current state, honestly (2026-08-17)
+
+The 08-16 gate pack still stands until a fresh `npm run gates`. Hub Session 1 is a walkable Entry Hall stub. Hub Session 2 library exists as authored C# only. See `docs/HANDOFF-2026-08-17.md`.
+
+## Current state, honestly (2026-08-16)
 
 | | |
 |---|---|
-| Gates | 1-7 **PASS** (3-7 for the first time ever); 8 FAIL p95 19.25ms vs 16.70 — *best on record*, not a new regression; 9-12 unreached |
-| EditMode | 337/339, the two being Court's, whose lock is now lifted |
-| PlayMode | 12/12 |
-| Playable end to end | **No.** No boot scene, no player in six rooms, no ending resolves |
-| Phase 0 | not "92%" — six objective LANE A items still at 0%, including gate piers rendering as black voids and a "cemetery" proof frame that points at the chapel |
-| Wake room | **unknown** — it lives in the one scene with no CompositionPlan |
+| Gates | **14/14 PASS**, 0 failed, 0 skipped; standalone p95 10.25 ms and route p95 11.36 ms on a trusted host |
+| EditMode | **455/455** |
+| PlayMode | **18/18** |
+| Playable end to end | Scene spine **yes**: Boot through Labyrinth to an ending. Five promised table games remain absent content |
+| Phase 0 | Objective automation is green; Nick's physical/audio/feel walk is still the human exit gate |
+| Wake room | Covered by the shipping opening's strict CompositionPlan and current interior evidence |
 
 ## The order, in one line
 

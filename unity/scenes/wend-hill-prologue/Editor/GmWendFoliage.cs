@@ -299,13 +299,15 @@ public static class GmWendFoliage
         return copy;
     }
 
-    /// Owned copy of a terrain tree prototype prefab, with its renderers repointed at owned materials.
-    /// Returns null when nothing in the prefab is affected, which is how the three clean prototypes
-    /// keep pointing at the purchased prefab.
+    /// Owned copy of a terrain tree prototype prefab, with its renderers repointed at owned materials
+    /// and malformed single-mesh LOD metadata repaired. Returns null only when neither repair applies.
     static GameObject OwnedPrefab(GameObject src, Dictionary<Material, Material> cache)
     {
         if (src == null) return null;
-        if (!src.GetComponentsInChildren<Renderer>(true).SelectMany(r => r.sharedMaterials).Any(Affected))
+        bool hasAffectedMaterial = src.GetComponentsInChildren<Renderer>(true)
+            .SelectMany(r => r.sharedMaterials).Any(Affected);
+        bool hasMalformedLod = GmWendEstateForest.HasMalformedTreeLodGroups(src);
+        if (!hasAffectedMaterial && !hasMalformedLod)
             return null;
 
         GameObject copy = LoadOrCopy<GameObject>(src, ".prefab");
@@ -331,6 +333,12 @@ public static class GmWendFoliage
                 }
                 if (changed) r.sharedMaterials = mats;
             }
+
+            // The same purchased SM_Tree_02 prototype repeats its one renderer in all three LOD
+            // slots. Terrain owns a prefab reference rather than a scene instance, so the avenue
+            // repair cannot reach it. Normalize the project-owned copy here; prototype order and
+            // every Terrain tree instance remain unchanged.
+            int lodRepairs = GmWendEstateForest.NormalizeTreeLodGroups(contents);
             // An owned prefab reused from an earlier rung correctly reports zero swaps, because its
             // renderers already point at owned materials. What must never happen is reusing a copy that
             // still has an emitter in it: that would ship a glowing prototype while the log claimed
@@ -345,7 +353,7 @@ public static class GmWendFoliage
 
             PrefabUtility.SaveAsPrefabAsset(contents, copyPath);
             Debug.Log($"[{LogTag}] owned prototype prefab '{src.name}' ({swaps} material slot(s) " +
-                      $"swapped this pass) at {copyPath}");
+                      $"swapped, {lodRepairs} malformed LOD group(s) repaired this pass) at {copyPath}");
         }
         finally
         {

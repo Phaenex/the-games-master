@@ -26,6 +26,7 @@ using UnityEngine;
 public static class GmFullGameBuild
 {
     const string LogTag = "GmFullGameBuild";
+    public const bool EnableFrameTimingStatsForBuild = true;
 
     /// Its own output path. The prologue review app and the legacy estate app each own theirs, and a
     /// builder that overwrites another builder's output is a five-minute way to review the wrong
@@ -72,6 +73,8 @@ public static class GmFullGameBuild
         PlayerSettings.defaultScreenWidth = 1600;
         PlayerSettings.defaultScreenHeight = 900;
         PlayerSettings.resizableWindow = true;
+        bool previousFrameTimingStats = PlayerSettings.enableFrameTimingStats;
+        PlayerSettings.enableFrameTimingStats = EnableFrameTimingStatsForBuild;
         AssetDatabase.SaveAssets();
 
         string output = Path.GetFullPath(MacOutputPath);
@@ -79,13 +82,22 @@ public static class GmFullGameBuild
         if (string.IsNullOrEmpty(directory)) throw new InvalidOperationException("build output has no parent directory");
         Directory.CreateDirectory(directory);
 
-        BuildReport report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+        BuildReport report;
+        try
         {
-            scenes = scenes.ToArray(),
-            locationPathName = output,
-            target = BuildTarget.StandaloneOSX,
-            options = BuildOptions.StrictMode,
-        });
+            report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+            {
+                scenes = scenes.ToArray(),
+                locationPathName = output,
+                target = BuildTarget.StandaloneOSX,
+                options = BuildOptions.StrictMode,
+            });
+        }
+        finally
+        {
+            PlayerSettings.enableFrameTimingStats = previousFrameTimingStats;
+            AssetDatabase.SaveAssets();
+        }
         BuildSummary summary = report.summary;
         if (summary.result != BuildResult.Succeeded || summary.totalErrors != 0)
             throw new InvalidOperationException(

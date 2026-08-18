@@ -122,6 +122,26 @@ public sealed class GmPlayerRigTests
         }
     }
 
+    [Test]
+    public void BuiltPlayerRigOwnsExactlyOneShippingPauseMenu()
+    {
+        var host = new GameObject("PauseRigContractFixture");
+        try
+        {
+            GameObject player = GmPlayerRig.Build(host.transform, Vector3.zero);
+            GmPauseMenu[] menus = player.GetComponentsInChildren<GmPauseMenu>(true);
+
+            Assert.That(menus, Has.Length.EqualTo(1),
+                "the common player rig does not make the pause Settings UI reachable in play");
+            Assert.That(menus[0].gameObject, Is.EqualTo(player),
+                "pause ownership drifted off the one player/input authority");
+        }
+        finally
+        {
+            Object.DestroyImmediate(host);
+        }
+    }
+
     /// Full hierarchy path, because "Cube" alone names nothing in a room built from primitives.
     static string HierarchyPath(Transform t)
     {

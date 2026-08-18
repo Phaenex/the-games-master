@@ -76,6 +76,8 @@ public static class GmInteriorAtmosphere
         foreach (Light light in UnityEngine.Object.FindObjectsByType<Light>(FindObjectsInactive.Include))
         {
             if (light.type == LightType.Directional) continue;
+            GmLightIntent intent = light.GetComponent<GmLightIntent>();
+            if (intent != null && intent.Kind != GmLightIntentKind.Practical) continue;
             // Light.intensity, not HDAdditionalLightData.intensity. The HD properties are deprecated
             // from 2023.3 and the first version of this read lightUnit off the deprecated one, matched
             // nothing, and clamped zero lights while reporting success. The builders set Light

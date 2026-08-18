@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -70,8 +71,34 @@ public class GmCourtEvidenceTests
         Assert.AreEqual(GmCourtPhase.Verdict, court.Phase);
         Assert.IsTrue(GmRunStore.CheatsCaught.Contains("court-verdict-cleared"));
         Assert.AreEqual(1, GmRunStore.DefianceCount);
+        Assert.IsTrue(GmRunStore.IsRoomComplete("court"));
+        Assert.AreEqual(0, GmRunStore.TableGameIndex,
+            "the Court is a trial, not one of the seven table games");
 
         Object.DestroyImmediate(courtObj);
+    }
+
+    [Test]
+    public void LosingTheHearingStillCompletesTheTrialInsteadOfSoftLockingTheNight()
+    {
+        var courtObj = new GameObject("TestCourt");
+        var court = courtObj.AddComponent<GmCourtController>();
+        try
+        {
+            court.StartHearing();
+            FieldInfo clock = typeof(GmCourtController).GetField("<PressureTimeRemaining>k__BackingField",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(clock);
+            clock.SetValue(court, 0f);
+            MethodInfo update = typeof(GmCourtController).GetMethod("Update",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            update.Invoke(court, null);
+
+            Assert.AreEqual(GmCourtPhase.Verdict, court.Phase);
+            Assert.IsTrue(GmRunStore.IsRoomComplete("court"));
+            Assert.AreEqual(0, GmRunStore.TableGameIndex);
+        }
+        finally { Object.DestroyImmediate(courtObj); }
     }
 
     [Test]
