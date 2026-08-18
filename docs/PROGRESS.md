@@ -43,9 +43,15 @@ bed: its deep-space/rumble textures would recreate the exact "spaceship" problem
 
 ## Status
 
+### 2026-08-18 - Parlor player table is a lantern pool, not a missing-light crash
+
+Nick screenshotted the 1080p proof window. HUD and match were live (`Round 2`, follow the lead). The black lump is the Aldric proxy. The white cylinder is the table lantern. Walls are gone because fixed exposure plus a tight lamp, not because HDRP dropped the lights. That is PARTIAL, not the ship look. Display brightness stays Nick's gate.
+
+**1080p series still open.** Fresh app SHA `4cd06990…`. One later rep died in `AwaitingAldricJudgement` with no presentation block (first failing log kept at `unity-project/Logs/parlor-rep2-2026-08-18-awaiting-judgement-no-progress.log`). Did not force host-load ignore. Did not poke `InputSystem.Update()`.
+
 ### 2026-08-18 - Cellar climb-out
 
-A body that walks down now walks back onto the hall. Not committed unless Nick asks.
+A body that walks down now walks back onto the hall. Pushed as `a9dc553`.
 
 **What landed**
 
