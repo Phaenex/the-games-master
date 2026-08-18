@@ -18,7 +18,7 @@ public static class GmEntryHallCompositionPlan
     {
         GmCompositionAuthoring.Begin(owner, SceneId,
             "A cavernous, decaying Victorian entry hall where nine portraits and a guest ledger reveal the host's trapped cycle.",
-            minZones: 6, minClusters: 7, minElements: 20);
+            minZones: 10, minClusters: 13, minElements: 32);
 
         // Zone 1: Wake Vestibule
         var wakeZone = new GameObject("WakeZone");
@@ -290,7 +290,7 @@ public static class GmEntryHallCompositionPlan
         upperZone.transform.position = new Vector3(0f, 4.8f, 13.2f);
         GmCompositionAuthoring.Zone(upperZone, "upper-zone",
             "Second-floor gallery reached by walking the grand staircase.",
-            new Vector3(16f, 5f, 10f), minClusters: 2, minElements: 6);
+            new Vector3(16f, 5f, 10f), minClusters: 3, minElements: 8);
 
         var landingCluster = new GameObject("UpperLandingCluster");
         landingCluster.transform.SetParent(upperZone.transform, false);
@@ -322,7 +322,7 @@ public static class GmEntryHallCompositionPlan
             "marr-door", maxRadius: 10f);
 
         GmCompositionAuthoring.Element(Built(built, "marr-door"), "marr-door", "upper-door-cluster",
-            "hall-architecture", "Lady Marr's study, locked, no key in this hall yet.",
+            "hall-architecture", "Lady Marr's study, locked until Percival's desk key.",
             GmCompositionRole.Anchor, surfaceY: SecondFloorSurfaceY);
 
         GmCompositionAuthoring.Element(Built(built, "barred-guest-door"), "barred-guest-door",
@@ -331,7 +331,29 @@ public static class GmEntryHallCompositionPlan
             GmCompositionRole.Support, surfaceY: SecondFloorSurfaceY);
 
         GmCompositionAuthoring.Element(Built(built, "attic-hatch"), "attic-hatch", "upper-door-cluster",
-            "hall-architecture", "Locked attic hatch in the gallery vault.",
+            "hall-architecture", "Locked ceiling hatch. The loft key is on Marr's desk.",
+            GmCompositionRole.Detail, GmSpatialRelation.Suspended);
+
+        var upperGalleryCluster = new GameObject("UpperGalleryCluster");
+        upperGalleryCluster.transform.SetParent(upperZone.transform, false);
+        upperGalleryCluster.transform.position = new Vector3(3.2f, 5.0f, 13.8f);
+        GmCompositionAuthoring.Cluster(upperGalleryCluster, "upper-gallery-cluster", "upper-zone",
+            "The nine debtors extended onto the 2F run, plus the landing runner.",
+            "upper-gallery-frame", maxRadius: 12f);
+
+        GmCompositionAuthoring.Element(Built(built, "upper-gallery-frame"), "upper-gallery-frame",
+            "upper-gallery-cluster", "portraits",
+            "One of the nine debtor frames on the 2F east wall.",
+            GmCompositionRole.Anchor, GmSpatialRelation.Suspended);
+
+        GmCompositionAuthoring.Element(Built(built, "upper-gallery-runner"), "upper-gallery-runner",
+            "upper-gallery-cluster", "hall-furniture",
+            "Carpet runner so the landing is not a bare slab.",
+            GmCompositionRole.Support, surfaceY: SecondFloorSurfaceY);
+
+        GmCompositionAuthoring.Element(Built(built, "upper-east-sconce"), "upper-east-sconce",
+            "upper-gallery-cluster", "hall-lighting",
+            "East-wall sconce lighting the 2F portraits.",
             GmCompositionRole.Detail, GmSpatialRelation.Suspended);
 
         var percivalZone = new GameObject("PercivalZone");
@@ -359,6 +381,104 @@ public static class GmEntryHallCompositionPlan
             "hall-lighting", "Sconce over Percival's bed so the room is not lit only by spill.",
             GmCompositionRole.Detail, GmSpatialRelation.Suspended);
 
+        var marrZone = new GameObject("MarrZone");
+        marrZone.transform.SetParent(owner.transform, false);
+        marrZone.transform.position = new Vector3(-2.4f, 4.8f, 18.55f);
+        GmCompositionAuthoring.Zone(marrZone, "marr-zone",
+            "Lady Marr's study north of the landing, locked until Percival's key.",
+            new Vector3(7f, 4f, 6f), minClusters: 1, minElements: 3);
+
+        var marrCluster = new GameObject("MarrCluster");
+        marrCluster.transform.SetParent(marrZone.transform, false);
+        marrCluster.transform.position = new Vector3(-2.4f, 4.6f, 18.55f);
+        GmCompositionAuthoring.Cluster(marrCluster, "marr-cluster", "marr-zone",
+            "Desk, chair, and the blotter that repeats WATCH HIS HANDS.", "marr-desk");
+
+        GmCompositionAuthoring.Element(Built(built, "marr-desk"), "marr-desk", "marr-cluster",
+            "hall-furniture", "Lady Marr's writing desk against the north wall.",
+            GmCompositionRole.Anchor, surfaceY: SecondFloorSurfaceY);
+
+        GmCompositionAuthoring.Element(Built(built, "marr-chair"), "marr-chair", "marr-cluster",
+            "hall-furniture", "Chair pulled up to the blotter.",
+            GmCompositionRole.Support, surfaceY: SecondFloorSurfaceY);
+
+        GmCompositionAuthoring.Element(Built(built, "marr-hand-note"), "marr-hand-note", "marr-cluster",
+            "evidence-props", "The blotter that names his hands a second time.",
+            GmCompositionRole.Gameplay, GmSpatialRelation.AgainstBoundary, "marr-desk", 1.2f);
+
+        GmCompositionAuthoring.Element(Built(built, "marr-lamp"), "marr-lamp", "marr-cluster",
+            "hall-lighting", "Sconce so the study is not a black box behind a locked door.",
+            GmCompositionRole.Detail, GmSpatialRelation.Suspended);
+
+        var barredZone = new GameObject("BarredGuestZone");
+        barredZone.transform.SetParent(owner.transform, false);
+        barredZone.transform.position = new Vector3(2.4f, 4.8f, 18.55f);
+        GmCompositionAuthoring.Zone(barredZone, "barred-guest-zone",
+            "A furnished guest room the landing cannot enter. The chair is the bar.",
+            new Vector3(7f, 4f, 6f), minClusters: 1, minElements: 3);
+
+        var barredCluster = new GameObject("BarredGuestCluster");
+        barredCluster.transform.SetParent(barredZone.transform, false);
+        barredCluster.transform.position = new Vector3(2.4f, 4.6f, 18.55f);
+        GmCompositionAuthoring.Cluster(barredCluster, "barred-guest-cluster", "barred-guest-zone",
+            "Bed and the chair jammed under the inner latch.", "barred-guest-bed");
+
+        GmCompositionAuthoring.Element(Built(built, "barred-guest-bed"), "barred-guest-bed",
+            "barred-guest-cluster", "hall-furniture",
+            "The guest bed behind a door that does not open.",
+            GmCompositionRole.Anchor, surfaceY: SecondFloorSurfaceY);
+
+        GmCompositionAuthoring.Element(Built(built, "barred-guest-chair"), "barred-guest-chair",
+            "barred-guest-cluster", "hall-furniture",
+            "Chair jammed under the latch from the inside.",
+            GmCompositionRole.Support, surfaceY: SecondFloorSurfaceY);
+
+        GmCompositionAuthoring.Element(Built(built, "barred-guest-lamp"), "barred-guest-lamp",
+            "barred-guest-cluster", "hall-lighting",
+            "Sconce proving the room exists even though a body cannot enter.",
+            GmCompositionRole.Detail, GmSpatialRelation.Suspended);
+
+        var atticZone = new GameObject("AtticZone");
+        atticZone.transform.SetParent(owner.transform, false);
+        atticZone.transform.position = new Vector3(0f, 7.6f, 13.2f);
+        GmCompositionAuthoring.Zone(atticZone, "attic-zone",
+            "The loft above the 2F gallery: rafters, stored crates, and the second mirror shard.",
+            new Vector3(12f, 5f, 8f), minClusters: 1, minElements: 4);
+
+        var atticCluster = new GameObject("AtticCluster");
+        atticCluster.transform.SetParent(atticZone.transform, false);
+        atticCluster.transform.position = new Vector3(0f, 7.4f, 13.2f);
+        GmCompositionAuthoring.Cluster(atticCluster, "attic-cluster", "attic-zone",
+            "Crate stack, rafters, dormer, and Shard II.", "attic-crate", maxRadius: 14f);
+
+        GmCompositionAuthoring.Element(Built(built, "attic-crate"), "attic-crate", "attic-cluster",
+            "hall-furniture", "Stored crate under the west eaves.",
+            GmCompositionRole.Anchor, surfaceY: 6.5f);
+
+        GmCompositionAuthoring.Element(Built(built, "attic-rafter"), "attic-rafter", "attic-cluster",
+            "hall-architecture", "Sloped rafters so the loft is a roof, not a third cube.",
+            GmCompositionRole.Support, GmSpatialRelation.Suspended);
+
+        GmCompositionAuthoring.Element(Built(built, "attic-ladder"), "attic-ladder", "attic-cluster",
+            "hall-furniture", "0.4 m-legal ladder through the hatch well.",
+            GmCompositionRole.Support, surfaceY: 3.4f);
+
+        GmCompositionAuthoring.Element(Built(built, "shard-two"), "shard-two", "attic-cluster",
+            "evidence-props", "Mirror Shard II waiting under the dormer.",
+            GmCompositionRole.Gameplay, GmSpatialRelation.AgainstBoundary, "attic-dormer", 3f);
+
+        GmCompositionAuthoring.Element(Built(built, "attic-dormer"), "attic-dormer", "attic-cluster",
+            "hall-architecture", "North dormer that lets night into the loft.",
+            GmCompositionRole.Detail, GmSpatialRelation.AgainstBoundary, "attic-rafter", 8f);
+
+        GmCompositionAuthoring.Element(Built(built, "attic-lantern"), "attic-lantern", "attic-cluster",
+            "hall-lighting", "Dusty lantern so the loft is not a black box.",
+            GmCompositionRole.Detail, GmSpatialRelation.Suspended);
+
+        GmCompositionAuthoring.Element(Built(built, "attic-hatch-key"), "attic-hatch-key", "marr-cluster",
+            "evidence-props", "Iron attic key left under Marr's blotter.",
+            GmCompositionRole.Gameplay, GmSpatialRelation.AgainstBoundary, "marr-desk", 1.4f);
+
         GmCompositionAuthoring.Element(Built(built, "front-doors"), "front-doors", "wake-cluster",
             "hall-architecture", "Barred front doors. Threshold Refusal holds indoors.",
             GmCompositionRole.Support, surfaceY: 0f);
@@ -382,6 +502,24 @@ public static class GmEntryHallCompositionPlan
 
         GmCompositionAuthoring.Motivate(Built(built, "percival-lamp-light"), "percival-lamp-light",
             "percival-lamp", "Sconce lighting Percival's bed and desk.");
+
+        GmCompositionAuthoring.Motivate(Built(built, "upper-east-sconce-light"), "upper-east-sconce-light",
+            "upper-east-sconce", "East-wall light on the 2F debtor hang.");
+
+        GmCompositionAuthoring.Motivate(Built(built, "marr-lamp-light"), "marr-lamp-light",
+            "marr-lamp", "Sconce over Lady Marr's desk.");
+
+        GmCompositionAuthoring.Motivate(Built(built, "barred-guest-lamp-light"), "barred-guest-lamp-light",
+            "barred-guest-lamp", "Sconce in the sealed guest room.");
+
+        GmCompositionAuthoring.Motivate(Built(built, "attic-lantern-light"), "attic-lantern-light",
+            "attic-lantern", "Lantern under the west rafters.");
+
+        GmCompositionAuthoring.Motivate(Built(built, "attic-dormer-light"), "attic-dormer-light",
+            "attic-dormer", "Cool night through the north dormer.");
+
+        GmCompositionAuthoring.Motivate(Built(built, "attic-dormer-fill"), "attic-dormer-fill",
+            "attic-dormer", "Moon spill on Shard II under the dormer.");
 
         // Author explicit review claims (8 shots).
         // The trailing float on every one of these is passed through the interim ReviewClaim adapter
@@ -439,12 +577,36 @@ public static class GmEntryHallCompositionPlan
             "Proves Percival's bedroom is a furnished room, not an empty box behind an open door.");
 
         GmCompositionAuthoring.ReviewClaim(owner, "13-library-interior", "library-reading-table",
-            "library-stub-shelf", "library-cluster", "library-zone", new Vector2(0.5f, 0.5f), 0.50f,
+            "library-west-bay", "library-cluster", "library-zone", new Vector2(0.5f, 0.5f), 0.50f,
             "Proves the north library is a walkable room of stacks and a reading table, not a stub.");
 
         GmCompositionAuthoring.ReviewClaim(owner, "14-weighted-shelf", "library-weighted-shelf",
             "library-inscription", "weighted-shelf-cluster", "library-zone", new Vector2(0.55f, 0.5f),
             0.50f, "Proves the sagging east rail, five titled spines, and the carved order.");
+
+        GmCompositionAuthoring.ReviewClaim(owner, "15-upper-gallery", "upper-gallery-frame",
+            "upper-east-sconce", "upper-gallery-cluster", "upper-zone", new Vector2(0.55f, 0.5f),
+            0.50f, "Proves the 2F debtor hang on the east wall and the sconce that lights it.");
+
+        GmCompositionAuthoring.ReviewClaim(owner, "16-marr-study", "marr-desk", "marr-chair",
+            "marr-cluster", "marr-zone", new Vector2(0.5f, 0.5f), 0.50f,
+            "Proves Lady Marr's study is a furnished room behind the locked door.");
+
+        GmCompositionAuthoring.ReviewClaim(owner, "17-barred-guest", "barred-guest-bed",
+            "barred-guest-lamp", "barred-guest-cluster", "barred-guest-zone", new Vector2(0.5f, 0.5f),
+            0.50f, "Proves the barred guest room exists and is dressed, even though a body cannot enter.");
+
+        GmCompositionAuthoring.ReviewClaim(owner, "18-attic-hatch", "attic-hatch", "attic-ladder",
+            "attic-cluster", "attic-zone", new Vector2(0.55f, 0.55f), 0.50f,
+            "Proves the locked ceiling hatch and the ladder that climbs it.");
+
+        GmCompositionAuthoring.ReviewClaim(owner, "19-attic-loft", "attic-crate", "attic-rafter",
+            "attic-cluster", "attic-zone", new Vector2(0.45f, 0.5f), 0.50f,
+            "Proves the loft is a furnished roof, not an empty box above a hatch.");
+
+        GmCompositionAuthoring.ReviewClaim(owner, "20-attic-shard", "shard-two", "attic-dormer",
+            "attic-cluster", "attic-zone", new Vector2(0.5f, 0.5f), 0.50f,
+            "Proves Mirror Shard II under the dormer.");
     }
 
     // A composition marker belongs on the built object or it measures nothing. A missing key means

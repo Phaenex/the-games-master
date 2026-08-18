@@ -7,10 +7,10 @@
 > Established 2026-08-03. Ordered by **dependency**, not by phase number — see "Why this order".
 > Delivery bars live here and in `STEAM-TRACKER.md`; this file carries the task-level detail.
 
-> **Current authority, 2026-08-17:** this chat and `docs/HANDOFF-2026-08-17.md`. Active queue is
-> Hub Session 2 (North Library closeout), then Sessions 3–6, then Parlor shipping proof. Lane A's
-> human gates and the five missing table games remain. The 08-16 handoff is the last full opening-gate
-> pack, not the current house-content inventory.
+> **Current authority, 2026-08-17/18:** this chat and `docs/HANDOFF-2026-08-17.md`. Active queue is
+> Hub Session 5 (cellar/vault) then Session 6 (remaining minigame doors), then Parlor shipping proof.
+> H1–H4 (foyer, library, 2F gallery/Marr/barred guest, attic loft) are proven this campaign.
+> Lane A's human gates and the five missing table games remain. The 08-16 handoff is the last full opening-gate pack.
 
 ## How to read and update this
 
@@ -246,15 +246,15 @@ Parlor first: it is the complexity budget every other room is scoped against, an
 of the true ending's 8+ cheats caught.
 
 ```
-Phase 1 Entry Hall      [██████░░░░░░░░░░░░░░]  30%   Session 1 hub proven; library authored, not rebuilt
+Phase 1 Entry Hall      [█████████████░░░░░░░]  65%   Sessions 1–4 proven (foyer, library, 2F, attic); cellar remains
 Phase 2 Parlor          [████░░░░░░░░░░░░░░░░]  20%   physical slice in source; not shipping-proven tonight
 Phase 4 Shut the Box    [█████░░░░░░░░░░░░░░░]  25%   rules 23/23; no board/AI/UI
 Phase 3 Court           [░░░░░░░░░░░░░░░░░░░░]   0%   LOCKED behind Nick's Phase 0 walk
 ```
 
-> **Tracker correction:** STEAM-TRACKER lists Entry Hall and Parlor at 0%. `GmHouseBeginningBuilder`
-> already builds *wake vestibule + entry hall + Parlor* and gate 9 (house-proof) passes with 10
-> frames. The rooms exist; the *games* do not.
+> **Tracker correction:** Unity Entry Hall is a walkable hub through the attic loft (65%), not the web
+> room. Parlor is a physical slice in source (20%), not a shipping table game. The *games* still
+> do not exist as playable matches.
 
 ### C1 — Entry Hall (Phase 1)
 
@@ -268,9 +268,12 @@ Phase 3 Court           [░░░░░░░░░░░░░░░░░░�
 | C1.6 | 22 interior POIs, two-layer examines | TODO | PlayMode: E at each, line asserted | POI sweep |
 | C1.7 | Letter reveal stage 1 — ends "a friend" | TODO | story-canon check | letter frame |
 | **H1** | Walkable hub Session 1: doors, stairs, 2F, Percival | DONE 2026-08-17 | EditMode 906/906, CC climb/block, audit, 12/12 tour (FLAKY retry) | `docs/playtest/screenshots/entry-hall-tour-*.png` (clock now dark wood; 09 orange-cast is pre-existing 5.37) |
-| **H2** | North Library + Weighted Shelf | WIP | authored C# present; needs sync/rebuild/EditMode/interior tour | none yet |
+| **H2** | North Library + Weighted Shelf | DONE 2026-08-17 | EditMode 916/916 (aisle walk, shelf→lever, furnished room, 14-shot tour contract); rebuild+audit PASS; GUI tour **14/14 first attempt** | `docs/playtest/screenshots/entry-hall-tour-13-library-interior.png`, `entry-hall-tour-14-weighted-shelf.png`. Inscription reads LTR after TextMesh +90. Shot 09 lintel gap is a leftover Session 1 visual, not this row. |
 
-**Hub campaign leftover:** H2 closeout, then Sessions 3–6 (2F gallery/Marr, attic, cellar/vault, remaining minigame doors). H1 is a climbable house stub. H2 is source, not a proven room.
+| **H3** | 2F debtor gallery + Marr study + barred guest | DONE 2026-08-17 | EditMode 922/922 (foyer still owns shard, 2F hang, Marr walk-after-key, barred body blocked); rebuild+audit PASS; GUI tour **17/17 first attempt** | `docs/playtest/screenshots/entry-hall-tour-15-upper-gallery.png`, `16-marr-study.png`, `17-barred-guest.png`. Foyer portraits were extended, not moved. |
+| **H4** | Attic loft: hatch, 0.4 m-legal ladder, rafters, crates, dormer, Mirror Shard II | DONE 2026-08-18 | EditMode **927/927** (climb after Marr-desk key, locked hatch holds, loft furnished); rebuild+audit PASS; GUI tour **20/20 first attempt** | `docs/playtest/screenshots/entry-hall-tour-18-attic-hatch.png`, `19-attic-loft.png`, `20-attic-shard.png`. Shot 09 lintel void closed with a hall-side beam. Hub campaign puts Shard II in the attic until Court exists. |
+
+**Hub campaign leftover:** Sessions 5–6 (cellar/vault, remaining minigame doors). H1–H4 are a climbable foyer, furnished library, 2F wing, and a keyed attic loft. Cellar interior is still not built.
 
 **Canon trap:** "a friend" (the letter's signer = Aldric) and "the friend in the walls" (the host
 before Aldric, never resolved) are different things sharing a word. Keep distinct in every line.

@@ -25,13 +25,15 @@
 | Slice | Disk | Synced | Rebuilt | Visual | Claim |
 |---|---|---|---|---|---|
 | Phase A scene spine | yes | yes | 08-16 | PlayMode only | reachability, not finished games |
-| Hub Session 1 foyer/stairs/2F Percival | yes | yes | yes | 12/12 tour, FLAKY 2026-08-17 | walkable stub house |
-| Hub Session 2 North Library + Weighted Shelf | authored C# | was missing at audit | no | no | source only until rebuild+tour |
-| Hub Sessions 3–6 | no | no | no | no | not built |
+| Hub Session 1 foyer/stairs/2F Percival | yes | yes | yes | 12/12 later grew to 14/14 | walkable stub house |
+| Hub Session 2 North Library + Weighted Shelf | yes | yes | yes | tour-13/14 inspected | H2 DONE 2026-08-17 |
+| Hub Session 3 2F gallery + Marr + barred guest | yes | yes | yes this run | tour-15/16/17 inspected | H3 DONE 2026-08-17 |
+| Hub Session 4 attic loft | yes | yes | yes this run | tour-18/19/20 inspected | H4 DONE 2026-08-18 |
+| Hub Sessions 5–6 | no | no | no | no | cellar, remaining doors not built |
 | Parlor physical slice / House Memory | yes | mixed | 08-16 era | not this session | do not call finished |
 | Five missing table games | names/design only | — | — | — | Nick still owns rules for 6–7 |
 
-## Session 2 closeout (next)
+## Session 2 closeout (DONE 2026-08-17)
 
 Files:
 
@@ -41,25 +43,29 @@ Files:
 - `unity/scenes/entry-hall/Editor/GmEntryHallCompositionPlan.cs`
 - `unity/scenes/entry-hall/Runtime/GmEntryHallShotTour.cs`
 
-- [ ] **Step 1:** `npm run unity:scene:check`. If it drifts, `npm run unity:scene:sync`.
-- [ ] **Step 2:** Unity closed. `node scripts/unity-cli.mjs rebuild entry-hall`
-- [ ] **Step 3:** `node scripts/unity-cli.mjs audit entry-hall`
-- [ ] **Step 4:** `node scripts/unity-cli.mjs test` and read the log. Library tests must be in that log, not a remembered 900/900.
-- [ ] **Step 5:** `node scripts/unity-cli.mjs tour entry-hall`. Need frames *inside* the library (aisle, weighted shelf, reading table), not only `tour-09-library-door`. A retry after `gui-idle-stall` is FLAKY, not green.
-- [ ] **Step 6:** Inspect those frames at full size. PASS / BORDERLINE / FAIL. Copy into `docs/playtest/screenshots/`.
-- [ ] **Step 7:** Update TASKBOARD H2 and PROGRESS from this run's log.
+- [x] **Step 1:** `npm run unity:scene:check`. If it drifts, `npm run unity:scene:sync`.
+- [x] **Step 2:** Unity closed. `node scripts/unity-cli.mjs rebuild entry-hall`
+- [x] **Step 3:** `node scripts/unity-cli.mjs audit entry-hall`
+- [x] **Step 4:** `node scripts/unity-cli.mjs test` and read the log. Library tests must be in that log, not a remembered 900/900.
+- [x] **Step 5:** `node scripts/unity-cli.mjs tour entry-hall`. Need frames *inside* the library (aisle, weighted shelf, reading table), not only `tour-09-library-door`. A retry after `gui-idle-stall` is FLAKY, not green.
+- [x] **Step 6:** Inspect those frames at full size. PASS / BORDERLINE / FAIL. Copy into `docs/playtest/screenshots/`.
+- [x] **Step 7:** Update TASKBOARD H2 and PROGRESS from this run's log.
 
-Done for Session 2 means: key opens the library door, aisle is walkable, five books start V/I/III/IV/II, solving banks `clue:library_lever`, cellar panel then opens, tour shows the room.
+Evidence from this run: EditMode **916/916**, audit PASS, tour **14/14 first attempt**, inscription readable on the tour-14 crop. Shot 09 lintel gap remains a Session 1 leftover.
 
-## Hub Sessions 3–6 (after Session 2 is actually green)
+## Hub Session 3 (DONE 2026-08-17)
 
-### Session 3 — 2F debtor gallery + remaining bedrooms
+Foyer wall was not the stair, so the nine portraits were extended onto the 2F run rather than moved. Shard #1 stays downstairs. Marr's study is furnished and locked. Barred guest is dressed and unenterable. Key on Percival's desk.
 
-Move/extend the nine portraits onto the 2F run if the foyer wall is now the stair. Dress Marr's locked study. Keep the barred guest room unenterable.
+Evidence: EditMode **922/922**, audit PASS, tour **17/17 first attempt**, frames 15–17 inspected.
 
-### Session 4 — Attic loft
+## Hub Session 4 (DONE 2026-08-18)
 
-Hatch unlocks with a 2F-found key. Sloped rafters, crates, cobwebs, Mirror Shard II, dormer. Same scene. 0.4 m-legal ladder.
+Hatch key on Marr's desk. Ceiling-slab hatch. 0.24 m-legal ladder inside a well the 1.8 m capsule can actually occupy. Loft: rafters, crates, cobwebs, dormer, Mirror Shard II. Shot 09 lintel void closed. Marr books on the case and desk.
+
+Evidence: EditMode **927/927**, audit PASS, tour **20/20 first attempt**, frames 09/16/18–20 inspected.
+
+## Hub Sessions 5–6 (next)
 
 ### Session 5 — Cellar + vault
 

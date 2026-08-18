@@ -14,7 +14,20 @@ public static class GmEntryHallBuilder
     public const string ScenePath = "Assets/Scenes/EntryHall.unity";
 
     public const string LibraryKeyClueId = "key:brass_skeleton_key";
+    public const string MarrKeyClueId = "key:lady_marr";
     public const string LibraryLeverClueId = GmWeightedShelf.LeverClueId;
+
+    public static readonly string[] DebtorNames =
+    {
+        "Edwin Marr", "Caspian Dufresne", "Halvard Pike", "Solveig Hale",
+        "Theo Gall", "Barnaby Quill", "Imogen Thale", "Constance", "Percival"
+    };
+
+    public static readonly string[] DebtorSlugs =
+    {
+        "edwin-marr", "caspian-dufresne", "halvard-pike", "solveig-hale",
+        "theo-gall", "barnaby-quill", "imogen-thale", "constance", "percival"
+    };
     public const string LibraryDoorId = "door_library";
     public const string ConservatoryDoorId = "door_conservatory";
     public const string FrontDoorId = "door_front";
@@ -23,7 +36,9 @@ public static class GmEntryHallBuilder
     public const string MarrDoorId = "door_marr";
     public const string BarredGuestDoorId = "door_barred_guest";
     public const string AtticHatchId = "door_attic_hatch";
+    public const string AtticKeyClueId = "key:attic_hatch";
     public const float SecondFloorY = 3.4f;
+    public const float AtticFloorY = 6.5f;
 
     [MenuItem("GamesMaster/Scenes/Rebuild Entry Hall")]
     public static void Build()
@@ -189,10 +204,16 @@ public static class GmEntryHallBuilder
         northWall.transform.SetParent(parent, false);
         WallSlab(northWall.transform, "NorthWallWestJamb", new Vector3(-5.675f, 3f, 10f),
             new Vector3(0.65f, 6f, 0.3f));
-        WallSlab(northWall.transform, "NorthWallLibraryHeader", new Vector3(-4.7f, 4.05f, 10f),
-            new Vector3(1.3f, 3.9f, 0.3f));
-        WallSlab(northWall.transform, "NorthWallLibraryLintel", new Vector3(-4.7f, 2.28f, 10f),
-            new Vector3(1.38f, 0.36f, 0.34f));
+        WallSlab(northWall.transform, "NorthWallLibraryHeader", new Vector3(-4.7f, 4.2f, 10f),
+            new Vector3(1.3f, 3.6f, 0.3f));
+        // Colliding beam stays above 2.12 m. The leaf mesh is shorter than the factory AABB, so a
+        // collider-free strip closes the hall-side void without eating the 1.8 m walk.
+        WallSlab(northWall.transform, "NorthWallLibraryLintel", new Vector3(-4.7f, 2.48f, 9.88f),
+            new Vector3(1.52f, 0.72f, 0.42f));
+        GmOwnedPropFactory.CreateRoundedProp("NorthWallLibraryLintelFill", northWall.transform,
+            new Vector3(-4.7f, 1.98f, 9.90f), Quaternion.identity,
+            new Vector3(1.48f, 0.28f, 0.30f), 0.02f,
+            CreateMaterial("EntryHall_LibraryLintelFill", new Color(0.16f, 0.07f, 0.035f), 0.03f, 0.28f));
         WallSlab(northWall.transform, "NorthWallBetween", new Vector3(-2.675f, 3f, 10f),
             new Vector3(2.75f, 6f, 0.3f));
         WallSlab(northWall.transform, "NorthWallArchSill", new Vector3(0f, 1.7f, 10f),
@@ -263,37 +284,18 @@ public static class GmEntryHallBuilder
         gallery.transform.SetParent(parent, false);
         gallery.transform.position = Vector3.zero;
 
-        string[] names = { "Edwin Marr", "Caspian Dufresne", "Halvard Pike", "Solveig Hale",
-                           "Theo Gall", "Barnaby Quill", "Imogen Thale", "Constance", "Percival" };
-        string[] slugs = { "edwin-marr", "caspian-dufresne", "halvard-pike", "solveig-hale",
-                           "theo-gall", "barnaby-quill", "imogen-thale", "constance", "percival" };
         Material brass = CreateMaterial("EntryHall_Nameplate", new Color(0.48f, 0.31f, 0.10f), 0.72f, 0.42f);
 
-        for (int i = 0; i < names.Length; i++)
+        for (int i = 0; i < DebtorNames.Length; i++)
         {
             float zOffset = -6f + i * 1.5f;
-            var portrait = new GameObject($"Portrait_{i + 1}_{names[i]}");
-            portrait.transform.SetParent(gallery.transform, false);
-            portrait.transform.position = new Vector3(-5.78f, 2.2f, zOffset);
-            GmVictorianInteriorKit.Place($"Picture_{i % 8 + 1}", $"HallPortraitFrame_{i + 1:00}",
-                portrait.transform, portrait.transform.position, new Vector3(0.12f, 1.24f, 0.92f),
-                Quaternion.Euler(0f, -90f, 0f), "picture");
-            GmOwnedPropFactory.CreateRoundedProp("PortraitCanvas", portrait.transform,
-                new Vector3(-5.715f, 2.2f, zOffset), Quaternion.Euler(0f, -90f, 0f),
-                new Vector3(0.72f, 1.02f, 0.025f), 0.012f,
-                GmVictorianInteriorKit.Portrait(slugs[i]));
-
-            // Brass nameplate
-            GameObject plate = GmOwnedPropFactory.CreateRoundedProp($"Plate_{names[i]}", portrait.transform,
-                new Vector3(-5.70f, 1.53f, zOffset), Quaternion.Euler(0f, -90f, 0f),
-                new Vector3(0.56f, 0.13f, 0.035f), 0.025f, brass);
-            AddWorldText($"Name_{slugs[i]}", names[i], plate.transform,
-                new Vector3(0f, 0f, -0.021f), Quaternion.identity, 0.0105f);
-
+            GameObject portrait = HangDebtorPortrait(gallery.transform, i, DebtorNames[i], DebtorSlugs[i],
+                new Vector3(-5.78f, 2.2f, zOffset), Quaternion.Euler(0f, -90f, 0f),
+                new Vector3(-5.715f, 2.2f, zOffset), new Vector3(-5.70f, 1.53f, zOffset), brass);
             // The composition plan needs a real renderer to attach its markers to, not a proxy:
             // Marr's and Percival's are the two portraits the plan names directly.
             if (i == 0) authored["marr-frame"] = portrait;
-            if (i == names.Length - 1) authored["percival-frame"] = portrait;
+            if (i == DebtorNames.Length - 1) authored["percival-frame"] = portrait;
         }
 
         // Shard #1 is a triangular prism with a mirror material, visible behind Percival's loose edge.
@@ -925,8 +927,11 @@ public static class GmEntryHallBuilder
             library.transform, new Vector3(-2.48f, 2.22f, 13.2f),
             Quaternion.Euler(0f, -90f, 0f), new Vector3(1.85f, 0.16f, 0.04f), 0.012f,
             CreateMaterial("EntryHall_LibraryInscription", new Color(0.32f, 0.16f, 0.07f), 0.04f, 0.3f));
+        // Plaque -90 puts local +Z toward the aisle. TextMesh fronts live on -Z (same as the
+        // parlor clock numerals), so 180 yaw plus a +Z offset faces the east-looking shelf camera
+        // instead of the mirrored backs that Euler(0,-90) kept showing on tour-14.
         AddWorldText("LibraryInscriptionText", "Every game has an order. Even this one.",
-            inscription.transform, new Vector3(0f, 0f, -0.022f), Quaternion.identity, 0.008f);
+            inscription.transform, new Vector3(0f, 0f, 0.03f), Quaternion.Euler(0f, 180f, 0f), 0.008f);
         inscription.AddComponent<BoxCollider>().size = new Vector3(1.9f, 0.2f, 0.08f);
         BindExamine(inscription, "library-inscription",
             "Carved into the east frame: \"Every game has an order. Even this one.\"",
@@ -955,7 +960,7 @@ public static class GmEntryHallBuilder
             Quaternion.identity, "lamp");
         authored["library-reading-lamp"] = tableLamp;
         authored["library-reading-lamp-light"] = CreatePointLight(lighting, "LibraryReadingLight",
-            new Vector3(-7.05f, 1.12f, 13.2f), 5f, 26f, new Color(1.0f, 0.74f, 0.44f));
+            new Vector3(-7.05f, 1.12f, 13.2f), 8.5f, 38f, new Color(1.0f, 0.74f, 0.44f));
 
         var shelfLamp = new GameObject("LibraryShelfLamp");
         shelfLamp.transform.SetParent(lighting, false);
@@ -965,7 +970,7 @@ public static class GmEntryHallBuilder
             Quaternion.Euler(0f, -90f, 0f), "lamp");
         authored["library-shelf-lamp"] = shelfLamp;
         authored["library-shelf-lamp-light"] = CreatePointLight(lighting, "LibraryShelfLight",
-            new Vector3(-3.35f, 2.22f, 13.2f), 5f, 26f, new Color(1.0f, 0.7f, 0.4f));
+            new Vector3(-3.35f, 2.22f, 13.2f), 6.5f, 32f, new Color(1.0f, 0.7f, 0.4f));
     }
 
     static GameObject BuildLibraryLadder(Transform parent, Vector3 origin)
@@ -1042,7 +1047,7 @@ public static class GmEntryHallBuilder
             GmOwnedPropFactory.CreateRoundedProp("WeightedBookMesh_" + i, book.transform,
                 slots[i], spineFace, new Vector3(0.16f, 0.28f, 0.055f), 0.01f, hide);
             AddWorldText("WeightedSpine_" + i, GmWeightedShelf.SpineLabel(i), book.transform,
-                new Vector3(0f, 0f, -0.03f), Quaternion.identity, 0.0065f);
+                new Vector3(0f, 0f, 0.032f), Quaternion.Euler(0f, 180f, 0f), 0.0065f);
             var collider = book.AddComponent<BoxCollider>();
             collider.size = new Vector3(0.18f, 0.3f, 0.08f);
             var interact = book.AddComponent<GmInteractable>();
@@ -1081,6 +1086,25 @@ public static class GmEntryHallBuilder
         interact.BindContent(first, second);
     }
 
+    static GameObject HangDebtorPortrait(Transform parent, int index, string name, string slug,
+        Vector3 framePos, Quaternion facing, Vector3 canvasPos, Vector3 platePos, Material brass,
+        string objectPrefix = "Portrait")
+    {
+        var portrait = new GameObject($"{objectPrefix}_{index + 1}_{name}");
+        portrait.transform.SetParent(parent, false);
+        portrait.transform.position = framePos;
+        GmVictorianInteriorKit.Place($"Picture_{index % 8 + 1}", $"{objectPrefix}Frame_{index + 1:00}",
+            portrait.transform, framePos, new Vector3(0.12f, 1.24f, 0.92f), facing, "picture");
+        GmOwnedPropFactory.CreateRoundedProp("PortraitCanvas", portrait.transform,
+            canvasPos, facing, new Vector3(0.72f, 1.02f, 0.025f), 0.012f,
+            GmVictorianInteriorKit.Portrait(slug));
+        GameObject plate = GmOwnedPropFactory.CreateRoundedProp($"Plate_{name}", portrait.transform,
+            platePos, facing, new Vector3(0.56f, 0.13f, 0.035f), 0.025f, brass);
+        AddWorldText($"Name_{slug}", name, plate.transform,
+            new Vector3(0f, 0f, -0.021f), Quaternion.identity, 0.0105f);
+        return portrait;
+    }
+
     static void BuildSecondFloor(Transform parent, Dictionary<string, GameObject> authored,
         Transform lighting)
     {
@@ -1096,8 +1120,28 @@ public static class GmEntryHallBuilder
             new Vector3(5.3f, 0.2f, 6.2f));
         FloorSlab(gallery.transform, "SecondFloorEastWing", new Vector3(5.05f, SecondFloorY - 0.1f, 13.2f),
             new Vector3(5.3f, 0.2f, 6.2f));
-        CeilingSlab(gallery.transform, "SecondFloorCeiling", new Vector3(0f, 6.2f, 13.2f),
-            new Vector3(11.6f, 0.2f, 6.2f));
+        // Hatch well at (4.2, 14.6). Split the 2F ceiling so a body can climb through after the key.
+        // Z has to cover the whole stretch where the 1.8 m capsule still overlaps the 2F ceiling.
+        const float HatchX = 4.2f;
+        const float HatchZ = 14.6f;
+        const float HoleX = 1.5f;
+        const float HoleZ = 3.2f;
+        float holeWest = HatchX - HoleX * 0.5f;
+        float holeEast = HatchX + HoleX * 0.5f;
+        float holeSouth = HatchZ - HoleZ * 0.5f;
+        float holeNorth = HatchZ + HoleZ * 0.5f;
+        CeilingSlab(gallery.transform, "SecondFloorCeilingWest",
+            new Vector3((-5.8f + holeWest) * 0.5f, 6.2f, 13.2f),
+            new Vector3(holeWest - (-5.8f), 0.2f, 6.2f));
+        CeilingSlab(gallery.transform, "SecondFloorCeilingEastSouth",
+            new Vector3((holeWest + 5.8f) * 0.5f, 6.2f, (10.1f + holeSouth) * 0.5f),
+            new Vector3(5.8f - holeWest, 0.2f, holeSouth - 10.1f));
+        CeilingSlab(gallery.transform, "SecondFloorCeilingEastNorth",
+            new Vector3((holeWest + 5.8f) * 0.5f, 6.2f, (holeNorth + 16.3f) * 0.5f),
+            new Vector3(5.8f - holeWest, 0.2f, 16.3f - holeNorth));
+        CeilingSlab(gallery.transform, "SecondFloorCeilingEastMid",
+            new Vector3((holeEast + 5.8f) * 0.5f, 6.2f, HatchZ),
+            new Vector3(5.8f - holeEast, 0.2f, HoleZ));
         WallSlab(gallery.transform, "GalleryNorthWallWest", new Vector3(-4.4f, 4.8f, 16.2f),
             new Vector3(2.8f, 2.8f, 0.3f));
         WallSlab(gallery.transform, "GalleryNorthWallMid", new Vector3(0f, 4.8f, 16.2f),
@@ -1126,7 +1170,7 @@ public static class GmEntryHallBuilder
         GmEstateDoor marr = GmEstateDoorFactory.Place(gallery.transform, "MarrDoor",
             new Vector3(-2.4f, SecondFloorY + 1.2f, 16.2f), 1.2f, 2.3f, GmEstateDoorFacing.North,
             MarrDoorId, "Lady Marr's Study", locked: true, barred: false,
-            requiredKey: "key:lady_marr", keyName: "Lady Marr's key", wood: doorWood);
+            requiredKey: MarrKeyClueId, keyName: "Lady Marr's key", wood: doorWood);
         authored["marr-door"] = marr.gameObject;
 
         GmEstateDoor barredGuest = GmEstateDoorFactory.Place(gallery.transform, "BarredGuestDoor",
@@ -1135,11 +1179,7 @@ public static class GmEntryHallBuilder
             wood: doorWood);
         authored["barred-guest-door"] = barredGuest.gameObject;
 
-        GmEstateDoor hatch = GmEstateDoorFactory.Place(gallery.transform, "AtticHatch",
-            new Vector3(4.4f, 5.55f, 13.2f), 1.05f, 0.85f, GmEstateDoorFacing.North,
-            AtticHatchId, "Attic Hatch", locked: true, barred: false,
-            requiredKey: "key:attic_hatch", keyName: "attic key", openAngle: 70f, wood: doorWood);
-        authored["attic-hatch"] = hatch.gameObject;
+        authored["attic-hatch"] = BuildAtticHatch(gallery.transform, HatchX, HatchZ, HoleX, HoleZ, doorWood).gameObject;
 
         BuildPercivalRoom(parent, authored, lighting);
 
@@ -1152,6 +1192,431 @@ public static class GmEntryHallBuilder
         authored["landing-upper-lamp"] = landingLamp;
         authored["landing-upper-lamp-light"] = CreatePointLight(lighting, "LandingUpperLight",
             new Vector3(0f, 5.05f, 13.0f), 7f, 40f, new Color(1.0f, 0.78f, 0.52f));
+
+        BuildUpperDebtorGallery(gallery.transform, authored, lighting);
+        BuildMarrStudy(parent, authored, lighting);
+        BuildBarredGuestRoom(parent, authored, lighting);
+        PlaceMarrKey(parent, authored);
+        PlaceAtticKey(parent, authored);
+        BuildAtticLoft(parent, authored, lighting, HatchX, HatchZ, HoleX, HoleZ);
+    }
+
+    static void BuildUpperDebtorGallery(Transform gallery, Dictionary<string, GameObject> authored,
+        Transform lighting)
+    {
+        // Foyer west wall still holds the original nine and Shard #1. The stair did not eat that
+        // wall, so this is an extension: the same debtors look down the 2F run.
+        var upper = new GameObject("UpperDebtorGallery");
+        upper.transform.SetParent(gallery, false);
+        authored["upper-debtor-gallery"] = upper;
+        Material brass = CreateMaterial("EntryHall_UpperNameplate", new Color(0.48f, 0.31f, 0.10f), 0.72f, 0.42f);
+
+        Vector3[] frames =
+        {
+            new Vector3(5.72f, 5.15f, 11.05f),
+            new Vector3(5.72f, 5.15f, 12.2f),
+            new Vector3(5.72f, 5.15f, 13.35f),
+            new Vector3(5.72f, 5.15f, 14.5f),
+            new Vector3(5.72f, 5.15f, 15.65f),
+            new Vector3(-5.15f, 5.15f, 16.12f),
+            new Vector3(-3.85f, 5.15f, 16.12f),
+            new Vector3(3.85f, 5.15f, 16.12f),
+            new Vector3(5.15f, 5.15f, 16.12f)
+        };
+        Quaternion[] facings =
+        {
+            Quaternion.Euler(0f, 90f, 0f), Quaternion.Euler(0f, 90f, 0f),
+            Quaternion.Euler(0f, 90f, 0f), Quaternion.Euler(0f, 90f, 0f),
+            Quaternion.Euler(0f, 90f, 0f),
+            Quaternion.Euler(0f, 180f, 0f), Quaternion.Euler(0f, 180f, 0f),
+            Quaternion.Euler(0f, 180f, 0f), Quaternion.Euler(0f, 180f, 0f)
+        };
+        Vector3[] intoRoom =
+        {
+            new Vector3(-0.065f, 0f, 0f), new Vector3(-0.065f, 0f, 0f),
+            new Vector3(-0.065f, 0f, 0f), new Vector3(-0.065f, 0f, 0f),
+            new Vector3(-0.065f, 0f, 0f),
+            new Vector3(0f, 0f, -0.065f), new Vector3(0f, 0f, -0.065f),
+            new Vector3(0f, 0f, -0.065f), new Vector3(0f, 0f, -0.065f)
+        };
+
+        for (int i = 0; i < DebtorNames.Length; i++)
+        {
+            Vector3 frame = frames[i];
+            Vector3 canvas = frame + intoRoom[i];
+            Vector3 plate = canvas + new Vector3(0f, -0.67f, 0f) + intoRoom[i] * 0.2f;
+            GameObject portrait = HangDebtorPortrait(upper.transform, i, DebtorNames[i], DebtorSlugs[i],
+                frame, facings[i], canvas, plate, brass, "UpperPortrait");
+            if (i == 2) authored["upper-gallery-frame"] = portrait;
+        }
+
+        GameObject runner = ImportedProp(gallery, "UpperGalleryRunner", "Carpet_1",
+            new Vector3(0f, SecondFloorY + 0.03f, 13.2f), new Vector3(2.4f, 0.06f, 4.8f),
+            Quaternion.identity, "carpet", surfaceY: SecondFloorY);
+        authored["upper-gallery-runner"] = runner;
+
+        var eastSconce = new GameObject("UpperEastSconce");
+        eastSconce.transform.SetParent(lighting, false);
+        eastSconce.transform.position = new Vector3(5.55f, 5.35f, 13.2f);
+        GmVictorianInteriorKit.Place("Lamp_2", "UpperEastSconce", eastSconce.transform,
+            eastSconce.transform.position, new Vector3(0.28f, 0.46f, 0.32f),
+            Quaternion.Euler(0f, -90f, 0f), "lamp");
+        authored["upper-east-sconce"] = eastSconce;
+        authored["upper-east-sconce-light"] = CreatePointLight(lighting, "UpperEastLight",
+            new Vector3(5.2f, 5.2f, 13.2f), 6.5f, 34f, new Color(1.0f, 0.76f, 0.48f));
+    }
+
+    static void BuildMarrStudy(Transform parent, Dictionary<string, GameObject> authored,
+        Transform lighting)
+    {
+        var room = new GameObject("MarrStudy");
+        room.transform.SetParent(parent, false);
+        authored["marr-study"] = room;
+        FloorSlab(room.transform, "MarrFloor", new Vector3(-2.4f, SecondFloorY - 0.1f, 18.55f),
+            new Vector3(4.4f, 0.2f, 4.5f));
+        CeilingSlab(room.transform, "MarrCeiling", new Vector3(-2.4f, 6.2f, 18.55f),
+            new Vector3(4.4f, 0.2f, 4.5f));
+        WallSlab(room.transform, "MarrWestWall", new Vector3(-4.55f, 4.8f, 18.55f),
+            new Vector3(0.3f, 2.8f, 4.5f));
+        WallSlab(room.transform, "MarrEastWall", new Vector3(-0.15f, 4.8f, 18.55f),
+            new Vector3(0.3f, 2.8f, 4.5f));
+        WallSlab(room.transform, "MarrNorthWall", new Vector3(-2.4f, 4.8f, 20.7f),
+            new Vector3(4.4f, 2.8f, 0.3f));
+
+        GameObject desk = ImportedProp(room.transform, "MarrDesk", "Table_3",
+            new Vector3(-2.55f, SecondFloorY + 0.36f, 19.55f), new Vector3(0.95f, 0.72f, 0.85f),
+            Quaternion.Euler(0f, 180f, 0f), "table", surfaceY: SecondFloorY);
+        authored["marr-desk"] = desk;
+        GameObject chair = ImportedProp(room.transform, "MarrChair", "Chair_2",
+            new Vector3(-2.55f, SecondFloorY + 0.52f, 18.85f), new Vector3(0.72f, 1.04f, 0.72f),
+            Quaternion.Euler(0f, 8f, 0f), "chair", new Color(0.24f, 0.07f, 0.06f), SecondFloorY);
+        authored["marr-chair"] = chair;
+
+        GameObject bookcase = ImportedProp(room.transform, "MarrBookcase", "BookShelf_1",
+            new Vector3(-4.05f, SecondFloorY + 1.4f, 18.4f), new Vector3(0.5f, 2.6f, 1.6f),
+            Quaternion.Euler(0f, 90f, 0f), "bookcase", new Color(0.22f, 0.12f, 0.06f), SecondFloorY);
+        authored["marr-bookcase"] = bookcase;
+        PlaceMarrBooks(room.transform, authored);
+
+        var note = new GameObject("MarrHandNote");
+        note.transform.SetParent(room.transform, false);
+        note.transform.position = new Vector3(-2.4f, SecondFloorY + 0.78f, 19.55f);
+        GmOwnedPropFactory.PlacePrefab(
+            "Assets/LeartesStudios/WitchVillage/HDRP/Art/Prefabs/SM_Scrolls_2.prefab",
+            "MarrHandNote", note.transform, note.transform.position,
+            new Vector3(0.22f, 0.05f, 0.16f), Quaternion.Euler(0f, 0f, 6f),
+            ground: false);
+        note.AddComponent<BoxCollider>().size = new Vector3(0.28f, 0.1f, 0.2f);
+        BindExamine(note, "marr-hand-note",
+            "A blotter in a woman's hand: \"Watch his hands. Not the cards. Not the smile. The hands.\"",
+            "The ink is newer than the portrait downstairs. She was still writing after he sat down.");
+        authored["marr-hand-note"] = note;
+
+        var lamp = new GameObject("MarrLamp");
+        lamp.transform.SetParent(lighting, false);
+        lamp.transform.position = new Vector3(-2.4f, 5.05f, 18.7f);
+        GmVictorianInteriorKit.Place("Lamp_2", "MarrSconce", lamp.transform,
+            lamp.transform.position, new Vector3(0.28f, 0.46f, 0.32f),
+            Quaternion.Euler(0f, 180f, 0f), "lamp");
+        authored["marr-lamp"] = lamp;
+        authored["marr-lamp-light"] = CreatePointLight(lighting, "MarrLight",
+            new Vector3(-2.4f, 4.95f, 18.55f), 6f, 34f, new Color(1.0f, 0.74f, 0.46f));
+    }
+
+    static void BuildBarredGuestRoom(Transform parent, Dictionary<string, GameObject> authored,
+        Transform lighting)
+    {
+        var room = new GameObject("BarredGuestRoom");
+        room.transform.SetParent(parent, false);
+        authored["barred-guest-room"] = room;
+        FloorSlab(room.transform, "BarredGuestFloor", new Vector3(2.4f, SecondFloorY - 0.1f, 18.55f),
+            new Vector3(4.4f, 0.2f, 4.5f));
+        CeilingSlab(room.transform, "BarredGuestCeiling", new Vector3(2.4f, 6.2f, 18.55f),
+            new Vector3(4.4f, 0.2f, 4.5f));
+        WallSlab(room.transform, "BarredGuestWestWall", new Vector3(0.15f, 4.8f, 18.55f),
+            new Vector3(0.3f, 2.8f, 4.5f));
+        WallSlab(room.transform, "BarredGuestEastWall", new Vector3(4.55f, 4.8f, 18.55f),
+            new Vector3(0.3f, 2.8f, 4.5f));
+        WallSlab(room.transform, "BarredGuestNorthWall", new Vector3(2.4f, 4.8f, 20.7f),
+            new Vector3(4.4f, 2.8f, 0.3f));
+
+        var bed = new GameObject("BarredGuestBed");
+        bed.transform.SetParent(room.transform, false);
+        bed.transform.position = new Vector3(3.15f, SecondFloorY, 19.35f);
+        GmOwnedPropFactory.PlacePrefab("Assets/GamesMaster/Props/GothicBed.fbx",
+            "BarredGuestBed", bed.transform, new Vector3(3.15f, SecondFloorY + 0.7f, 19.35f),
+            new Vector3(1.9f, 1.3f, 1.5f), Quaternion.Euler(90f, 0f, 0f),
+            ground: true, surfaceY: SecondFloorY,
+            overrideMaterial: CreateMaterial("EntryHall_BarredGuestBed",
+                new Color(0.16f, 0.08f, 0.05f), 0.04f, 0.26f));
+        bed.AddComponent<BoxCollider>().size = new Vector3(1.9f, 1.15f, 1.5f);
+        authored["barred-guest-bed"] = bed;
+
+        GameObject chair = ImportedProp(room.transform, "BarredGuestChair", "Chair_1",
+            new Vector3(2.35f, SecondFloorY + 0.52f, 16.85f), new Vector3(0.7f, 1.0f, 0.7f),
+            Quaternion.Euler(0f, 180f, 0f), "chair", new Color(0.2f, 0.08f, 0.05f), SecondFloorY);
+        authored["barred-guest-chair"] = chair;
+        BindExamine(chair, "barred-guest-chair",
+            "A chair jammed under the inner latch. Whoever is in here does not want the landing.",
+            "The legs have scored the parquet. This was done in a hurry, and it has stayed.");
+
+        var lamp = new GameObject("BarredGuestLamp");
+        lamp.transform.SetParent(lighting, false);
+        lamp.transform.position = new Vector3(2.4f, 5.05f, 18.7f);
+        GmVictorianInteriorKit.Place("Lamp_2", "BarredGuestSconce", lamp.transform,
+            lamp.transform.position, new Vector3(0.28f, 0.46f, 0.32f),
+            Quaternion.Euler(0f, 180f, 0f), "lamp");
+        authored["barred-guest-lamp"] = lamp;
+        authored["barred-guest-lamp-light"] = CreatePointLight(lighting, "BarredGuestLight",
+            new Vector3(2.4f, 4.95f, 18.55f), 5.5f, 28f, new Color(1.0f, 0.7f, 0.42f));
+    }
+
+    static void PlaceMarrKey(Transform parent, Dictionary<string, GameObject> authored)
+    {
+        var key = new GameObject("LadyMarrKey");
+        key.transform.SetParent(parent, false);
+        key.transform.position = new Vector3(-10.05f, SecondFloorY + 0.78f, 12.15f);
+        GmOwnedPropFactory.CreateRoundedProp("LadyMarrKeyMesh", key.transform,
+            key.transform.position, Quaternion.Euler(0f, -20f, 8f),
+            new Vector3(0.14f, 0.03f, 0.04f), 0.01f,
+            CreateMaterial("EntryHall_MarrKey", new Color(0.55f, 0.42f, 0.18f), 0.7f, 0.5f));
+        key.AddComponent<BoxCollider>().size = new Vector3(0.2f, 0.07f, 0.09f);
+        var item = key.AddComponent<GmEstateKeyItem>();
+        item.Configure(MarrKeyClueId, "Lady Marr's key",
+            "Acquired Lady Marr's key.",
+            "A smaller brass key, the bow stamped M. It was left on Percival's blotting paper as if he meant to go back.");
+        authored["lady-marr-key"] = key;
+    }
+
+    static void PlaceMarrBooks(Transform room, Dictionary<string, GameObject> authored)
+    {
+        const string Book1 = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Prefabs/SM_Book_1.prefab";
+        const string Book2 = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Prefabs/SM_Book_2.prefab";
+        var books = new GameObject("MarrBooks");
+        books.transform.SetParent(room, false);
+        authored["marr-books"] = books;
+        Vector3[] posts =
+        {
+            new Vector3(-3.82f, SecondFloorY + 0.55f, 17.85f),
+            new Vector3(-3.82f, SecondFloorY + 0.55f, 18.15f),
+            new Vector3(-3.82f, SecondFloorY + 0.55f, 18.55f),
+            new Vector3(-3.82f, SecondFloorY + 1.15f, 17.9f),
+            new Vector3(-3.82f, SecondFloorY + 1.15f, 18.25f),
+            new Vector3(-3.82f, SecondFloorY + 1.15f, 18.65f),
+            new Vector3(-3.82f, SecondFloorY + 1.75f, 18.05f),
+            new Vector3(-3.82f, SecondFloorY + 1.75f, 18.45f),
+            new Vector3(-3.82f, SecondFloorY + 2.35f, 18.2f),
+            new Vector3(-3.82f, SecondFloorY + 2.35f, 18.55f),
+            new Vector3(-2.35f, SecondFloorY + 0.78f, 19.35f),
+            new Vector3(-2.22f, SecondFloorY + 0.78f, 19.48f),
+            new Vector3(-2.48f, SecondFloorY + 0.78f, 19.22f)
+        };
+        Quaternion spine = Quaternion.Euler(0f, 90f, 0f);
+        for (int i = 0; i < posts.Length; i++)
+        {
+            string path = (i % 2 == 0) ? Book1 : Book2;
+            Quaternion rot = i >= 10 ? Quaternion.Euler(0f, i * 17f, 0f) : spine;
+            GmOwnedPropFactory.PlacePrefab(path, "MarrBook_" + (i + 1), books.transform,
+                posts[i], new Vector3(0.13f, 0.24f, 0.18f), rot, ground: false);
+        }
+    }
+
+    static void PlaceAtticKey(Transform parent, Dictionary<string, GameObject> authored)
+    {
+        var key = new GameObject("AtticHatchKey");
+        key.transform.SetParent(parent, false);
+        key.transform.position = new Vector3(-2.85f, SecondFloorY + 0.78f, 19.42f);
+        GmOwnedPropFactory.CreateRoundedProp("AtticHatchKeyMesh", key.transform,
+            key.transform.position, Quaternion.Euler(0f, 25f, -10f),
+            new Vector3(0.13f, 0.03f, 0.035f), 0.01f,
+            CreateMaterial("EntryHall_AtticKey", new Color(0.42f, 0.38f, 0.28f), 0.55f, 0.46f));
+        key.AddComponent<BoxCollider>().size = new Vector3(0.18f, 0.07f, 0.08f);
+        var item = key.AddComponent<GmEstateKeyItem>();
+        item.Configure(AtticKeyClueId, "attic key",
+            "Acquired the attic key.",
+            "Iron, not brass. The bow is cut with a tiny loft window. It was under Marr's blotter.");
+        authored["attic-hatch-key"] = key;
+    }
+
+    static void BuildAtticLoft(Transform parent, Dictionary<string, GameObject> authored,
+        Transform lighting, float hatchX, float hatchZ, float holeX, float holeZ)
+    {
+        var loft = new GameObject("AtticLoft");
+        loft.transform.SetParent(parent, false);
+        authored["attic-loft"] = loft;
+
+        float holeWest = hatchX - holeX * 0.5f;
+        float holeEast = hatchX + holeX * 0.5f;
+        float holeSouth = hatchZ - holeZ * 0.5f;
+        float holeNorth = hatchZ + holeZ * 0.5f;
+        FloorSlab(loft.transform, "AtticFloorWest",
+            new Vector3((-5.8f + holeWest) * 0.5f, AtticFloorY - 0.1f, 13.2f),
+            new Vector3(holeWest - (-5.8f), 0.2f, 6.2f));
+        FloorSlab(loft.transform, "AtticFloorEastSouth",
+            new Vector3((holeWest + 5.8f) * 0.5f, AtticFloorY - 0.1f, (10.1f + holeSouth) * 0.5f),
+            new Vector3(5.8f - holeWest, 0.2f, holeSouth - 10.1f));
+        FloorSlab(loft.transform, "AtticFloorEastNorth",
+            new Vector3((holeWest + 5.8f) * 0.5f, AtticFloorY - 0.1f, (holeNorth + 16.3f) * 0.5f),
+            new Vector3(5.8f - holeWest, 0.2f, 16.3f - holeNorth));
+        FloorSlab(loft.transform, "AtticFloorEastMid",
+            new Vector3((holeEast + 5.8f) * 0.5f, AtticFloorY - 0.1f, hatchZ),
+            new Vector3(5.8f - holeEast, 0.2f, holeZ));
+
+        WallSlab(loft.transform, "AtticSouthWall", new Vector3(0f, 7.9f, 10.1f),
+            new Vector3(11.6f, 2.8f, 0.3f));
+        WallSlab(loft.transform, "AtticEastWall", new Vector3(5.8f, 7.9f, 13.2f),
+            new Vector3(0.3f, 2.8f, 6.2f));
+        WallSlab(loft.transform, "AtticWestWall", new Vector3(-5.8f, 7.9f, 13.2f),
+            new Vector3(0.3f, 2.8f, 6.2f));
+        WallSlab(loft.transform, "AtticNorthWallWest", new Vector3(-3.35f, 7.9f, 16.2f),
+            new Vector3(4.9f, 2.8f, 0.3f));
+        WallSlab(loft.transform, "AtticNorthWallEast", new Vector3(3.35f, 7.9f, 16.2f),
+            new Vector3(4.9f, 2.8f, 0.3f));
+        WallSlab(loft.transform, "AtticNorthDormerHeader", new Vector3(0f, 8.85f, 16.2f),
+            new Vector3(1.8f, 0.9f, 0.3f));
+        WallSlab(loft.transform, "AtticNorthDormerSill", new Vector3(0f, 6.85f, 16.2f),
+            new Vector3(1.8f, 0.7f, 0.3f));
+
+        Material beam = CreateMaterial("EntryHall_AtticRafter", new Color(0.18f, 0.09f, 0.04f), 0.02f, 0.22f);
+        var rafterRoot = new GameObject("AtticRafters");
+        rafterRoot.transform.SetParent(loft.transform, false);
+        rafterRoot.transform.position = new Vector3(0f, 8.15f, 13.2f);
+        GameObject firstRafter = null;
+        for (int i = 0; i < 5; i++)
+        {
+            float z = 11.0f + i * 1.25f;
+            GameObject west = GmOwnedPropFactory.CreateRoundedProp("AtticRafterWest_" + (i + 1), rafterRoot.transform,
+                new Vector3(-2.7f, 8.15f, z), Quaternion.Euler(0f, 0f, 18f),
+                new Vector3(5.4f, 0.12f, 0.16f), 0.03f, beam);
+            if (i == 1) firstRafter = west;
+            GmOwnedPropFactory.CreateRoundedProp("AtticRafterEast_" + (i + 1), rafterRoot.transform,
+                new Vector3(2.7f, 8.15f, z), Quaternion.Euler(0f, 0f, -18f),
+                new Vector3(5.4f, 0.12f, 0.16f), 0.03f, beam);
+        }
+        authored["attic-rafter"] = firstRafter != null ? firstRafter : rafterRoot;
+
+        authored["attic-ladder"] = BuildAtticLadder(loft.transform, hatchX, hatchZ, holeX, holeZ);
+
+        GameObject crate = new GameObject("AtticCrate");
+        crate.transform.SetParent(loft.transform, false);
+        crate.transform.position = new Vector3(-3.4f, AtticFloorY, 12.15f);
+        GmOwnedPropFactory.PlacePrefab(
+            "Assets/LeartesStudios/Abandoned Village/HDRP/Art/Prefabs/SM_Crate_01.prefab",
+            "AtticCrate", crate.transform, new Vector3(-3.4f, AtticFloorY + 0.35f, 12.15f),
+            new Vector3(0.7f, 0.7f, 0.7f), Quaternion.Euler(0f, 18f, 0f),
+            ground: true, surfaceY: AtticFloorY);
+        crate.AddComponent<BoxCollider>().size = new Vector3(0.75f, 0.7f, 0.75f);
+        authored["attic-crate"] = crate;
+
+        GameObject crateTwo = new GameObject("AtticCrateStack");
+        crateTwo.transform.SetParent(loft.transform, false);
+        crateTwo.transform.position = new Vector3(-3.85f, AtticFloorY, 12.85f);
+        GmOwnedPropFactory.PlacePrefab(
+            "Assets/LeartesStudios/Abandoned Village/HDRP/Art/Prefabs/SM_Crate_01.prefab",
+            "AtticCrateStack", crateTwo.transform, new Vector3(-3.85f, AtticFloorY + 0.28f, 12.85f),
+            new Vector3(0.55f, 0.55f, 0.55f), Quaternion.Euler(0f, -12f, 0f),
+            ground: true, surfaceY: AtticFloorY);
+
+        var cobwebs = new GameObject("AtticCobwebs");
+        cobwebs.transform.SetParent(loft.transform, false);
+        authored["attic-cobweb"] = cobwebs;
+        Material web = CreateMaterial("EntryHall_AtticCobweb", new Color(0.16f, 0.15f, 0.13f), 0.02f, 0.08f);
+        GmOwnedPropFactory.PlacePrefab("Assets/GamesMaster/Props/Cobweb_02.fbx",
+            "AtticCobwebWest", cobwebs.transform, new Vector3(-5.15f, 8.35f, 11.05f),
+            new Vector3(1.4f, 1.1f, 0.08f), Quaternion.Euler(0f, 90f, 12f),
+            ground: false, overrideMaterial: web);
+        GmOwnedPropFactory.PlacePrefab("Assets/GamesMaster/Props/Cobweb_03.fbx",
+            "AtticCobwebEast", cobwebs.transform, new Vector3(5.15f, 8.2f, 15.55f),
+            new Vector3(1.2f, 0.9f, 0.08f), Quaternion.Euler(0f, -90f, -8f),
+            ground: false, overrideMaterial: web);
+
+        GameObject shard = GmOwnedPropFactory.CreateMirrorShard("MirrorShard_2", loft.transform,
+            new Vector3(0.15f, AtticFloorY + 0.72f, 15.55f), Quaternion.Euler(12f, 200f, 8f),
+            new Vector3(0.34f, 0.46f, 0.055f),
+            CreateMaterial("EntryHall_MirrorShardTwo", new Color(0.42f, 0.58f, 0.66f), 0.86f, 0.92f));
+        shard.AddComponent<BoxCollider>().size = new Vector3(1f, 1f, 1f);
+        authored["shard-two"] = shard;
+
+        GmInteriorMoonWindow.Result dormer = GmInteriorMoonWindow.Build(loft.transform,
+            "AtticDormer", new Vector3(0f, 7.55f, 16.05f),
+            new Vector3(0.15f, 6.9f, 14.6f), new Vector2(1.35f, 1.55f), 220f);
+        dormer.light.name = "AtticDormerMoonLight";
+        authored["attic-dormer"] = dormer.fixture;
+        authored["attic-dormer-light"] = dormer.light;
+
+        var lantern = new GameObject("AtticLantern");
+        lantern.transform.SetParent(lighting, false);
+        lantern.transform.position = new Vector3(-1.2f, 8.05f, 12.4f);
+        GmVictorianInteriorKit.Place("Lamp_2", "AtticLantern", lantern.transform,
+            lantern.transform.position, new Vector3(0.26f, 0.4f, 0.28f),
+            Quaternion.identity, "lamp");
+        authored["attic-lantern"] = lantern;
+        authored["attic-lantern-light"] = CreatePointLight(lighting, "AtticLanternLight",
+            new Vector3(-1.2f, 7.85f, 12.4f), 8f, 35f, new Color(1.0f, 0.68f, 0.38f));
+        authored["attic-dormer-fill"] = CreatePointLight(lighting, "AtticDormerFill",
+            new Vector3(0.2f, 7.55f, 15.15f), 4.2f, 35f, new Color(0.72f, 0.82f, 1.0f));
+    }
+
+    static GmEstateDoor BuildAtticHatch(Transform parent, float hatchX, float hatchZ,
+        float holeX, float holeZ, Material wood)
+    {
+        const float HatchY = 6.18f;
+        var root = new GameObject("AtticHatch");
+        root.transform.SetParent(parent, false);
+        root.transform.position = new Vector3(hatchX, HatchY, hatchZ);
+
+        var leaf = new GameObject("AtticHatchLeaf");
+        leaf.transform.SetParent(root.transform, false);
+        leaf.transform.localPosition = new Vector3(0f, 0f, -holeZ * 0.5f);
+
+        GmOwnedPropFactory.CreateRoundedProp("AtticHatchBoard", leaf.transform,
+            new Vector3(hatchX, HatchY, hatchZ), Quaternion.identity,
+            new Vector3(holeX - 0.1f, 0.08f, holeZ - 0.1f), 0.02f, wood);
+
+        var door = root.AddComponent<GmEstateDoor>();
+        door.Configure(AtticHatchId, "Attic Hatch", AtticKeyClueId, "attic key",
+            locked: true, barred: false, 85f, leaf.transform, secret: false, openAtStart: false,
+            barrierCollider: null, swingAxis: Vector3.right);
+        BoxCollider barrier = door.EnsureBarrier(new Vector3(holeX - 0.08f, 0.14f, holeZ - 0.08f));
+        barrier.transform.SetParent(root.transform, false);
+        barrier.transform.localPosition = Vector3.zero;
+        barrier.transform.localRotation = Quaternion.identity;
+        return door;
+    }
+
+    static GameObject BuildAtticLadder(Transform parent, float hatchX, float hatchZ,
+        float holeX, float holeZ)
+    {
+        var ladder = new GameObject("AtticLadder");
+        ladder.transform.SetParent(parent, false);
+        // Copy the grand stair's 0.24 m rise / thin tread formula. The first tread sits 0.7 m
+        // north of the probe spawn, already inside the well, so the head is in the hole before
+        // it reaches the 2F ceiling.
+        const int Steps = 13;
+        const float Rise = 0.24f;
+        const float Run = 0.18f;
+        float startZ = 13.5f;
+        Material rail = CreateMaterial("EntryHall_AtticLadder",
+            new Color(0.2f, 0.1f, 0.045f), 0.03f, 0.3f);
+        GmOwnedPropFactory.CreateRoundedProp("AtticLadderRailLeft", ladder.transform,
+            new Vector3(hatchX - 0.28f, SecondFloorY + 1.6f, startZ + Steps * Run * 0.45f),
+            Quaternion.Euler(-20f, 0f, 0f), new Vector3(0.05f, 3.4f, 0.05f), 0.012f, rail);
+        GmOwnedPropFactory.CreateRoundedProp("AtticLadderRailRight", ladder.transform,
+            new Vector3(hatchX + 0.28f, SecondFloorY + 1.6f, startZ + Steps * Run * 0.45f),
+            Quaternion.Euler(-20f, 0f, 0f), new Vector3(0.05f, 3.4f, 0.05f), 0.012f, rail);
+        float treadWidth = Mathf.Min(1.2f, holeX - 0.2f);
+        for (int i = 0; i < Steps; i++)
+        {
+            float top = SecondFloorY + (i + 1) * Rise;
+            float z = startZ + i * Run;
+            GmOwnedPropFactory.CreateRoundedProp($"AtticLadderRung_{i + 1:00}", ladder.transform,
+                new Vector3(hatchX, top - 0.02f, z), Quaternion.identity,
+                new Vector3(0.62f, 0.04f, 0.1f), 0.01f, rail);
+            AddBarrierCollider(ladder.transform, $"AtticLadderTread_{i + 1:00}",
+                new Vector3(hatchX, top - 0.04f, z),
+                new Vector3(treadWidth, 0.08f, Run + 0.04f));
+        }
+        return ladder;
     }
 
     static void BuildPercivalRoom(Transform parent, Dictionary<string, GameObject> authored,

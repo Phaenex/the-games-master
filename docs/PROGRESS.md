@@ -43,6 +43,93 @@ bed: its deep-space/rumble textures would recreate the exact "spaceship" problem
 
 ## Status
 
+### 2026-08-18 - Hub Session 4: attic loft + leftover lintel/books
+
+Closed H4. Did not start Session 5 cellar. No commit.
+
+**What landed**
+
+- Library door lintel void closed with a hall-side beam (collider stays above 2.12 m) plus a collider-free fill over the short leaf.
+- Marr's west case and desk now carry owned book prefabs. Attic key sits on that desk.
+- Attic hatch is a locked ceiling slab. Ladder uses the same 0.24 m rise as the grand stair, inside a well big enough for the 1.8 m capsule. Loft has rafters, crates, cobwebs, dormer, Mirror Shard II.
+
+**Verification this pass**
+
+- rebuild entry-hall PASS, audit entry-hall PASS
+- EditMode **927/927**, 0 failed. XML: `unity-project/Logs/editmode-results.xml`
+- GUI tour **20/20 first attempt**. Log: `unity-project/Logs/cli-entry-hall-tour-attempt-1.log`
+- Frames: `docs/playtest/screenshots/entry-hall-tour-09-library-door.png`, `16-marr-study.png`, `18-attic-hatch.png`, `19-attic-loft.png`, `20-attic-shard.png`
+- `npm run test:fast` PASS. `npm run gates` not run tonight.
+
+**Visual (inspected at full size)**
+
+- Shot 09: PASS. Lintel beam on the door. Seam highlight at the leaf, not a missing-geometry hole.
+- Shot 16: PASS. Books on the desk and case, key under the sconce.
+- Shot 18: PASS. Well and ladder from the 2F gallery.
+- Shot 19: PASS for a dark loft. Rafters, crates, west lantern.
+- Shot 20: PASS. Dormer and Shard II readable (mean 33, black 0.1%).
+
+**Not done, and not claimed**
+
+Cellar/vault, remaining game doors, Parlor shipping proof, five missing table games. Human gates unchanged. Court locked. This is not 900/900.
+
+### 2026-08-17 - Hub Session 3: 2F gallery, Marr study, barred guest
+
+Closed H3. Did not start Session 4 attic. No commit.
+
+**What landed**
+
+- Foyer still owns the original nine portraits and Shard #1. The stair did not eat that wall, so the nine were extended onto the 2F east and north walls, plus a landing runner.
+- Lady Marr's study is a furnished room north of the landing (desk, chair, bookcase, blotter that repeats WATCH HIS HANDS). Locked until Percival's desk key (`key:lady_marr`).
+- Barred guest room is dressed (bed, chair jammed at the inner latch) and a body cannot enter.
+
+**Verification this pass**
+
+- rebuild entry-hall PASS, audit entry-hall PASS
+- EditMode **922/922**, 0 failed. New tests in that XML: foyer still owns shard, 2F hang, Marr furnished, key on Percival's desk, walk-in after key, barred body blocked.
+- GUI tour **17/17 first attempt**. Log: `unity-project/Logs/cli-entry-hall-tour-attempt-1.log`
+- Frames: `docs/playtest/screenshots/entry-hall-tour-15-upper-gallery.png`, `16-marr-study.png`, `17-barred-guest.png`
+- `npm run test:fast` PASS
+
+**Visual (inspected at full size)**
+
+- Shot 15: PASS. Five named debtor frames on the east wall, sconce over Halvard.
+- Shot 16: PASS for a furnished study. Desk, chair, scroll, lamp. Bookcase shelves read empty (kit mesh).
+- Shot 17: PASS for a dressed barred room. Gothic bed and sconce. The jammed chair sits at the door behind this camera. Tests prove a body cannot pass.
+
+**Not done, and not claimed**
+
+Attic loft, cellar/vault, remaining game doors, Parlor shipping proof, five missing table games. Human gates unchanged. Court locked. This is not 900/900.
+
+### 2026-08-17 - Hub Session 2: North Library is a furnished room
+
+Closed H2. Did not start Sessions 3–6. No commit.
+
+**What landed**
+
+- Library rebuilt into `EntryHall.unity` from authored C#. Aisle walkable after the wake-table key. Weighted Shelf starts V/I/III/IV/II, solve banks `clue:library_lever`.
+- Review tour grew to 14 shots (`13-library-interior`, `14-weighted-shelf`). Registry `entry-hall.tour.shots = 14`.
+- Test-order pollution: aisle/shelf tests left the door open. `GmEstateDoor.RelockClosed()`, `GmWeightedShelf.ResetPuzzle()`, `[SetUp] IsolateEachTest`.
+- Inscription was showing TextMesh backs. Same +90 facing as the parlor clock numerals. Crop of tour-14 reads "Every game has an order. Even this one." left to right, right-side up.
+
+**Verification this pass**
+
+- rebuild entry-hall PASS, audit entry-hall PASS (`[GmEntryHallAudit] PASS`)
+- EditMode **916/916**, 0 failed. Library tests in that XML: aisle walk, shelf→lever, furnished room, review tour includes interior, bible start order.
+- GUI tour **14/14 first attempt** (not FLAKY). Log: `unity-project/Logs/cli-entry-hall-tour-attempt-1.log`
+- Frames: `docs/playtest/screenshots/entry-hall-tour-13-library-interior.png` (furnished table/chairs/lamp/ladder, black 2.3%) and `entry-hall-tour-14-weighted-shelf.png` (five books + readable inscription, black 1.2%)
+- `npm run test:fast` PASS. Scene sources match (418 files).
+
+**Visual (inspected at full size, not inferred from code)**
+
+- Shot 13: PASS for furnished room. West stacks still dark at the edges. Intentional gloom, not a hole.
+- Shot 14: PASS for the puzzle and the inscription. Spine ink is dark on leather. Color order from the south slot is V, I, III, IV, II.
+- Shot 09 library door: leftover lintel gap. Pre-existing Session 1 visual. Not part of H2.
+
+**Not done, and not claimed**
+
+Attic, cellar geometry, Marr study, contiguous mansion, Parlor shipping proof, five missing table games. Human gates unchanged: Phase 0 walk, display, audio, feel. Court locked. 08-16 still owns the last full gate pack. This is not 900/900.
+
 ### 2026-08-17 - Session 1 leftovers: clock wood, climb path, body probes
 
 Closed the Session 1 holes that were still open after the hub landed. Did not start H2 / Sessions 2–6. No commit.

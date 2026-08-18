@@ -16,10 +16,9 @@ but the delivery numbers reset to the engine that ships.
 This file tracks **Unity truth**. Where a thing is "done in web, absent in Unity," it reads 0% with the
 web work credited as design source, because a player on Steam cannot play a design source.
 
-> **2026-08-17 update.** The 08-16 handoff is still the last full opening-gate pack. Content since
-> then: a walkable Entry Hall hub stub (Session 1 proven, Session 2 library authored but not rebuilt),
-> plus an uncommitted Parlor physical slice. STEAM-TRACKER bars below the 08-13 paragraph were stale
-> (Entry Hall/Parlor/shards/endings still at 0%). Live plan: `docs/HANDOFF-2026-08-17.md`.
+> **2026-08-18 update.** Hub Session 4 attic loft is proven (EditMode 927/927, tour 20/20 first attempt).
+> Shard II sits in the attic until Court exists. Cellar is still unbuilt. The 08-16 handoff remains
+> the last full opening-gate pack. Live plan: `docs/HANDOFF-2026-08-17.md`.
 > Inherit no later chat's 886/886 or "whole mansion" claim.
 
 > **2026-08-13 update (historical).** Unity EditMode went from **not compiling at all** to **294/296 passing**
@@ -42,7 +41,7 @@ web work credited as design source, because a player on Steam cannot play a desi
 Overall (Unity/Steam): [████░░░░░░░░░░░░░░░░]  22%
 
 Phase  0 Prologue        [██████████████████░░]  92%  08-16 gates 14/14 on a trusted host; Nick walk still open
-Phase  1 Entry Hall      [██████░░░░░░░░░░░░░░]  30%  walkable hub Session 1; library authored, not rebuilt
+Phase  1 Entry Hall      [█████████████░░░░░░░]  65%  Sessions 1–4 proven; cellar not built
 Phase  2 Parlor          [████░░░░░░░░░░░░░░░░]  20%  rules + physical slice in source; not shipping-proven tonight
 Phase  3 Court           [██░░░░░░░░░░░░░░░░░░]  10%  scene spine only; LOCKED behind Nick's Phase 0 walk
 Phase  4 Shut the Box    [██████░░░░░░░░░░░░░░]  30%  rules + tile-9 path in source; no finished match UI
@@ -391,7 +390,7 @@ Role-light swing       [░░░░░░░░░░░░░░░░░░�
 Evidence deck (5 cards)[░░░░░░░░░░░░░░░░░░░░]   0%  Deck A straight vs rigged
 Gavel tarnish tell     [░░░░░░░░░░░░░░░░░░░░]   0%  gold tarnishes when the true card is presented
 Loseable pressure clock[░░░░░░░░░░░░░░░░░░░░]   0%  the hearing CAN be lost
-Shard #2 (mislabeled)  [░░░░░░░░░░░░░░░░░░░░]   0%  mounted among the evidence cards
+Shard #2 (mislabeled)  [░░░░░░░░░░░░░░░░░░░░]   0%  Court evidence mount still unbuilt. Hub Session 4 placed a walkable Mirror Shard II in the Entry Hall attic until Court exists.
 ```
 
 **Design note worth protecting:** a first visit at low corruption **plays straight** — no planted

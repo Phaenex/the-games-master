@@ -82,6 +82,21 @@ public sealed class GmWeightedShelfTests
     }
 
     [Test]
+    public void ResetPuzzleReturnsTheBibleOrderAndHidesTheLever()
+    {
+        Assert.IsTrue(shelf.HandleSlot(0));
+        Assert.IsTrue(shelf.HandleSlot(1));
+        Assert.IsTrue(shelf.HandleSlot(1));
+        Assert.IsTrue(shelf.HandleSlot(4));
+        Assert.IsTrue(shelf.IsSolved);
+
+        shelf.ResetPuzzle();
+        Assert.IsFalse(shelf.IsSolved);
+        CollectionAssert.AreEqual(GmWeightedShelf.StartingOrder, shelf.CurrentOrder);
+        Assert.IsFalse(lever.gameObject.activeSelf);
+    }
+
+    [Test]
     public void SelectingTheSameSlotTwicePutsTheBookBack()
     {
         Assert.IsTrue(shelf.HandleSlot(0));

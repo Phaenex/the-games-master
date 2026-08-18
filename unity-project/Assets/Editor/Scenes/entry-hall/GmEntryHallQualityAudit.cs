@@ -82,6 +82,22 @@ public static class GmEntryHallQualityAudit
             issues.Add("WeightedShelfCase is missing");
         if (Object.FindAnyObjectByType<GmWeightedShelf>(FindObjectsInactive.Include) == null)
             issues.Add("GmWeightedShelf is missing");
+        if (GameObject.Find("UpperDebtorGallery") == null)
+            issues.Add("UpperDebtorGallery is missing");
+        if (GameObject.Find("MarrStudy") == null)
+            issues.Add("MarrStudy is missing");
+        if (GameObject.Find("BarredGuestRoom") == null)
+            issues.Add("BarredGuestRoom is missing");
+        if (GameObject.Find("LadyMarrKey") == null)
+            issues.Add("LadyMarrKey is missing");
+        if (GameObject.Find("AtticLoft") == null)
+            issues.Add("AtticLoft is missing");
+        if (GameObject.Find("AtticHatchKey") == null)
+            issues.Add("AtticHatchKey is missing");
+        if (GameObject.Find("AtticLadder") == null)
+            issues.Add("AtticLadder is missing");
+        if (GameObject.Find("MirrorShard_2") == null)
+            issues.Add("MirrorShard_2 prop is missing");
 
         issues.AddRange(GmSceneCompositionAudit.ValidateOpenScene(
             GmEntryHallBuilder.SceneId, Object.FindAnyObjectByType<GmEntryHallShotTour>(), Camera.main));

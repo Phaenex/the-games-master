@@ -123,6 +123,13 @@ public sealed class GmEstateDoor : MonoBehaviour, IGmInteractionReceiver
             ShowFeedback(feedbackMessage);
     }
 
+    public void RelockClosed()
+    {
+        isLocked = true;
+        SetOpen(false, immediate: true);
+        UpdateInteractableConfig();
+    }
+
     public void ToggleDoor()
     {
         SetOpen(!isOpen, immediate: true);
@@ -131,7 +138,8 @@ public sealed class GmEstateDoor : MonoBehaviour, IGmInteractionReceiver
 
     public void Configure(string id, string name, string requiredKey, string keyName,
         bool locked, bool barred, float openAng = 90f, Transform leaf = null,
-        bool secret = false, bool openAtStart = false, BoxCollider barrierCollider = null)
+        bool secret = false, bool openAtStart = false, BoxCollider barrierCollider = null,
+        Vector3 swingAxis = default)
     {
         doorId = id;
         doorName = name;
@@ -144,6 +152,8 @@ public sealed class GmEstateDoor : MonoBehaviour, IGmInteractionReceiver
         openAngle = openAng;
         if (leaf != null) doorLeaf = leaf;
         if (barrierCollider != null) barrier = barrierCollider;
+        if (swingAxis.sqrMagnitude > 0.01f)
+            rotationAxis = swingAxis.normalized;
         EnsurePose();
         if (startOpen && !isBarred && !isLocked)
             SetOpen(true, immediate: true);

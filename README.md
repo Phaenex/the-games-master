@@ -12,7 +12,7 @@ The current production target is the Unity 6000.5.3f1 HDRP opening, `WendHill_Pr
 
 ## Current status
 
-The 435 m Wend Hill opening is the default registered scene. Unity also has a PlayMode-proven scene spine from Boot through Labyrinth to an ending, and a walkable Entry Hall hub stub (foyer, stairs, Percival). That is reachability, not a finished house or finished table games. Current truth: [2026-08-17 handoff](docs/HANDOFF-2026-08-17.md). Last full opening-gate pack: [2026-08-16 handoff](docs/HANDOFF-2026-08-16.md).
+The 435 m Wend Hill opening is the default registered scene. Unity also has a PlayMode-proven scene spine from Boot through Labyrinth to an ending, and a walkable Entry Hall hub (foyer, stairs, Percival, North Library, 2F debtor gallery, Marr's locked study, barred guest room, keyed attic loft). That is still not a finished house or finished table games. Current truth: [2026-08-17 handoff](docs/HANDOFF-2026-08-17.md). Last full opening-gate pack: [2026-08-16 handoff](docs/HANDOFF-2026-08-16.md).
 
 See [the 2026-07-31 audit](docs/playtest/wend-hill-prologue-audit-2026-07-31.md) for the earlier opening baseline and the defects that shaped the current proof system.
 

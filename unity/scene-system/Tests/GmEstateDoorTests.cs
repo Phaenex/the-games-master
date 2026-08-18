@@ -44,6 +44,10 @@ public sealed class GmEstateDoorTests
         Assert.IsTrue(door.IsOpen);
         Assert.IsFalse(door.BlocksPassage, "the unlocked leaf still occupies the opening");
         Assert.IsTrue(GmRunStore.HasClue("unlocked:door_library"));
+        door.RelockClosed();
+        Assert.IsTrue(door.IsLocked);
+        Assert.IsFalse(door.IsOpen);
+        Assert.IsTrue(door.BlocksPassage);
     }
 
     [Test]
@@ -108,6 +112,25 @@ public sealed class GmEstateDoorTests
         Awake(door);
         Assert.IsFalse(door.IsLocked);
         Assert.IsTrue(door.BlocksPassage, "remembering the key should not leave the leaf standing open");
+    }
+
+    [Test]
+    public void ACeilingHatchSwingsOnItsHingeAxisInsteadOfYaw()
+    {
+        var door = root.AddComponent<GmEstateDoor>();
+        door.Configure("door_attic_hatch", "Attic Hatch", "key:attic_hatch", "attic key",
+            locked: false, barred: false, 90f, leaf, secret: false, openAtStart: false,
+            barrierCollider: null, swingAxis: Vector3.right);
+        door.EnsureBarrier(new Vector3(1.1f, 0.12f, 1.1f));
+        Awake(door);
+        Quaternion closed = leaf.localRotation;
+        door.OnGmInteraction(null);
+        Assert.IsTrue(door.IsOpen);
+        Vector3 swung = (Quaternion.Inverse(closed) * leaf.localRotation).eulerAngles;
+        Assert.That(Mathf.Abs(Mathf.DeltaAngle(swung.x, 90f)), Is.LessThan(1f),
+            $"hatch yawed or rolled instead of lifting: {swung}");
+        Assert.That(Mathf.Abs(Mathf.DeltaAngle(swung.y, 0f)), Is.LessThan(1f),
+            $"hatch used the wall-door yaw axis: {swung}");
     }
 
     GmEstateDoor BuildDoor(bool locked, bool barred, bool secret,

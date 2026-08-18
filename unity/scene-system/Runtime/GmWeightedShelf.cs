@@ -38,6 +38,7 @@ public sealed class GmWeightedShelf : MonoBehaviour, IGmInteractionReceiver
     int[] order = (int[])StartingOrder.Clone();
     int selectedSlot = -1;
     bool solved;
+    Quaternion[] tiltRest = Array.Empty<Quaternion>();
     Vector3 secretClosedLocal;
 
     public bool IsSolved => solved;
@@ -63,6 +64,9 @@ public sealed class GmWeightedShelf : MonoBehaviour, IGmInteractionReceiver
         secretOpenOffset = openOffset;
         if (secretCase != null)
             secretClosedLocal = secretCase.localPosition;
+        tiltRest = new Quaternion[tiltOnSolve.Length];
+        for (int i = 0; i < tiltOnSolve.Length; i++)
+            tiltRest[i] = tiltOnSolve[i] != null ? tiltOnSolve[i].localRotation : Quaternion.identity;
         order = (int[])StartingOrder.Clone();
         selectedSlot = -1;
         solved = false;
@@ -71,6 +75,23 @@ public sealed class GmWeightedShelf : MonoBehaviour, IGmInteractionReceiver
             brassLever.gameObject.SetActive(false);
         if (GmRunStore.HasClue(LeverClueId))
             Solve(silent: true);
+    }
+
+    public void ResetPuzzle()
+    {
+        solved = false;
+        selectedSlot = -1;
+        order = (int[])StartingOrder.Clone();
+        ApplyPose();
+        if (secretCase != null)
+            secretCase.localPosition = secretClosedLocal;
+        if (brassLever != null)
+            brassLever.gameObject.SetActive(false);
+        for (int i = 0; i < tiltOnSolve.Length && i < tiltRest.Length; i++)
+        {
+            if (tiltOnSolve[i] == null) continue;
+            tiltOnSolve[i].localRotation = tiltRest[i];
+        }
     }
 
     public void OnGmInteraction(GmInteractable source)

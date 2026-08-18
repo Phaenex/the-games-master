@@ -34,8 +34,14 @@ public sealed class GmEntryHallShotTour : GmSceneReviewTour
         new GmReviewShot("10-stair-ascent", new Vector3(0f, 1.85f, 2.2f), 0f, 14f),
         new GmReviewShot("11-second-floor", new Vector3(0.2f, 4.9f, 11.3f), -48f, 2f),
         new GmReviewShot("12-percival-room", new Vector3(-6.55f, 4.8f, 13.2f), -92f, 6f),
-        new GmReviewShot("13-library-interior", new Vector3(-4.7f, 1.55f, 10.7f), 8f, 4f),
-        new GmReviewShot("14-weighted-shelf", new Vector3(-5.15f, 1.55f, 13.2f), 90f, 6f)
+        new GmReviewShot("13-library-interior", new Vector3(-5.25f, 1.52f, 13.2f), -90f, 12f),
+        new GmReviewShot("14-weighted-shelf", new Vector3(-5.15f, 1.55f, 13.2f), 90f, 6f),
+        new GmReviewShot("15-upper-gallery", new Vector3(2.35f, 4.95f, 13.2f), 90f, 4f),
+        new GmReviewShot("16-marr-study", new Vector3(-2.4f, 4.92f, 17.15f), 0f, 8f),
+        new GmReviewShot("17-barred-guest", new Vector3(2.4f, 4.92f, 17.15f), 0f, 8f),
+        new GmReviewShot("18-attic-hatch", new Vector3(2.15f, 4.95f, 12.05f), 38f, -22f),
+        new GmReviewShot("19-attic-loft", new Vector3(0.15f, 7.62f, 13.45f), -108f, 12f),
+        new GmReviewShot("20-attic-shard", new Vector3(0.95f, 7.28f, 14.35f), -8f, 4f)
     };
 
     protected override IReadOnlyList<GmReviewShot> ReviewShots => Shots;

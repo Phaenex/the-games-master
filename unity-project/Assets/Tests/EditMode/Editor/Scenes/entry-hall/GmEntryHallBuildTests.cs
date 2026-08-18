@@ -20,6 +20,19 @@ public class GmEntryHallBuildTests
     [OneTimeTearDown]
     public void TearDownOnce() => EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
+    [SetUp]
+    public void IsolateEachTest()
+    {
+        GmRunStore.BeginNewRun();
+        Door("LibraryDoor")?.RelockClosed();
+        Door("CellarPanel")?.RelockClosed();
+        Door("MarrDoor")?.RelockClosed();
+        Door("AtticHatch")?.RelockClosed();
+        var shelf = Object.FindAnyObjectByType<GmWeightedShelf>(FindObjectsInactive.Include);
+        shelf?.ResetPuzzle();
+        Physics.SyncTransforms();
+    }
+
     [Test]
     public void SceneContractPasses()
     {
@@ -34,6 +47,23 @@ public class GmEntryHallBuildTests
         Assert.IsNotNull(tour, "review tour component is missing");
         Assert.IsFalse(tour.HasPlaceholderShots,
             "replace every generated '*-replace-me' waypoint before this scene can pass");
+    }
+
+    [Test]
+    public void ReviewTourIncludesTheLibraryInterior()
+    {
+        var tour = Object.FindAnyObjectByType<GmEntryHallShotTour>();
+        Assert.IsNotNull(tour, "review tour component is missing");
+        Assert.AreEqual(20, tour.ShotCount, "registry and tour both need library interiors, the 2F wing, and the attic");
+        string[] names = tour.ShotsForAudit.Select(shot => shot.Name).ToArray();
+        CollectionAssert.Contains(names, "13-library-interior");
+        CollectionAssert.Contains(names, "14-weighted-shelf");
+        CollectionAssert.Contains(names, "15-upper-gallery");
+        CollectionAssert.Contains(names, "16-marr-study");
+        CollectionAssert.Contains(names, "17-barred-guest");
+        CollectionAssert.Contains(names, "18-attic-hatch");
+        CollectionAssert.Contains(names, "19-attic-loft");
+        CollectionAssert.Contains(names, "20-attic-shard");
     }
 
     [Test]
@@ -282,6 +312,7 @@ public class GmEntryHallBuildTests
         {
             "HallFloor", "LeftWall", "RightWall", "NorthWall", "SouthWall", "Ceiling",
             "ParlorDoorLintel", "NorthLibrary", "SecondFloorGallery", "PercivalBedroom",
+            "MarrStudy", "BarredGuestRoom", "AtticLoft",
             "StairLanding",
         };
 
@@ -370,9 +401,7 @@ public class GmEntryHallBuildTests
     [Test]
     public void TheLibraryKeySitsOnTheWakeTable()
     {
-        var key = Object.FindAnyObjectByType<GmEstateKeyItem>(FindObjectsInactive.Include);
-        Assert.IsNotNull(key, "the brass skeleton key was never placed");
-        Assert.AreEqual(GmEntryHallBuilder.LibraryKeyClueId, key.KeyClueId);
+        GmEstateKeyItem key = KeyItem(GmEntryHallBuilder.LibraryKeyClueId);
         Assert.That(key.transform.position.z, Is.LessThan(-7f),
             "the library key is not on the wake table");
     }
@@ -393,6 +422,14 @@ public class GmEntryHallBuildTests
             "Lady Marr's locked door does not occupy its opening");
         Assert.IsTrue(RayHitsBarrier(new Vector3(2.4f, 4.55f, 14.6f), Vector3.forward, 2.2f),
             "the barred guest door does not occupy its opening");
+        Assert.IsTrue(RayHitsBarrier(new Vector3(4.2f, 6.18f, 12.55f), Vector3.forward, 2.2f),
+            "the locked attic hatch does not occupy the loft well");
+        BoxCollider hatchBarrier = Door("AtticHatch").Barrier;
+        Assert.IsNotNull(hatchBarrier, "attic hatch has no DoorBarrier");
+        Assert.That(hatchBarrier.size.y, Is.LessThan(0.4f),
+            "attic hatch is a wall-door at the well lip instead of a ceiling slab");
+        Assert.That(hatchBarrier.size.x, Is.GreaterThan(1.2f));
+        Assert.That(hatchBarrier.size.z, Is.GreaterThan(2.0f));
     }
 
     [Test]
@@ -532,9 +569,129 @@ public class GmEntryHallBuildTests
         Bounds bedBounds = CombinedRendererBounds(bed);
         Assert.That(bedBounds.min.y, Is.GreaterThan(GmEntryHallBuilder.SecondFloorY - 0.25f),
             "Percival's bed is not sitting on the 2F floor");
-            Assert.That(Mathf.Max(bedBounds.size.x, bedBounds.size.z),
+        Assert.That(Mathf.Max(bedBounds.size.x, bedBounds.size.z),
             Is.GreaterThan(bedBounds.size.y * 0.85f),
             "Percival's bed is standing on end");
+    }
+
+    [Test]
+    public void TheFoyerStillOwnsTheNineDebtorPortraitsAndTheShard()
+    {
+        Transform gallery = GameObject.Find("PortraitGallery").transform;
+        Assert.That(gallery.childCount, Is.GreaterThanOrEqualTo(10),
+            "moving the 2F hang must not strip the foyer wall (9 frames + shard)");
+        Assert.IsNotNull(GameObject.Find("MirrorShard_1"));
+        Assert.That(GameObject.Find("MirrorShard_1").transform.position.y, Is.LessThan(3f),
+            "Shard #1 left the foyer Percival frame");
+    }
+
+    [Test]
+    public void TheSecondFloorExtendsTheDebtorGallery()
+    {
+        Transform upper = GameObject.Find("UpperDebtorGallery").transform;
+        Assert.That(upper.childCount, Is.EqualTo(GmEntryHallBuilder.DebtorNames.Length),
+            "the 2F run is missing the extended debtor hang");
+        Assert.IsNotNull(GameObject.Find("UpperGalleryRunner"));
+        Assert.That(GameObject.Find("UpperGalleryRunner").transform.position.y,
+            Is.GreaterThan(GmEntryHallBuilder.SecondFloorY - 0.2f));
+    }
+
+    [Test]
+    public void MarrsStudyIsAFurnishedRoomBehindTheLockedDoor()
+    {
+        Assert.IsNotNull(GameObject.Find("MarrStudy"));
+        Assert.IsNotNull(GameObject.Find("MarrDesk"));
+        Assert.IsNotNull(GameObject.Find("MarrChair"));
+        Assert.IsNotNull(GameObject.Find("MarrHandNote"));
+        Assert.IsNotNull(GameObject.Find("MarrBooks"));
+        Assert.That(GameObject.Find("MarrBooks").GetComponentsInChildren<Renderer>(true)
+            .Count(renderer => renderer.transform.GetComponentsInParent<Transform>(true)
+                .Any(parent => parent.name.StartsWith(GmOwnedPropFactory.VisualPrefix))),
+            Is.GreaterThanOrEqualTo(8),
+            "Marr's bookcase still has empty shelves");
+        Bounds deskBounds = CombinedRendererBounds(GameObject.Find("MarrDesk").transform);
+        Assert.That(deskBounds.min.y, Is.GreaterThan(GmEntryHallBuilder.SecondFloorY - 0.25f),
+            "Marr's desk is still grounded to the foyer floor");
+        Assert.That(deskBounds.min.z, Is.GreaterThan(16.3f),
+            "Marr's desk is not inside the study north of the landing");
+        GmEstateDoor marr = Door("MarrDoor");
+        Assert.IsTrue(marr.IsLocked);
+        Assert.IsTrue(marr.BlocksPassage);
+    }
+
+    [Test]
+    public void TheMarrKeySitsOnPercivalsDesk()
+    {
+        GmEstateKeyItem key = KeyItem(GmEntryHallBuilder.MarrKeyClueId);
+        Assert.That(key.transform.position.x, Is.LessThan(-8f),
+            "Lady Marr's key is not in Percival's room");
+        Assert.That(key.transform.position.y, Is.GreaterThan(GmEntryHallBuilder.SecondFloorY + 0.4f),
+            "Lady Marr's key is not on Percival's desk");
+    }
+
+    [Test]
+    public void ACharacterControllerCanWalkIntoMarrsStudyAfterTheKey()
+    {
+        CharacterController probe = MakeProbe();
+        CharacterController player = GameObject.Find("Player")?.GetComponent<CharacterController>();
+        if (player != null) player.enabled = false;
+        GmEstateDoor marr = Door("MarrDoor");
+        try
+        {
+            GmRunStore.RecordClue(GmEntryHallBuilder.MarrKeyClueId);
+            marr.OnGmInteraction(null);
+            Assert.IsTrue(marr.IsOpen);
+            Assert.IsFalse(marr.BlocksPassage);
+
+            Vector3 start = new Vector3(-2.4f, GmEntryHallBuilder.SecondFloorY + 0.05f, 14.6f);
+            Physics.SyncTransforms();
+            var result = GmPhysicalIntegrityProbe.AttemptBypass(
+                probe, start, Vector3.forward, 5.2f, new Vector3(-2.4f, 4.6f, 18.4f), Vector3.forward);
+            Assert.That(result.finalPosition.z, Is.GreaterThan(16.8f),
+                "a body never entered Marr's study: " + GmPhysicalIntegrityProbe.Describe(result));
+        }
+        finally
+        {
+            if (player != null) player.enabled = true;
+            Object.DestroyImmediate(probe.gameObject);
+        }
+    }
+
+    [Test]
+    public void TheBarredGuestRoomExistsAndABodyCannotEnter()
+    {
+        Assert.IsNotNull(GameObject.Find("BarredGuestRoom"));
+        Assert.IsNotNull(GameObject.Find("BarredGuestBed"));
+        Assert.IsNotNull(GameObject.Find("BarredGuestChair"));
+        Bounds bedBounds = CombinedRendererBounds(GameObject.Find("BarredGuestBed").transform);
+        Assert.That(bedBounds.min.y, Is.GreaterThan(GmEntryHallBuilder.SecondFloorY - 0.25f),
+            "the barred guest bed is not on the 2F floor");
+        Assert.That(bedBounds.min.z, Is.GreaterThan(16.3f),
+            "the barred guest bed is not behind the north wall");
+
+        GmEstateDoor barred = Door("BarredGuestDoor");
+        Assert.IsTrue(barred.IsBarred);
+        Assert.IsTrue(barred.BlocksPassage);
+
+        CharacterController probe = MakeProbe();
+        CharacterController player = GameObject.Find("Player")?.GetComponent<CharacterController>();
+        if (player != null) player.enabled = false;
+        try
+        {
+            Physics.SyncTransforms();
+            Vector3 start = new Vector3(2.4f, GmEntryHallBuilder.SecondFloorY + 0.05f, 14.6f);
+            var result = GmPhysicalIntegrityProbe.AttemptBypass(
+                probe, start, Vector3.forward, 5.2f, new Vector3(2.4f, 4.6f, 18.4f), Vector3.forward);
+            Assert.IsTrue(result.blocked,
+                "the barred guest door is a hologram: " + GmPhysicalIntegrityProbe.Describe(result));
+            Assert.That(result.finalPosition.z, Is.LessThan(16.4f),
+                "a body walked into the barred guest room: " + GmPhysicalIntegrityProbe.Describe(result));
+        }
+        finally
+        {
+            if (player != null) player.enabled = true;
+            Object.DestroyImmediate(probe.gameObject);
+        }
     }
 
     [Test]
@@ -617,6 +774,97 @@ public class GmEntryHallBuildTests
         return bounds;
     }
 
+    [Test]
+    public void TheAtticIsAFurnishedLoftNotAStub()
+    {
+        Assert.IsNotNull(GameObject.Find("AtticLoft"));
+        Assert.IsNotNull(GameObject.Find("AtticLadder"));
+        Assert.IsNotNull(GameObject.Find("AtticCrate"));
+        Assert.IsNotNull(GameObject.Find("AtticCobwebs"));
+        Assert.IsNotNull(GameObject.Find("AtticDormer"));
+        Assert.IsNotNull(GameObject.Find("MirrorShard_2"));
+        Assert.That(GameObject.Find("MirrorShard_2").transform.position.y,
+            Is.GreaterThan(GmEntryHallBuilder.AtticFloorY),
+            "Shard #2 is not in the loft");
+        Assert.That(GameObject.Find("MirrorShard_1").transform.position.y, Is.LessThan(3f),
+            "placing shard 2 must not move shard 1 off Percival's foyer frame");
+        Transform treads = GameObject.Find("AtticLadder").transform;
+        int treadCount = Enumerable.Range(0, treads.childCount)
+            .Count(i => treads.GetChild(i).name.StartsWith("AtticLadderTread_"));
+        Assert.That(treadCount, Is.GreaterThanOrEqualTo(8),
+            "attic ladder has no 0.4m-legal treads");
+        Assert.That(GameObject.Find("AtticCrate").GetComponentsInChildren<Renderer>(true)
+            .Any(renderer => renderer.transform.GetComponentsInParent<Transform>(true)
+                .Any(parent => parent.name.StartsWith(GmOwnedPropFactory.VisualPrefix))),
+            "attic crate is not the owned crate mesh");
+    }
+
+    [Test]
+    public void TheAtticKeySitsOnMarrsDesk()
+    {
+        GmEstateKeyItem key = KeyItem(GmEntryHallBuilder.AtticKeyClueId);
+        Assert.That(key.transform.position.z, Is.GreaterThan(16.5f),
+            "the attic key is not in Marr's study");
+        Assert.That(key.transform.position.y, Is.GreaterThan(GmEntryHallBuilder.SecondFloorY + 0.4f),
+            "the attic key is not on Marr's desk");
+        Assert.That(key.transform.position.y, Is.LessThan(GmEntryHallBuilder.AtticFloorY - 1f),
+            "the attic key was placed behind the hatch it opens");
+    }
+
+    [Test]
+    public void ACharacterControllerCannotEnterTheAtticWithoutTheKey()
+    {
+        CharacterController probe = MakeProbe();
+        CharacterController player = GameObject.Find("Player")?.GetComponent<CharacterController>();
+        if (player != null) player.enabled = false;
+        try
+        {
+            probe.enabled = false;
+            probe.transform.position = new Vector3(4.2f, GmEntryHallBuilder.SecondFloorY + 0.05f, 12.8f);
+            probe.enabled = true;
+            Physics.SyncTransforms();
+            for (int step = 0; step < 90; step++)
+                probe.Move(new Vector3(0f, -0.45f, 0.18f));
+            Assert.That(probe.transform.position.y, Is.LessThan(GmEntryHallBuilder.AtticFloorY - 0.15f),
+                $"a body climbed into the locked loft (ended {probe.transform.position})");
+        }
+        finally
+        {
+            if (player != null) player.enabled = true;
+            Object.DestroyImmediate(probe.gameObject);
+        }
+    }
+
+    [Test]
+    public void ACharacterControllerCanClimbIntoTheAtticAfterTheKey()
+    {
+        CharacterController probe = MakeProbe();
+        CharacterController player = GameObject.Find("Player")?.GetComponent<CharacterController>();
+        if (player != null) player.enabled = false;
+        GmEstateDoor hatch = Door("AtticHatch");
+        try
+        {
+            GmRunStore.RecordClue(GmEntryHallBuilder.AtticKeyClueId);
+            hatch.OnGmInteraction(null);
+            Assert.IsTrue(hatch.IsOpen);
+            Assert.IsFalse(hatch.BlocksPassage);
+
+            probe.enabled = false;
+            probe.transform.position = new Vector3(4.2f, GmEntryHallBuilder.SecondFloorY + 0.05f, 12.8f);
+            probe.enabled = true;
+            Physics.SyncTransforms();
+            for (int step = 0; step < 140; step++)
+                probe.Move(new Vector3(0f, -0.45f, 0.18f));
+            Assert.That(probe.transform.position.y, Is.GreaterThan(GmEntryHallBuilder.AtticFloorY - 0.4f),
+                $"the attic climb stalled at {probe.transform.position}");
+        }
+        finally
+        {
+            if (player != null) player.enabled = true;
+            Object.DestroyImmediate(probe.gameObject);
+        }
+    }
+
     static GmEstateDoor Door(string objectName)
     {
         Transform root = Object.FindObjectsByType<Transform>(FindObjectsInactive.Include,
@@ -626,6 +874,14 @@ public class GmEntryHallBuildTests
         var door = root.GetComponent<GmEstateDoor>();
         Assert.IsNotNull(door, objectName + " has no GmEstateDoor");
         return door;
+    }
+
+    static GmEstateKeyItem KeyItem(string clueId)
+    {
+        var item = Object.FindObjectsByType<GmEstateKeyItem>(FindObjectsInactive.Include)
+            .FirstOrDefault(candidate => candidate.KeyClueId == clueId);
+        Assert.IsNotNull(item, clueId + " was never placed");
+        return item;
     }
 
     static bool RayHitsBarrier(Vector3 origin, Vector3 direction, float distance)
