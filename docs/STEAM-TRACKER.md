@@ -16,9 +16,9 @@ but the delivery numbers reset to the engine that ships.
 This file tracks **Unity truth**. Where a thing is "done in web, absent in Unity," it reads 0% with the
 web work credited as design source, because a player on Steam cannot play a design source.
 
-> **2026-08-18 update.** Hub rooms exist. A connected walk now reaches the parlor door and the vault
-> grate. Cellar climb-out is not proven. Parlor is 42%, not finished AAA. Built-player 1080p is still
-> open. The 08-16 handoff remains the last full opening-gate pack. Live plan: `docs/HANDOFF-2026-08-17.md`.
+> **2026-08-18 update.** Hub rooms exist. A connected walk reaches the parlor door, the vault grate,
+> and back onto the hall. Parlor is 42%, not finished AAA. Built-player 1080p is still open. The
+> 08-16 handoff remains the last full opening-gate pack. Live plan: `docs/HANDOFF-2026-08-17.md`.
 > Inherit no later chat's 886/886 or "whole mansion" claim.
 
 > **2026-08-13 update (historical).** Unity EditMode went from **not compiling at all** to **294/296 passing**
@@ -41,7 +41,7 @@ web work credited as design source, because a player on Steam cannot play a desi
 Overall (Unity/Steam): [████░░░░░░░░░░░░░░░░]  22%
 
 Phase  0 Prologue        [██████████████████░░]  92%  08-16 gates 14/14 on a trusted host; Nick walk still open
-Phase  1 Entry Hall      [████████████████░░░░]  82%  connected hub walks; cellar climb-out unproven; visual PARTIAL
+Phase  1 Entry Hall      [█████████████████░░░]  85%  connected hub walks including cellar climb-out; visual PARTIAL
 Phase  2 Parlor          [█████████░░░░░░░░░░░]  42%  editor table slice shipping-proven; Aldric proxy; no fresh player build
 Phase  3 Court           [██░░░░░░░░░░░░░░░░░░]  10%  scene spine only; LOCKED behind Nick's Phase 0 walk
 Phase  4 Shut the Box    [██████░░░░░░░░░░░░░░]  30%  rules + tile-9 path in source; no finished match UI

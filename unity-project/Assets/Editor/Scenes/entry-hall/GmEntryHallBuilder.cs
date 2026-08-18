@@ -58,6 +58,7 @@ public static class GmEntryHallBuilder
     public static float CellarHoleEast => CellarWellCenterX + CellarHoleX * 0.5f;
     public static float CellarHoleSouth => CellarPanelZ - CellarHoleZ * 0.5f;
     public static float CellarHoleNorth => CellarPanelZ + CellarHoleZ * 0.5f;
+    public static float HallFloorMidSouthNorth => CellarHoleSouth - 1.25f;
 
     [MenuItem("GamesMaster/Scenes/Rebuild Entry Hall")]
     public static void Build()
@@ -126,9 +127,11 @@ public static class GmEntryHallBuilder
         FloorSlab(hallFloor.transform, "HallFloorEast",
             new Vector3((CellarHoleEast + 6f) * 0.5f, -0.1f, 0f),
             new Vector3(6f - CellarHoleEast, 0.2f, 20f));
+        // Stop this slab south of the well. Its north face used to sit on CellarHoleSouth at
+        // y=-0.2..0, which is a wall across any 1.8 m capsule still on the cellar flight.
         FloorSlab(hallFloor.transform, "HallFloorMidSouth",
-            new Vector3(CellarWellCenterX, -0.1f, (-10f + CellarHoleSouth) * 0.5f),
-            new Vector3(CellarHoleX, 0.2f, CellarHoleSouth - (-10f)));
+            new Vector3(CellarWellCenterX, -0.1f, (-10f + HallFloorMidSouthNorth) * 0.5f),
+            new Vector3(CellarHoleX, 0.2f, HallFloorMidSouthNorth - (-10f)));
 
         // The runner uses five real carpet sections. Stretching one carpet to the hall's 7.5:1
         // footprint would either crush its pile flat or widen it across most of the room.
@@ -1052,18 +1055,23 @@ public static class GmEntryHallBuilder
             new Vector3(2.75f, CellarFloorY + 2.55f, 1.45f),
             new Vector3(1.6f, 0.7f, 0.28f));
         WallSlab(vault.transform, "CellarNorthWallWest",
-            new Vector3(0.72f, CellarFloorY + 1.45f, CellarHoleSouth),
-            new Vector3(1.15f, 2.9f, 0.28f));
+            new Vector3(0.35f, CellarFloorY + 1.45f, CellarHoleSouth),
+            new Vector3(0.70f, 2.9f, 0.28f));
         WallSlab(vault.transform, "CellarNorthWallEast",
-            new Vector3(4.10f, CellarFloorY + 1.45f, CellarHoleSouth),
-            new Vector3(2.5f, 2.9f, 0.28f));
+            new Vector3(4.50f, CellarFloorY + 1.45f, CellarHoleSouth),
+            new Vector3(1.70f, 2.9f, 0.28f));
 
         WallSlab(vault.transform, "CellarWellWest",
             new Vector3(CellarHoleWest, wallMidY, CellarPanelZ),
             new Vector3(0.16f, wallH, CellarHoleZ));
+        // Stop this wall under the hall slab. If it pokes to y=0.1 it fills the panel
+        // opening at foot height, and a body on the top tread cannot step east onto the hall.
+        float eastLowTop = -0.2f;
+        float eastLowH = eastLowTop - CellarFloorY;
+        float eastLowMid = (eastLowTop + CellarFloorY) * 0.5f;
         WallSlab(vault.transform, "CellarWellEastLow",
-            new Vector3(CellarHoleEast, belowMidY, CellarPanelZ),
-            new Vector3(0.16f, belowH, CellarHoleZ));
+            new Vector3(CellarHoleEast, eastLowMid, CellarPanelZ),
+            new Vector3(0.16f, eastLowH, CellarHoleZ));
         WallSlab(vault.transform, "CellarWellEastSouthJamb",
             new Vector3(CellarHoleEast, 1.1f, (CellarHoleSouth + 7.775f) * 0.5f),
             new Vector3(0.16f, 2.2f, 7.775f - CellarHoleSouth));
@@ -1073,9 +1081,12 @@ public static class GmEntryHallBuilder
         WallSlab(vault.transform, "CellarWellEastHeader",
             new Vector3(CellarHoleEast, 2.28f, CellarPanelZ),
             new Vector3(0.16f, 0.36f, 1.22f));
+        // Header on the shortened hall-floor lip. Bottom at y=1.0 so a descending
+        // 1.8 m capsule (head ~0.6 when feet are at y=-1.2) passes under it, while a
+        // hall walker still hits it before walking off the slab into the well.
         WallSlab(vault.transform, "CellarWellSouthHall",
-            new Vector3(wellX, 1.2f, CellarHoleSouth - 0.10f),
-            new Vector3(CellarHoleX, 2.4f, 0.16f));
+            new Vector3(wellX, 1.7f, HallFloorMidSouthNorth - 0.08f),
+            new Vector3(CellarHoleX, 1.4f, 0.16f));
         WallSlab(vault.transform, "CellarWellNorthLow",
             new Vector3(wellX, belowMidY, CellarHoleNorth),
             new Vector3(CellarHoleX, belowH, 0.16f));
@@ -1172,10 +1183,12 @@ public static class GmEntryHallBuilder
         var stairs = new GameObject("CellarStairs");
         stairs.transform.SetParent(parent, false);
         stairs.transform.position = new Vector3(wellX, 0f, CellarPanelZ);
+        // Top tread sits at the east panel so a 1.8 m capsule can step onto HallFloorEast.
+        // Run matches the grand stair. The flight spills south through the vault lip.
         const int Steps = 12;
         const float Rise = 0.24f;
         const float Run = 0.24f;
-        float startZ = CellarHoleNorth - 0.2f;
+        float startZ = CellarPanelZ + 0.12f;
         Material treadWood = CreateMaterial("EntryHall_CellarTread",
             new Color(0.16f, 0.08f, 0.04f), 0.03f, 0.28f);
         float treadWidth = CellarHoleX - 0.12f;
@@ -1190,8 +1203,8 @@ public static class GmEntryHallBuilder
                 stairs.transform, new Vector3(wellX, top - 0.02f, z), Quaternion.identity,
                 new Vector3(treadWidth - 0.08f, 0.05f, Run + 0.02f), 0.01f, treadWood);
             AddBarrierCollider(stairs.transform, $"CellarStairTread_{i + 1:00}",
-                new Vector3(wellX, top - 0.04f, z),
-                new Vector3(treadWidth, 0.08f, Run + 0.04f));
+                new Vector3(wellX, top - Rise * 0.5f, z),
+                new Vector3(treadWidth, Rise, Run + 0.06f));
         }
         return rail;
     }

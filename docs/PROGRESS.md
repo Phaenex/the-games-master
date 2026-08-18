@@ -43,6 +43,39 @@ bed: its deep-space/rumble textures would recreate the exact "spaceship" problem
 
 ## Status
 
+### 2026-08-18 - Cellar climb-out
+
+A body that walks down now walks back onto the hall. Not committed unless Nick asks.
+
+**What landed**
+
+- Top tread at the east panel. Run 0.24 m, matching the grand stair.
+- `HallFloorMidSouth` north face pulled south of the well. A floor lip at `CellarHoleSouth` was a wall across any 1.8 m capsule still on the flight.
+- South well header sits on that shortened lip at y>=1.0. Hall walkers stop. A descending head passes under.
+- Vault north wall open across the well x. East-low wall stops under the hall slab so the panel opening is clear at foot height.
+
+**Verification this pass**
+
+- EditMode **945/945**. `ACharacterControllerCanWalkFromSpawnIntoTheVaultAndBackOntoTheHall` passed.
+- rebuild / audit entry-hall PASS
+- GUI tour **25/25 first attempt**
+- `test:fast` green, sources 420/420
+- Frames: `docs/playtest/screenshots/entry-hall-tour-21-cellar-panel.png`, `22-cellar-descent.png`, `23-cellar-vault.png`
+
+**Visual**
+
+- Shot 21: east-flank panel under a sconce. Dark door, damask. Black 27% is the unlit hall, not a crushed frame.
+- Shot 22: looking down the well onto herringbone. Stairs are easier to read from shot 07.
+- Shot 23: vault barrels and open iron grate. Dark beyond.
+
+**Not this pass**
+
+- Built-player Parlor 1080p series. Fresh app exists (`unity-project/Builds/macOS-Game`, binary 15:18 today, SHA `4cd06990…`). Proof started: reps 1–2 qualified at 1920x1080 (p95 ~8.2ms). Rep 3 failed the host-load ≤1.0/core gate. Coilworks e2e Electron was still on the machine. Did not force `GM_UNITY_IGNORE_HOST_LOAD`. Coverage modes did not run.
+- PlayMode not re-run this slice.
+- `npm run gates` (last full pack is still 08-16)
+
+Human eye still Nick's. Court still locked.
+
 ### 2026-08-18 - Hub retrospective (do not inherit H1–H6)
 
 Re-verified Sessions 1–6 instead of copying the previous pass. The old campaign walk was not a walk.
@@ -63,9 +96,7 @@ Re-verified Sessions 1–6 instead of copying the previous pass. The old campaig
 - `test:fast` green, sources 420/420
 - Docs shots recopied from this tour so they match `Screens/EntryHall`
 
-**Still HIGH**
-
-- Cellar climb-out. Descent is proven. Return to the hall is not.
+**Still HIGH at the time:** cellar climb-out. Closed in the climb-out check-in above.
 
 Human eye still Nick's. Court still locked. No `npm run gates` this session.
 

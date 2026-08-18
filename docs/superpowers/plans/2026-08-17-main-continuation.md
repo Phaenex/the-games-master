@@ -29,7 +29,7 @@
 | Hub Session 2 North Library + Weighted Shelf | yes | yes | yes | tour-13/14 this run | function CONFIRMED, visual PARTIAL |
 | Hub Session 3 2F gallery + Marr + barred guest | yes | yes | yes | tour-15/16/17 this run | function CONFIRMED, visual PARTIAL |
 | Hub Session 4 attic loft | yes | yes | yes | tour-18/19/20 this run | function CONFIRMED, visual PARTIAL |
-| Hub Session 5 cellar + vault | yes | yes | yes | tour-21/22/23 this run | descent+grate CONFIRMED, climb-out not proven |
+| Hub Session 5 cellar + vault | yes | yes | yes | tour-21/22/23 this run | descent+grate+climb-out CONFIRMED, visual PARTIAL |
 | Hub Session 6 remaining doors | yes | yes | yes | tour-24/25 this run | doors CONFIRMED, visual PARTIAL |
 | Parlor physical slice / House Memory | yes | yes | yes prior run | 24/24 after isolation | table slice CONFIRMED; Aldric proxy; no fresh player build |
 | Five missing table games | names/design only | — | — | — | Nick still owns rules for 6–7 |

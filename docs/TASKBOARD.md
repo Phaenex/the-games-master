@@ -8,9 +8,9 @@
 > Delivery bars live here and in `STEAM-TRACKER.md`; this file carries the task-level detail.
 
 > **Current authority, 2026-08-17/18:** this chat and `docs/HANDOFF-2026-08-17.md`. Active queue is
-> cellar climb-out, then built-player Parlor proof, then House Memory. Hub rooms exist and most
-> routes are now connected walks. Climbing back out of the cellar is not proven. Lane A's human
-> gates and the five missing table games remain. The 08-16 handoff is the last full opening-gate pack.
+> built-player Parlor proof, then House Memory. Hub rooms exist. Spawn → vault → back onto the hall
+> is EditMode-proven. Lane A's human gates and the five missing table games remain. The 08-16
+> handoff is the last full opening-gate pack.
 
 ## How to read and update this
 
@@ -273,10 +273,10 @@ Phase 3 Court           [░░░░░░░░░░░░░░░░░░�
 
 | **H3** | 2F debtor gallery + Marr study + barred guest | DONE 2026-08-17 | EditMode 922/922 (foyer still owns shard, 2F hang, Marr walk-after-key, barred body blocked); rebuild+audit PASS; GUI tour **17/17 first attempt** | `docs/playtest/screenshots/entry-hall-tour-15-upper-gallery.png`, `16-marr-study.png`, `17-barred-guest.png`. Foyer portraits were extended, not moved. |
 | **H4** | Attic loft: hatch, 0.4 m-legal ladder, rafters, crates, dormer, Mirror Shard II | DONE 2026-08-18 | EditMode **927/927** (climb after Marr-desk key, locked hatch holds, loft furnished); rebuild+audit PASS; GUI tour **20/20 first attempt** | `docs/playtest/screenshots/entry-hall-tour-18-attic-hatch.png`, `19-attic-loft.png`, `20-attic-shard.png`. Shot 09 lintel void closed with a hall-side beam. Hub campaign puts Shard II in the attic until Court exists. |
-| **H5** | Cellar + vault: lever-gated well, barrels, braziers, iron grate → Hidden Room | DONE 2026-08-18 | EditMode **930/930** (locked panel holds, descent after shelf solve, grate targets HiddenRoom); rebuild+audit PASS; GUI tour **23/23 first attempt** | `docs/playtest/screenshots/entry-hall-tour-21-cellar-panel.png`, `22-cellar-descent.png`, `23-cellar-vault.png`. Grate loads Hidden Room the same way parlor doors load the card room. |
+| **H5** | Cellar + vault: lever-gated well, barrels, braziers, iron grate → Hidden Room | DONE 2026-08-18 | EditMode **945/945** including spawn → grate → climb-out onto HallFloorEast; rebuild+audit PASS; GUI tour **25/25 first attempt** | `docs/playtest/screenshots/entry-hall-tour-21-cellar-panel.png`, `22-cellar-descent.png`, `23-cellar-vault.png`. Shot 22 looks down the well; stairs read better from shot 07. Visual still PARTIAL. |
 | **H6** | Court + Shut the Box hub doors + one campaign walk | DONE 2026-08-18 | EditMode **935/935** (hearing door after parlor, quieter hall after Court, conservatory still barred, campaign walk to parlor); rebuild+audit PASS; GUI tour **25/25 first attempt** after a lighting fix | `docs/playtest/screenshots/entry-hall-tour-24-court-door.png`, `25-stb-door.png`. Doors load existing scenes. Not Court trial content. Conservatory stays barred. |
 
-**Hub campaign leftover:** none. H1–H6 are a climbable foyer, furnished library, 2F wing, keyed attic loft, lever-gated cellar, and remaining game doors. Conservatory stays barred. Parlor editor shipping proof is done this run. Court gameplay stays behind Nick's Phase 0 walk.
+**Hub campaign leftover:** none. H1–H6 are a climbable foyer, furnished library, 2F wing, keyed attic loft, lever-gated cellar with a proven return to the hall, and remaining game doors. Conservatory stays barred. Parlor editor shipping proof is done. Built-player 1080p is next. Court gameplay stays behind Nick's Phase 0 walk.
 
 **Canon trap:** "a friend" (the letter's signer = Aldric) and "the friend in the walls" (the host
 before Aldric, never resolved) are different things sharing a word. Keep distinct in every line.

@@ -912,6 +912,10 @@ public class GmEntryHallBuildTests
         Assert.That(treadCount, Is.GreaterThanOrEqualTo(10),
             "cellar descent has no 0.4m-legal treads");
         AssertTreadSpacing(treads, "CellarStairTread_", expectedRise: 0.24f, expectedRun: 0.24f);
+        Transform midSouth = GameObject.Find("HallFloorMidSouth").transform;
+        float midSouthNorth = midSouth.position.z + midSouth.localScale.z * 0.5f;
+        Assert.That(midSouthNorth, Is.EqualTo(GmEntryHallBuilder.HallFloorMidSouthNorth).Within(0.05f),
+            "HallFloorMidSouth's north face is a wall across a 1.8m capsule on the cellar flight");
         Assert.That(GameObject.Find("CellarBarrel").GetComponentsInChildren<Renderer>(true)
             .Any(renderer => renderer.transform.GetComponentsInParent<Transform>(true)
                 .Any(parent => parent.name.StartsWith(GmOwnedPropFactory.VisualPrefix))),
@@ -1120,7 +1124,7 @@ public class GmEntryHallBuildTests
     }
 
     [Test]
-    public void ACharacterControllerCanWalkFromSpawnIntoTheVaultGrate()
+    public void ACharacterControllerCanWalkFromSpawnIntoTheVaultAndBackOntoTheHall()
     {
         CharacterController probe = MakeProbe();
         GameObject playerGo = GameObject.Find("Player");
@@ -1161,6 +1165,20 @@ public class GmEntryHallBuildTests
             }
             Assert.IsTrue(inGrate,
                 $"body never entered the vault grate trigger at {probe.transform.position + probe.center}");
+
+            for (int step = 0; step < 40; step++)
+                probe.Move(new Vector3(0f, -0.45f, 0.10f));
+            WalkGrounded(probe, new Vector3(GmEntryHallBuilder.CellarWellCenterX,
+                GmEntryHallBuilder.CellarFloorY + 0.05f, 4.2f), "vault under the well");
+            WalkGrounded(probe, new Vector3(GmEntryHallBuilder.CellarWellCenterX,
+                GmEntryHallBuilder.CellarFloorY + 0.05f, 5.9f), "lowest cellar tread");
+            ClimbCellarWell(probe);
+            WalkGrounded(probe, new Vector3(4.2f, 0.05f, GmEntryHallBuilder.CellarPanelZ),
+                "east onto the hall");
+            Assert.That(probe.transform.position.y, Is.GreaterThan(-0.2f),
+                $"climbed the cellar but never stepped onto the hall (ended {probe.transform.position})");
+            Assert.That(probe.transform.position.x, Is.GreaterThan(GmEntryHallBuilder.CellarPanelX + 0.4f),
+                $"climbed the cellar but stayed in the well (ended {probe.transform.position})");
         }
         finally
         {
@@ -1228,6 +1246,20 @@ public class GmEntryHallBuildTests
             probe.Move(perStep);
         Assert.That(probe.transform.position.y, Is.GreaterThan(minY),
             $"{label} stalled at {probe.transform.position}");
+    }
+
+    static void ClimbCellarWell(CharacterController probe)
+    {
+        float targetX = GmEntryHallBuilder.CellarWellCenterX;
+        for (int i = 0; i < 220; i++)
+        {
+            float dx = Mathf.Clamp(targetX - probe.transform.position.x, -0.06f, 0.06f);
+            probe.Move(new Vector3(dx, -0.45f, 0.18f));
+            if (probe.transform.position.y > -0.40f &&
+                probe.transform.position.z > GmEntryHallBuilder.CellarPanelZ - 0.5f)
+                return;
+        }
+        Assert.Fail($"cellar stairs up stalled at {probe.transform.position}");
     }
 
     static void DescendBySteps(CharacterController probe, Vector3 perStep, int steps, float maxY, string label)
