@@ -80,6 +80,110 @@ public sealed class GmBonesInputPlayModeTests
             "Cancel did not consume the simultaneous navigation intent");
     }
 
+    [UnityTest]
+    public IEnumerator StartAndSouthConsumePauseBeforeBonesUpdateCanConfirm()
+    {
+        string fingerprint = Fingerprint(controller);
+        InputSystem.QueueStateEvent(pad, new GamepadState()
+            .WithButton(GamepadButton.Start).WithButton(GamepadButton.South)
+            .WithButton(GamepadButton.DpadRight));
+        InputSystem.Update();
+        Invoke(input, "Update"); // Explicitly prove the dangerous Bones-first ordering.
+        yield return null;
+        Assert.That(Property<int>(controller, "PlayerDecisionCount"), Is.Zero);
+        Assert.That(Property<int>(controller, "FocusIndex"), Is.Zero);
+        Assert.That(Fingerprint(controller), Is.EqualTo(fingerprint));
+    }
+
+    [UnityTest]
+    public IEnumerator StartAndWestConsumePauseBeforeBonesUpdateCanChallenge()
+    {
+        ConfigurePendingLoadedSix();
+        string fingerprint = Fingerprint(controller);
+        Assert.That(Property<object>(controller, "Phase").ToString(), Is.EqualTo("AwaitingIntervention"));
+        InputSystem.QueueStateEvent(pad, new GamepadState()
+            .WithButton(GamepadButton.Start).WithButton(GamepadButton.West));
+        InputSystem.Update();
+        Invoke(input, "Update");
+        yield return null;
+        Assert.That(Property<object>(controller, "Phase").ToString(), Is.EqualTo("AwaitingIntervention"));
+        Assert.That(Fingerprint(controller), Is.EqualTo(fingerprint));
+    }
+
+    [UnityTest]
+    public IEnumerator OwnedCloneDisablesReenablesAndDestroysWithoutMutatingSharedAsset()
+    {
+        InputActionAsset shared = Resources.Load<InputActionAsset>("Input/GmControls");
+        string sharedJson = shared.ToJson();
+        bool sharedEnabled = shared.FindActionMap("Gameplay", true).enabled;
+        InputActionAsset owned = Field<InputActionAsset>(input, "controls");
+        Assert.That(owned, Is.Not.SameAs(shared));
+        Assert.That(Field<InputActionMap>(input, "gameplay").enabled, Is.True);
+
+        input.enabled = false;
+        Assert.That(Field<InputActionMap>(input, "gameplay").enabled, Is.False);
+        InputSystem.QueueStateEvent(pad, new GamepadState().WithButton(GamepadButton.South));
+        InputSystem.Update();
+        yield return null;
+        Assert.That(Property<int>(controller, "PlayerDecisionCount"), Is.Zero);
+
+        InputSystem.QueueStateEvent(pad, new GamepadState());
+        InputSystem.Update();
+        yield return null;
+        input.enabled = true;
+        InputSystem.QueueStateEvent(pad, new GamepadState().WithButton(GamepadButton.South));
+        InputSystem.Update();
+        yield return null;
+        Assert.That(Property<int>(controller, "PlayerDecisionCount"), Is.EqualTo(1));
+        yield return null;
+        Assert.That(Property<int>(controller, "PlayerDecisionCount"), Is.EqualTo(1),
+            "held input repeated after re-enable");
+
+        UnityEngine.Object.Destroy(input);
+        yield return null;
+        InputSystem.QueueStateEvent(pad, new GamepadState());
+        InputSystem.Update();
+        yield return null;
+        InputSystem.QueueStateEvent(pad, new GamepadState().WithButton(GamepadButton.South));
+        InputSystem.Update();
+        yield return null;
+        Assert.That(Property<int>(controller, "PlayerDecisionCount"), Is.EqualTo(1));
+        Assert.That(owned == null, Is.True, "owned action asset survived input destruction");
+        Assert.That(shared.ToJson(), Is.EqualTo(sharedJson));
+        Assert.That(shared.FindActionMap("Gameplay", true).enabled, Is.EqualTo(sharedEnabled));
+    }
+
+    void ConfigurePendingLoadedSix()
+    {
+        Type matchType = TypeNamed("GmBonesMatch");
+        int[] dice = { 6,6,6, 6,6,6, 6,6,6, 6,6,6, 6,6,5, 6,2,1, 1,2 };
+        object match = Activator.CreateInstance(matchType, new object[] { 3UL, dice });
+        object bank = Enum.Parse(TypeNamed("GmBonesChoice"), "Bank");
+        MethodInfo choose = matchType.GetMethod("TryChoose");
+        for (int index = 0; index < 3; index++)
+            choose.Invoke(match, new object[] { bank, -1, null });
+        object save = Activator.CreateInstance(TypeNamed("GmSaveData"));
+        save.GetType().GetField("bonesMatch").SetValue(save,
+            matchType.GetMethod("ExportSnapshot").Invoke(match, null));
+        StaticCall("GmRunStore", "LoadFromSaveData", save);
+        controller = Activator.CreateInstance(TypeNamed("GmBonesController"));
+        controller.GetType().GetMethod("InitializeOrRestore").Invoke(controller, null);
+        input.GetType().GetMethod("ConfigureForTests").Invoke(input,
+            new object[] { controller, (Func<bool>)(() => false) });
+    }
+
+    static string Fingerprint(object tableController)
+    {
+        object snapshot = Property<object>(tableController, "Snapshot");
+        return (string)snapshot.GetType().GetField("stateFingerprint").GetValue(snapshot);
+    }
+
+    static void Invoke(object target, string method) => target.GetType()
+        .GetMethod(method, BindingFlags.Instance | BindingFlags.NonPublic).Invoke(target, null);
+
+    static T Field<T>(object target, string name) => (T)target.GetType()
+        .GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).GetValue(target);
+
     static Type TypeNamed(string name) => AppDomain.CurrentDomain.GetAssemblies()
         .SelectMany(assembly => { try { return assembly.GetTypes(); } catch { return Array.Empty<Type>(); } })
         .Single(type => type.Name == name);

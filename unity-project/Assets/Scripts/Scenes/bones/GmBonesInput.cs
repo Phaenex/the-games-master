@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-public enum GmBonesFrameIntent { None, Cancel, Challenge, Confirm }
+public enum GmBonesFrameIntent { None, Pause, Cancel, Challenge, Confirm }
 
 public readonly struct GmBonesFrameIntentResult
 {
@@ -25,6 +25,7 @@ public sealed class GmBonesInput : MonoBehaviour
     InputAction confirm;
     InputAction challenge;
     InputAction cancel;
+    InputAction pause;
     GmBonesController controller;
     GmPlayer player;
     Func<bool> pauseProbe;
@@ -32,6 +33,9 @@ public sealed class GmBonesInput : MonoBehaviour
 
     public bool HasRequiredActions { get; private set; }
     public bool IsConfigured => controller != null;
+    public GmBonesActionError LastActionError { get; private set; }
+    public string FeedbackMessage { get; private set; } = string.Empty;
+    public event Action OnFeedbackChanged;
 
     void OnEnable()
     {
@@ -47,15 +51,17 @@ public sealed class GmBonesInput : MonoBehaviour
         confirm = gameplay?.FindAction("Interact", false);
         challenge = gameplay?.FindAction("CallTell", false);
         cancel = gameplay?.FindAction("Cancel", false);
-        HasRequiredActions = gameplay != null && move != null && confirm != null && challenge != null && cancel != null;
+        pause = gameplay?.FindAction("Pause", false);
+        HasRequiredActions = gameplay != null && move != null && confirm != null && challenge != null &&
+            cancel != null && pause != null;
         if (HasRequiredActions) gameplay.Enable();
     }
 
     void Update()
     {
         if (!HasRequiredActions || controller == null) return;
-        GmBonesFrameIntentResult result = ResolveFrameIntents(cancel.WasPressedThisFrame(), challenge.WasPressedThisFrame(),
-            confirm.WasPressedThisFrame());
+        GmBonesFrameIntentResult result = ResolveFrameIntents(pause.WasPressedThisFrame(),
+            cancel.WasPressedThisFrame(), challenge.WasPressedThisFrame(), confirm.WasPressedThisFrame());
         if (result.Consumed == GmBonesFrameIntent.None)
             HandleNavigationIntent(move.ReadValue<Vector2>());
     }
@@ -79,20 +85,25 @@ public sealed class GmBonesInput : MonoBehaviour
         pauseProbe = isPaused;
     }
 
-    public GmBonesFrameIntentResult ResolveFrameIntents(bool cancelPressed, bool challengePressed,
-        bool confirmPressed)
+    public GmBonesFrameIntentResult ResolveFrameIntents(bool pausePressed, bool cancelPressed,
+        bool challengePressed, bool confirmPressed)
     {
         if (GameplayIsPaused()) return Result(GmBonesFrameIntent.None, GmBonesActionError.None);
+        if (pausePressed) return Result(GmBonesFrameIntent.Pause, GmBonesActionError.None);
         if (cancelPressed) return Result(GmBonesFrameIntent.Cancel, GmBonesActionError.None);
         if (challengePressed)
         {
             if (GameplayIsPaused()) return Result(GmBonesFrameIntent.None, GmBonesActionError.None);
-            return Result(GmBonesFrameIntent.Challenge, controller?.CallTell() ?? GmBonesActionError.NotInitialized);
+            GmBonesActionError error = controller?.CallTell() ?? GmBonesActionError.NotInitialized;
+            PublishFeedback(error);
+            return Result(GmBonesFrameIntent.Challenge, error);
         }
         if (confirmPressed)
         {
             if (GameplayIsPaused()) return Result(GmBonesFrameIntent.None, GmBonesActionError.None);
-            return Result(GmBonesFrameIntent.Confirm, controller?.ConfirmFocusedAction() ?? GmBonesActionError.NotInitialized);
+            GmBonesActionError error = controller?.ConfirmFocusedAction() ?? GmBonesActionError.NotInitialized;
+            PublishFeedback(error);
+            return Result(GmBonesFrameIntent.Confirm, error);
         }
         return Result(GmBonesFrameIntent.None, GmBonesActionError.None);
     }
@@ -117,6 +128,31 @@ public sealed class GmBonesInput : MonoBehaviour
         if (pauseProbe != null) return pauseProbe();
         if (player == null) player = GetComponent<GmPlayer>() ?? FindAnyObjectByType<GmPlayer>();
         return player != null && player.IsPaused;
+    }
+
+    void PublishFeedback(GmBonesActionError error)
+    {
+        string message = FeedbackFor(error, controller);
+        if (LastActionError == error && FeedbackMessage == message) return;
+        LastActionError = error;
+        FeedbackMessage = message;
+        OnFeedbackChanged?.Invoke();
+    }
+
+    public static string FeedbackFor(GmBonesActionError error, GmBonesController tableController)
+    {
+        switch (error)
+        {
+            case GmBonesActionError.None: return string.Empty;
+            case GmBonesActionError.WrongPhase:
+                return "That Bones action is not available right now.";
+            case GmBonesActionError.PersistenceFailed:
+                string detail = tableController?.LastPersistenceError;
+                return string.IsNullOrEmpty(detail)
+                    ? "The save failed. Retry the action."
+                    : $"The save failed: {detail}. Retry the action.";
+            default: return "The Bones table is not ready.";
+        }
     }
 
     static GmBonesFrameIntentResult Result(GmBonesFrameIntent intent, GmBonesActionError error) =>

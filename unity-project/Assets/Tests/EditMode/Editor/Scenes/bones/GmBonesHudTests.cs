@@ -4,6 +4,7 @@ using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UIElements;
+using UnityEngine.TestTools;
 
 public sealed class GmBonesHudTests
 {
@@ -155,6 +156,57 @@ public sealed class GmBonesHudTests
         Assert.That(hud.RefreshRevision, Is.EqualTo(enabledRevision + 1));
     }
 
+    [Test]
+    public void ButtonPersistenceFailureRollsBackShowsRetryAndSuccessfulRetryClearsFeedback()
+    {
+        var backend = new ToggleBackend();
+        string savePath = Path.Combine(directory, "hud-feedback-save.json");
+        GmSaveSystem.ConfigureForTests(savePath, backend);
+        GmRunStore.BeginNewRun();
+        controller = new GmBonesController();
+        controller.InitializeOrRestore();
+        Assert.That(hud.TryConfigure(controller, out string error), Is.True, error);
+        VisualElement root = hud.BuildForTests();
+        string fingerprint = controller.Snapshot.stateFingerprint;
+        string disk = backend.LastJson;
+
+        backend.Fail = true;
+        LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("injected HUD failure"));
+        Click(root.Q<Button>("BonesBank"));
+        Assert.That(controller.Snapshot.stateFingerprint, Is.EqualTo(fingerprint));
+        Assert.That(GmRunStore.GetBonesMatchSnapshot().stateFingerprint, Is.EqualTo(fingerprint));
+        Assert.That(backend.LastJson, Is.EqualTo(disk));
+        Assert.That(root.Q<Label>("BonesFeedback").text, Does.Contain("Retry"));
+
+        backend.Fail = false;
+        Click(root.Q<Button>("BonesBank"));
+        Assert.That(controller.PlayerDecisionCount, Is.EqualTo(1));
+        Assert.That(root.Q<Label>("BonesFeedback").text, Is.Empty);
+    }
+
+    [Test]
+    public void InputPersistenceFailurePublishesIntoHudAndRetryClearsIt()
+    {
+        var backend = new ToggleBackend();
+        GmSaveSystem.ConfigureForTests(Path.Combine(directory, "input-hud-save.json"), backend);
+        GmRunStore.BeginNewRun();
+        controller = new GmBonesController();
+        controller.InitializeOrRestore();
+        var tableInput = graph.AddComponent<GmBonesInput>();
+        tableInput.ConfigureForTests(controller, () => false);
+        Assert.That(hud.TryConfigure(controller, tableInput, out string error), Is.True, error);
+        VisualElement root = hud.BuildForTests();
+
+        backend.Fail = true;
+        LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("injected HUD failure"));
+        tableInput.ResolveFrameIntents(false, false, false, true);
+        Assert.That(root.Q<Label>("BonesFeedback").text, Does.Contain("Retry"));
+
+        backend.Fail = false;
+        tableInput.ResolveFrameIntents(false, false, false, true);
+        Assert.That(root.Q<Label>("BonesFeedback").text, Is.Empty);
+    }
+
     static GmBonesMatch PendingLoadedSix()
     {
         int[] dice = { 6,6,6, 6,6,6, 6,6,6, 6,6,6, 6,6,5, 6,2,1, 1,2 };
@@ -172,4 +224,19 @@ public sealed class GmBonesHudTests
     static void InvokeLifecycle(GmBonesHud target, string method) => typeof(GmBonesHud)
         .GetMethod(method, BindingFlags.Instance | BindingFlags.NonPublic)
         .Invoke(target, null);
+
+    static void Click(Button button) => button.clickable.GetType()
+        .GetMethod("Invoke", BindingFlags.Instance | BindingFlags.NonPublic)
+        .Invoke(button.clickable, new object[] { null });
+
+    sealed class ToggleBackend : IGmAtomicSaveBackend
+    {
+        public bool Fail;
+        public string LastJson { get; private set; }
+        public void WriteAtomic(string target, string json)
+        {
+            if (Fail) throw new IOException("injected HUD failure");
+            LastJson = json;
+        }
+    }
 }
