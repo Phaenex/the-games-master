@@ -17,7 +17,7 @@ function fixture() {
 test('production runtime has one explicit owner per source file', () => {
   const result = auditEngineBoundary();
   assert.deepEqual(result.errors, []);
-  assert.equal(result.counts.total, 62);
+  assert.equal(result.counts.total, 63);
   assert.equal(result.counts.portableNow, 24);
 });
 
