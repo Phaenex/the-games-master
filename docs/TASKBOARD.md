@@ -59,8 +59,8 @@ Canonical rules and order: `docs/SEVEN-DEBTS-CANON-2026-08-19.md`.
 
 ```
 Rules and order          [████████████████████] 100%  Nick approved the panel's 5/5 recommendation
-Shared game shell        [███████████░░░░░░░░░]  55%  durable controller and exact recovery proven; input, accessibility and presentation remain
-Bones vertical slice     [██████░░░░░░░░░░░░░░]  30%  match, save and public intent are proven; player-facing table, sound and human play remain
+Shared game shell        [██████████████░░░░░░]  70%  durable controller, input and accessible projection proven; physical presenter, audio and proof remain
+Bones vertical slice     [██████████░░░░░░░░░░]  50%  match, save, input, HUD and intervention evidence proven; table, sound, scene and human play remain
 Study                    [░░░░░░░░░░░░░░░░░░░░]   0%  three verified authored positions
 Wager                    [░░░░░░░░░░░░░░░░░░░░]   0%  three sealed contracts
 Black Ledger             [░░░░░░░░░░░░░░░░░░░░]   0%  one three-guest case
