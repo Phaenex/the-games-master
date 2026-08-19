@@ -634,8 +634,8 @@ public static class GmRunStore
         if (data.bonesEnvelopeVersion != 0 && data.bonesEnvelopeVersion != 1)
             bonesRestoreError = $"Bones save envelope {data.bonesEnvelopeVersion} is unsupported";
         else if (data.bonesEnvelopeVersion == 1 &&
-                 data.bonesPayloadPresent != bonesMatchPresent)
-            bonesRestoreError = "Bones save envelope payload presence disagrees with its payload";
+                 !data.TryValidateBonesEnvelope(out string envelopeError))
+            bonesRestoreError = envelopeError;
         else if (bonesMatchPresent &&
                  !GmBonesMatch.TryRestore(bonesMatch, out _, out string bonesError))
             bonesRestoreError = bonesError;
@@ -838,7 +838,7 @@ public sealed class GmSaveData
 
         bool hasBonesObject = TryFindObjectProperty(json, "bonesMatch", 0, json.Length,
             out int bonesStart, out int bonesEnd);
-        if (!hasBonesObject && !data.bonesPayloadPresent)
+        if (!hasBonesObject)
         {
             data.bonesMatch = null;
             return data;
@@ -847,7 +847,7 @@ public sealed class GmSaveData
 
         bool hasTurnEvidence = hasBonesObject && TryFindObjectProperty(json,
             "interventionReceipt", bonesStart, bonesEnd, out _, out _);
-        if (!hasTurnEvidence && !data.bonesTurnEvidencePresent)
+        if (!hasTurnEvidence)
             data.bonesMatch.interventionReceipt = null;
 
         int sessionStart = -1;
@@ -860,7 +860,7 @@ public sealed class GmSaveData
         {
             bool hasSessionEvent = TryFindObjectProperty(json, "intervention",
                 sessionStart, sessionEnd, out _, out _);
-            if (!hasSessionEvent && !data.bonesSessionEventPresent)
+            if (!hasSessionEvent)
                 data.bonesMatch.session.intervention = null;
         }
         return data;
@@ -868,6 +868,8 @@ public sealed class GmSaveData
 
     public string ToJson(bool pretty = false)
     {
+        if (bonesEnvelopeVersion == 1 && !TryValidateBonesEnvelope(out string error))
+            throw new InvalidDataException(error);
         string json = JsonUtility.ToJson(this, pretty);
         if (bonesEnvelopeVersion != 1) return json;
         if (!bonesPayloadPresent)
@@ -884,6 +886,42 @@ public sealed class GmSaveData
         if (!bonesSessionEventPresent)
             json = RemoveObjectProperty(json, "intervention", sessionStart, sessionEnd);
         return json;
+    }
+
+    public bool TryValidateBonesEnvelope(out string error)
+    {
+        error = string.Empty;
+        if (bonesEnvelopeVersion != 1) return true;
+
+        bool hasPayload = bonesMatch != null;
+        if (bonesPayloadPresent != hasPayload)
+        {
+            error = "Bones save envelope payload presence disagrees with its payload";
+            return false;
+        }
+        if (!bonesPayloadPresent)
+        {
+            if (bonesTurnEvidencePresent || bonesSessionEventPresent)
+            {
+                error = "Bones save envelope declares nested evidence without a payload";
+                return false;
+            }
+            return true;
+        }
+
+        bool hasTurnEvidence = bonesMatch.interventionReceipt != null;
+        if (bonesTurnEvidencePresent != hasTurnEvidence)
+        {
+            error = "Bones save envelope turn evidence presence disagrees with its payload";
+            return false;
+        }
+        bool hasSessionEvent = bonesMatch.session?.intervention != null;
+        if (bonesSessionEventPresent != hasSessionEvent)
+        {
+            error = "Bones save envelope session event presence disagrees with its payload";
+            return false;
+        }
+        return true;
     }
 
     static string RemoveObjectProperty(string json, string property, int start, int end)

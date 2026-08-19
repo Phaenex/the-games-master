@@ -118,20 +118,134 @@ public sealed class GmBonesPersistenceTests
             bonesPayloadPresent = true,
             bonesMatch = match.ExportSnapshot()
         };
+        string json;
         if (target == "interventionReceipt")
         {
             data.bonesTurnEvidencePresent = true;
             data.bonesMatch.interventionReceipt = new GmBonesInterventionReceipt();
+            json = data.ToJson();
         }
         else
         {
-            data.bonesSessionEventPresent = true;
+            json = data.ToJson().Replace("\"bonesSessionEventPresent\":false",
+                "\"bonesSessionEventPresent\":true");
+            json = InsertObject(json, "session", "\"intervention\":{},");
         }
-        string json = data.ToJson();
         File.WriteAllText(path, json);
 
         Assert.That(GmSaveSystem.Load(), Is.True, GmSaveSystem.LastError);
         Assert.That(GmRunStore.HasBonesMatch, Is.True);
         Assert.That(GmRunStore.BonesRestoreError, Is.Not.Empty);
+    }
+
+    [TestCase("payload-false-turn-bit")]
+    [TestCase("payload-false-session-bit")]
+    [TestCase("payload-false-outer-present")]
+    [TestCase("payload-true-outer-absent")]
+    [TestCase("turn-true-object-absent")]
+    [TestCase("turn-false-object-present")]
+    [TestCase("session-true-object-absent")]
+    [TestCase("session-false-object-present")]
+    public void ModernEnvelopeContradictionsFailClosedFromPhysicalJson(string scenario)
+    {
+        File.WriteAllText(path, ContradictoryJson(scenario));
+
+        Assert.That(GmSaveSystem.Load(), Is.True, GmSaveSystem.LastError);
+        StringAssert.Contains("envelope", GmRunStore.BonesRestoreError.ToLowerInvariant());
+        var controller = new GmBonesController();
+        Assert.That(controller.InitializeOrRestore(),
+            Is.EqualTo(GmBonesInitializeResult.CorruptSavedState));
+    }
+
+    [TestCase("fresh")]
+    [TestCase("pending")]
+    [TestCase("resolved")]
+    [TestCase("complete")]
+    public void ValidModernEnvelopeRestoresEveryBonesLifecycleShape(string state)
+    {
+        GmBonesMatchSnapshot snapshot = ValidSnapshot(state);
+        var data = new GmSaveData
+        {
+            bonesEnvelopeVersion = 1,
+            bonesPayloadPresent = true,
+            bonesTurnEvidencePresent = snapshot.interventionReceipt != null,
+            bonesSessionEventPresent = snapshot.session?.intervention != null,
+            bonesMatch = snapshot
+        };
+        File.WriteAllText(path, data.ToJson());
+
+        Assert.That(GmSaveSystem.Load(), Is.True, GmSaveSystem.LastError);
+        Assert.That(GmRunStore.BonesRestoreError, Is.Empty);
+        Assert.That(GmRunStore.GetBonesMatchSnapshot().stateFingerprint,
+            Is.EqualTo(snapshot.stateFingerprint));
+    }
+
+    static string ContradictoryJson(string scenario)
+    {
+        var data = new GmSaveData
+        {
+            bonesEnvelopeVersion = 1,
+            bonesPayloadPresent = true,
+            bonesMatch = new GmBonesMatch(31UL, null).ExportSnapshot()
+        };
+        string json = data.ToJson();
+        switch (scenario)
+        {
+            case "payload-false-turn-bit":
+                return "{\"bonesEnvelopeVersion\":1,\"bonesPayloadPresent\":false," +
+                    "\"bonesTurnEvidencePresent\":true}";
+            case "payload-false-session-bit":
+                return "{\"bonesEnvelopeVersion\":1,\"bonesPayloadPresent\":false," +
+                    "\"bonesSessionEventPresent\":true}";
+            case "payload-false-outer-present":
+                return json.Replace("\"bonesPayloadPresent\":true",
+                    "\"bonesPayloadPresent\":false");
+            case "payload-true-outer-absent":
+                return "{\"bonesEnvelopeVersion\":1,\"bonesPayloadPresent\":true}";
+            case "turn-true-object-absent":
+                return json.Replace("\"bonesTurnEvidencePresent\":false",
+                    "\"bonesTurnEvidencePresent\":true");
+            case "turn-false-object-present":
+                return InsertObject(json, "bonesMatch", "\"interventionReceipt\":{},");
+            case "session-true-object-absent":
+                return json.Replace("\"bonesSessionEventPresent\":false",
+                    "\"bonesSessionEventPresent\":true");
+            case "session-false-object-present":
+                return InsertObject(json, "session", "\"intervention\":{},");
+            default:
+                throw new ArgumentOutOfRangeException(nameof(scenario), scenario, null);
+        }
+    }
+
+    static string InsertObject(string json, string owner, string property)
+    {
+        string token = "\"" + owner + "\":{";
+        int index = json.IndexOf(token, StringComparison.Ordinal);
+        Assert.That(index, Is.GreaterThanOrEqualTo(0));
+        return json.Insert(index + token.Length, property);
+    }
+
+    static GmBonesMatchSnapshot ValidSnapshot(string state)
+    {
+        if (state == "fresh") return new GmBonesMatch(41UL, null).ExportSnapshot();
+        if (state == "complete")
+        {
+            int[] ordinaryDice = { 6,6,6, 4,4,4, 4,4,4, 6,6,6, 6,6,6, 4,4,4 };
+            var complete = new GmBonesMatch(5UL, ordinaryDice);
+            complete.TryChoose(GmBonesChoice.Bank, -1, out _);
+            complete.TryChoose(GmBonesChoice.Bank, -1, out _);
+            complete.TryChoose(GmBonesChoice.Bank, -1, out _);
+            return complete.ExportSnapshot();
+        }
+
+        int[] dice = { 6,6,6, 6,6,6, 6,6,6, 6,6,6, 6,6,5, 6,2,1, 1,2 };
+        var intervention = new GmBonesMatch(3UL, dice);
+        intervention.TryChoose(GmBonesChoice.Bank, -1, out _);
+        intervention.TryChoose(GmBonesChoice.Bank, -1, out _);
+        intervention.TryChoose(GmBonesChoice.Bank, -1, out _);
+        if (state == "resolved") intervention.TryResolveIntervention(true, out _);
+        else if (state != "pending")
+            throw new ArgumentOutOfRangeException(nameof(state), state, null);
+        return intervention.ExportSnapshot();
     }
 }

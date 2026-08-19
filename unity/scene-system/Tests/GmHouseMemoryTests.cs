@@ -303,6 +303,91 @@ public sealed class GmHouseMemoryTests
             Is.EqualTo(snapshot.stateFingerprint));
     }
 
+    [TestCase("payload-false-turn-bit")]
+    [TestCase("payload-false-session-bit")]
+    [TestCase("payload-false-outer-present")]
+    [TestCase("payload-true-outer-absent")]
+    [TestCase("turn-true-object-absent")]
+    [TestCase("turn-false-object-present")]
+    [TestCase("session-true-object-absent")]
+    [TestCase("session-false-object-present")]
+    public void TerminalCheckpointRejectsModernBonesEnvelopeContradictions(string scenario)
+    {
+        string root = Path.Combine(directory, scenario);
+        var store = new GmHouseMemoryStore(root);
+        Assert.That(store.TryOpenOrCreate(out _, out string error), Is.True, error);
+        Assert.That(store.TryAllocateCampaignRun(GmParlorAdaptiveMode.Ordinary, 24,
+            out GmHouseRunGeneration run, out error), Is.True, error);
+        GmParlorBehaviorAccumulator behavior = CompletedAccumulator(run.FrozenPackage);
+        Assert.That(store.TryCreateReceipt(run, GmEndingType.TrappedLoop, behavior,
+            out GmHouseTerminalReceipt receipt, out error), Is.True, error);
+        GmSaveData checkpoint = ContradictoryBonesEnvelope(scenario);
+        checkpoint.currentSceneId = "labyrinth";
+        checkpoint.lastCheckpoint = "ending";
+        checkpoint.houseRunId = run.Identity.RunId;
+        checkpoint.houseRunPointerVersion = 1;
+
+        Assert.That(store.TryCommitPreparedRun(run, receipt, checkpoint,
+            out _, out error), Is.False);
+        StringAssert.Contains("envelope", error.ToLowerInvariant());
+    }
+
+    static GmSaveData ContradictoryBonesEnvelope(string scenario)
+    {
+        var data = new GmSaveData
+        {
+            bonesEnvelopeVersion = 1,
+            bonesPayloadPresent = true,
+            bonesMatch = new GmBonesMatch(37UL, null).ExportSnapshot()
+        };
+        switch (scenario)
+        {
+            case "payload-false-turn-bit":
+                data.bonesPayloadPresent = false;
+                data.bonesTurnEvidencePresent = true;
+                data.bonesMatch = null;
+                break;
+            case "payload-false-session-bit":
+                data.bonesPayloadPresent = false;
+                data.bonesSessionEventPresent = true;
+                data.bonesMatch = null;
+                break;
+            case "payload-false-outer-present":
+                data.bonesPayloadPresent = false;
+                break;
+            case "payload-true-outer-absent":
+                data.bonesMatch = null;
+                break;
+            case "turn-true-object-absent":
+                data.bonesTurnEvidencePresent = true;
+                break;
+            case "turn-false-object-present":
+                data.bonesMatch = PendingBonesIntervention();
+                data.bonesSessionEventPresent = true;
+                break;
+            case "session-true-object-absent":
+                data.bonesSessionEventPresent = true;
+                break;
+            case "session-false-object-present":
+                data.bonesMatch = PendingBonesIntervention();
+                data.bonesTurnEvidencePresent = true;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(scenario), scenario, null);
+        }
+        return data;
+    }
+
+    static GmBonesMatchSnapshot PendingBonesIntervention()
+    {
+        int[] dice = { 6,6,6, 6,6,6, 6,6,6, 6,6,6, 6,6,5, 6,2,1, 1,2 };
+        var match = new GmBonesMatch(3UL, dice);
+        match.TryChoose(GmBonesChoice.Bank, -1, out _);
+        match.TryChoose(GmBonesChoice.Bank, -1, out _);
+        match.TryChoose(GmBonesChoice.Bank, -1, out _);
+        return match.ExportSnapshot();
+    }
+
     [Test]
     public void OutcomeSequenceOtherThanOneIsRejectedBeforeProfileMutation()
     {
