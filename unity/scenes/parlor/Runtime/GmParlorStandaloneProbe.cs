@@ -35,6 +35,7 @@ public sealed class GmParlorStandaloneProbe : MonoBehaviour
     const int VirtualButtonHoldFrames = 2;
     const int VirtualButtonReleaseFrames = 4;
     const int SettingsNavigationRetryLimit = 3;
+    const int MatchProgressRetryLimit = 8;
 
     public static readonly GmParlorReviewCase ProofCase =
         GmParlorReviewProbe.FrozenSeedMatrix.Single(item => item.Id == "cheat-true-tell-eyes");
@@ -332,8 +333,7 @@ public sealed class GmParlorStandaloneProbe : MonoBehaviour
             "first card presentation did not settle");
         samplePhase = PerfPhase.None;
 
-        yield return Press(GamepadButton.South);
-        yield return WaitUntil(() => focus.IsOpen, 120, "A did not open focus view");
+        yield return OpenFocusThroughController("A did not open focus view");
         yield return CollectPhaseSamples(PerfPhase.Focus, FocusSamples,
             "focus did not produce enough completed render timings");
         if (!string.IsNullOrEmpty(failure)) { FailAndQuit(); yield break; }
@@ -355,9 +355,14 @@ public sealed class GmParlorStandaloneProbe : MonoBehaviour
             int target = before == GmParlorMatchPhase.PlayerLeads ||
                 before == GmParlorMatchPhase.PlayerFollowsAldricLead
                 ? FindLegalCard(null) : -1;
-            int progressAttempts = SettingsNavigationRetryLimit;
+            int progressAttempts = MatchProgressRetryLimit;
             while (rules.Phase == before && !presentation.IsBlocking && progressAttempts-- > 0)
+            {
                 yield return ConfirmThroughBindings(target);
+                int settleFrames = 30;
+                while (rules.Phase == before && !presentation.IsBlocking && settleFrames-- > 0)
+                    yield return null;
+            }
             if (rules.Phase == before && !presentation.IsBlocking)
             {
                 failure = $"controller match loop made no progress in {before}";
@@ -487,8 +492,7 @@ public sealed class GmParlorStandaloneProbe : MonoBehaviour
             "honest tell presentation did not settle");
         if (!string.IsNullOrEmpty(failure)) { FailAndQuit(); yield break; }
 
-        yield return Press(GamepadButton.South);
-        yield return WaitUntil(() => focus.IsOpen, 120, "A did not open honest focus view");
+        yield return OpenFocusThroughController("A did not open honest focus view");
         yield return Capture(hc200 ? "03-honest-focus-evidence-hc200" :
             "02-honest-focus-evidence");
 
@@ -744,10 +748,21 @@ public sealed class GmParlorStandaloneProbe : MonoBehaviour
             pause == null) failure = "saved Parlor is missing standalone proof dependencies";
     }
 
+    IEnumerator OpenFocusThroughController(string message)
+    {
+        int attempts = SettingsNavigationRetryLimit;
+        while (!focus.IsOpen && attempts-- > 0)
+        {
+            yield return Press(GamepadButton.South);
+            int settleFrames = 30;
+            while (!focus.IsOpen && settleFrames-- > 0) yield return null;
+        }
+        if (!focus.IsOpen) failure = message;
+    }
+
     IEnumerator ConfirmThroughBindings(int cardIndex)
     {
-        if (!focus.IsOpen) yield return Press(GamepadButton.South);
-        yield return WaitUntil(() => focus.IsOpen, 120, "confirm did not open focus");
+        if (!focus.IsOpen) yield return OpenFocusThroughController("confirm did not open focus");
         if (!string.IsNullOrEmpty(failure)) yield break;
         if (cardIndex >= 0)
         {
@@ -760,8 +775,12 @@ public sealed class GmParlorStandaloneProbe : MonoBehaviour
                 yield break;
             }
         }
+        GmParlorMatchPhase phaseBeforeConfirm = rules.Phase;
         yield return Press(GamepadButton.South);
-        yield return null;
+        int settleFrames = 30;
+        while (rules.Phase == phaseBeforeConfirm &&
+            (presentation == null || !presentation.IsBlocking) && settleFrames-- > 0)
+            yield return null;
     }
 
     int FindLegalCard(GmSuit? required)

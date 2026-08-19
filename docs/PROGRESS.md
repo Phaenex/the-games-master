@@ -43,17 +43,35 @@ bed: its deep-space/rumble textures would recreate the exact "spaceship" problem
 
 ## Status
 
+### 2026-08-18 night - Parlor 1080p series qualified
+
+`npm run unity:proof:parlor` **3/3 + coverage** on app SHA `cb62fa53c465138b73c88eea5ce0d31c9a1484e8c3f538bdb2c3af6fa3f807a8`.
+
+| Rep | p95 | split-half | host/core | max |
+|---|---|---|---|---|
+| 1 | 8.10ms | 0.05% | 0.67 | 12.11ms |
+| 2 | 8.25ms | 0.10% | 0.54 | 15.36ms |
+| 3 | 8.26ms | 0.35% | 0.54 | 72.76ms |
+
+Coverage: honest-baseline and honest-hc200 both `FalseReadPenalty`. Controller-only. Did not ignore host load. Did not poke `InputSystem.Update()`.
+
+Probe retries that made this reachable: Settings A, focus-open A, and match-loop Confirm (8 attempts + settle) after a quiet-host judgement stall on the previous 2/3 run.
+
+Visual PARTIAL: lantern-pool table, Aldric proxy, HUD/Read/catch/Settings readable. Frames: `docs/playtest/screenshots/parlor-1080p-01-ready.png` through `08-pause-settings.png`. Display brightness stays Nick's gate. Parlor **50%**.
+
 ### 2026-08-18 evening - Parlor 1080p probe completes; series still not qualified
 
-Ran `npm run unity:proof:parlor` five times after Nick said continue. Each time the player finished the match (`[GmParlorStandaloneProbe] PASS repetition=1`, rematch, settings, quit). None qualified. Three died on split-half p95 (41–49%). Two later ones died on the CLI 3.0/core end gate at 3.94/core and 4.38/core. Did not ignore host load. Did not poke `InputSystem.Update()`. A later retry that went green would still be FLAKY.
+Pushed `e915e64`. Then the first-Read A missed (`A did not open focus view`, exit 4). Retried that edge the same way Settings already retries. Rebuilt player SHA `8fddb8d3…`. Next rep: probe PASS, split-half p95 **15.5%** (under 25), p95 15.0ms. CLI still killed it: end load 4.99/core vs 3.00. Did not ignore host load. Did not poke `InputSystem.Update()`. Series still not qualified. Focus retry is in the working tree, not in `e915e64`.
 
-App SHA `c4b9b08ded98bdf3e45500667f24af022be463b8f541e253b4beb27bbfedbad0` (16:53 player). Starts as quiet as 0.507/core still ended 1.33–4.38/core. Other `claude` pid 55491 at ~130% CPU for six days, Cursor helpers, and a Playwright MCP Chrome (`enable-unsafe-swiftshader`) from another session. First failing logs kept:
+Earlier tonight: five probe completions, none qualified (split-half 41–49% or CLI 3.94/4.38/core). App SHA `c4b9b08…` then `8fddb8d3…`. First failing logs kept:
 
 - `unity-project/Logs/parlor-rep1-2026-08-18-split-half-p95-2.log`
 - `unity-project/Logs/parlor-rep1-2026-08-18-split-half-p95-3.log`
 - `unity-project/Logs/parlor-rep1-2026-08-18-split-half-p95-4.log`
 - `unity-project/Logs/parlor-rep1-2026-08-18-host-3.94-core.log`
 - `unity-project/Logs/parlor-rep1-2026-08-18-host-4.38-core.log`
+- `unity-project/Logs/parlor-rep1-2026-08-18-focus-A-miss.log`
+- `unity-project/Logs/parlor-rep1-2026-08-18-host-4.99-core-converged-split-half.log`
 
 1080p frames inspected this session (same lantern-pool look Nick already saw): `docs/playtest/screenshots/parlor-1080p-01-ready.png` through `08-pause-settings.png`. HUD, Read, catch, rematch, dossier Settings are on screen. Walls stay black. Visual PARTIAL. Parlor stays 42%.
 

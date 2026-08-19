@@ -175,6 +175,10 @@ public sealed class GmParlorStandaloneProbeTests
         StringAssert.Contains("VirtualButtonHoldFrames = 2", source);
         StringAssert.Contains("VirtualButtonReleaseFrames = 4", source);
         StringAssert.Contains("SettingsNavigationRetryLimit = 3", source);
+        StringAssert.Contains("MatchProgressRetryLimit = 8", source);
+        StringAssert.Contains("IEnumerator OpenFocusThroughController", source);
+        StringAssert.Contains("A did not open focus view", source);
+        StringAssert.Contains("A did not open honest focus view", source);
     }
 
     [Test]

@@ -8,10 +8,9 @@
 > Delivery bars live here and in `STEAM-TRACKER.md`; this file carries the task-level detail.
 
 > **Current authority, 2026-08-17/18:** this chat and `docs/HANDOFF-2026-08-17.md`. Active queue is
-> qualifying the Parlor 1080p series on a quiet host, then House Memory. Hub rooms exist. Spawn →
-> vault → back onto the hall is EditMode-proven. The 1080p probe completes a match; the 3-rep series
-> is not qualified. Lane A's human gates and the five missing table games remain. The 08-16
-> handoff is the last full opening-gate pack.
+> House Memory / Mirror mode. Hub rooms exist. Spawn → vault → back onto the hall is EditMode-proven.
+> Parlor 1080p series **3/3 + coverage** qualified. Lane A's human gates and the five missing table
+> games remain. The 08-16 handoff is the last full opening-gate pack.
 
 ## How to read and update this
 
@@ -248,15 +247,14 @@ of the true ending's 8+ cheats caught.
 
 ```
 Phase 1 Entry Hall      [██████████████████░░]  90%   Sessions 1–6 proven (foyer through remaining game doors); POI examines remain
-Phase 2 Parlor          [█████████░░░░░░░░░░░]  42%   editor table slice shipping-proven; Aldric proxy; 1080p series not qualified
+Phase 2 Parlor          [██████████░░░░░░░░░░]  50%   1080p 3/3 + coverage qualified; Aldric proxy; lantern-pool visual PARTIAL
 Phase 4 Shut the Box    [█████░░░░░░░░░░░░░░░]  25%   rules 23/23; no board/AI/UI
 Phase 3 Court           [░░░░░░░░░░░░░░░░░░░░]   0%   LOCKED behind Nick's Phase 0 walk
 ```
 
 > **Tracker correction:** Unity Entry Hall is a walkable hub with parlor, Court, STB, and Hidden Room
-> doors (90%). That is not Court gameplay. Parlor is an editor-proven table slice (42%), not a
-> finished AAA sitting and not a built-player frame-budget proof. The other *games* still do not
-> exist as playable matches.
+> doors (90%). That is not Court gameplay. Parlor is 50%: editor table plus a qualified 1080p
+> player series. Still not a finished AAA sitting. The other *games* still do not exist as playable matches.
 
 ### C1 — Entry Hall (Phase 1)
 
@@ -277,7 +275,7 @@ Phase 3 Court           [░░░░░░░░░░░░░░░░░░�
 | **H5** | Cellar + vault: lever-gated well, barrels, braziers, iron grate → Hidden Room | DONE 2026-08-18 | EditMode **945/945** including spawn → grate → climb-out onto HallFloorEast; rebuild+audit PASS; GUI tour **25/25 first attempt** | `docs/playtest/screenshots/entry-hall-tour-21-cellar-panel.png`, `22-cellar-descent.png`, `23-cellar-vault.png`. Shot 22 looks down the well; stairs read better from shot 07. Visual still PARTIAL. |
 | **H6** | Court + Shut the Box hub doors + one campaign walk | DONE 2026-08-18 | EditMode **935/935** (hearing door after parlor, quieter hall after Court, conservatory still barred, campaign walk to parlor); rebuild+audit PASS; GUI tour **25/25 first attempt** after a lighting fix | `docs/playtest/screenshots/entry-hall-tour-24-court-door.png`, `25-stb-door.png`. Doors load existing scenes. Not Court trial content. Conservatory stays barred. |
 
-**Hub campaign leftover:** none. H1–H6 are a climbable foyer, furnished library, 2F wing, keyed attic loft, lever-gated cellar with a proven return to the hall, and remaining game doors. Conservatory stays barred. Parlor editor shipping proof is done. Built-player 1080p probe completes a match; the 3-rep series still needs a quiet host. Court gameplay stays behind Nick's Phase 0 walk.
+**Hub campaign leftover:** none. H1–H6 are a climbable foyer, furnished library, 2F wing, keyed attic loft, lever-gated cellar with a proven return to the hall, and remaining game doors. Conservatory stays barred. Parlor editor shipping proof is done. Built-player 1080p series **3/3 + coverage** qualified. Court gameplay stays behind Nick's Phase 0 walk.
 
 **Canon trap:** "a friend" (the letter's signer = Aldric) and "the friend in the walls" (the host
 before Aldric, never resolved) are different things sharing a word. Keep distinct in every line.
@@ -292,7 +290,8 @@ before Aldric, never resolved) are different things sharing a word. Keep distinc
 | C2.4 | The Read verb (the catch model every room copies) | TODO | PlayMode catch flow | Read UI frame |
 | C2.5 | Tells — gold→green 1 frame, IRRITATED state | TODO | frame-accurate test | tell frame pair |
 | C2.6 | Corruption tiers (starts at 1, never 0) | TODO | EditMode | — |
-| **P1** | Editor shipping proof: HUD, dual-channel tells, restore, presentation audit, 24-shot tour | DONE 2026-08-18 | EditMode **944/944**, PlayMode **44/44**, rebuild+audit-saved, tour **24/24 first attempt** after evidence isolation | `docs/playtest/screenshots/parlor-tour-*.png`. Aldric is still the substitute proxy. 1080p frames at `parlor-1080p-*.png`. Series not qualified. |
+| **P1** | Editor shipping proof: HUD, dual-channel tells, restore, presentation audit, 24-shot tour | DONE 2026-08-18 | EditMode **944/944**, PlayMode **44/44**, rebuild+audit-saved, tour **24/24 first attempt** after evidence isolation | `docs/playtest/screenshots/parlor-tour-*.png`. Aldric is still the substitute proxy. |
+| **P2** | Built-player 1080p series: 3 consecutive reps + honest/HC200 coverage | DONE 2026-08-18 | `npm run unity:proof:parlor` 3/3 + coverage, p95 8.10–8.26ms, host 0.54–0.67/core, app `cb62fa53…` | `docs/playtest/screenshots/parlor-1080p-*.png`. Visual PARTIAL (lantern pool). |
 
 **Binds every room:** Aldric cheats only when genuinely about to lose. Never from safety. No exceptions.
 
