@@ -225,6 +225,53 @@ public sealed class GmBonesMatchTests
         Assert.That(TryRestore(badIntervention, out _, out _), Is.False);
     }
 
+    [Test]
+    public void RestoreRejectsCoordinatedLoadedSixReceiptForgery()
+    {
+        int[] replay = Dice(6,6,6, 6,6,6, 6,6,6, 6,6,6, 6,6,5, 6,2,1, 1,2);
+        object match = NewMatch(16UL, replay);
+        BankThreeTimes(match);
+        object snapshot = Export(match);
+        object receipt = Field(snapshot, "interventionReceipt");
+        receipt.GetType().GetField("honestReroll").SetValue(receipt, new[] { 2, 1 });
+        receipt.GetType().GetField("displayedReroll").SetValue(receipt, new[] { 2, 6 });
+        receipt.GetType().GetField("changedSlot").SetValue(receipt, 1);
+        Assert.That(TryRestore(snapshot, out _, out _), Is.False);
+    }
+
+    [Test]
+    public void RestoreRejectsCanonicalLookingActionsThatWereNeverPlayed()
+    {
+        object match = NewMatch(17UL,
+            Dice(6,6,6, 6,6,6, 6,6,6, 6,6,6, 6,6,6, 6,6,6));
+        CompleteBankMatch(match);
+        for (int round = 0; round < 3; round++)
+        {
+            for (int lockIndex = 0; lockIndex < 3; lockIndex++)
+            {
+                object snapshot = Export(match);
+                object session = Field(snapshot, "session");
+                Array actions = (Array)Field(session, "actions");
+                object action = actions.GetValue(round);
+                action.GetType().GetField("actionId").SetValue(action,
+                    $"round-{round + 1}:press:{lockIndex}");
+                Assert.That(TryRestore(snapshot, out _, out _), Is.False,
+                    $"round {round + 1}, lock {lockIndex}");
+            }
+        }
+    }
+
+    [Test]
+    public void RestoreRejectsNullGameCraftActionArrayWithoutThrowing()
+    {
+        object match = NewMatch(18UL, Dice(6,6,6));
+        object snapshot = Export(match);
+        object session = Field(snapshot, "session");
+        session.GetType().GetField("actions").SetValue(session, null);
+        Assert.That(() => TryRestore(snapshot, out _, out _), Throws.Nothing);
+        Assert.That(TryRestore(snapshot, out _, out _), Is.False);
+    }
+
     static object NewMatch(ulong seed, int[] replayDice)
     {
         ConstructorInfo constructor = MatchType.GetConstructor(new[] { typeof(ulong), typeof(int[]) });
