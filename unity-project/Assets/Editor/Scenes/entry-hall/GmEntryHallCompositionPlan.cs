@@ -442,14 +442,14 @@ public static class GmEntryHallCompositionPlan
         atticZone.transform.SetParent(owner.transform, false);
         atticZone.transform.position = new Vector3(0f, 7.6f, 13.2f);
         GmCompositionAuthoring.Zone(atticZone, "attic-zone",
-            "The loft above the 2F gallery: rafters, stored crates, and the second mirror shard.",
+            "The loft above the 2F gallery: rafters, stored crates, cobwebs, and a north dormer.",
             new Vector3(12f, 5f, 8f), minClusters: 1, minElements: 4);
 
         var atticCluster = new GameObject("AtticCluster");
         atticCluster.transform.SetParent(atticZone.transform, false);
         atticCluster.transform.position = new Vector3(0f, 7.4f, 13.2f);
         GmCompositionAuthoring.Cluster(atticCluster, "attic-cluster", "attic-zone",
-            "Crate stack, rafters, dormer, and Shard II.", "attic-crate", maxRadius: 14f);
+            "Crate stack, rafters, cobwebs, and a moonlit dormer.", "attic-crate", maxRadius: 14f);
 
         GmCompositionAuthoring.Element(Built(built, "attic-crate"), "attic-crate", "attic-cluster",
             "hall-furniture", "Stored crate under the west eaves.",
@@ -462,10 +462,6 @@ public static class GmEntryHallCompositionPlan
         GmCompositionAuthoring.Element(Built(built, "attic-ladder"), "attic-ladder", "attic-cluster",
             "hall-furniture", "0.4 m-legal ladder through the hatch well.",
             GmCompositionRole.Support, surfaceY: 3.4f);
-
-        GmCompositionAuthoring.Element(Built(built, "shard-two"), "shard-two", "attic-cluster",
-            "evidence-props", "Mirror Shard II waiting under the dormer.",
-            GmCompositionRole.Gameplay, GmSpatialRelation.AgainstBoundary, "attic-dormer", 3f);
 
         GmCompositionAuthoring.Element(Built(built, "attic-dormer"), "attic-dormer", "attic-cluster",
             "hall-architecture", "North dormer that lets night into the loft.",
@@ -519,7 +515,7 @@ public static class GmEntryHallCompositionPlan
             "attic-dormer", "Cool night through the north dormer.");
 
         GmCompositionAuthoring.Motivate(Built(built, "attic-dormer-fill"), "attic-dormer-fill",
-            "attic-dormer", "Moon spill on Shard II under the dormer.");
+            "attic-dormer", "Moon spill catching dust and stored furniture under the dormer.");
 
         var cellarZone = new GameObject("CellarZone");
         cellarZone.transform.SetParent(owner.transform, false);
@@ -718,9 +714,9 @@ public static class GmEntryHallCompositionPlan
             "attic-cluster", "attic-zone", new Vector2(0.45f, 0.5f), 0.50f,
             "Proves the loft is a furnished roof, not an empty box above a hatch.");
 
-        GmCompositionAuthoring.ReviewClaim(owner, "20-attic-shard", "shard-two", "attic-dormer",
+        GmCompositionAuthoring.ReviewClaim(owner, "20-attic-dormer", "attic-dormer", "",
             "attic-cluster", "attic-zone", new Vector2(0.5f, 0.5f), 0.50f,
-            "Proves Mirror Shard II under the dormer.");
+            "Proves the cool dormer and warm lantern shape the furnished loft.");
 
         GmCompositionAuthoring.ReviewClaim(owner, "21-cellar-panel", "cellar-panel", "cellar-panel-lamp",
             "cellar-cluster", "cellar-zone", new Vector2(0.55f, 0.5f), 0.50f,

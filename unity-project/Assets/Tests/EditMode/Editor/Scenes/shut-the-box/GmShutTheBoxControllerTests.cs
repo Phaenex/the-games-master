@@ -26,6 +26,32 @@ public sealed class GmShutTheBoxControllerTests
     }
 
     [Test]
+    public void PlayerCannotShutTilesThatDoNotExactlyMatchTheActiveRoll()
+    {
+        var host = new GameObject("ShutTheBoxController");
+        var controller = host.AddComponent<GmShutTheBoxController>();
+        try
+        {
+            controller.ResetMatch();
+            controller.RollDice(seed: 42);
+            int before = controller.PlayerBoard.Sum;
+
+            MoveResult wrongTotal = controller.PlayPlayerMove(1);
+            Assert.IsFalse(wrongTotal.Ok);
+            Assert.That(wrongTotal.Reason, Does.StartWith("illegal-for-roll:"));
+            Assert.AreEqual(before, controller.PlayerBoard.Sum);
+            Assert.IsTrue(controller.PlayerBoard.IsOpen(1));
+
+            MoveResult duplicateTile = controller.PlayPlayerMove(1, 1);
+            Assert.IsFalse(duplicateTile.Ok);
+            Assert.That(duplicateTile.Reason, Does.StartWith("illegal-for-roll:"));
+            Assert.AreEqual(before, controller.PlayerBoard.Sum);
+            Assert.IsTrue(controller.PlayerBoard.IsOpen(1));
+        }
+        finally { Object.DestroyImmediate(host); }
+    }
+
+    [Test]
     public void ResolvingBothBoxesCompletesOneTableGameAndReportsTheWinner()
     {
         var host = new GameObject("ShutTheBoxController");

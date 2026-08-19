@@ -43,6 +43,9 @@ public static class GmCourtBuilder
         var systems = new GameObject("SceneSystems");
         GmSceneBuildUtility.MarkScene(systems, SceneId, DisplayName);
         systems.AddComponent<GmCourtController>();
+        systems.AddComponent<GmCourtHud>();
+        systems.AddComponent<GmCourtInput>();
+        systems.AddComponent<GmCourtPresenter>();
         systems.AddComponent<GmCourtShotTour>();
 
         var environment = new GameObject("Environment");

@@ -60,6 +60,15 @@ public static class GmCourtQualityAudit
         {
             issues.Add("GmCourtController component is missing from SceneSystems");
         }
+        else
+        {
+            if (systems.GetComponent<GmCourtHud>() == null)
+                issues.Add("GmCourtHud is missing; the hearing has no player-facing evidence surface");
+            if (systems.GetComponent<GmCourtInput>() == null)
+                issues.Add("GmCourtInput is missing; controller/keyboard evidence input is not wired");
+            if (systems.GetComponent<GmCourtPresenter>() == null)
+                issues.Add("GmCourtPresenter is missing; seals, role light and gavel tell cannot move");
+        }
 
         issues.AddRange(GmSceneCompositionAudit.ValidateOpenScene(
             GmCourtBuilder.SceneId, Object.FindAnyObjectByType<GmCourtShotTour>(), Camera.main));

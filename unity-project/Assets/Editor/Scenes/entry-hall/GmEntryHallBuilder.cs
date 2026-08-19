@@ -1972,13 +1972,6 @@ public static class GmEntryHallBuilder
             new Vector3(1.2f, 0.9f, 0.08f), Quaternion.Euler(0f, -90f, -8f),
             ground: false, overrideMaterial: web);
 
-        GameObject shard = GmOwnedPropFactory.CreateMirrorShard("MirrorShard_2", loft.transform,
-            new Vector3(0.15f, AtticFloorY + 0.72f, 15.55f), Quaternion.Euler(12f, 200f, 8f),
-            new Vector3(0.34f, 0.46f, 0.055f),
-            CreateMaterial("EntryHall_MirrorShardTwo", new Color(0.42f, 0.58f, 0.66f), 0.86f, 0.92f));
-        shard.AddComponent<BoxCollider>().size = new Vector3(1f, 1f, 1f);
-        authored["shard-two"] = shard;
-
         GmInteriorMoonWindow.Result dormer = GmInteriorMoonWindow.Build(loft.transform,
             "AtticDormer", new Vector3(0f, 7.55f, 16.05f),
             new Vector3(0.15f, 6.9f, 14.6f), new Vector2(1.35f, 1.55f), 220f);

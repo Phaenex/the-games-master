@@ -41,7 +41,7 @@ public sealed class GmEntryHallShotTour : GmSceneReviewTour
         new GmReviewShot("17-barred-guest", new Vector3(2.4f, 4.92f, 17.15f), 0f, 8f),
         new GmReviewShot("18-attic-hatch", new Vector3(2.15f, 4.95f, 12.05f), 38f, -22f),
         new GmReviewShot("19-attic-loft", new Vector3(0.15f, 7.62f, 13.45f), -108f, 12f),
-        new GmReviewShot("20-attic-shard", new Vector3(0.95f, 7.28f, 14.35f), -8f, 4f),
+        new GmReviewShot("20-attic-dormer", new Vector3(0.95f, 7.28f, 14.35f), -8f, 4f),
         new GmReviewShot("21-cellar-panel", new Vector3(5.42f, 1.58f, 8.35f), -90f, 2f),
         new GmReviewShot("22-cellar-descent", new Vector3(2.07f, 0.48f, 9.15f), 192f, 30f),
         new GmReviewShot("23-cellar-vault", new Vector3(3.15f, -1.46f, 5.55f), 165f, 4f),

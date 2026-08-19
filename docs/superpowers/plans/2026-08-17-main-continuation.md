@@ -18,7 +18,8 @@
 - Isolated minigame scenes stay isolated. The hub loads them at doors.
 - Player step is 0.4 m. Stair risers must stay under that.
 - Lane G: locked/barred/closed claims need a solid non-trigger collider.
-- No push. No purchase. No Court content until Nick's Phase 0 walk.
+- No purchase. Nick selected **Build Court Now** in the native panel on 2026-08-18, lifting the old
+  Court sequencing lock. The Phase 0 walk remains a release gate.
 
 ## Honest inventory
 
@@ -85,7 +86,7 @@ This is hub reachability. It is not Court trial content.
 1. Parlor shipping proof from `docs/superpowers/plans/2026-08-16-parlor-physical-vertical-slice.md`. Direct frame inspection. Test green is not enough. **DONE 2026-08-18** editor table. **DONE 2026-08-18 night** built-player 1080p 3/3 + coverage. Aldric art remains.
 2. House Memory remainder from `docs/superpowers/specs/2026-08-16-house-remembers-replayability-design.md`. Recovery UX, post-Mirror Ledger Review, crash-resumable Restore Last Valid and redacted Export Diagnostics are automated and rendered. One live macOS save-panel exercise remains for the release candidate. Ordinary New Run stays clean.
 3. Five missing table games. Do not invent rules for games 6–7.
-4. Nick's Phase 0 walk. Then Court.
+4. Court is unblocked as of 2026-08-18. Nick's Phase 0 walk remains required before release.
 
 ## Verification commands
 

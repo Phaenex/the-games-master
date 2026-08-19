@@ -5,6 +5,7 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
 
 public class GmEntryHallBuildTests
@@ -45,6 +46,17 @@ public class GmEntryHallBuildTests
     }
 
     [Test]
+    public void FlameFedHallPracticalsActuallyFlickerWithoutAnimatingNavigationLights()
+    {
+        Assert.That(GameObject.Find("GallerySconce_1")?.GetComponent<GmLightFlicker>(), Is.Not.Null,
+            "the hall describes a flickering sconce but saved no runtime light motion");
+        Assert.That(GameObject.Find("ChandelierLight")?.GetComponent<GmLightFlicker>(), Is.Not.Null,
+            "the gas chandelier is visually frozen");
+        Assert.That(GameObject.Find("CourtDoorSconceLight")?.GetComponent<GmLightFlicker>(), Is.Null,
+            "door/navigation lighting must remain stable");
+    }
+
+    [Test]
     public void ReviewTourHasNoPlaceholderShotNames()
     {
         var tour = Object.FindAnyObjectByType<GmEntryHallShotTour>();
@@ -67,7 +79,7 @@ public class GmEntryHallBuildTests
         CollectionAssert.Contains(names, "17-barred-guest");
         CollectionAssert.Contains(names, "18-attic-hatch");
         CollectionAssert.Contains(names, "19-attic-loft");
-        CollectionAssert.Contains(names, "20-attic-shard");
+        CollectionAssert.Contains(names, "20-attic-dormer");
         CollectionAssert.Contains(names, "21-cellar-panel");
         CollectionAssert.Contains(names, "22-cellar-descent");
         CollectionAssert.Contains(names, "23-cellar-vault");
@@ -813,10 +825,8 @@ public class GmEntryHallBuildTests
         Assert.IsNotNull(GameObject.Find("AtticCrate"));
         Assert.IsNotNull(GameObject.Find("AtticCobwebs"));
         Assert.IsNotNull(GameObject.Find("AtticDormer"));
-        Assert.IsNotNull(GameObject.Find("MirrorShard_2"));
-        Assert.That(GameObject.Find("MirrorShard_2").transform.position.y,
-            Is.GreaterThan(GmEntryHallBuilder.AtticFloorY),
-            "Shard #2 is not in the loft");
+        Assert.IsNull(GameObject.Find("MirrorShard_2"),
+            "the temporary attic Shard #2 proxy must be retired now that Court owns the shard");
         Assert.That(GameObject.Find("MirrorShard_1").transform.position.y, Is.LessThan(3f),
             "placing shard 2 must not move shard 1 off Percival's foyer frame");
         Transform treads = GameObject.Find("AtticLadder").transform;
@@ -829,6 +839,19 @@ public class GmEntryHallBuildTests
             .Any(renderer => renderer.transform.GetComponentsInParent<Transform>(true)
                 .Any(parent => parent.name.StartsWith(GmOwnedPropFactory.VisualPrefix))),
             "attic crate is not the owned crate mesh");
+    }
+
+    [Test]
+    public void ExistingGeneratedHallRetiresTheTemporaryCourtShardProxyAtRuntime()
+    {
+        var proxy = new GameObject("MirrorShard_2");
+        try
+        {
+            Assert.IsTrue(GmEntryHallCanonBootstrap.RemoveRetiredShardProxy(
+                SceneManager.GetActiveScene()));
+            Assert.IsFalse(proxy.activeSelf);
+        }
+        finally { Object.DestroyImmediate(proxy); }
     }
 
     [Test]

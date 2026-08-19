@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using GamesMaster.ShutTheBox;
 using UnityEngine;
 
@@ -89,7 +90,18 @@ public sealed class GmShutTheBoxController : MonoBehaviour
         if (Phase != GmShutBoxPhase.PlayerSelecting)
             return MoveResult.Rejected($"wrong-phase:{Phase}", PlayerBoard.Sum);
 
-        MoveResult result = ShutBoxRules.ApplyMove(PlayerBoard, tiles);
+        // ApplyMove is intentionally a state mutation primitive and does not know which dice are
+        // on the table. The shipping controller does. Refuse any selection that is not one of the
+        // exact legal combinations for this roll before the rules engine can mutate the box. This
+        // also rejects duplicate-tile input, which previously passed the pre-mutation open check.
+        int[] requested = tiles ?? Array.Empty<int>();
+        bool legalForRoll = ShutBoxRules.LegalMoves(PlayerBoard, DiceSum).Any(move =>
+            move.Length == requested.Length &&
+            move.OrderBy(tile => tile).SequenceEqual(requested.OrderBy(tile => tile)));
+        if (!legalForRoll)
+            return MoveResult.Rejected($"illegal-for-roll:{DiceSum}", PlayerBoard.Sum);
+
+        MoveResult result = ShutBoxRules.ApplyMove(PlayerBoard, requested);
         if (result.Ok)
         {
             if (PlayerBoard.Sum == 0)

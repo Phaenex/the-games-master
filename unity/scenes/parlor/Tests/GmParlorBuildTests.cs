@@ -23,6 +23,17 @@ public class GmParlorBuildTests
     }
 
     [Test]
+    public void HearthAndLampAreRuntimeAtmosphereNotJustCompositionCopy()
+    {
+        Assert.That(GameObject.Find("BankerLampLight")?.GetComponent<GmLightFlicker>(), Is.Not.Null,
+            "the table lamp is described as flame-fed but has no runtime flicker");
+        Assert.That(GameObject.Find("FireplaceLight")?.GetComponent<GmLightFlicker>(), Is.Not.Null,
+            "the dying hearth has no runtime flame movement");
+        Assert.That(GameObject.Find("EntrySconceLight")?.GetComponent<GmLightFlicker>(), Is.Null,
+            "entry/navigation light must remain stable");
+    }
+
+    [Test]
     public void ShippingTableHasOneBoundPhysicalViewForEveryCanonicalCard()
     {
         GmParlorCardView[] cards = Object.FindObjectsByType<GmParlorCardView>(

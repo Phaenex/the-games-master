@@ -28,6 +28,24 @@ public sealed class GmAudioManager : MonoBehaviour
 
     public event Action<string> OnSoundPlayed;
 
+    public static GmAudioManager EnsureExists()
+    {
+        if (_instance != null)
+        {
+            _instance.gameObject.SetActive(true);
+            _instance.enabled = true;
+            return _instance;
+        }
+        GmAudioManager existing = FindAnyObjectByType<GmAudioManager>(FindObjectsInactive.Include);
+        if (existing != null)
+        {
+            existing.gameObject.SetActive(true);
+            existing.enabled = true;
+            return existing;
+        }
+        return new GameObject("GmAudioManager").AddComponent<GmAudioManager>();
+    }
+
     void Awake()
     {
         if (_instance != null && _instance != this)

@@ -12,6 +12,50 @@ public class GmCourtEvidenceTests
     }
 
     [Test]
+    public void ExistingCourtSceneControllerCanBootstrapPlayerFacingComponents()
+    {
+        var courtObj = new GameObject("TestCourt");
+        try
+        {
+            GmCourtController court = courtObj.AddComponent<GmCourtController>();
+
+            court.EnsurePresentationComponents();
+            court.EnsurePresentationComponents();
+
+            Assert.That(courtObj.GetComponents<GmCourtHud>(), Has.Length.EqualTo(1));
+            Assert.That(courtObj.GetComponents<GmCourtInput>(), Has.Length.EqualTo(1));
+            Assert.That(courtObj.GetComponents<GmCourtPresenter>(), Has.Length.EqualTo(1));
+        }
+        finally { Object.DestroyImmediate(courtObj); }
+    }
+
+    [Test]
+    public void HearingOwnsPointerAndMovementUntilEitherVerdict()
+    {
+        var playerObj = new GameObject("Player");
+        var courtObj = new GameObject("TestCourt");
+        try
+        {
+            GmPlayer player = playerObj.AddComponent<GmPlayer>();
+            GmCourtController court = courtObj.AddComponent<GmCourtController>();
+
+            court.StartHearing();
+            Assert.IsTrue(player.ControlBlocked);
+            court.PresentEvidence("one", false);
+            court.PresentEvidence("two", false);
+            court.PresentEvidence("three", false);
+
+            Assert.AreEqual(GmCourtPhase.Verdict, court.Phase);
+            Assert.IsFalse(player.ControlBlocked);
+        }
+        finally
+        {
+            Object.DestroyImmediate(courtObj);
+            Object.DestroyImmediate(playerObj);
+        }
+    }
+
+    [Test]
     public void StartHearingInitializesThreeSealsAndFullClock()
     {
         var courtObj = new GameObject("TestCourt");
@@ -39,6 +83,93 @@ public class GmCourtEvidenceTests
         Assert.IsFalse(court.GavelIsTarnished);
 
         Object.DestroyImmediate(courtObj);
+    }
+
+    [Test]
+    public void PlayerFacingThreeArgumentHearingIsWinnableWithDistinctEvidence()
+    {
+        var courtObj = new GameObject("TestCourt");
+        var court = courtObj.AddComponent<GmCourtController>();
+        try
+        {
+            court.StartHearing();
+            court.SelectEvidence(2); // Percival register
+            Assert.IsTrue(court.PresentSelectedEvidence());
+            court.SelectEvidence(1); // matching wax fault
+            Assert.IsTrue(court.PresentSelectedEvidence());
+            court.SelectEvidence(4); // impossible latch schedule
+            Assert.IsTrue(court.PresentSelectedEvidence());
+
+            Assert.AreEqual(GmCourtPhase.Verdict, court.Phase);
+            Assert.AreEqual(0, court.WaxSealsRemaining);
+            Assert.IsTrue(GmRunStore.IsRoomComplete("court"));
+        }
+        finally { Object.DestroyImmediate(courtObj); }
+    }
+
+    [Test]
+    public void DecoyCostsPressureAndCannotBeEnteredTwice()
+    {
+        var courtObj = new GameObject("TestCourt");
+        var court = courtObj.AddComponent<GmCourtController>();
+        try
+        {
+            court.StartHearing();
+            float before = court.PressureTimeRemaining;
+            court.SelectEvidence(0);
+            Assert.IsFalse(court.PresentSelectedEvidence());
+            Assert.AreEqual(before - 12f, court.PressureTimeRemaining, 0.001f);
+            Assert.IsFalse(court.PresentSelectedEvidence());
+            Assert.AreEqual(before - 12f, court.PressureTimeRemaining, 0.001f,
+                "re-entering one decoy charged the pressure penalty twice");
+        }
+        finally { Object.DestroyImmediate(courtObj); }
+    }
+
+    [Test]
+    public void EvidenceRejectedTooEarlyRemainsAvailableForItsActualArgument()
+    {
+        var courtObj = new GameObject("TestCourt");
+        var court = courtObj.AddComponent<GmCourtController>();
+        try
+        {
+            court.StartHearing();
+            court.SelectEvidence(1); // Wax belongs to argument two, not argument one.
+            Assert.IsFalse(court.PresentSelectedEvidence());
+
+            court.SelectEvidence(2);
+            Assert.IsTrue(court.PresentSelectedEvidence());
+            court.SelectEvidence(1);
+            Assert.IsTrue(court.PresentSelectedEvidence(),
+                "a premature attempt permanently consumed evidence needed by a later argument");
+            court.SelectEvidence(4);
+            Assert.IsTrue(court.PresentSelectedEvidence());
+            Assert.AreEqual(GmCourtPhase.Verdict, court.Phase);
+        }
+        finally { Object.DestroyImmediate(courtObj); }
+    }
+
+    [Test]
+    public void ReactiveRiggingWaitsUntilAldricIsAboutToLoseAndStillAllowsTheVerdict()
+    {
+        var courtObj = new GameObject("TestCourt");
+        var court = courtObj.AddComponent<GmCourtController>();
+        try
+        {
+            GmRunStore.RaiseCorruption("test tier 2");
+            GmRunStore.RaiseCorruption("test tier 3");
+            court.StartHearing();
+            court.SelectEvidence(2); court.PresentSelectedEvidence();
+            Assert.IsFalse(court.GavelIsTarnished);
+            court.SelectEvidence(1); court.PresentSelectedEvidence();
+            Assert.IsFalse(court.GavelIsTarnished);
+            court.SelectEvidence(4); court.PresentSelectedEvidence();
+
+            Assert.IsTrue(court.GavelIsTarnished);
+            Assert.AreEqual(GmCourtPhase.Verdict, court.Phase);
+            Assert.IsTrue(GmRunStore.HasCatch("court-rigged-evidence-tell"));
+        }
+        finally { Object.DestroyImmediate(courtObj); }
     }
 
     [Test]

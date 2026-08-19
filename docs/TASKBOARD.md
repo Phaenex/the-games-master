@@ -13,6 +13,10 @@
 > live macOS save-panel exercise. Then five missing table games. Hub rooms exist.
 > Parlor 1080p series **3/3 + coverage** qualified. Unreadable House envelope recovery is
 > EditMode-proven. Lane A's human gates remain. The 08-16 handoff is the last full opening-gate pack.
+>
+> **Full-game correction, 2026-08-18:** `docs/FULL-GAME-AUDIT-2026-08-18.md` is the current product-
+> completion view. The recovery slice is about 90%; the whole game remains about 30%. Green opening
+> gates must not be presented as whole-game completion.
 
 ## How to read and update this
 
@@ -161,7 +165,7 @@ Opening gates            [██████████████████
 | F4 | `GmWendOpening.RoadSurfaceY` missing; HDRP `lightTypeExtent`/`LightUnit` namespace issues (6 call sites) | DONE | verified compiles |
 | F5 | `System.Linq` missing in 3 scene test files; 6 `BuildTests.cs` files missing scene teardown | DONE | verified: EditMode 455/455 |
 | F6 | **Bridge `GmHouseProgress` into `GmRunStore`** | DONE — bridged; the house-caps-at-4-vs-store-caps-at-5 gap is confirmed intentional pacing, not a conflict (Nick, 2026-08-14): Parlor/Court/Shut the Box call `GmRunStore.RaiseCorruption` directly, uncapped, and are what can carry a run to Tier 5/Ending D — the House alone must never end a run in Corrupted Host | DONE | EditMode: a house catch is readable via `GmRunStore` |
-| F7 | **Wire the wired-to-nothing systems.** Audio, pause tabs, credits, explicit Continue, save/load, the persistent scene director and production transitions all have callers and tests. | DONE | full PlayMode scene-chain proof plus focused EditMode tests |
+| F7 | **Wire the wired-to-nothing systems.** Pause tabs, credits, explicit Continue, save/load, the persistent scene director and production transitions have callers and tests. **Audio reopened 2026-08-18:** `GmAudioManager` has no production instantiation or callers, so interior ambience and the Parlor/STB/Court cues are silent. | RED | production audio instantiation and audible cue/ambience proof still required |
 | F8 | **Attribution gate & records** — `CREDITS.txt` and `assets/sfx/license.txt` tracked in git; `npm run verify:attribution` green (5 CC-BY entries accounted for) and wired into `npm run gates` | DONE | `npm run verify:attribution` green **and** invoked by gates |
 | F9 | **Shipping verification harness.** Every production gate has reachable failure handling; its meta-gate runs paired bad/good inputs. Unreachable legacy scripts are archive debt, not evidence. | DONE | 22/22 paired reject/accept cases |
 | F10 | `scan-frame-defects.mjs` rejects undecodable frames and missing target directories. | DONE | corrupt and absent fixtures both observed failing in the meta-gate |
@@ -170,9 +174,10 @@ The gate-2 deadlock and the composition failures are closed. The current product
 all 14 gates and reports 0 failed and 0 skipped. Historical failures remain below only as incident
 records; they are not the current state.
 
-## LANE A — Phase 0 exit (blocking everything)
+## LANE A — Phase 0 human release gate
 
-Phase 0 must close before Court by project rule, and Nick's walk is the gate.
+Nick selected **Build Court Now** in the native human-gate panel on 2026-08-18. The uninterrupted
+Phase 0 walk remains required before release, but it no longer blocks Court implementation.
 
 ```
 Phase 0 Prologue        [███████████████████░]  objective gates green; Nick walk pending
@@ -250,8 +255,8 @@ of the true ending's 8+ cheats caught.
 ```
 Phase 1 Entry Hall      [██████████████████░░]  90%   Sessions 1–6 proven (foyer through remaining game doors); POI examines remain
 Phase 2 Parlor          [██████████░░░░░░░░░░]  50%   1080p 3/3 + coverage qualified; Aldric proxy; lantern-pool visual PARTIAL
-Phase 4 Shut the Box    [█████░░░░░░░░░░░░░░░]  25%   rules 23/23; no board/AI/UI
-Phase 3 Court           [░░░░░░░░░░░░░░░░░░░░]   0%   LOCKED behind Nick's Phase 0 walk
+Phase 4 Shut the Box    [██████░░░░░░░░░░░░░░]  30%   rules 25/25; controller rejects off-roll tile mutations; no finished board/AI/UI
+Phase 3 Court           [████████████░░░░░░░░]  60%   full hearing loop + UI/input/tells/shard proven; art, audible gavel and human feel remain
 ```
 
 > **Tracker correction:** Unity Entry Hall is a walkable hub with parlor, Court, STB, and Hidden Room
@@ -273,7 +278,7 @@ Phase 3 Court           [░░░░░░░░░░░░░░░░░░�
 | **H2** | North Library + Weighted Shelf | DONE 2026-08-17 | EditMode 916/916 (aisle walk, shelf→lever, furnished room, 14-shot tour contract); rebuild+audit PASS; GUI tour **14/14 first attempt** | `docs/playtest/screenshots/entry-hall-tour-13-library-interior.png`, `entry-hall-tour-14-weighted-shelf.png`. Inscription reads LTR after TextMesh +90. Shot 09 lintel gap is a leftover Session 1 visual, not this row. |
 
 | **H3** | 2F debtor gallery + Marr study + barred guest | DONE 2026-08-17 | EditMode 922/922 (foyer still owns shard, 2F hang, Marr walk-after-key, barred body blocked); rebuild+audit PASS; GUI tour **17/17 first attempt** | `docs/playtest/screenshots/entry-hall-tour-15-upper-gallery.png`, `16-marr-study.png`, `17-barred-guest.png`. Foyer portraits were extended, not moved. |
-| **H4** | Attic loft: hatch, 0.4 m-legal ladder, rafters, crates, dormer, Mirror Shard II | DONE 2026-08-18 | EditMode **927/927** (climb after Marr-desk key, locked hatch holds, loft furnished); rebuild+audit PASS; GUI tour **20/20 first attempt** | `docs/playtest/screenshots/entry-hall-tour-18-attic-hatch.png`, `19-attic-loft.png`, `20-attic-shard.png`. Shot 09 lintel void closed with a hall-side beam. Hub campaign puts Shard II in the attic until Court exists. |
+| **H4** | Attic loft: hatch, 0.4 m-legal ladder, rafters, crates, cobwebs, dormer | DONE 2026-08-18; canon cleanup 2026-08-19 | climb after Marr-desk key, locked hatch holds, loft furnished; temporary Shard II proxy now removed in builder and at runtime | Existing historical `18-attic-hatch` / `19-attic-loft` proof remains. Shot 20 is now the dormer composition; Court exclusively owns Shard #2. |
 | **H5** | Cellar + vault: lever-gated well, barrels, braziers, iron grate → Hidden Room | DONE 2026-08-18 | EditMode **945/945** including spawn → grate → climb-out onto HallFloorEast; rebuild+audit PASS; GUI tour **25/25 first attempt** | `docs/playtest/screenshots/entry-hall-tour-21-cellar-panel.png`, `22-cellar-descent.png`, `23-cellar-vault.png`. Shot 22 looks down the well; stairs read better from shot 07. Visual still PARTIAL. |
 | **H6** | Court + Shut the Box hub doors + one campaign walk | DONE 2026-08-18 | EditMode **935/935** (hearing door after parlor, quieter hall after Court, conservatory still barred, campaign walk to parlor); rebuild+audit PASS; GUI tour **25/25 first attempt** after a lighting fix | `docs/playtest/screenshots/entry-hall-tour-24-court-door.png`, `25-stb-door.png`. Doors load existing scenes. Not Court trial content. Conservatory stays barred. |
 
@@ -315,16 +320,16 @@ before Aldric, never resolved) are different things sharing a word. Keep distinc
 Nine tiles map in ledger order to the nine guests. Never stated; discoverable.
 **Source rule:** C# lives in `unity/shut-the-box/`, copied into Unity. Change there, verify both suites.
 
-### C4 — Court (Phase 3) — locked behind Nick's Phase 0 walk
+### C4 — Court (Phase 3) — unlocked by Nick 2026-08-18
 
 | # | Task | Status | TEST | VIS |
 |---|---|---|---|---|
-| C4.1 | Room dress, jury wall ×9, wax-seal HUD | TODO | EditMode | room frame |
-| C4.2 | Role-light swing (accuser/defender) | TODO | EditMode rig state | light state pair |
-| C4.3 | Evidence deck — Deck A straight vs rigged | TODO | EditMode | card frames |
-| C4.4 | Gavel tarnish tell | TODO | EditMode | tarnish pair |
-| C4.5 | Loseable pressure clock | TODO | PlayMode: hearing CAN be lost | — |
-| C4.6 | Shard #2, mislabeled among evidence | TODO | EditMode + B4 | — |
+| C4.1 | Room dress, jury wall ×9, wax-seal HUD | MECHANICAL DONE / ART PARTIAL | EditMode scene contract + HUD bootstrap | Court tour 01/04 |
+| C4.2 | Role-light swing (accuser/defender) | DONE | presenter binding + staged states | Court tour sequence |
+| C4.3 | Evidence deck — straight vs reactive final-seal rig | DONE | distinct-answer win, premature-evidence recovery, rig threshold | Court tour 04/05 |
+| C4.4 | Gavel tarnish tell | DONE / AUDIO PARTIAL | corruption-tier catch and material state | Court tour 05; actual cue clip missing |
+| C4.5 | Loseable pressure clock | DONE | timeout completes trial without soft-lock | Court HUD/timer |
+| C4.6 | Shard #2, mislabeled among evidence | DONE | collection updates slot 1; retired attic proxy | Court tour 06 |
 
 **Protect this:** a first visit at low corruption **plays straight** — a real chance to lose honestly.
 Rigging only appears once he is threatened. That is what makes the reveal land.

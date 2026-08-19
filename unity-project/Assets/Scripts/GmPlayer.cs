@@ -60,7 +60,8 @@ public class GmPlayer : MonoBehaviour
             callTellAction = gameplay.FindAction("CallTell", true);
             gameplay.Enable();
         }
-        LockPointer();
+        if (ControlBlocked) ReleasePointer();
+        else LockPointer();
     }
 
     void Update()

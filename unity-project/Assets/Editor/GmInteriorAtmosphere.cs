@@ -73,6 +73,7 @@ public static class GmInteriorAtmosphere
         // prologue does both halves and says so: practicals scaled by 0.06 and clamped, THEN a fixed
         // EV. Rooms get the same ceiling so a lamp reads the same indoors as it does on the drive.
         int clamped = 0;
+        int flickering = 0;
         foreach (Light light in UnityEngine.Object.FindObjectsByType<Light>(FindObjectsInactive.Include))
         {
             if (light.type == LightType.Directional) continue;
@@ -82,11 +83,27 @@ public static class GmInteriorAtmosphere
             // from 2023.3 and the first version of this read lightUnit off the deprecated one, matched
             // nothing, and clamped zero lights while reporting success. The builders set Light
             // .intensity directly, so this compares like with like.
-            if (light.intensity <= PracticalCeilingLumens) continue;
-            Debug.Log($"[GmInteriorAtmosphere] '{light.name}' {light.intensity:0} -> {PracticalCeilingLumens}");
-            light.intensity = PracticalCeilingLumens;
-            EditorUtility.SetDirty(light);
-            clamped++;
+            if (light.intensity > PracticalCeilingLumens)
+            {
+                Debug.Log($"[GmInteriorAtmosphere] '{light.name}' {light.intensity:0} -> {PracticalCeilingLumens}");
+                light.intensity = PracticalCeilingLumens;
+                EditorUtility.SetDirty(light);
+                clamped++;
+            }
+
+            // Composition copy saying "flickering" does not make a light move. Give only named
+            // flame-fed practicals a restrained, seeded motion. This deliberately excludes door,
+            // evidence, mirror, moon and fill lights so gameplay signalling and navigation remain
+            // stable. Rebuilding a scene is deterministic; the runtime phase is derived from world
+            // position by GmLightFlicker, so a hallway never pulses in perfect synchrony.
+            if (GmLightFlicker.ShouldFlicker(light.name))
+            {
+                GmLightFlicker motion = light.GetComponent<GmLightFlicker>();
+                if (motion == null) motion = light.gameObject.AddComponent<GmLightFlicker>();
+                GmLightFlicker.Configure(motion, light);
+                EditorUtility.SetDirty(motion);
+                flickering++;
+            }
         }
 
         var host = new GameObject("Atmosphere");
@@ -95,7 +112,8 @@ public static class GmInteriorAtmosphere
         volume.isGlobal = true;
         volume.priority = 1f;
         volume.sharedProfile = profile;
-        Debug.Log($"[GmInteriorAtmosphere] '{sceneId}' fixed {InteriorExposureEV} EV, fog {FogMeanFreePath}m, {clamped} light(s) clamped -> {path}");
+        Debug.Log($"[GmInteriorAtmosphere] '{sceneId}' fixed {InteriorExposureEV} EV, fog {FogMeanFreePath}m, " +
+                  $"{clamped} light(s) clamped, {flickering} flame practical(s) animated -> {path}");
         return host;
     }
 

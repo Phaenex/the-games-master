@@ -27,6 +27,18 @@ public class GmCourtBuildTests
         Assert.IsNotNull(tour, "review tour component is missing");
         Assert.IsFalse(tour.HasPlaceholderShots,
             "replace every generated '*-replace-me' waypoint before this scene can pass");
+        Assert.IsTrue(tour.UsesBackbufferCaptureForAudit,
+            "Court evidence includes UI Toolkit; Camera.Render screenshots would omit the hearing");
+    }
+
+    [Test]
+    public void ShippingCourtHasPlayerFacingHearingInputAndPhysicalPresentation()
+    {
+        GameObject systems = GameObject.Find("SceneSystems");
+        Assert.IsNotNull(systems);
+        Assert.IsNotNull(systems.GetComponent<GmCourtHud>());
+        Assert.IsNotNull(systems.GetComponent<GmCourtInput>());
+        Assert.IsNotNull(systems.GetComponent<GmCourtPresenter>());
     }
 
     [Test]

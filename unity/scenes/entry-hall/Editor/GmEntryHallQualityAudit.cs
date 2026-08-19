@@ -96,8 +96,8 @@ public static class GmEntryHallQualityAudit
             issues.Add("AtticHatchKey is missing");
         if (GameObject.Find("AtticLadder") == null)
             issues.Add("AtticLadder is missing");
-        if (GameObject.Find("MirrorShard_2") == null)
-            issues.Add("MirrorShard_2 prop is missing");
+        if (GameObject.Find("MirrorShard_2") != null)
+            issues.Add("retired attic MirrorShard_2 proxy remains; Shard #2 now belongs to Court");
         if (GameObject.Find("CellarVault") == null)
             issues.Add("CellarVault is missing");
         if (GameObject.Find("CellarStairs") == null)

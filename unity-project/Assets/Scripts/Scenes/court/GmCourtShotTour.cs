@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Collections;
 using UnityEngine;
 #if UNITY_EDITOR
 using UnityEditor;
@@ -20,16 +21,44 @@ public sealed class GmCourtShotTour : GmSceneReviewTour
     };
 
     protected override IReadOnlyList<GmReviewShot> ReviewShots => Shots;
+    protected override bool CaptureReviewBackbuffer => true;
 
-    protected override void BeforeTour() => GmRunStore.BeginNewRun();
+    protected override void BeforeTour()
+    {
+        GmRunStore.BeginNewRun();
+        FindAnyObjectByType<GmCourtController>()?.StartHearing();
+    }
 
     protected override void BeforeShot(GmReviewShot shot)
     {
+        GmCourtController court = FindAnyObjectByType<GmCourtController>();
+        if (shot.Name == "05-gavel-tarnish-tell" && court != null)
+        {
+            GmRunStore.BeginNewRun();
+            GmRunStore.RaiseCorruption("Court review tier 2");
+            GmRunStore.RaiseCorruption("Court review tier 3");
+            court.StartHearing();
+            court.SelectEvidence(2); court.PresentSelectedEvidence();
+            court.SelectEvidence(1); court.PresentSelectedEvidence();
+            court.SelectEvidence(4); court.PresentSelectedEvidence();
+        }
+        if (shot.Name == "06-shard2-placement" && court != null)
+            court.CollectEvidenceShard();
         if (shot.Name != "09-verdict-passage-open") return;
         GmRunStore.CompleteRoom("court", countsAsTableGame: false);
         foreach (var exit in FindObjectsByType<GmSequenceExit>(FindObjectsInactive.Include,
                      FindObjectsSortMode.None))
             exit.SnapOpenForReview();
+    }
+
+    protected override IEnumerator BeforeShotSettled(GmReviewShot shot)
+    {
+        // UI Toolkit may need several panel updates after a staged state change before its text
+        // geometry and flex layout are safe to capture at the current window size.
+        yield return null;
+        yield return null;
+        yield return null;
+        yield return null;
     }
 }
 
