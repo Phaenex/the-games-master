@@ -1,6 +1,12 @@
 {
   "$comment": "Unity packages this repo's synced sources need in order to COMPILE. The Unity project is not a git repository, so its Packages/manifest.json is not version controlled and a rebuilt or restored project silently loses these. checked by scripts/check-unity-packages.mjs.",
   "packages": {
+    "com.nyx.gamecraft": {
+      "version": "file:../../../../gamecraft-engine",
+      "neededBy": "the reusable game-definition, adapter, composition, rule, and verification boundary",
+      "why": "The Games Master is the proving consumer for the standalone GameCraft Unity package.",
+      "note": "The local sibling link keeps development independent of GitHub credentials; switch to the private v0.1.0 tag after a clean authenticated consumer install passes."
+    },
     "com.unity.ai.navigation": {
       "version": "2.0.13",
       "neededBy": "unity/scenes/wend-hill-prologue/Editor/GmWendNavMesh.cs",

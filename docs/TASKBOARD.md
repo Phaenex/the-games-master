@@ -35,20 +35,21 @@ Overall (Unity/Steam)   [██████░░░░░░░░░░░░�
 Full architecture and evidence: `docs/GAME-ENGINE-SEPARATION-PLAN-2026-08-19.md`.
 
 ```
-Engine separation        [██░░░░░░░░░░░░░░░░░░]  10%  boundary known; package extraction not started
+Engine separation        [███████░░░░░░░░░░░░░]  35%  package and private repo proven; legacy migration remains
 Boundary audit           [████████████████████] 100%  61 runtime files classified and ratcheted
-Portable runtime package [░░░░░░░░░░░░░░░░░░░░]   0%  no assembly definition yet
-Clean-room sample game   [░░░░░░░░░░░░░░░░░░░░]   0%  required before reuse claim
+Portable runtime package [████████░░░░░░░░░░░░]  40%  neutral foundation installed; 24 legacy candidates have not moved
+Clean-room sample game   [████░░░░░░░░░░░░░░░░]  20%  sample source exists; standalone proof still required
+Versioned engine repo    [██████████████░░░░░░]  70%  private v0.1.0 pushed; clean remote consumer install remains
 ```
 
 | # | Task | Status | TEST |
 |---|---|---|---|
 | ENG0 | Classify runtime ownership and prevent new unowned coupling | DONE 2026-08-19 | `npm run unity:engine:audit` and `npm run test:fast` |
 | ENG1 | Move the 24 closed runtime candidates into neutral namespaces and assembly definitions, preserving serialized GUIDs | TODO | Unity compile, EditMode, PlayMode, source sync, all registered audits |
-| ENG2 | Package shared Runtime, Editor, tests, docs, and samples as `com.nyx.gamecraft` | TODO | package install into this project from a clean Library |
+| ENG2 | Create and install the standalone Runtime, Editor, tests, docs, schema, CI, and sample repository as `com.nyx.gamecraft` | DONE 2026-08-19 | package policy, consumer Unity compile, package EditMode tests |
 | ENG3 | Replace game knowledge with player, save, scene, input, UI, audio, and telemetry adapters | TODO | The Games Master full build and save recovery remain identical |
 | ENG4 | Build a clean-room sample with different scenes, tone, controls, and save data | TODO | scaffold through standalone proof without any Games Master assembly |
-| ENG5 | Move the proven package to a versioned repository | TODO | pinned package version, migration notes, changelog, clean consumer install |
+| ENG5 | Move the package to a versioned repository and prove remote consumption | WIP | private `v0.1.0`, migration notes, and changelog exist; pinned remote clean-consumer install remains |
 
 ## Why this order (four deliberate departures from phase numbering)
 

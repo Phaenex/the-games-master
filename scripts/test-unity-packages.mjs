@@ -6,6 +6,11 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const expectedVersion = '1.4.1';
 const packageName = 'com.unity.animation.rigging';
+const gamecraftName = 'com.nyx.gamecraft';
+const gamecraftPaths = {
+  'unity-project': 'file:../../../../gamecraft-engine',
+  'unity/project': 'file:../../../../gamecraft-engine',
+};
 
 const required = JSON.parse(readFileSync(path.join(repoRoot, 'unity', 'required-packages.json'), 'utf8'));
 assert.equal(required.packages?.[packageName]?.version, expectedVersion,
@@ -22,6 +27,16 @@ for (const projectRoot of ['unity-project', 'unity/project']) {
     `${projectRoot} lock must keep Animation Rigging as a direct dependency`);
   assert.equal(lock.dependencies?.[packageName]?.source, 'registry',
     `${projectRoot} lock must resolve Animation Rigging from Unity's registry`);
+  assert.equal(manifest.dependencies?.[gamecraftName], gamecraftPaths[projectRoot],
+    `${projectRoot} manifest must link the standalone GameCraft repository`);
+  assert.ok(manifest.testables?.includes(gamecraftName),
+    `${projectRoot} must run GameCraft package tests`);
+  assert.equal(lock.dependencies?.[gamecraftName]?.version, gamecraftPaths[projectRoot],
+    `${projectRoot} lock must resolve the expected GameCraft path`);
+  assert.equal(lock.dependencies?.[gamecraftName]?.depth, 0,
+    `${projectRoot} lock must keep GameCraft as a direct dependency`);
+  assert.equal(lock.dependencies?.[gamecraftName]?.source, 'local',
+    `${projectRoot} lock must resolve GameCraft from the sibling repository`);
 }
 
-console.log('Unity package contract tests passed (Animation Rigging 1.4.1 pinned in both projects).');
+console.log('Unity package contract tests passed (Animation Rigging and GameCraft pinned in both projects).');

@@ -99,10 +99,10 @@ without pretending they are interchangeable.
 ```
 E0  Boundary manifest and ratchet       [████████████████████] 100%
 E1  Namespaces and assembly definitions [░░░░░░░░░░░░░░░░░░░░]   0%
-E2  Embedded Unity package              [░░░░░░░░░░░░░░░░░░░░]   0%
+E2  Unity package foundation            [████████████████████] 100%
 E3  Games Master adapter and data        [░░░░░░░░░░░░░░░░░░░░]   0%
 E4  Clean-room sample game              [░░░░░░░░░░░░░░░░░░░░]   0%
-E5  Separate versioned repository       [░░░░░░░░░░░░░░░░░░░░]   0%
+E5  Separate versioned repository       [██████████████░░░░░░]  70%
 ```
 
 ### E1, establish compiler boundaries
@@ -117,6 +117,12 @@ assembly. Do not rename serialized MonoBehaviours and move their files in the sa
 Use Unity's current package layout with `package.json`, `Runtime`, `Editor`, `Tests/Runtime`,
 `Tests/Editor`, `Documentation~`, and `Samples~`. The package owns no Games Master assets, scene IDs,
 cue names, or story text.
+
+The standalone repository now exists at `/Users/damato/Projects/gamecraft-engine` and is installed as
+the local `com.nyx.gamecraft` package in both tracked Unity manifests. Its neutral runtime, editor,
+test, schema, documentation, CI, and Minimal Game foundations compile inside The Games Master. The
+24 closed legacy candidates and their editor consumers remain E1 work. They must move without
+breaking serialized scene references.
 
 ### E3, replace knowledge with adapters
 
@@ -137,9 +143,11 @@ claim instead of a hope.
 
 ### E5, separate the repository
 
-Only after the sample passes should the embedded package move to its own repository and semantic
-version. The game pins a version and upgrades deliberately. Keep migrations and a changelog from the
-first external version.
+Nick directed the repository split before the clean-room sample was complete. The private repository
+is now at [Phaenex/gamecraft-engine](https://github.com/Phaenex/gamecraft-engine), with `v0.1.0`,
+migration notes, and a changelog. The game still uses the sibling checkout so local Unity builds do
+not depend on GitHub credentials. E5 closes after a clean consumer installs the private tag and the
+game deliberately switches from the local development link to a pinned release.
 
 ## Current Unity alignment
 
