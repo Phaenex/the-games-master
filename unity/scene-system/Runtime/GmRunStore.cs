@@ -22,6 +22,8 @@ public static class GmRunStore
     static ulong parlorOutcomeNamespace;
     static ulong parlorAppliedOutcomeSequence;
     static string parlorRestoreError = string.Empty;
+    static GmBonesMatchSnapshot bonesMatch;
+    static string bonesRestoreError = string.Empty;
     static string houseRunId = string.Empty;
 
     // A room being complete and a table game being complete are deliberately separate facts.
@@ -58,6 +60,8 @@ public static class GmRunStore
     public static ulong ParlorAppliedOutcomeSequence => parlorAppliedOutcomeSequence;
     public static string ParlorRestoreError => parlorRestoreError;
     public static string ParlorPresentationRestoreError { get; private set; } = string.Empty;
+    public static bool HasBonesMatch => bonesMatch != null;
+    public static string BonesRestoreError => bonesRestoreError;
     public static string HouseRunId => houseRunId;
 
     public static void SetHouseRunPointer(string runId)
@@ -73,6 +77,52 @@ public static class GmRunStore
 
     /// <summary>Returns an owned copy so callers cannot mutate the run behind the store.</summary>
     public static GmParlorMatchSnapshot GetParlorMatchSnapshot() => parlorMatch?.DeepCopy();
+
+    public static GmBonesMatchSnapshot GetBonesMatchSnapshot() => CloneBonesSnapshot(bonesMatch);
+
+    internal static bool TryCreateBonesSaveData(GmBonesMatchSnapshot snapshot,
+        out GmSaveData candidate, out string error)
+    {
+        candidate = null;
+        if (!GmBonesMatch.TryRestore(snapshot, out GmBonesMatch restored, out error)) return false;
+        GmBonesMatchSnapshot current = restored.ExportSnapshot();
+        candidate = ToSaveData();
+        candidate.bonesMatch = CloneBonesSnapshot(current);
+
+        bool challenged = current.session != null && current.session.intervention != null &&
+            current.session.intervention.resolved && current.session.intervention.challenged;
+        if (challenged && !candidate.discoveredClues.Any(value =>
+                string.Equals(value, "bones-loaded-six-intervention", StringComparison.OrdinalIgnoreCase)))
+            candidate.discoveredClues.Add("bones-loaded-six-intervention");
+
+        if (restored.HasResult && !candidate.completedRooms.Any(value =>
+                string.Equals(value, "bones", StringComparison.OrdinalIgnoreCase)))
+        {
+            candidate.completedRooms.Add("bones");
+            if (!candidate.completedTableGames.Any(value =>
+                    string.Equals(value, "bones", StringComparison.OrdinalIgnoreCase)))
+                candidate.completedTableGames.Add("bones");
+            if (restored.Result == GmBonesMatchResult.PlayerWin) candidate.defiance += 2;
+            else if (restored.Result == GmBonesMatchResult.AldricWin)
+            {
+                candidate.compliance += 2;
+                candidate.sanity = Mathf.Clamp01(candidate.sanity - 0.05f);
+            }
+            else
+            {
+                candidate.defiance += 1;
+                candidate.compliance += 1;
+            }
+        }
+        error = string.Empty;
+        return true;
+    }
+
+    internal static void CommitBonesSaveData(GmSaveData candidate)
+    {
+        if (candidate == null) throw new ArgumentNullException(nameof(candidate));
+        LoadFromSaveData(candidate);
+    }
 
     public static GmParlorPresentationState GetParlorPresentationState() =>
         parlorPresentation?.DeepCopy() ?? GmParlorPresentationState.Empty();
@@ -411,6 +461,8 @@ public static class GmRunStore
         parlorOutcomeNamespace = 0;
         parlorAppliedOutcomeSequence = 0;
         parlorRestoreError = string.Empty;
+        bonesMatch = null;
+        bonesRestoreError = string.Empty;
         ParlorPresentationRestoreError = string.Empty;
         houseRunId = string.Empty;
         CurrentSceneId = "wend-hill-prologue";
@@ -438,6 +490,7 @@ public static class GmRunStore
             parlorPresentation = PresentationForSave(),
             parlorOutcomeNamespace = parlorOutcomeNamespace,
             parlorAppliedOutcomeSequence = parlorAppliedOutcomeSequence,
+            bonesMatch = CloneBonesSnapshot(bonesMatch),
             houseRunPointerVersion = string.IsNullOrEmpty(houseRunId) ? 0 : 1,
             houseRunId = houseRunId,
             timestampUtc = DateTime.UtcNow.ToString("o")
@@ -561,6 +614,11 @@ public static class GmRunStore
                  pending != acknowledged + 1))
                 parlorRestoreError = $"Parlor pending outcome {pending} is not the next durable sequence after acknowledged {acknowledged}";
         }
+        bonesMatch = IsUnityNullBonesSnapshotPlaceholder(data.bonesMatch)
+            ? null : CloneBonesSnapshot(data.bonesMatch);
+        bonesRestoreError = string.Empty;
+        if (bonesMatch != null && !GmBonesMatch.TryRestore(bonesMatch, out _, out string bonesError))
+            bonesRestoreError = bonesError;
         OnStateChanged?.Invoke();
     }
 
@@ -713,6 +771,44 @@ public static class GmRunStore
             (snapshot.aldricHand == null || snapshot.aldricHand.Count == 0) &&
             (snapshot.revealedAldricCards == null || snapshot.revealedAldricCards.Count == 0);
     }
+
+    static bool IsUnityNullBonesSnapshotPlaceholder(GmBonesMatchSnapshot snapshot)
+    {
+        return snapshot != null && snapshot.randomState == 0 && snapshot.round == 0 &&
+            snapshot.playerDecisionCount == 0 && snapshot.playerTotal == 0 &&
+            snapshot.aldricTotal == 0 && snapshot.replayIndex == 0 &&
+            string.IsNullOrEmpty(snapshot.stateFingerprint) && snapshot.session == null &&
+            (snapshot.currentDice == null || snapshot.currentDice.Length == 0) &&
+            (snapshot.replayDice == null || snapshot.replayDice.Length == 0) &&
+            (snapshot.actionJournal == null || snapshot.actionJournal.Length == 0) &&
+            snapshot.interventionReceipt == null;
+    }
+
+    static GmBonesMatchSnapshot CloneBonesSnapshot(GmBonesMatchSnapshot snapshot)
+    {
+        if (snapshot == null) return null;
+        GmBonesMatchSnapshot clone =
+            JsonUtility.FromJson<GmBonesMatchSnapshot>(JsonUtility.ToJson(snapshot));
+        if (clone.interventionReceipt != null && clone.interventionReceipt.round == 0 &&
+            clone.interventionReceipt.lockedSlot == 0 && clone.interventionReceipt.changedSlot == 0 &&
+            clone.interventionReceipt.aldricTotalBeforeTurn == 0 &&
+            clone.interventionReceipt.honestAldricTotal == 0 &&
+            clone.interventionReceipt.alteredAldricTotal == 0 &&
+            (clone.interventionReceipt.honestReroll == null ||
+             clone.interventionReceipt.honestReroll.Length == 0) &&
+            (clone.interventionReceipt.displayedReroll == null ||
+             clone.interventionReceipt.displayedReroll.Length == 0))
+            clone.interventionReceipt = null;
+        if (clone.session != null && clone.session.intervention != null &&
+            clone.session.intervention.decisionIndex == 0 &&
+            string.IsNullOrEmpty(clone.session.intervention.interventionId) &&
+            string.IsNullOrEmpty(clone.session.intervention.beforeFingerprint) &&
+            string.IsNullOrEmpty(clone.session.intervention.alteredFingerprint) &&
+            !clone.session.intervention.resolved && !clone.session.intervention.challenged &&
+            string.IsNullOrEmpty(clone.session.intervention.resolvedFingerprint))
+            clone.session.intervention = null;
+        return clone;
+    }
 }
 
 [Serializable]
@@ -733,6 +829,7 @@ public sealed class GmSaveData
     public GmParlorPresentationState parlorPresentation;
     public ulong parlorOutcomeNamespace;
     public ulong parlorAppliedOutcomeSequence;
+    public GmBonesMatchSnapshot bonesMatch;
     public int houseRunPointerVersion;
     public string houseRunId = "";
     public int accessibilitySettingsVersion;

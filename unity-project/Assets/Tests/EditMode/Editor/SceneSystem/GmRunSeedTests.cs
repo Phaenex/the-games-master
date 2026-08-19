@@ -66,4 +66,16 @@ public sealed class GmRunSeedTests
         float[] second = Draw();
         CollectionAssert.AreEqual(first, second);
     }
+
+    [Test]
+    public void ScalarStreamSeedPreservesTheExistingForStreamSequence()
+    {
+        GmRunSeed.ForceForReview(8837);
+        int scalar = GmRunSeed.SeedForStream("toll-jitter");
+        Assert.That(scalar, Is.EqualTo(-770589582));
+        var fromPublicScalar = new System.Random(scalar);
+        var legacyFactory = GmRunSeed.ForStream("toll-jitter");
+        for (int index = 0; index < 20; index++)
+            Assert.That(fromPublicScalar.Next(), Is.EqualTo(legacyFactory.Next()));
+    }
 }

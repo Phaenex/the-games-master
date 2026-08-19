@@ -42,9 +42,11 @@ public static class GmRunSeed
     /// produces the same sequence -- the property every seeded-replay test in this system relies on.
     public static System.Random ForStream(string streamName)
     {
-        int combined = unchecked(Value * 397 + StableHash(streamName ?? ""));
-        return new System.Random(combined);
+        return new System.Random(SeedForStream(streamName));
     }
+
+    public static int SeedForStream(string streamName) =>
+        unchecked(Value * 397 + StableHash(streamName ?? ""));
 
     static int StableHash(string s)
     {
