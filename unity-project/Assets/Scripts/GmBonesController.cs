@@ -20,7 +20,18 @@ public enum GmBonesActionError
 /// <summary>Visual-free durable command adapter for the Bones table.</summary>
 public sealed class GmBonesController
 {
-    public GmBonesMatch Match { get; private set; }
+    GmBonesMatch match;
+
+    public bool IsInitialized => match != null;
+    public GmBonesMatchSnapshot Snapshot => match?.ExportSnapshot();
+    public GmBonesMatchPhase Phase => match != null
+        ? match.Phase
+        : throw new InvalidOperationException("the Bones controller is not initialized");
+    public bool HasResult => match != null && match.HasResult;
+    public GmBonesMatchResult Result => match != null
+        ? match.Result
+        : throw new InvalidOperationException("the Bones controller is not initialized");
+    public int PlayerDecisionCount => match?.PlayerDecisionCount ?? 0;
     public int FocusIndex { get; private set; }
     public string LastPersistenceError { get; private set; } = string.Empty;
     public string LastRestoreError { get; private set; } = string.Empty;
@@ -30,7 +41,7 @@ public sealed class GmBonesController
 
     public GmBonesInitializeResult InitializeOrRestore()
     {
-        if (Match != null) return GmBonesInitializeResult.AlreadyInitialized;
+        if (match != null) return GmBonesInitializeResult.AlreadyInitialized;
         LastRestoreError = string.Empty;
         if (!string.IsNullOrEmpty(GmRunStore.BonesRestoreError))
         {
@@ -46,7 +57,7 @@ public sealed class GmBonesController
                 LastRestoreError = error;
                 return GmBonesInitializeResult.CorruptSavedState;
             }
-            Match = restored;
+            match = restored;
             FocusIndex = 0;
             return GmBonesInitializeResult.Restored;
         }
@@ -56,7 +67,7 @@ public sealed class GmBonesController
         if (!TryPersist(started.ExportSnapshot(), out GmSaveData candidate))
             return GmBonesInitializeResult.PersistenceFailed;
         GmRunStore.CommitBonesSaveData(candidate);
-        Match = started;
+        match = started;
         FocusIndex = 0;
         return GmBonesInitializeResult.StartedNew;
     }
@@ -69,41 +80,41 @@ public sealed class GmBonesController
 
     public GmBonesActionError ConfirmFocusedAction()
     {
-        if (Match == null) return GmBonesActionError.NotInitialized;
-        if (Match.Phase == GmBonesMatchPhase.AwaitingIntervention)
-            return Apply(() => Match.TryResolveIntervention(false, out _));
-        if (Match.Phase != GmBonesMatchPhase.AwaitingPlayerChoice)
+        if (match == null) return GmBonesActionError.NotInitialized;
+        if (match.Phase == GmBonesMatchPhase.AwaitingIntervention)
+            return Apply(() => match.TryResolveIntervention(false, out _));
+        if (match.Phase != GmBonesMatchPhase.AwaitingPlayerChoice)
             return GmBonesActionError.WrongPhase;
         GmBonesChoice choice = FocusIndex == 0 ? GmBonesChoice.Bank : GmBonesChoice.Press;
         int lockIndex = FocusIndex == 0 ? -1 : FocusIndex - 1;
-        return Apply(() => Match.TryChoose(choice, lockIndex, out _));
+        return Apply(() => match.TryChoose(choice, lockIndex, out _));
     }
 
     public GmBonesActionError CallTell()
     {
-        if (Match == null) return GmBonesActionError.NotInitialized;
-        if (Match.Phase != GmBonesMatchPhase.AwaitingIntervention)
+        if (match == null) return GmBonesActionError.NotInitialized;
+        if (match.Phase != GmBonesMatchPhase.AwaitingIntervention)
             return GmBonesActionError.WrongPhase;
-        return Apply(() => Match.TryResolveIntervention(true, out _));
+        return Apply(() => match.TryResolveIntervention(true, out _));
     }
 
     GmBonesActionError Apply(Func<bool> transition)
     {
-        GmBonesMatchSnapshot before = Match.ExportSnapshot();
+        GmBonesMatchSnapshot before = match.ExportSnapshot();
         int focusBefore = FocusIndex;
-        bool wasComplete = Match.HasResult;
+        bool wasComplete = match.HasResult;
         if (!transition()) return GmBonesActionError.WrongPhase;
-        if (!TryPersist(Match.ExportSnapshot(), out GmSaveData candidate))
+        if (!TryPersist(match.ExportSnapshot(), out GmSaveData candidate))
         {
             GmBonesMatch.TryRestore(before, out GmBonesMatch restored, out _);
-            Match = restored;
+            match = restored;
             FocusIndex = focusBefore;
             return GmBonesActionError.PersistenceFailed;
         }
 
         GmRunStore.CommitBonesSaveData(candidate);
         OnStateChanged?.Invoke();
-        if (!wasComplete && Match.TryGetResult(out GmBonesMatchResult result)) OnCompleted?.Invoke(result);
+        if (!wasComplete && match.TryGetResult(out GmBonesMatchResult result)) OnCompleted?.Invoke(result);
         return GmBonesActionError.None;
     }
 

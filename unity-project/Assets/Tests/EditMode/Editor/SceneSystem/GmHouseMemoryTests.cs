@@ -238,6 +238,72 @@ public sealed class GmHouseMemoryTests
     }
 
     [Test]
+    public void TerminalCheckpointPreservesExplicitEmptyBonesEvidenceAsCorrupt()
+    {
+        GmHouseMemoryStore store = OpenStore();
+        Assert.That(store.TryAllocateCampaignRun(GmParlorAdaptiveMode.Ordinary, 21,
+            out GmHouseRunGeneration run, out string error), Is.True, error);
+        GmParlorBehaviorAccumulator behavior = CompletedAccumulator(run.FrozenPackage);
+        Assert.That(store.TryCreateReceipt(run, GmEndingType.TrappedLoop, behavior,
+            out GmHouseTerminalReceipt receipt, out error), Is.True, error);
+        GmBonesMatchSnapshot corrupt = new GmBonesMatch(23UL, null).ExportSnapshot();
+        corrupt.interventionReceipt = new GmBonesInterventionReceipt();
+        var checkpoint = new GmSaveData
+        {
+            currentSceneId = "labyrinth",
+            lastCheckpoint = "ending",
+            houseRunId = run.Identity.RunId,
+            houseRunPointerVersion = 1,
+            bonesMatch = corrupt
+        };
+        Assert.That(store.TryCommitPreparedRun(run, receipt, checkpoint,
+            out _, out error), Is.True, error);
+
+        var restarted = new GmHouseMemoryStore(directory);
+        Assert.That(restarted.TryOpenExisting(out _, out error), Is.True, error);
+        var recovery = new GmHouseTerminalProtocol(restarted);
+        Assert.That(recovery.TryRecover(run.Identity.RunId,
+            out GmHouseRunGeneration loaded, out error), Is.True, error);
+        GmRunStore.LoadFromSaveData(loaded.TerminalCheckpoint);
+        Assert.That(GmRunStore.HasBonesMatch, Is.True);
+        Assert.That(GmRunStore.BonesRestoreError, Is.Not.Empty);
+    }
+
+    [Test]
+    public void TerminalCheckpointPreservesValidModernBonesEnvelope()
+    {
+        GmHouseMemoryStore store = OpenStore();
+        Assert.That(store.TryAllocateCampaignRun(GmParlorAdaptiveMode.Ordinary, 22,
+            out GmHouseRunGeneration run, out string error), Is.True, error);
+        GmParlorBehaviorAccumulator behavior = CompletedAccumulator(run.FrozenPackage);
+        Assert.That(store.TryCreateReceipt(run, GmEndingType.TrappedLoop, behavior,
+            out GmHouseTerminalReceipt receipt, out error), Is.True, error);
+        GmBonesMatchSnapshot snapshot = new GmBonesMatch(29UL, null).ExportSnapshot();
+        var checkpoint = new GmSaveData
+        {
+            currentSceneId = "labyrinth",
+            lastCheckpoint = "ending",
+            houseRunId = run.Identity.RunId,
+            houseRunPointerVersion = 1,
+            bonesEnvelopeVersion = 1,
+            bonesPayloadPresent = true,
+            bonesMatch = snapshot
+        };
+        Assert.That(store.TryCommitPreparedRun(run, receipt, checkpoint,
+            out _, out error), Is.True, error);
+
+        var restarted = new GmHouseMemoryStore(directory);
+        Assert.That(restarted.TryOpenExisting(out _, out error), Is.True, error);
+        var recovery = new GmHouseTerminalProtocol(restarted);
+        Assert.That(recovery.TryRecover(run.Identity.RunId,
+            out GmHouseRunGeneration loaded, out error), Is.True, error);
+        GmRunStore.LoadFromSaveData(loaded.TerminalCheckpoint);
+        Assert.That(GmRunStore.BonesRestoreError, Is.Empty);
+        Assert.That(GmRunStore.GetBonesMatchSnapshot().stateFingerprint,
+            Is.EqualTo(snapshot.stateFingerprint));
+    }
+
+    [Test]
     public void OutcomeSequenceOtherThanOneIsRejectedBeforeProfileMutation()
     {
         GmHouseMemoryStore store = OpenStore();

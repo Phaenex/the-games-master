@@ -1028,8 +1028,7 @@ static class GmHouseArtifactCodec
     static byte[] EncodeCheckpoint(GmSaveData checkpoint)
     {
         if (checkpoint == null) return Array.Empty<byte>();
-        GmSaveData owned = UnityEngine.JsonUtility.FromJson<GmSaveData>(
-            UnityEngine.JsonUtility.ToJson(checkpoint));
+        GmSaveData owned = GmSaveData.FromJson(checkpoint.ToJson());
         // Preferences have their own durable authority. The House terminal checkpoint contains
         // only resumable run state, never a second copy of accessibility or wall-clock evidence.
         owned.accessibilitySettingsVersion = 0;
@@ -1040,7 +1039,7 @@ static class GmHouseArtifactCodec
         owned.accessibilityHighContrast = false;
         owned.accessibilityTextScale = 1f;
         owned.timestampUtc = string.Empty;
-        return Encoding.UTF8.GetBytes(UnityEngine.JsonUtility.ToJson(owned));
+        return Encoding.UTF8.GetBytes(owned.ToJson());
     }
 
     static GmSaveData DecodeCheckpoint(byte[] bytes)
@@ -1048,7 +1047,7 @@ static class GmHouseArtifactCodec
         if (bytes == null || bytes.Length == 0) return null;
         if (bytes.Length > 1024 * 1024) throw new InvalidDataException("terminal checkpoint is too large");
         string json = new UTF8Encoding(false, true).GetString(bytes);
-        GmSaveData checkpoint = UnityEngine.JsonUtility.FromJson<GmSaveData>(json);
+        GmSaveData checkpoint = GmSaveData.FromJson(json);
         if (checkpoint == null) throw new InvalidDataException("terminal checkpoint is invalid");
         return checkpoint;
     }
@@ -2295,7 +2294,7 @@ public sealed class GmHouseMemoryStore
       AcknowledgedProfileCommitHash=run.AcknowledgedProfileCommitHash,
       IsolatedRecovery=run.IsolatedRecovery };
     static GmSaveData CloneCheckpoint(GmSaveData checkpoint) => checkpoint==null?null:
-        UnityEngine.JsonUtility.FromJson<GmSaveData>(UnityEngine.JsonUtility.ToJson(checkpoint));
+        GmSaveData.FromJson(checkpoint.ToJson());
 
     bool Success(out string error) { lastError=error=string.Empty; return true; }
     bool Failure(Exception ex,out string error) { lastError=error=ex.Message; return false; }

@@ -58,6 +58,17 @@ public sealed class GmBonesMatchSnapshot
     public string[] actionJournal = Array.Empty<string>();
     public string stateFingerprint = string.Empty;
     public GameSessionSnapshot session;
+
+    public GmBonesMatchSnapshot DeepCopy()
+    {
+        GmBonesMatchSnapshot copy = UnityEngine.JsonUtility.FromJson<GmBonesMatchSnapshot>(
+            UnityEngine.JsonUtility.ToJson(this));
+        if (interventionReceipt == null) copy.interventionReceipt = null;
+        if (session == null) copy.session = null;
+        else if (session.intervention == null && copy.session != null)
+            copy.session.intervention = null;
+        return copy;
+    }
 }
 
 public sealed class GmBonesMatch

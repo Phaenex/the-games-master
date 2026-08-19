@@ -75,7 +75,7 @@ public sealed class GmBonesControllerTests
         var controller = new GmBonesController();
         controller.InitializeOrRestore();
         controller.MoveFocus(2);
-        string matchBefore = controller.Match.StateFingerprint;
+        string matchBefore = controller.Snapshot.stateFingerprint;
         string storeBefore = GmRunStore.GetBonesMatchSnapshot().stateFingerprint;
         int focusBefore = controller.FocusIndex;
         int stateEvents = 0;
@@ -86,7 +86,7 @@ public sealed class GmBonesControllerTests
         backend.Fail = true;
         LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("injected bones failure"));
         Assert.That(controller.ConfirmFocusedAction(), Is.EqualTo(GmBonesActionError.PersistenceFailed));
-        Assert.That(controller.Match.StateFingerprint, Is.EqualTo(matchBefore));
+        Assert.That(controller.Snapshot.stateFingerprint, Is.EqualTo(matchBefore));
         Assert.That(GmRunStore.GetBonesMatchSnapshot().stateFingerprint, Is.EqualTo(storeBefore));
         Assert.That(controller.FocusIndex, Is.EqualTo(focusBefore));
         Assert.That(stateEvents, Is.Zero);
@@ -133,7 +133,7 @@ public sealed class GmBonesControllerTests
             controller.LastRestoreError);
         float sanityBefore = GmRunStore.Sanity;
         Assert.That(controller.ConfirmFocusedAction(), Is.EqualTo(GmBonesActionError.None));
-        Assert.That(controller.Match.Result, Is.EqualTo(expected));
+        Assert.That(controller.Result, Is.EqualTo(expected));
         Assert.That(GmRunStore.Defiance, Is.EqualTo(defiance));
         Assert.That(GmRunStore.Compliance, Is.EqualTo(compliance));
         Assert.That(GmRunStore.Sanity, Is.EqualTo(sanityBefore + sanityDelta).Within(0.001f));
@@ -184,20 +184,47 @@ public sealed class GmBonesControllerTests
         Assert.That(File.ReadAllText(registryPath), Does.Not.Contain("\"bones\""));
     }
 
+    [Test]
+    public void PublicSnapshotCannotAdvanceOrMutateControllerStoreDiskOrEvents()
+    {
+        var controller = new GmBonesController();
+        Assert.That(controller.InitializeOrRestore(), Is.EqualTo(GmBonesInitializeResult.StartedNew));
+        string diskBefore = File.Exists(path) ? File.ReadAllText(path) : backend.LastJson;
+        string fingerprint = controller.Snapshot.stateFingerprint;
+        int stateEvents = 0;
+        int completionEvents = 0;
+        controller.OnStateChanged += () => stateEvents++;
+        controller.OnCompleted += _ => completionEvents++;
+
+        GmBonesMatchSnapshot exposed = controller.Snapshot;
+        exposed.stateFingerprint = "caller-forged";
+        exposed.currentDice[0] = exposed.currentDice[0] == 6 ? 1 : 6;
+        exposed.actionJournal = new[] { "round-1:bank" };
+
+        Assert.That(typeof(GmBonesController).GetProperty("Match"), Is.Null);
+        Assert.That(controller.Snapshot.stateFingerprint, Is.EqualTo(fingerprint));
+        Assert.That(controller.Phase, Is.EqualTo(GmBonesMatchPhase.AwaitingPlayerChoice));
+        Assert.That(controller.PlayerDecisionCount, Is.Zero);
+        Assert.That(GmRunStore.GetBonesMatchSnapshot().stateFingerprint, Is.EqualTo(fingerprint));
+        Assert.That(File.Exists(path) ? File.ReadAllText(path) : backend.LastJson, Is.EqualTo(diskBefore));
+        Assert.That(stateEvents, Is.Zero);
+        Assert.That(completionEvents, Is.Zero);
+    }
+
     void AssertDiskResumes(GmBonesController controller)
     {
-        string fingerprint = controller.Match.StateFingerprint;
+        string fingerprint = controller.Snapshot.stateFingerprint;
         ReloadStoreFromDisk();
         var restored = new GmBonesController();
         Assert.That(restored.InitializeOrRestore(), Is.EqualTo(GmBonesInitializeResult.Restored),
             restored.LastRestoreError);
-        Assert.That(restored.Match.StateFingerprint, Is.EqualTo(fingerprint));
+        Assert.That(restored.Snapshot.stateFingerprint, Is.EqualTo(fingerprint));
     }
 
     void ReloadStoreFromDisk()
     {
         string json = File.Exists(path) ? File.ReadAllText(path) : backend.LastJson;
-        GmSaveData data = JsonUtility.FromJson<GmSaveData>(json);
+        GmSaveData data = GmSaveData.FromJson(json);
         GmRunStore.BeginNewRun();
         GmRunStore.LoadFromSaveData(data);
     }

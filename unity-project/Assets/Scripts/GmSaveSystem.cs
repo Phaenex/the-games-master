@@ -187,7 +187,7 @@ public static class GmSaveSystem
         try
         {
             if (data == null) throw new ArgumentNullException(nameof(data));
-            string json = JsonUtility.ToJson(data, true);
+            string json = data.ToJson(true);
             generation = writer.Queue(SavePath, json);
             lastError = string.Empty;
             return true;
@@ -262,7 +262,7 @@ public static class GmSaveSystem
                 Debug.LogWarning("[GmSaveSystem] No save file found.");
                 return false;
             }
-            GmSaveData data = JsonUtility.FromJson<GmSaveData>(File.ReadAllText(path));
+            GmSaveData data = GmSaveData.FromJson(File.ReadAllText(path));
             if (data == null)
             {
                 Debug.LogError("[GmSaveSystem] Corrupt save file.");
@@ -304,7 +304,7 @@ public static class GmSaveSystem
 
             FlushSilently();
             if (!File.Exists(SavePath)) return false;
-            GmSaveData data = JsonUtility.FromJson<GmSaveData>(File.ReadAllText(SavePath));
+            GmSaveData data = GmSaveData.FromJson(File.ReadAllText(SavePath));
             if (data == null) return false;
             if (!GmAccessibilitySettings.TryLoadFrom(data)) return false;
             GmAccessibilitySettings.MarkPersistenceDirty();

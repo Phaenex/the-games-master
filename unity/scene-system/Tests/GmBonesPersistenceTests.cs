@@ -13,6 +13,7 @@ public sealed class GmBonesPersistenceTests
     {
         directory = Path.Combine(Path.GetTempPath(), "gm-bones-store-" + Guid.NewGuid().ToString("N"));
         path = Path.Combine(directory, "save.json");
+        Directory.CreateDirectory(directory);
         GmSaveSystem.ConfigureForTests(path);
         GmRunSeed.ForceForReview(2026);
         GmRunStore.BeginNewRun();
@@ -30,8 +31,8 @@ public sealed class GmBonesPersistenceTests
     [Test]
     public void OldJsonWithoutBonesLoadsAsNoMatchAndNewRunClearsBones()
     {
-        GmSaveData old = JsonUtility.FromJson<GmSaveData>("{\"corruptionTier\":3}");
-        Assert.That(() => GmRunStore.LoadFromSaveData(old), Throws.Nothing);
+        File.WriteAllText(path, "{\"corruptionTier\":3}");
+        Assert.That(GmSaveSystem.Load(), Is.True, GmSaveSystem.LastError);
         Assert.That(GmRunStore.HasBonesMatch, Is.False);
         Assert.That(GmRunStore.BonesRestoreError, Is.Empty);
 
@@ -58,6 +59,22 @@ public sealed class GmBonesPersistenceTests
     }
 
     [Test]
+    public void ModernDiskJsonDeclaresEnvelopeAndOmitsInventedNestedEvidence()
+    {
+        var controller = new GmBonesController();
+        Assert.That(controller.InitializeOrRestore(), Is.EqualTo(GmBonesInitializeResult.StartedNew));
+        string json = File.ReadAllText(path);
+
+        StringAssert.Contains("\"bonesEnvelopeVersion\": 1", json);
+        StringAssert.Contains("\"bonesPayloadPresent\": true", json);
+        StringAssert.Contains("\"bonesTurnEvidencePresent\": false", json);
+        StringAssert.Contains("\"bonesSessionEventPresent\": false", json);
+        StringAssert.DoesNotContain("\"interventionReceipt\"", json);
+        StringAssert.DoesNotContain("\"intervention\"", json);
+        Assert.That(GmSaveData.FromJson(json).bonesMatch, Is.Not.Null);
+    }
+
+    [Test]
     public void CorruptBonesSnapshotIsRetainedAndControllerRefusesFreshFallback()
     {
         var match = new GmBonesMatch(9UL, null);
@@ -70,6 +87,51 @@ public sealed class GmBonesPersistenceTests
 
         var controller = new GmBonesController();
         Assert.That(controller.InitializeOrRestore(), Is.EqualTo(GmBonesInitializeResult.CorruptSavedState));
-        Assert.That(controller.Match, Is.Null);
+        Assert.That(controller.Snapshot, Is.Null);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ExplicitEmptyBonesPayloadIsPresentAndCorrupt(bool modernEnvelope)
+    {
+        string envelope = modernEnvelope
+            ? "\"bonesEnvelopeVersion\":1,\"bonesPayloadPresent\":true,"
+            : string.Empty;
+        File.WriteAllText(path, "{" + envelope + "\"bonesMatch\":{}}");
+
+        Assert.That(GmSaveSystem.Load(), Is.True, GmSaveSystem.LastError);
+        Assert.That(GmRunStore.HasBonesMatch, Is.True);
+        Assert.That(GmRunStore.BonesRestoreError, Is.Not.Empty);
+        var controller = new GmBonesController();
+        Assert.That(controller.InitializeOrRestore(),
+            Is.EqualTo(GmBonesInitializeResult.CorruptSavedState));
+    }
+
+    [TestCase("interventionReceipt")]
+    [TestCase("session-intervention")]
+    public void ExplicitEmptyNestedBonesEvidenceRemainsCorruptThroughRealJson(string target)
+    {
+        var match = new GmBonesMatch(19UL, null);
+        var data = new GmSaveData
+        {
+            bonesEnvelopeVersion = 1,
+            bonesPayloadPresent = true,
+            bonesMatch = match.ExportSnapshot()
+        };
+        if (target == "interventionReceipt")
+        {
+            data.bonesTurnEvidencePresent = true;
+            data.bonesMatch.interventionReceipt = new GmBonesInterventionReceipt();
+        }
+        else
+        {
+            data.bonesSessionEventPresent = true;
+        }
+        string json = data.ToJson();
+        File.WriteAllText(path, json);
+
+        Assert.That(GmSaveSystem.Load(), Is.True, GmSaveSystem.LastError);
+        Assert.That(GmRunStore.HasBonesMatch, Is.True);
+        Assert.That(GmRunStore.BonesRestoreError, Is.Not.Empty);
     }
 }

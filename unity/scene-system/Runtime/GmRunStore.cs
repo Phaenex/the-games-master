@@ -23,6 +23,7 @@ public static class GmRunStore
     static ulong parlorAppliedOutcomeSequence;
     static string parlorRestoreError = string.Empty;
     static GmBonesMatchSnapshot bonesMatch;
+    static bool bonesMatchPresent;
     static string bonesRestoreError = string.Empty;
     static string houseRunId = string.Empty;
 
@@ -60,7 +61,7 @@ public static class GmRunStore
     public static ulong ParlorAppliedOutcomeSequence => parlorAppliedOutcomeSequence;
     public static string ParlorRestoreError => parlorRestoreError;
     public static string ParlorPresentationRestoreError { get; private set; } = string.Empty;
-    public static bool HasBonesMatch => bonesMatch != null;
+    public static bool HasBonesMatch => bonesMatchPresent;
     public static string BonesRestoreError => bonesRestoreError;
     public static string HouseRunId => houseRunId;
 
@@ -88,6 +89,10 @@ public static class GmRunStore
         GmBonesMatchSnapshot current = restored.ExportSnapshot();
         candidate = ToSaveData();
         candidate.bonesMatch = CloneBonesSnapshot(current);
+        candidate.bonesEnvelopeVersion = 1;
+        candidate.bonesPayloadPresent = true;
+        candidate.bonesTurnEvidencePresent = current.interventionReceipt != null;
+        candidate.bonesSessionEventPresent = current.session?.intervention != null;
 
         bool challenged = current.session != null && current.session.intervention != null &&
             current.session.intervention.resolved && current.session.intervention.challenged;
@@ -466,6 +471,7 @@ public static class GmRunStore
         parlorAppliedOutcomeSequence = 0;
         parlorRestoreError = string.Empty;
         bonesMatch = null;
+        bonesMatchPresent = false;
         bonesRestoreError = string.Empty;
         ParlorPresentationRestoreError = string.Empty;
         houseRunId = string.Empty;
@@ -494,6 +500,10 @@ public static class GmRunStore
             parlorPresentation = PresentationForSave(),
             parlorOutcomeNamespace = parlorOutcomeNamespace,
             parlorAppliedOutcomeSequence = parlorAppliedOutcomeSequence,
+            bonesEnvelopeVersion = 1,
+            bonesPayloadPresent = bonesMatchPresent,
+            bonesTurnEvidencePresent = bonesMatch?.interventionReceipt != null,
+            bonesSessionEventPresent = bonesMatch?.session?.intervention != null,
             bonesMatch = CloneBonesSnapshot(bonesMatch),
             houseRunPointerVersion = string.IsNullOrEmpty(houseRunId) ? 0 : 1,
             houseRunId = houseRunId,
@@ -618,10 +628,16 @@ public static class GmRunStore
                  pending != acknowledged + 1))
                 parlorRestoreError = $"Parlor pending outcome {pending} is not the next durable sequence after acknowledged {acknowledged}";
         }
-        bonesMatch = IsUnityNullBonesSnapshotPlaceholder(data.bonesMatch)
-            ? null : CloneBonesSnapshot(data.bonesMatch);
+        bonesMatchPresent = data.bonesMatch != null;
+        bonesMatch = CloneBonesSnapshot(data.bonesMatch);
         bonesRestoreError = string.Empty;
-        if (bonesMatch != null && !GmBonesMatch.TryRestore(bonesMatch, out _, out string bonesError))
+        if (data.bonesEnvelopeVersion != 0 && data.bonesEnvelopeVersion != 1)
+            bonesRestoreError = $"Bones save envelope {data.bonesEnvelopeVersion} is unsupported";
+        else if (data.bonesEnvelopeVersion == 1 &&
+                 data.bonesPayloadPresent != bonesMatchPresent)
+            bonesRestoreError = "Bones save envelope payload presence disagrees with its payload";
+        else if (bonesMatchPresent &&
+                 !GmBonesMatch.TryRestore(bonesMatch, out _, out string bonesError))
             bonesRestoreError = bonesError;
         OnStateChanged?.Invoke();
     }
@@ -776,43 +792,8 @@ public static class GmRunStore
             (snapshot.revealedAldricCards == null || snapshot.revealedAldricCards.Count == 0);
     }
 
-    static bool IsUnityNullBonesSnapshotPlaceholder(GmBonesMatchSnapshot snapshot)
-    {
-        return snapshot != null && snapshot.randomState == 0 && snapshot.round == 0 &&
-            snapshot.playerDecisionCount == 0 && snapshot.playerTotal == 0 &&
-            snapshot.aldricTotal == 0 && snapshot.replayIndex == 0 &&
-            string.IsNullOrEmpty(snapshot.stateFingerprint) && snapshot.session == null &&
-            (snapshot.currentDice == null || snapshot.currentDice.Length == 0) &&
-            (snapshot.replayDice == null || snapshot.replayDice.Length == 0) &&
-            (snapshot.actionJournal == null || snapshot.actionJournal.Length == 0) &&
-            snapshot.interventionReceipt == null;
-    }
-
     static GmBonesMatchSnapshot CloneBonesSnapshot(GmBonesMatchSnapshot snapshot)
-    {
-        if (snapshot == null) return null;
-        GmBonesMatchSnapshot clone =
-            JsonUtility.FromJson<GmBonesMatchSnapshot>(JsonUtility.ToJson(snapshot));
-        if (clone.interventionReceipt != null && clone.interventionReceipt.round == 0 &&
-            clone.interventionReceipt.lockedSlot == 0 && clone.interventionReceipt.changedSlot == 0 &&
-            clone.interventionReceipt.aldricTotalBeforeTurn == 0 &&
-            clone.interventionReceipt.honestAldricTotal == 0 &&
-            clone.interventionReceipt.alteredAldricTotal == 0 &&
-            (clone.interventionReceipt.honestReroll == null ||
-             clone.interventionReceipt.honestReroll.Length == 0) &&
-            (clone.interventionReceipt.displayedReroll == null ||
-             clone.interventionReceipt.displayedReroll.Length == 0))
-            clone.interventionReceipt = null;
-        if (clone.session != null && clone.session.intervention != null &&
-            clone.session.intervention.decisionIndex == 0 &&
-            string.IsNullOrEmpty(clone.session.intervention.interventionId) &&
-            string.IsNullOrEmpty(clone.session.intervention.beforeFingerprint) &&
-            string.IsNullOrEmpty(clone.session.intervention.alteredFingerprint) &&
-            !clone.session.intervention.resolved && !clone.session.intervention.challenged &&
-            string.IsNullOrEmpty(clone.session.intervention.resolvedFingerprint))
-            clone.session.intervention = null;
-        return clone;
-    }
+        => snapshot?.DeepCopy();
 }
 
 [Serializable]
@@ -833,6 +814,10 @@ public sealed class GmSaveData
     public GmParlorPresentationState parlorPresentation;
     public ulong parlorOutcomeNamespace;
     public ulong parlorAppliedOutcomeSequence;
+    public int bonesEnvelopeVersion;
+    public bool bonesPayloadPresent;
+    public bool bonesTurnEvidencePresent;
+    public bool bonesSessionEventPresent;
     public GmBonesMatchSnapshot bonesMatch;
     public int houseRunPointerVersion;
     public string houseRunId = "";
@@ -844,4 +829,130 @@ public sealed class GmSaveData
     public bool accessibilityHighContrast;
     public float accessibilityTextScale = 1f;
     public string timestampUtc = "";
+
+    public static GmSaveData FromJson(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        GmSaveData data = JsonUtility.FromJson<GmSaveData>(json);
+        if (data == null) return null;
+
+        bool hasBonesObject = TryFindObjectProperty(json, "bonesMatch", 0, json.Length,
+            out int bonesStart, out int bonesEnd);
+        if (!hasBonesObject && !data.bonesPayloadPresent)
+        {
+            data.bonesMatch = null;
+            return data;
+        }
+        if (data.bonesMatch == null) return data;
+
+        bool hasTurnEvidence = hasBonesObject && TryFindObjectProperty(json,
+            "interventionReceipt", bonesStart, bonesEnd, out _, out _);
+        if (!hasTurnEvidence && !data.bonesTurnEvidencePresent)
+            data.bonesMatch.interventionReceipt = null;
+
+        int sessionStart = -1;
+        int sessionEnd = -1;
+        bool hasSession = hasBonesObject && TryFindObjectProperty(json, "session",
+            bonesStart, bonesEnd, out sessionStart, out sessionEnd);
+        if (!hasSession)
+            data.bonesMatch.session = null;
+        else if (data.bonesMatch.session != null)
+        {
+            bool hasSessionEvent = TryFindObjectProperty(json, "intervention",
+                sessionStart, sessionEnd, out _, out _);
+            if (!hasSessionEvent && !data.bonesSessionEventPresent)
+                data.bonesMatch.session.intervention = null;
+        }
+        return data;
+    }
+
+    public string ToJson(bool pretty = false)
+    {
+        string json = JsonUtility.ToJson(this, pretty);
+        if (bonesEnvelopeVersion != 1) return json;
+        if (!bonesPayloadPresent)
+            return RemoveObjectProperty(json, "bonesMatch", 0, json.Length);
+
+        if (!TryFindObjectProperty(json, "bonesMatch", 0, json.Length,
+            out int bonesStart, out int bonesEnd)) return json;
+        if (!bonesTurnEvidencePresent)
+            json = RemoveObjectProperty(json, "interventionReceipt", bonesStart, bonesEnd);
+        if (!TryFindObjectProperty(json, "bonesMatch", 0, json.Length,
+            out bonesStart, out bonesEnd) ||
+            !TryFindObjectProperty(json, "session", bonesStart, bonesEnd,
+                out int sessionStart, out int sessionEnd)) return json;
+        if (!bonesSessionEventPresent)
+            json = RemoveObjectProperty(json, "intervention", sessionStart, sessionEnd);
+        return json;
+    }
+
+    static string RemoveObjectProperty(string json, string property, int start, int end)
+    {
+        if (!TryFindObjectProperty(json, property, start, end,
+            out _, out int objectEnd)) return json;
+        string token = "\"" + property + "\"";
+        int propertyStart = json.IndexOf(token, start, end - start, StringComparison.Ordinal);
+        if (propertyStart < 0) return json;
+        int removeStart = propertyStart;
+        while (removeStart > start && char.IsWhiteSpace(json[removeStart - 1])) removeStart--;
+        int removeEnd = objectEnd + 1;
+        while (removeEnd < end && char.IsWhiteSpace(json[removeEnd])) removeEnd++;
+        if (removeEnd < end && json[removeEnd] == ',') removeEnd++;
+        else if (removeStart > start && json[removeStart - 1] == ',') removeStart--;
+        return json.Remove(removeStart, removeEnd - removeStart);
+    }
+
+    static bool TryFindObjectProperty(string json, string property, int start, int end,
+        out int objectStart, out int objectEnd)
+    {
+        objectStart = objectEnd = -1;
+        string token = "\"" + property + "\"";
+        int cursor = start;
+        while (cursor < end)
+        {
+            int found = json.IndexOf(token, cursor, end - cursor, StringComparison.Ordinal);
+            if (found < 0) return false;
+            int value = found + token.Length;
+            while (value < end && char.IsWhiteSpace(json[value])) value++;
+            if (value < end && json[value] == ':')
+            {
+                value++;
+                while (value < end && char.IsWhiteSpace(json[value])) value++;
+                if (value < end && json[value] == '{')
+                {
+                    int close = FindObjectEnd(json, value, end);
+                    if (close >= 0)
+                    {
+                        objectStart = value + 1;
+                        objectEnd = close;
+                        return true;
+                    }
+                }
+            }
+            cursor = found + token.Length;
+        }
+        return false;
+    }
+
+    static int FindObjectEnd(string json, int start, int end)
+    {
+        int depth = 0;
+        bool quoted = false;
+        bool escaped = false;
+        for (int index = start; index < end; index++)
+        {
+            char value = json[index];
+            if (quoted)
+            {
+                if (escaped) escaped = false;
+                else if (value == '\\') escaped = true;
+                else if (value == '"') quoted = false;
+                continue;
+            }
+            if (value == '"') quoted = true;
+            else if (value == '{') depth++;
+            else if (value == '}' && --depth == 0) return index;
+        }
+        return -1;
+    }
 }

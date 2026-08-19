@@ -272,7 +272,7 @@ public sealed class GmParlorRunStorePersistenceTests
         });
         Assert.That(json, Does.Not.Contain("parlorMatch"));
         GmRunStore.BeginNewRun();
-        GmRunStore.LoadFromSaveData(JsonUtility.FromJson<GmSaveData>(json));
+        GmRunStore.LoadFromSaveData(GmSaveData.FromJson(json));
 
         Assert.That(GmRunStore.ParlorAppliedOutcomeSequence, Is.EqualTo(3));
         var go = new GameObject("orphan-cursor");
@@ -398,9 +398,9 @@ public sealed class GmParlorRunStorePersistenceTests
 
     static void LoadJsonRoundTrip(GmSaveData data)
     {
-        string json = JsonUtility.ToJson(data);
+        string json = data.ToJson();
         GmRunStore.BeginNewRun();
-        GmRunStore.LoadFromSaveData(JsonUtility.FromJson<GmSaveData>(json));
+        GmRunStore.LoadFromSaveData(GmSaveData.FromJson(json));
     }
 
     [Serializable]
