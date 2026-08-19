@@ -35,11 +35,11 @@ Overall (Unity/Steam)   [██████░░░░░░░░░░░░�
 Full architecture and evidence: `docs/GAME-ENGINE-SEPARATION-PLAN-2026-08-19.md`.
 
 ```
-Engine separation        [███████░░░░░░░░░░░░░]  35%  package and private repo proven; legacy migration remains
-Boundary audit           [████████████████████] 100%  61 runtime files classified and ratcheted
+Engine separation        [████████░░░░░░░░░░░░]  40%  package, learning ledger, and shared session proven; legacy migration remains
+Boundary audit           [████████████████████] 100%  62 runtime files classified and ratcheted
 Portable runtime package [████████░░░░░░░░░░░░]  40%  neutral foundation installed; 24 legacy candidates have not moved
 Clean-room sample game   [████░░░░░░░░░░░░░░░░]  20%  sample source exists; standalone proof still required
-Versioned engine repo    [██████████████░░░░░░]  70%  private v0.1.0 pushed; clean remote consumer install remains
+Versioned engine repo    [████████████████░░░░]  80%  private v0.2.0 pushed; clean remote consumer install remains
 ```
 
 | # | Task | Status | TEST |
@@ -49,7 +49,33 @@ Versioned engine repo    [██████████████░░░░
 | ENG2 | Create and install the standalone Runtime, Editor, tests, docs, schema, CI, and sample repository as `com.nyx.gamecraft` | DONE 2026-08-19 | package policy, consumer Unity compile, package EditMode tests |
 | ENG3 | Replace game knowledge with player, save, scene, input, UI, audio, and telemetry adapters | TODO | The Games Master full build and save recovery remain identical |
 | ENG4 | Build a clean-room sample with different scenes, tone, controls, and save data | TODO | scaffold through standalone proof without any Games Master assembly |
-| ENG5 | Move the package to a versioned repository and prove remote consumption | WIP | private `v0.1.0`, migration notes, and changelog exist; pinned remote clean-consumer install remains |
+| ENG5 | Move the package to a versioned repository and prove remote consumption | WIP | private `v0.2.0`, migration notes, and changelog exist; pinned remote clean-consumer install remains |
+| ENG6 | Add portable supervised evidence memory with human-owned rule promotion | DONE 2026-08-19 | Node tests prove immutable evidence, candidate derivation, forged-promotion rejection, and atomic persistence |
+| ENG7 | Add a deterministic shared game-session and intervention lifecycle | DONE 2026-08-19 | The Games Master PlayMode consumer suite proves decision history, Challenge/Proceed, terminal state, and snapshot restore |
+
+## LANE SEVEN DEBTS — Approved table-game suite (2026-08-19)
+
+Canonical rules and order: `docs/SEVEN-DEBTS-CANON-2026-08-19.md`.
+
+```
+Rules and order          [████████████████████] 100%  Nick approved the panel's 5/5 recommendation
+Shared game shell        [███████░░░░░░░░░░░░░]  35%  deterministic lifecycle proven; game saves, input and proof remain
+Bones vertical slice     [░░░░░░░░░░░░░░░░░░░░]   0%  production gate for the other four games
+Study                    [░░░░░░░░░░░░░░░░░░░░]   0%  three verified authored positions
+Wager                    [░░░░░░░░░░░░░░░░░░░░]   0%  three sealed contracts
+Black Ledger             [░░░░░░░░░░░░░░░░░░░░]   0%  one three-guest case
+Last Candle              [░░░░░░░░░░░░░░░░░░░░]   0%  solved bounded finale
+```
+
+| # | Task | Status | TEST |
+|---|---|---|---|
+| SD0 | Approve names, order, rules, accessibility boundary, catch boundary, and content caps | DONE 2026-08-19 | [five-participant review](reviews/SEVEN-DEBTS-PANEL-2026-08-19.md) plus Nick's explicit approval |
+| SD1 | Build and freeze the reusable deterministic game shell | WIP | package runtime tests, save/resume, controller, accessibility and consumer build |
+| SD2 | Ship Bones as the complete quality and cost vertical slice | TODO | exhaustive rules, full match, intervention, save, input, visual, audio and human play |
+| SD3 | Build Study | TODO after SD2 | all three original/override snapshots and accessible move explanations |
+| SD4 | Build Wager | TODO after SD2 | every seed permutation, economy, clause swap and no-soft-lock proof |
+| SD5 | Build Black Ledger | TODO after SD2 | all eight inquiry sets and every accusation/citation pair |
+| SD6 | Build Last Candle | TODO after SD2 | exhaustive reachable-state solver and intervention proof |
 
 ## Why this order (four deliberate departures from phase numbering)
 

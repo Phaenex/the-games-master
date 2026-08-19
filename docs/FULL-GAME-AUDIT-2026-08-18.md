@@ -31,7 +31,7 @@ presentation.
 | Court | `[████████████░░░░░░░░]` 60% | Winnable/loseable three-argument hearing, five-card evidence UI, keyboard/controller input, pressure penalty, reactive final-seal rig, physical seal/gavel/role-light states, Court-owned Shard #2 and nine-shot visual tour | Replace remaining prototype geometry, land the actual gavel clip, strengthen verdict/loss presentation, animate the strike and run a human input/feel pass |
 | Hidden Room | `[████░░░░░░░░░░░░░░░░]` 20% | Scene shell, journals/invitation/shard objects, re-entry and onward transition code exist | Player-facing journal/invitation/shard flow, assembled mirror, dust atmosphere, scare staging, soundscape, asset replacement and current screenshots |
 | Labyrinth and Huntsman | `[████░░░░░░░░░░░░░░░░]` 20% | Fixed-pattern maze and Huntsman state machine exist | Decide fixed vs procedural maze, full chase input/feedback, mirror states, Shard #3 discovery, audio, atmosphere, asset replacement and current proof |
-| Seven table games | `[██████░░░░░░░░░░░░░░]` 30% | Parlor is substantial; Shut the Box is a logic slice | Five games absent. Bones, Study and Wager have only signatures; games 6–7 have no canonical identity. Nick must approve rules/order before implementation |
+| Seven table games | `[███████░░░░░░░░░░░░░]` 35% | Parlor is substantial; Shut the Box is a logic slice; Seven Debts rules and order are approved | Build Bones, Study, Wager, Black Ledger, and Last Candle from the canonical specification |
 | Story, shards and endings | `[█████████░░░░░░░░░░░]` 45% | Shared state, three shard slots, ending resolver and production trigger exist | Verify 8 catches through real authored play; author six ending sequences with art, copy, audio and reviewed frames |
 | Audio | `[████░░░░░░░░░░░░░░░░]` 20% | Exterior wind/crickets/owl and cue assets for the opening exist | `GmAudioManager` has no production instantiation/callers; no Parlor snap, STB dice, Court gavel or interior ambience reaches the player; several named cue clips are absent from the Unity Resources path |
 | Accessibility and controls | `[█████████░░░░░░░░░░░]` 45% | Boot/recovery high contrast, Parlor settings surface, shared settings model | Prove every setting has a real consumer, controller parity, rebinding, text scaling and reduce-motion across every room |
@@ -50,8 +50,8 @@ presentation.
   warm room with an overexposed practical and a black opening. It is a route, not yet a scary
   basement experience.
 - **Games:** only Parlor approaches a full playable game. Shut the Box is a logic/scene slice. Court,
-  Hidden Room and Labyrinth are story chapters, not part of the promised seven table games. Five
-  table games still have to be designed and built.
+  Hidden Room and Labyrinth are story chapters, not part of the promised seven table games. The five
+  missing games are now approved in `docs/SEVEN-DEBTS-CANON-2026-08-19.md`; they still have to be built.
 
 ## Execution checklist
 
@@ -60,7 +60,8 @@ presentation.
 - [x] Inventory current scenes, controllers, tests, captures, placeholders and atmosphere wiring.
 - [x] Resolve the old Court sequencing lock through the human gate. Nick selected **Build Court
   Now** on 2026-08-18, so the Phase 0 walk remains a release gate but no longer blocks Court work.
-- [ ] Get approved rules and order for Bones, Study, Wager and unnamed games 6–7.
+- [x] Approve Seven Debts: Bones, Study, Wager, Black Ledger, and Last Candle, including exact order
+  and bounded rules. Nick approved the 5/5 panel recommendation on 2026-08-19.
 - [ ] Reopen and fix interior audio wiring with regression tests and audible built-player proof.
 - [ ] Replace player-visible primitive/fallback art in Court, Shut the Box, Hidden Room and Labyrinth.
 - [ ] Run a room-by-room environmental pass: dust, practical motivation, fog, grime, clutter,
@@ -83,7 +84,8 @@ presentation.
 
 1. **Resolved 2026-08-18:** build Court now. The Phase 0 walk remains a release gate, not a Court
    sequencing lock.
-2. Approve complete rules and order for Bones, Study and Wager; name and define games 6–7.
+2. **Resolved 2026-08-19:** approve Seven Debts. The five missing games now have names, order,
+   bounded rules, accessibility requirements, and a Bones-first production gate.
 3. Judge opening duration, arrival colour, contemporary vehicle, sound mix and figure subtlety on
    Nick's display/headphones.
 4. Judge whether the cellar, loft, guest room, Parlor table and Aldric art have crossed from

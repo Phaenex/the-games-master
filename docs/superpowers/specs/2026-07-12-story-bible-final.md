@@ -30,6 +30,12 @@ His tells and his cheating aren't two separate systems — one hardening, one ho
 
 ## 3. Where He Cheats, and How Each One Is Caught
 
+**2026-08-19 canon addition:** the complete seven-table night is Flames, Shut the Box, Bones, Study,
+Wager, Black Ledger, and Last Candle. Exact order and bounded rules live in
+`docs/SEVEN-DEBTS-CANON-2026-08-19.md`. Court, the Hidden Room, and the Labyrinth remain story
+chapters. The five added games may expose one reactive intervention each, but they record clues rather
+than catches. The eight-catch ending economy below remains unchanged.
+
 Four rooms carry this story. Each cheat is reactive-only (see §2) and escalates in frequency/visibility with corruption, never in kind.
 
 ### The Parlor (shipped)

@@ -64,7 +64,8 @@ pacing, fear. Those go to Nick with evidence attached.
 # PHASE A — The spine — DONE 2026-08-16
 
 This phase now converts the tested systems into a production scene chain. It proves reachability and
-state continuity; it does not claim that the five missing table games have been authored.
+state continuity. The five missing table games were approved later as Seven Debts; their runtime and
+scenes remain unbuilt.
 
 ### A1 · Boot/title scene — DONE
 `Boot` presents explicit Continue, New Run and Quit choices. Continue is disabled without a valid
@@ -75,9 +76,12 @@ Entry Hall, Parlor, Court, Shut the Box, Hidden Room and Labyrinth each contain 
 rig at an authored, audited spawn. Their scene-build tests validate camera, player and spawn state.
 
 ### A3 · Scene transitions wired — DONE
-The production chain runs Boot → Prologue → Entry Hall → Parlor → Court → Shut the Box → Hidden
-Room → Labyrinth. Every successful transition writes `GmRunStore.CurrentSceneId`; failed scene
-loads leave both the director and save state on the room the player actually occupies.
+The currently built production chain runs Boot → Prologue → Entry Hall → Parlor → Court → Shut the
+Box → Hidden Room → Labyrinth. Seven Debts expands the final player-facing sequence with Bones,
+Study, Wager, Black Ledger, and Last Candle as specified in
+`docs/SEVEN-DEBTS-CANON-2026-08-19.md`. Every successful transition writes
+`GmRunStore.CurrentSceneId`; failed scene loads leave both the director and save state on the room
+the player actually occupies.
 
 ### A4 · Ending resolution reachable — DONE
 Labyrinth completion reaches `GmEndingTrigger`, which calls the persistent scene director's ending
@@ -172,7 +176,8 @@ whether it stays authored or becomes procedural before building content on top o
 ### D1 · Three shards, one true ending
 The House, Court and Hidden Room paths bank slots 0, 1 and 2 in `GmRunStore`; collection and
 `AllShardsCollected` are tested. The remaining true-ending reachability risk is earning eight catches
-through authored play, because five promised table games and their approved rules are still absent.
+through authored play. Seven Debts deliberately leaves that catch economy with Parlor, Court, and
+Shut the Box; the five new games add clues and run pressure without inflating the count.
 
 ### D2 · Corruption schedule
 The mechanism exists and is clamped and tested; **what raises the tier is deliberately undecided.**

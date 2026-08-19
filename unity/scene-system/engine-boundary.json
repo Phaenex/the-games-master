@@ -49,6 +49,7 @@
       "GmUiText.cs"
     ],
     "gameOwned": [
+      "GmBonesRules.cs",
       "GmCreditsUI.cs",
       "GmEndingManager.cs",
       "GmEndingTrigger.cs",
