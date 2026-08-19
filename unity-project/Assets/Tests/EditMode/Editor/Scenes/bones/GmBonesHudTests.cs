@@ -12,6 +12,7 @@ public sealed class GmBonesHudTests
     GameObject graph;
     GmBonesController controller;
     GmBonesHud hud;
+    GmBonesInput tableInput;
 
     [SetUp]
     public void SetUp()
@@ -24,6 +25,8 @@ public sealed class GmBonesHudTests
         controller = new GmBonesController();
         controller.InitializeOrRestore();
         graph = new GameObject("BonesHudTest");
+        tableInput = graph.AddComponent<GmBonesInput>();
+        tableInput.ConfigureForTests(controller, () => false);
         hud = graph.AddComponent<GmBonesHud>();
         Assert.That(hud.TryConfigure(controller, out string error), Is.True, error);
     }
@@ -81,6 +84,7 @@ public sealed class GmBonesHudTests
         GmRunStore.LoadFromSaveData(new GmSaveData { bonesMatch = pending.ExportSnapshot() });
         controller = new GmBonesController();
         controller.InitializeOrRestore();
+        tableInput.ConfigureForTests(controller, () => false);
         Assert.That(hud.TryConfigure(controller, out string error), Is.True, error);
         VisualElement root = hud.BuildForTests();
         Assert.That(root.Q<Label>("BonesDisplayedReroll").text, Does.Contain("6, 2"));
@@ -105,6 +109,7 @@ public sealed class GmBonesHudTests
             Path.Combine(directory, "save.json"))));
         var restored = new GmBonesController();
         Assert.That(restored.InitializeOrRestore(), Is.EqualTo(GmBonesInitializeResult.Restored));
+        tableInput.ConfigureForTests(restored, () => false);
         Assert.That(hud.TryConfigure(restored, out error), Is.True, error);
         Assert.That(root.Q("BonesChangedDieMarker"), Is.Not.Null);
         Assert.That(root.Q("BonesChangedDieMarker").parent.name, Is.EqualTo("BonesDie2"));
@@ -117,6 +122,8 @@ public sealed class GmBonesHudTests
         UnityEngine.Object.DestroyImmediate(graph);
         graph = new GameObject("InactiveBonesHud");
         graph.SetActive(false);
+        tableInput = graph.AddComponent<GmBonesInput>();
+        tableInput.ConfigureForTests(controller, () => false);
         hud = graph.AddComponent<GmBonesHud>();
         Assert.That(hud.TryConfigure(controller, out string error), Is.True, error);
         int revision = hud.RefreshRevision;
@@ -165,6 +172,7 @@ public sealed class GmBonesHudTests
         GmRunStore.BeginNewRun();
         controller = new GmBonesController();
         controller.InitializeOrRestore();
+        tableInput.ConfigureForTests(controller, () => false);
         Assert.That(hud.TryConfigure(controller, out string error), Is.True, error);
         VisualElement root = hud.BuildForTests();
         string fingerprint = controller.Snapshot.stateFingerprint;
@@ -177,10 +185,12 @@ public sealed class GmBonesHudTests
         Assert.That(GmRunStore.GetBonesMatchSnapshot().stateFingerprint, Is.EqualTo(fingerprint));
         Assert.That(backend.LastJson, Is.EqualTo(disk));
         Assert.That(root.Q<Label>("BonesFeedback").text, Does.Contain("Retry"));
+        Assert.That(tableInput.LastActionError, Is.EqualTo(GmBonesActionError.PersistenceFailed));
 
         backend.Fail = false;
-        Click(root.Q<Button>("BonesBank"));
+        tableInput.ConfirmAction();
         Assert.That(controller.PlayerDecisionCount, Is.EqualTo(1));
+        Assert.That(tableInput.LastActionError, Is.EqualTo(GmBonesActionError.None));
         Assert.That(root.Q<Label>("BonesFeedback").text, Is.Empty);
     }
 
@@ -192,19 +202,35 @@ public sealed class GmBonesHudTests
         GmRunStore.BeginNewRun();
         controller = new GmBonesController();
         controller.InitializeOrRestore();
-        var tableInput = graph.AddComponent<GmBonesInput>();
         tableInput.ConfigureForTests(controller, () => false);
         Assert.That(hud.TryConfigure(controller, tableInput, out string error), Is.True, error);
         VisualElement root = hud.BuildForTests();
 
         backend.Fail = true;
         LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("injected HUD failure"));
-        tableInput.ResolveFrameIntents(false, false, false, true);
+        tableInput.ConfirmAction();
         Assert.That(root.Q<Label>("BonesFeedback").text, Does.Contain("Retry"));
 
         backend.Fail = false;
-        tableInput.ResolveFrameIntents(false, false, false, true);
+        Click(root.Q<Button>("BonesBank"));
+        Assert.That(tableInput.LastActionError, Is.EqualTo(GmBonesActionError.None));
         Assert.That(root.Q<Label>("BonesFeedback").text, Is.Empty);
+        Assert.That(hud.TryConfigure(controller, tableInput, out error), Is.True, error);
+        Assert.That(root.Q<Label>("BonesFeedback").text, Is.Empty);
+    }
+
+    [Test]
+    public void WrongPhaseFromEitherChannelUsesAndClearsCentralFeedback()
+    {
+        VisualElement root = hud.BuildForTests();
+        Assert.That(tableInput.ChallengeAction(), Is.EqualTo(GmBonesActionError.WrongPhase));
+        Assert.That(root.Q<Label>("BonesFeedback").text, Does.Contain("not available"));
+        Click(root.Q<Button>("BonesBank"));
+        Assert.That(tableInput.LastActionError, Is.EqualTo(GmBonesActionError.None));
+        Assert.That(root.Q<Label>("BonesFeedback").text, Is.Empty);
+        string source = File.ReadAllText(Path.GetFullPath(Path.Combine(Application.dataPath,
+            "../../unity/project/Assets/Scripts/Scenes/bones/GmBonesHud.cs")));
+        Assert.That(source, Does.Not.Contain("feedbackText"));
     }
 
     static GmBonesMatch PendingLoadedSix()

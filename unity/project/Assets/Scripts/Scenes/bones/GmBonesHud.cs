@@ -29,7 +29,6 @@ public sealed class GmBonesHud : MonoBehaviour
     Button challenge;
     Button proceed;
     bool subscribed;
-    string feedbackText = string.Empty;
 
     public bool IsConfigured => controller != null;
     public int RefreshRevision { get; private set; }
@@ -42,15 +41,15 @@ public sealed class GmBonesHud : MonoBehaviour
     public bool TryConfigure(GmBonesController tableController, GmBonesInput input,
         out string error)
     {
-        if (tableController == null || !tableController.IsInitialized)
+        if (tableController == null || !tableController.IsInitialized || input == null ||
+            !input.IsConfiguredFor(tableController))
         {
-            error = "Bones HUD needs an initialized controller";
+            error = "Bones HUD needs an initialized controller and its configured input owner";
             return false;
         }
         Unsubscribe();
         controller = tableController;
         tableInput = input;
-        feedbackText = tableInput?.FeedbackMessage ?? string.Empty;
         if (isActiveAndEnabled) Subscribe();
         error = string.Empty;
         if (root != null) Refresh();
@@ -125,17 +124,14 @@ public sealed class GmBonesHud : MonoBehaviour
         {
             int target = index;
             choiceButtons[index] = AddButton(actions, names[index], () =>
-            {
-                controller.MoveFocus(target - controller.FocusIndex);
-                RunAction(controller.ConfirmFocusedAction);
-            });
+                tableInput.FocusThenConfirm(target));
         }
 
         intervention = new VisualElement { name = "BonesIntervention" };
         intervention.style.flexDirection = FlexDirection.Row;
         root.Add(intervention);
-        challenge = AddButton(intervention, "BonesChallenge", () => RunAction(controller.CallTell));
-        proceed = AddButton(intervention, "BonesProceed", () => RunAction(controller.ConfirmFocusedAction));
+        challenge = AddButton(intervention, "BonesChallenge", () => tableInput.ChallengeAction());
+        proceed = AddButton(intervention, "BonesProceed", () => tableInput.ConfirmAction());
         evidence = AddLabel(root, "BonesEvidence", 18);
         actionLog = AddLabel(root, "BonesActionLog", 16);
         result = AddLabel(root, "BonesResult", 22);
@@ -228,8 +224,9 @@ public sealed class GmBonesHud : MonoBehaviour
         result.style.display = model.HasResult ? DisplayStyle.Flex : DisplayStyle.None;
         caption.text = "CAPTION • Dice and intervention facts are always shown as text.";
         caption.style.display = GmAccessibilitySettings.Captions ? DisplayStyle.Flex : DisplayStyle.None;
-        feedback.text = feedbackText;
-        feedback.style.display = string.IsNullOrEmpty(feedbackText) ? DisplayStyle.None : DisplayStyle.Flex;
+        feedback.text = tableInput.FeedbackMessage;
+        feedback.style.display = string.IsNullOrEmpty(tableInput.FeedbackMessage)
+            ? DisplayStyle.None : DisplayStyle.Flex;
         foreach (TextElement text in root.Query<TextElement>().ToList())
         {
             int baseSize = text == dice ? 28 : text == result ? 22 : text == actionLog ? 16 : 18;
@@ -241,13 +238,6 @@ public sealed class GmBonesHud : MonoBehaviour
 
     static string PresentResult(GmBonesMatchResult value) => value == GmBonesMatchResult.PlayerWin
         ? "You win" : value == GmBonesMatchResult.AldricWin ? "Aldric wins" : "Tie";
-
-    void RunAction(System.Func<GmBonesActionError> action)
-    {
-        GmBonesActionError error = action();
-        feedbackText = GmBonesInput.FeedbackFor(error, controller);
-        Refresh();
-    }
 
     static Label AddLabel(VisualElement parent, string name, int size)
     {
@@ -294,7 +284,6 @@ public sealed class GmBonesHud : MonoBehaviour
 
     void OnInputFeedbackChanged()
     {
-        feedbackText = tableInput?.FeedbackMessage ?? string.Empty;
         Refresh();
     }
 

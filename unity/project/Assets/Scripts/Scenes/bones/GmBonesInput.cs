@@ -33,6 +33,8 @@ public sealed class GmBonesInput : MonoBehaviour
 
     public bool HasRequiredActions { get; private set; }
     public bool IsConfigured => controller != null;
+    public bool IsConfiguredFor(GmBonesController tableController) =>
+        ReferenceEquals(controller, tableController);
     public GmBonesActionError LastActionError { get; private set; }
     public string FeedbackMessage { get; private set; } = string.Empty;
     public event Action OnFeedbackChanged;
@@ -94,18 +96,41 @@ public sealed class GmBonesInput : MonoBehaviour
         if (challengePressed)
         {
             if (GameplayIsPaused()) return Result(GmBonesFrameIntent.None, GmBonesActionError.None);
-            GmBonesActionError error = controller?.CallTell() ?? GmBonesActionError.NotInitialized;
-            PublishFeedback(error);
+            GmBonesActionError error = ChallengeAction();
             return Result(GmBonesFrameIntent.Challenge, error);
         }
         if (confirmPressed)
         {
             if (GameplayIsPaused()) return Result(GmBonesFrameIntent.None, GmBonesActionError.None);
-            GmBonesActionError error = controller?.ConfirmFocusedAction() ?? GmBonesActionError.NotInitialized;
-            PublishFeedback(error);
+            GmBonesActionError error = ConfirmAction();
             return Result(GmBonesFrameIntent.Confirm, error);
         }
         return Result(GmBonesFrameIntent.None, GmBonesActionError.None);
+    }
+
+    public GmBonesActionError ConfirmAction() => Execute(controller == null
+        ? null : controller.ConfirmFocusedAction);
+
+    public GmBonesActionError ChallengeAction() => Execute(controller == null
+        ? null : controller.CallTell);
+
+    public GmBonesActionError FocusThenConfirm(int focusIndex)
+    {
+        if (controller == null) return Execute(null);
+        if (focusIndex < 0 || focusIndex > 3)
+        {
+            PublishFeedback(GmBonesActionError.WrongPhase);
+            return GmBonesActionError.WrongPhase;
+        }
+        controller.MoveFocus(focusIndex - controller.FocusIndex);
+        return ConfirmAction();
+    }
+
+    GmBonesActionError Execute(Func<GmBonesActionError> action)
+    {
+        GmBonesActionError error = action?.Invoke() ?? GmBonesActionError.NotInitialized;
+        PublishFeedback(error);
+        return error;
     }
 
     public void HandleNavigationIntent(Vector2 intent)
