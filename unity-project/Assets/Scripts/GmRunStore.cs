@@ -95,23 +95,27 @@ public static class GmRunStore
                 string.Equals(value, "bones-loaded-six-intervention", StringComparison.OrdinalIgnoreCase)))
             candidate.discoveredClues.Add("bones-loaded-six-intervention");
 
-        if (restored.HasResult && !candidate.completedRooms.Any(value =>
-                string.Equals(value, "bones", StringComparison.OrdinalIgnoreCase)))
+        if (restored.HasResult)
         {
-            candidate.completedRooms.Add("bones");
+            if (!candidate.completedRooms.Any(value =>
+                    string.Equals(value, "bones", StringComparison.OrdinalIgnoreCase)))
+                candidate.completedRooms.Add("bones");
+
             if (!candidate.completedTableGames.Any(value =>
                     string.Equals(value, "bones", StringComparison.OrdinalIgnoreCase)))
+            {
                 candidate.completedTableGames.Add("bones");
-            if (restored.Result == GmBonesMatchResult.PlayerWin) candidate.defiance += 2;
-            else if (restored.Result == GmBonesMatchResult.AldricWin)
-            {
-                candidate.compliance += 2;
-                candidate.sanity = Mathf.Clamp01(candidate.sanity - 0.05f);
-            }
-            else
-            {
-                candidate.defiance += 1;
-                candidate.compliance += 1;
+                if (restored.Result == GmBonesMatchResult.PlayerWin) candidate.defiance += 2;
+                else if (restored.Result == GmBonesMatchResult.AldricWin)
+                {
+                    candidate.compliance += 2;
+                    candidate.sanity = Mathf.Clamp01(candidate.sanity - 0.05f);
+                }
+                else
+                {
+                    candidate.defiance += 1;
+                    candidate.compliance += 1;
+                }
             }
         }
         error = string.Empty;

@@ -149,6 +149,28 @@ public sealed class GmBonesControllerTests
     }
 
     [Test]
+    public void ExistingBonesRoomWithoutTableCompletionStillAppliesOutcomeOnce()
+    {
+        GmBonesMatch beforeFinal = MatchBeforeFinalChoice(GmBonesMatchResult.PlayerWin);
+        var legacy = new GmSaveData { bonesMatch = beforeFinal.ExportSnapshot() };
+        legacy.completedRooms.Add("bones");
+        GmRunStore.LoadFromSaveData(legacy);
+        var controller = new GmBonesController();
+        Assert.That(controller.InitializeOrRestore(), Is.EqualTo(GmBonesInitializeResult.Restored),
+            controller.LastRestoreError);
+
+        Assert.That(controller.ConfirmFocusedAction(), Is.EqualTo(GmBonesActionError.None));
+        Assert.That(GmRunStore.IsRoomComplete("bones"), Is.True);
+        Assert.That(GmRunStore.TableGameIndex, Is.EqualTo(1));
+        Assert.That(GmRunStore.Defiance, Is.EqualTo(2));
+
+        var restored = new GmBonesController();
+        Assert.That(restored.InitializeOrRestore(), Is.EqualTo(GmBonesInitializeResult.Restored));
+        Assert.That(GmRunStore.TableGameIndex, Is.EqualTo(1));
+        Assert.That(GmRunStore.Defiance, Is.EqualTo(2));
+    }
+
+    [Test]
     public void ControllerSourceCannotUseCatchOrSceneRouting()
     {
         string sourcePath = Path.GetFullPath(Path.Combine(Application.dataPath,
