@@ -12,6 +12,31 @@ public enum GmBonesMatchPhase
 }
 
 [Serializable]
+public sealed class GmBonesInterventionReceipt
+{
+    public int round;
+    public int lockedSlot;
+    public int[] honestReroll = Array.Empty<int>();
+    public int[] displayedReroll = Array.Empty<int>();
+    public int changedSlot;
+    public int aldricTotalBeforeTurn;
+    public int honestAldricTotal;
+    public int alteredAldricTotal;
+
+    public GmBonesInterventionReceipt DeepCopy() => new GmBonesInterventionReceipt
+    {
+        round = round,
+        lockedSlot = lockedSlot,
+        honestReroll = (int[])(honestReroll ?? Array.Empty<int>()).Clone(),
+        displayedReroll = (int[])(displayedReroll ?? Array.Empty<int>()).Clone(),
+        changedSlot = changedSlot,
+        aldricTotalBeforeTurn = aldricTotalBeforeTurn,
+        honestAldricTotal = honestAldricTotal,
+        alteredAldricTotal = alteredAldricTotal
+    };
+}
+
+[Serializable]
 public sealed class GmBonesMatchSnapshot
 {
     public int schemaVersion = 1;
@@ -28,6 +53,7 @@ public sealed class GmBonesMatchSnapshot
     public GmBonesMatchResult result;
     public bool hasResult;
     public int honestAldricTotal;
+    public GmBonesInterventionReceipt interventionReceipt;
     public string stateFingerprint = string.Empty;
     public GameSessionSnapshot session;
 }
@@ -47,6 +73,7 @@ public sealed class GmBonesMatch
     int aldricTotal;
     int playerDecisionCount;
     int honestAldricTotal;
+    GmBonesInterventionReceipt interventionReceipt;
     GmBonesMatchPhase phase;
     GmBonesMatchResult result;
     bool hasResult;
@@ -78,17 +105,28 @@ public sealed class GmBonesMatch
         result = snapshot.result;
         hasResult = snapshot.hasResult;
         honestAldricTotal = snapshot.honestAldricTotal;
+        interventionReceipt = snapshot.interventionReceipt?.DeepCopy();
         session = restoredSession;
     }
 
     public GmBonesMatchPhase Phase => phase;
-    public GmBonesMatchResult Result => result;
+    public bool HasResult => hasResult;
+    public GmBonesMatchResult Result => hasResult
+        ? result
+        : throw new InvalidOperationException("the Bones match has not completed");
     public int Round => round;
     public int PlayerTotal => playerTotal;
     public int AldricTotal => aldricTotal;
     public int PlayerDecisionCount => playerDecisionCount;
     public int[] CurrentDice => (int[])currentDice.Clone();
+    public GmBonesInterventionReceipt InterventionReceipt => interventionReceipt?.DeepCopy();
     public string StateFingerprint => ComputeFingerprint();
+
+    public bool TryGetResult(out GmBonesMatchResult matchResult)
+    {
+        matchResult = result;
+        return hasResult;
+    }
 
     public bool TryChoose(GmBonesChoice choice, int lockIndex, out string error)
     {
@@ -137,7 +175,7 @@ public sealed class GmBonesMatch
             return Refuse("no loaded-six intervention is waiting", out error);
         if (!session.TryResolveIntervention(challenge, out string selectedFingerprint, out error)) return false;
 
-        if (challenge) aldricTotal = honestAldricTotal;
+        if (challenge) aldricTotal = interventionReceipt.honestAldricTotal;
         if (ComputeFingerprint() != selectedFingerprint)
             throw new InvalidOperationException("Bones intervention result disagrees with its session fingerprint");
 
@@ -163,6 +201,7 @@ public sealed class GmBonesMatch
         result = result,
         hasResult = hasResult,
         honestAldricTotal = honestAldricTotal,
+        interventionReceipt = interventionReceipt?.DeepCopy(),
         stateFingerprint = ComputeFingerprint(),
         session = session.ExportSnapshot()
     };
@@ -194,21 +233,17 @@ public sealed class GmBonesMatch
             return Refuse("snapshot terminal phase disagrees with round progress", out error);
         if ((snapshot.phase == GmBonesMatchPhase.Complete) != snapshot.hasResult)
             return Refuse("snapshot result and phase disagree", out error);
-        if (snapshot.phase == GmBonesMatchPhase.AwaitingIntervention &&
-            (snapshot.honestAldricTotal < 0 || snapshot.honestAldricTotal == snapshot.aldricTotal))
-            return Refuse("snapshot intervention totals are invalid", out error);
-        if (snapshot.phase != GmBonesMatchPhase.AwaitingIntervention && snapshot.honestAldricTotal != 0)
-            return Refuse("snapshot retains intervention-only state", out error);
+        if (snapshot.phase == GmBonesMatchPhase.Complete &&
+            snapshot.result != GmBonesRules.ResolveMatch(snapshot.playerTotal, snapshot.aldricTotal))
+            return Refuse("snapshot result disagrees with its totals", out error);
+        if (!ValidateReceiptShape(snapshot, out error)) return false;
         if (!DeterministicGameSession.TryRestore(snapshot.session, out DeterministicGameSession restored, out error))
             return false;
 
         var candidate = new GmBonesMatch(snapshot, restored);
         if (candidate.ComputeFingerprint() != snapshot.stateFingerprint || restored.CurrentFingerprint != snapshot.stateFingerprint)
             return Refuse("snapshot fingerprint does not match match and session state", out error);
-        if (snapshot.phase == GmBonesMatchPhase.AwaitingIntervention &&
-            candidate.FingerprintWithAldricTotal(snapshot.honestAldricTotal) !=
-            snapshot.session.intervention.beforeFingerprint)
-            return Refuse("snapshot honest intervention state disagrees with its session", out error);
+        if (!ValidateSessionContract(snapshot, candidate, out error)) return false;
         if (restored.GameId != GameId || restored.RunSeed != snapshot.seed ||
             restored.DecisionIndex != snapshot.playerDecisionCount)
             return Refuse("snapshot session identity or progress disagrees", out error);
@@ -261,7 +296,22 @@ public sealed class GmBonesMatch
         if (GmBonesRules.TryLoadedSixIntervention(finalTurn, playerTotal, aldricTotal,
             currentDice[lockIndex], rerolled[0], rerolled[1], out int alteredScore))
         {
+            int beforeTurn = aldricTotal;
+            int changedSlot = rerolled[0] == 1 ? 0 : 1;
+            int[] displayed = (int[])rerolled.Clone();
+            displayed[changedSlot] = 6;
             aldricTotal += alteredScore;
+            interventionReceipt = new GmBonesInterventionReceipt
+            {
+                round = round,
+                lockedSlot = lockIndex,
+                honestReroll = (int[])rerolled.Clone(),
+                displayedReroll = displayed,
+                changedSlot = changedSlot,
+                aldricTotalBeforeTurn = beforeTurn,
+                honestAldricTotal = honestAldricTotal,
+                alteredAldricTotal = aldricTotal
+            };
             phase = GmBonesMatchPhase.AwaitingIntervention;
             return true;
         }
@@ -337,6 +387,97 @@ public sealed class GmBonesMatch
         if (matchPhase == GmBonesMatchPhase.AwaitingIntervention)
             return sessionPhase == GameSessionPhase.AwaitingInterventionResponse;
         return sessionPhase == GameSessionPhase.Complete;
+    }
+
+    static bool ValidateReceiptShape(GmBonesMatchSnapshot snapshot, out string error)
+    {
+        GmBonesInterventionReceipt receipt = snapshot.interventionReceipt;
+        if (receipt == null)
+        {
+            if (snapshot.phase == GmBonesMatchPhase.AwaitingIntervention)
+                return Refuse("pending intervention has no receipt", out error);
+            if (snapshot.honestAldricTotal != 0)
+                return Refuse("snapshot retains intervention-only state", out error);
+            error = string.Empty;
+            return true;
+        }
+        if (snapshot.phase == GmBonesMatchPhase.AwaitingPlayerChoice || snapshot.round != 3 ||
+            snapshot.playerDecisionCount != 3)
+            return Refuse("intervention receipt appears outside the final turn", out error);
+        if (receipt.round != 3 || receipt.lockedSlot < 0 || receipt.lockedSlot > 2 ||
+            receipt.changedSlot < 0 || receipt.changedSlot > 1 ||
+            receipt.honestReroll == null || receipt.honestReroll.Length != 2 ||
+            receipt.displayedReroll == null || receipt.displayedReroll.Length != 2 ||
+            !HasValidDice(receipt.honestReroll) || !HasValidDice(receipt.displayedReroll) ||
+            receipt.lockedSlot != GmBonesRules.ChooseLockIndex(snapshot.currentDice))
+            return Refuse("intervention receipt dice or slots are invalid", out error);
+        for (int index = 0; index < 2; index++)
+        {
+            int expected = index == receipt.changedSlot ? 6 : receipt.honestReroll[index];
+            if (receipt.displayedReroll[index] != expected)
+                return Refuse("intervention displayed reroll is invalid", out error);
+        }
+        int canonicalChangedSlot = receipt.honestReroll[0] == 1 ? 0 : 1;
+        if (receipt.changedSlot != canonicalChangedSlot || receipt.honestReroll[receipt.changedSlot] != 1 ||
+            GmBonesRules.ScorePress(snapshot.currentDice[receipt.lockedSlot], receipt.honestReroll) != 0 ||
+            receipt.aldricTotalBeforeTurn < 0 ||
+            receipt.honestAldricTotal != receipt.aldricTotalBeforeTurn)
+            return Refuse("intervention honest receipt is invalid", out error);
+        int alteredScore = GmBonesRules.ScorePress(snapshot.currentDice[receipt.lockedSlot], receipt.displayedReroll);
+        if (!GmBonesRules.TryLoadedSixIntervention(true, snapshot.playerTotal,
+                receipt.aldricTotalBeforeTurn, snapshot.currentDice[receipt.lockedSlot],
+                receipt.honestReroll[0], receipt.honestReroll[1], out int expectedAlteredScore) ||
+            alteredScore != expectedAlteredScore ||
+            receipt.alteredAldricTotal != receipt.aldricTotalBeforeTurn + alteredScore)
+            return Refuse("intervention altered receipt is invalid", out error);
+        if (snapshot.phase == GmBonesMatchPhase.AwaitingIntervention &&
+            (snapshot.honestAldricTotal != receipt.honestAldricTotal ||
+             snapshot.aldricTotal != receipt.alteredAldricTotal))
+            return Refuse("pending intervention totals disagree with its receipt", out error);
+        if (snapshot.phase == GmBonesMatchPhase.Complete && snapshot.honestAldricTotal != 0)
+            return Refuse("completed snapshot retains pending intervention state", out error);
+        error = string.Empty;
+        return true;
+    }
+
+    static bool ValidateSessionContract(GmBonesMatchSnapshot snapshot, GmBonesMatch candidate, out string error)
+    {
+        GameSessionSnapshot gameSession = snapshot.session;
+        for (int index = 0; index < gameSession.actions.Length; index++)
+        {
+            string actionId = gameSession.actions[index].actionId;
+            string bank = $"round-{index + 1}:bank";
+            string pressPrefix = $"round-{index + 1}:press:";
+            bool legalPress = actionId != null && actionId.StartsWith(pressPrefix, StringComparison.Ordinal) &&
+                actionId.Length == pressPrefix.Length + 1 && actionId[actionId.Length - 1] >= '0' &&
+                actionId[actionId.Length - 1] <= '2';
+            if (actionId != bank && !legalPress)
+                return Refuse("snapshot contains a non-canonical Bones action", out error);
+        }
+
+        GameInterventionRecord intervention = gameSession.intervention;
+        if ((intervention == null) != (snapshot.interventionReceipt == null))
+            return Refuse("snapshot receipt and session intervention disagree", out error);
+        if (intervention == null)
+        {
+            error = string.Empty;
+            return true;
+        }
+        if (intervention.interventionId != "aldric-loaded-six" || intervention.decisionIndex != 2 ||
+            snapshot.phase == GmBonesMatchPhase.AwaitingPlayerChoice ||
+            intervention.resolved != (snapshot.phase == GmBonesMatchPhase.Complete))
+            return Refuse("snapshot contains an illegal Bones intervention", out error);
+        GmBonesInterventionReceipt receipt = snapshot.interventionReceipt;
+        if (candidate.FingerprintWithAldricTotal(receipt.honestAldricTotal) != intervention.beforeFingerprint ||
+            candidate.FingerprintWithAldricTotal(receipt.alteredAldricTotal) != intervention.alteredFingerprint)
+            return Refuse("snapshot receipt fingerprints disagree with the session intervention", out error);
+        int selectedTotal = intervention.resolved && intervention.challenged
+            ? receipt.honestAldricTotal
+            : receipt.alteredAldricTotal;
+        if (snapshot.aldricTotal != selectedTotal)
+            return Refuse("snapshot selected intervention total is invalid", out error);
+        error = string.Empty;
+        return true;
     }
 
     static uint FoldSeed(ulong value)

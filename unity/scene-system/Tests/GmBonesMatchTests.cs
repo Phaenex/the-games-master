@@ -140,6 +140,91 @@ public sealed class GmBonesMatchTests
         Assert.That(TryRestore(snapshot, out _, out _), Is.False);
     }
 
+    [Test]
+    public void ResultIsUnavailableUntilTheMatchCompletes()
+    {
+        object match = NewMatch(10UL, Dice(6,6,6));
+        Assert.That(Read<bool>(match, "HasResult"), Is.False);
+        object[] arguments = { GmBonesMatchResult.Tie };
+        Assert.That((bool)Invoke(match, "TryGetResult", arguments), Is.False);
+        Assert.That(() => Read<string>(match, "Result"), Throws.InvalidOperationException);
+    }
+
+    [Test]
+    public void RestoreRejectsEveryTerminalOutcomeThatDisagreesWithTotals()
+    {
+        AssertForgedResults(
+            Dice(6,6,6, 4,4,4, 4,4,4, 6,6,6, 6,6,6, 4,4,4),
+            "PlayerWin", "AldricWin", "Tie");
+        AssertForgedResults(
+            Dice(4,4,4, 6,6,6, 6,6,6, 4,4,4, 4,4,4, 6,6,6),
+            "AldricWin", "PlayerWin", "Tie");
+        AssertForgedResults(
+            Dice(6,6,6, 6,6,6, 6,6,6, 6,6,6, 6,6,6, 6,6,6),
+            "Tie", "PlayerWin", "AldricWin");
+    }
+
+    [Test]
+    public void LoadedSixReceiptIsExactCloneSafeAndPersistsAfterResolution()
+    {
+        int[] replay = Dice(6,6,6, 6,6,6, 6,6,6, 6,6,6, 6,6,5, 6,2,1, 1,2);
+        object match = NewMatch(11UL, replay);
+        Assert.That(Read<object>(match, "InterventionReceipt"), Is.Null);
+        BankThreeTimes(match);
+
+        object receipt = Read<object>(match, "InterventionReceipt");
+        Assert.That(Field(receipt, "lockedSlot"), Is.EqualTo(0));
+        Assert.That(Field(receipt, "honestReroll"), Is.EqualTo(new[] { 1, 2 }));
+        Assert.That(Field(receipt, "displayedReroll"), Is.EqualTo(new[] { 6, 2 }));
+        Assert.That(Field(receipt, "changedSlot"), Is.EqualTo(0));
+        ((int[])Field(receipt, "honestReroll"))[0] = 5;
+        Assert.That(Field(Read<object>(match, "InterventionReceipt"), "honestReroll"),
+            Is.EqualTo(new[] { 1, 2 }));
+
+        object restored = Restore(Export(match));
+        Assert.That(Field(Read<object>(restored, "InterventionReceipt"), "displayedReroll"),
+            Is.EqualTo(new[] { 6, 2 }));
+        Assert.That(Resolve(restored, false, out _), Is.True);
+        Assert.That(Field(Read<object>(restored, "InterventionReceipt"), "honestReroll"),
+            Is.EqualTo(new[] { 1, 2 }));
+        AssertSameState(restored, Restore(Export(restored)));
+    }
+
+    [Test]
+    public void RestoreRejectsForgedOrMissingLoadedSixReceipt()
+    {
+        int[] replay = Dice(6,6,6, 6,6,6, 6,6,6, 6,6,6, 6,6,5, 6,2,1, 1,2);
+        object match = NewMatch(12UL, replay);
+        BankThreeTimes(match);
+        RejectReceiptMutation(match, "lockedSlot", 1);
+        RejectReceiptMutation(match, "changedSlot", 1);
+        RejectReceiptMutation(match, "honestReroll", new[] { 2, 1 });
+        RejectReceiptMutation(match, "displayedReroll", new[] { 5, 2 });
+        object missing = Export(match);
+        missing.GetType().GetField("interventionReceipt").SetValue(missing, null);
+        Assert.That(TryRestore(missing, out _, out _), Is.False);
+    }
+
+    [Test]
+    public void RestoreRejectsNonCanonicalBonesActionAndInterventionIds()
+    {
+        object match = NewMatch(13UL, Dice(6,6,6, 6,6,6, 6,6,6, 6,6,6));
+        Assert.That(Choose(match, GmBonesChoice.Bank, -1, out _), Is.True);
+        object badAction = Export(match);
+        object session = Field(badAction, "session");
+        Array actions = (Array)Field(session, "actions");
+        actions.GetValue(0).GetType().GetField("actionId").SetValue(actions.GetValue(0), "round-1:steal");
+        Assert.That(TryRestore(badAction, out _, out _), Is.False);
+
+        int[] replay = Dice(6,6,6, 6,6,6, 6,6,6, 6,6,6, 6,6,5, 6,2,1, 1,2);
+        object pending = NewMatch(14UL, replay);
+        BankThreeTimes(pending);
+        object badIntervention = Export(pending);
+        object intervention = Field(Field(badIntervention, "session"), "intervention");
+        intervention.GetType().GetField("interventionId").SetValue(intervention, "generic-cheat");
+        Assert.That(TryRestore(badIntervention, out _, out _), Is.False);
+    }
+
     static object NewMatch(ulong seed, int[] replayDice)
     {
         ConstructorInfo constructor = MatchType.GetConstructor(new[] { typeof(ulong), typeof(int[]) });
@@ -220,11 +305,41 @@ public sealed class GmBonesMatchTests
         Assert.That(Read<int[]>(first, "CurrentDice"), Is.EqualTo(Read<int[]>(second, "CurrentDice")));
     }
 
+    static void AssertForgedResults(int[] replay, string actual, params string[] forged)
+    {
+        object match = NewMatch(15UL, replay);
+        CompleteBankMatch(match);
+        Assert.That(Read<string>(match, "Result"), Is.EqualTo(actual));
+        foreach (string forgedResult in forged)
+        {
+            object snapshot = Export(match);
+            FieldInfo resultField = snapshot.GetType().GetField("result");
+            resultField.SetValue(snapshot, Enum.Parse(resultField.FieldType, forgedResult));
+            object session = Field(snapshot, "session");
+            FieldInfo terminal = session.GetType().GetField("terminalResult");
+            string sessionName = forgedResult == "PlayerWin" ? "Win" :
+                forgedResult == "AldricWin" ? "Loss" : "Tie";
+            terminal.SetValue(session, Enum.Parse(terminal.FieldType, sessionName));
+            Assert.That(TryRestore(snapshot, out _, out _), Is.False,
+                $"{actual} totals were accepted as {forgedResult}");
+        }
+    }
+
+    static void RejectReceiptMutation(object match, string fieldName, object value)
+    {
+        object snapshot = Export(match);
+        object receipt = Field(snapshot, "interventionReceipt");
+        receipt.GetType().GetField(fieldName).SetValue(receipt, value);
+        Assert.That(TryRestore(snapshot, out _, out _), Is.False, fieldName);
+    }
+
     static T Read<T>(object instance, string property)
     {
         PropertyInfo info = instance.GetType().GetProperty(property);
         Assert.That(info, Is.Not.Null, $"missing {property}");
-        object value = info.GetValue(instance);
+        object value;
+        try { value = info.GetValue(instance); }
+        catch (TargetInvocationException error) when (error.InnerException != null) { throw error.InnerException; }
         if (typeof(T) == typeof(string) && value != null && value.GetType() != typeof(string))
             return (T)(object)value.ToString();
         return (T)value;
