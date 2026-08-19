@@ -43,6 +43,20 @@ bed: its deep-space/rumble textures would recreate the exact "spaceship" problem
 
 ## Status
 
+### 2026-08-18 evening - Parlor 1080p probe completes; series still not qualified
+
+Ran `npm run unity:proof:parlor` five times after Nick said continue. Each time the player finished the match (`[GmParlorStandaloneProbe] PASS repetition=1`, rematch, settings, quit). None qualified. Three died on split-half p95 (41–49%). Two later ones died on the CLI 3.0/core end gate at 3.94/core and 4.38/core. Did not ignore host load. Did not poke `InputSystem.Update()`. A later retry that went green would still be FLAKY.
+
+App SHA `c4b9b08ded98bdf3e45500667f24af022be463b8f541e253b4beb27bbfedbad0` (16:53 player). Starts as quiet as 0.507/core still ended 1.33–4.38/core. Other `claude` pid 55491 at ~130% CPU for six days, Cursor helpers, and a Playwright MCP Chrome (`enable-unsafe-swiftshader`) from another session. First failing logs kept:
+
+- `unity-project/Logs/parlor-rep1-2026-08-18-split-half-p95-2.log`
+- `unity-project/Logs/parlor-rep1-2026-08-18-split-half-p95-3.log`
+- `unity-project/Logs/parlor-rep1-2026-08-18-split-half-p95-4.log`
+- `unity-project/Logs/parlor-rep1-2026-08-18-host-3.94-core.log`
+- `unity-project/Logs/parlor-rep1-2026-08-18-host-4.38-core.log`
+
+1080p frames inspected this session (same lantern-pool look Nick already saw): `docs/playtest/screenshots/parlor-1080p-01-ready.png` through `08-pause-settings.png`. HUD, Read, catch, rematch, dossier Settings are on screen. Walls stay black. Visual PARTIAL. Parlor stays 42%.
+
 ### 2026-08-18 - Parlor player table is a lantern pool, not a missing-light crash
 
 Nick screenshotted the 1080p proof window. HUD and match were live (`Round 2`, follow the lead). The black lump is the Aldric proxy. The white cylinder is the table lantern. Walls are gone because fixed exposure plus a tight lamp, not because HDRP dropped the lights. That is PARTIAL, not the ship look. Display brightness stays Nick's gate.

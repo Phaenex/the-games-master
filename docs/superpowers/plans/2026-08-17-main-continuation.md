@@ -31,7 +31,7 @@
 | Hub Session 4 attic loft | yes | yes | yes | tour-18/19/20 this run | function CONFIRMED, visual PARTIAL |
 | Hub Session 5 cellar + vault | yes | yes | yes | tour-21/22/23 this run | descent+grate+climb-out CONFIRMED, visual PARTIAL |
 | Hub Session 6 remaining doors | yes | yes | yes | tour-24/25 this run | doors CONFIRMED, visual PARTIAL |
-| Parlor physical slice / House Memory | yes | yes | yes prior run | 24/24 after isolation | table slice CONFIRMED; Aldric proxy; no fresh player build |
+| Parlor physical slice / House Memory | yes | yes | yes prior run | 24/24 editor + unqualified 1080p frames | table slice CONFIRMED; Aldric proxy; 1080p series not qualified |
 | Five missing table games | names/design only | — | — | — | Nick still owns rules for 6–7 |
 
 ## Session 2 closeout (DONE 2026-08-17)
@@ -82,7 +82,7 @@ This is hub reachability. It is not Court trial content.
 
 ## After the hub
 
-1. Parlor shipping proof from `docs/superpowers/plans/2026-08-16-parlor-physical-vertical-slice.md`. Direct frame inspection. Test green is not enough. **DONE 2026-08-18** for the editor table slice. Built-player 1080p and Aldric art remain.
+1. Parlor shipping proof from `docs/superpowers/plans/2026-08-16-parlor-physical-vertical-slice.md`. Direct frame inspection. Test green is not enough. **DONE 2026-08-18** for the editor table slice. Built-player 1080p series still needs a quiet host. Aldric art remains.
 2. House Memory / Mirror mode from `docs/superpowers/specs/2026-08-16-house-remembers-replayability-design.md`. Ordinary New Run stays clean.
 3. Five missing table games. Do not invent rules for games 6–7.
 4. Nick's Phase 0 walk. Then Court.

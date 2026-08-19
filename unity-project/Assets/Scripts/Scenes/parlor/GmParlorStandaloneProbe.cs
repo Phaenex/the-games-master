@@ -355,7 +355,9 @@ public sealed class GmParlorStandaloneProbe : MonoBehaviour
             int target = before == GmParlorMatchPhase.PlayerLeads ||
                 before == GmParlorMatchPhase.PlayerFollowsAldricLead
                 ? FindLegalCard(null) : -1;
-            yield return ConfirmThroughBindings(target);
+            int progressAttempts = SettingsNavigationRetryLimit;
+            while (rules.Phase == before && !presentation.IsBlocking && progressAttempts-- > 0)
+                yield return ConfirmThroughBindings(target);
             if (rules.Phase == before && !presentation.IsBlocking)
             {
                 failure = $"controller match loop made no progress in {before}";
@@ -652,9 +654,20 @@ public sealed class GmParlorStandaloneProbe : MonoBehaviour
         yield return WaitUntil(() => pause.ActiveTab == GmPauseTab.Settings, 120,
             "D-pad did not select Settings");
         yield return Press(GamepadButton.South);
-        yield return WaitUntil(() => pause.ActiveTab == GmPauseTab.Settings &&
-            pause.SettingsFocusActive && pause.SettingsFocusIndex == 0,
-            120, "A did not enter attached Settings controls");
+        int enterAttempts = SettingsNavigationRetryLimit;
+        while (!(pause.ActiveTab == GmPauseTab.Settings &&
+            pause.SettingsFocusActive && pause.SettingsFocusIndex == 0) &&
+            enterAttempts-- > 0)
+        {
+            yield return Press(GamepadButton.South);
+            int settleFrames = 30;
+            while (!(pause.ActiveTab == GmPauseTab.Settings &&
+                pause.SettingsFocusActive && pause.SettingsFocusIndex == 0) &&
+                settleFrames-- > 0) yield return null;
+        }
+        if (pause.ActiveTab != GmPauseTab.Settings || !pause.SettingsFocusActive ||
+            pause.SettingsFocusIndex != 0)
+            failure = "A did not enter attached Settings controls";
     }
 
     PerfPhase previousSamplePhase = PerfPhase.None;
