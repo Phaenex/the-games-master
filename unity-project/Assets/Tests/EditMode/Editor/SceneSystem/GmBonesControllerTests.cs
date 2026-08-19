@@ -70,6 +70,31 @@ public sealed class GmBonesControllerTests
     }
 
     [Test]
+    public void FocusEventFiresOnceOnlyForEffectiveMovesAndNeverPersists()
+    {
+        GmSaveSystem.ConfigureForTests(path);
+        var controller = new GmBonesController();
+        Assert.That(controller.InitializeOrRestore(), Is.EqualTo(GmBonesInitializeResult.StartedNew));
+        string fingerprint = controller.Snapshot.stateFingerprint;
+        string disk = File.ReadAllText(path);
+        int events = 0;
+        controller.OnFocusChanged += () => events++;
+
+        controller.MoveFocus(0);
+        controller.MoveFocus(4);
+        Assert.That(events, Is.Zero);
+        controller.MoveFocus(1);
+        Assert.That(controller.FocusIndex, Is.EqualTo(1));
+        Assert.That(events, Is.EqualTo(1));
+        controller.MoveFocus(-5);
+        Assert.That(controller.FocusIndex, Is.Zero);
+        Assert.That(events, Is.EqualTo(2));
+        Assert.That(controller.Snapshot.stateFingerprint, Is.EqualTo(fingerprint));
+        Assert.That(GmRunStore.GetBonesMatchSnapshot().stateFingerprint, Is.EqualTo(fingerprint));
+        Assert.That(File.ReadAllText(path), Is.EqualTo(disk));
+    }
+
+    [Test]
     public void FailedWriteRollsBackMatchStoreFocusAndEventsThenRetryCommitsOnce()
     {
         var controller = new GmBonesController();

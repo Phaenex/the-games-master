@@ -37,6 +37,7 @@ public sealed class GmBonesController
     public string LastRestoreError { get; private set; } = string.Empty;
 
     public event Action OnStateChanged;
+    public event Action OnFocusChanged;
     public event Action<GmBonesMatchResult> OnCompleted;
 
     public GmBonesInitializeResult InitializeOrRestore()
@@ -75,7 +76,10 @@ public sealed class GmBonesController
     public void MoveFocus(int delta)
     {
         int moved = (FocusIndex + delta) % 4;
-        FocusIndex = moved < 0 ? moved + 4 : moved;
+        moved = moved < 0 ? moved + 4 : moved;
+        if (moved == FocusIndex) return;
+        FocusIndex = moved;
+        OnFocusChanged?.Invoke();
     }
 
     public GmBonesActionError ConfirmFocusedAction()
