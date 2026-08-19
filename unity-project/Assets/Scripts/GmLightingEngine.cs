@@ -15,7 +15,7 @@ public static class GmLightingEngine
     public static readonly Color LanternAmber = new Color(1.0f, 0.52f, 0.18f);   // 2100K Warm Lantern / Pier Sconce
     public static readonly Color MoonlightSlate = new Color(0.24f, 0.32f, 0.44f); // 6800K Cold Nocturnal Wash
     public static readonly Color HearthWarm = new Color(0.96f, 0.44f, 0.12f);     // 1800K Fireplace / Hearth Glow
-    public static readonly Color ParlorCandle = new Color(0.98f, 0.62f, 0.28f);   // 2400K Candlelight
+    public static readonly Color CandleWarm = new Color(0.98f, 0.62f, 0.28f);     // 2400K Candlelight
 
     public const int MaxConcurrentShadowCasters = 4;
 

@@ -7,7 +7,7 @@
     "assets:horror:check": "node scripts/check-horror-bundle.mjs",
     "serve": "npx serve .",
     "test": "npm run test:fast && npm run test:archive:web",
-    "test:fast": "node scripts/test-harness-integrity.mjs && node scripts/test-scene-learning.mjs && node scripts/test-unity-scene-system.mjs && node scripts/test-unity-runtime-integrity.mjs && node scripts/test-unity-packages.mjs && node scripts/test-parlor-review-report.mjs && node scripts/test-parlor-standalone-report.mjs && node scripts/test-shutbox.mjs",
+    "test:fast": "node scripts/test-harness-integrity.mjs && node scripts/test-scene-learning.mjs && node scripts/test-engine-boundary.mjs && node scripts/test-unity-scene-system.mjs && node scripts/test-unity-runtime-integrity.mjs && node scripts/test-unity-packages.mjs && node scripts/test-parlor-review-report.mjs && node scripts/test-parlor-standalone-report.mjs && node scripts/test-shutbox.mjs",
     "test:archive:web": "node scripts/run-tests.mjs",
     "test:all": "npm run verify:portable",
     "test:logic": "node scripts/test-shutbox.mjs",
@@ -49,6 +49,7 @@
     "unity:variants": "node scripts/unity-cli.mjs variants",
     "unity:host": "node scripts/unity-cli.mjs host-health",
     "unity:learning": "node scripts/scene-learning.mjs status",
+    "unity:engine:audit": "node scripts/engine-boundary-audit.mjs",
     "verify:harness": "node scripts/test-harness-integrity.mjs"
   },
   "devDependencies": {
