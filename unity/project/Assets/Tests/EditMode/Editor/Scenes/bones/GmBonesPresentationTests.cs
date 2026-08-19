@@ -73,6 +73,10 @@ public sealed class GmBonesPresentationTests
         Assert.That(waiting.CanChallenge, Is.True);
         Assert.That(waiting.CanProceed, Is.True);
         Assert.That(waiting.HasLoadedSixMarker, Is.True);
+        Assert.That(waiting.Dice, Is.EqualTo(new[] { 6, 6, 2 }),
+            "pending table must show Aldric's altered throw");
+        Assert.That(waiting.DisplayedReroll, Is.EqualTo(new[] { 6, 2 }));
+        Assert.That(waiting.ChangedDieSlot, Is.EqualTo(1));
         Assert.That(waiting.ObservedHonestReroll, Is.Empty, "unobserved honest dice leaked before challenge");
 
         if (challenge) controller.CallTell(); else controller.ConfirmFocusedAction();
@@ -80,11 +84,25 @@ public sealed class GmBonesPresentationTests
         Assert.That(complete.Phase, Is.EqualTo(GmBonesPresentationPhase.Complete));
         Assert.That(complete.HasLoadedSixMarker, Is.True);
         Assert.That(complete.ObservedHonestReroll.Length, Is.EqualTo(challenge ? 2 : 0));
+        Assert.That(complete.DisplayedReroll, Is.EqualTo(new[] { 6, 2 }),
+            "historical table evidence vanished after resolution");
+        Assert.That(complete.Dice, Is.EqualTo(challenge
+            ? new[] { 6, 1, 2 }
+            : new[] { 6, 6, 2 }));
+        Assert.That(complete.AldricTotal, Is.EqualTo(challenge
+            ? pending.InterventionReceipt.honestAldricTotal
+            : pending.InterventionReceipt.alteredAldricTotal));
+        Assert.That(complete.CorrectedByChallenge, Is.EqualTo(challenge));
+        Assert.That(complete.ChangedDieSlot, Is.EqualTo(1));
         GmRunStore.BeginNewRun();
         GmRunStore.LoadFromSaveData(GmSaveData.FromJson(File.ReadAllText(path)));
         var restored = new GmBonesController();
         restored.InitializeOrRestore();
-        Assert.That(GmBonesPresentationModel.Project(restored).HasLoadedSixMarker, Is.True);
+        GmBonesPresentationState reloaded = GmBonesPresentationModel.Project(restored);
+        Assert.That(reloaded.HasLoadedSixMarker, Is.True);
+        Assert.That(reloaded.ChangedDieSlot, Is.EqualTo(1));
+        Assert.That(reloaded.DisplayedReroll, Is.EqualTo(new[] { 6, 2 }));
+        Assert.That(reloaded.Dice, Is.EqualTo(complete.Dice));
     }
 
     static GmBonesMatch PendingLoadedSix()

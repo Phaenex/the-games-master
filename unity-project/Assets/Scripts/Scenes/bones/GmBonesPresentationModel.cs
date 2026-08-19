@@ -28,6 +28,7 @@ public sealed class GmBonesActionPresentation
 public sealed class GmBonesPresentationState
 {
     int[] dice = Array.Empty<int>();
+    int[] displayedReroll = Array.Empty<int>();
     int[] observedHonestReroll = Array.Empty<int>();
     string[] actionLog = Array.Empty<string>();
     GmBonesActionPresentation[] actions = Array.Empty<GmBonesActionPresentation>();
@@ -42,8 +43,11 @@ public sealed class GmBonesPresentationState
     public bool CanChallenge { get; internal set; }
     public bool CanProceed { get; internal set; }
     public bool HasLoadedSixMarker { get; internal set; }
+    public bool CorrectedByChallenge { get; internal set; }
+    public int ChangedDieSlot { get; internal set; } = -1;
     public string EvidenceText { get; internal set; } = string.Empty;
     public int[] Dice { get => (int[])dice.Clone(); internal set => dice = Clone(value); }
+    public int[] DisplayedReroll { get => (int[])displayedReroll.Clone(); internal set => displayedReroll = Clone(value); }
     public int[] ObservedHonestReroll { get => (int[])observedHonestReroll.Clone(); internal set => observedHonestReroll = Clone(value); }
     public string[] ActionLog { get => (string[])actionLog.Clone(); set => actionLog = value == null ? Array.Empty<string>() : (string[])value.Clone(); }
     public GmBonesActionPresentation[] Actions { get => (GmBonesActionPresentation[])actions.Clone(); internal set => actions = value == null ? Array.Empty<GmBonesActionPresentation>() : (GmBonesActionPresentation[])value.Clone(); }
@@ -75,11 +79,14 @@ public static class GmBonesPresentationModel
             CanChallenge = intervention,
             CanProceed = intervention,
             HasLoadedSixMarker = snapshot.interventionReceipt != null,
+            CorrectedByChallenge = challenged,
+            ChangedDieSlot = ChangedTableSlot(snapshot.interventionReceipt),
             EvidenceText = snapshot.interventionReceipt == null ? string.Empty :
-                challenged ? "Loaded six challenged. The honest reroll is now on record." :
+                challenged ? "Loaded six challenged. The honest result was restored; the altered table display remains on record." :
                 intervention ? "Aldric's displayed reroll includes a loaded six. Challenge or proceed." :
-                "A loaded-six intervention was resolved.",
-            Dice = DisplayedDice(snapshot),
+                "The altered loaded-six table display remains on record.",
+            Dice = ReceiptDice(snapshot, challenged),
+            DisplayedReroll = snapshot.interventionReceipt?.displayedReroll,
             ObservedHonestReroll = challenged
                 ? snapshot.interventionReceipt?.honestReroll : Array.Empty<int>(),
             ActionLog = PresentLog(snapshot.actionJournal),
@@ -88,16 +95,29 @@ public static class GmBonesPresentationModel
         return state;
     }
 
-    static int[] DisplayedDice(GmBonesMatchSnapshot snapshot)
+    static int[] ReceiptDice(GmBonesMatchSnapshot snapshot, bool challenged)
     {
         GmBonesInterventionReceipt receipt = snapshot.interventionReceipt;
         if (receipt == null) return snapshot.currentDice;
         var shown = new int[3];
         shown[receipt.lockedSlot] = snapshot.currentDice[receipt.lockedSlot];
+        int[] reroll = challenged ? receipt.honestReroll : receipt.displayedReroll;
         int next = 0;
         for (int index = 0; index < shown.Length; index++)
-            if (index != receipt.lockedSlot) shown[index] = receipt.displayedReroll[next++];
+            if (index != receipt.lockedSlot) shown[index] = reroll[next++];
         return shown;
+    }
+
+    static int ChangedTableSlot(GmBonesInterventionReceipt receipt)
+    {
+        if (receipt == null) return -1;
+        int rerollSlot = 0;
+        for (int tableSlot = 0; tableSlot < 3; tableSlot++)
+        {
+            if (tableSlot == receipt.lockedSlot) continue;
+            if (rerollSlot++ == receipt.changedSlot) return tableSlot;
+        }
+        return -1;
     }
 
     static GmBonesActionPresentation[] PresentActions(int focus, GmBonesMatchPhase phase)

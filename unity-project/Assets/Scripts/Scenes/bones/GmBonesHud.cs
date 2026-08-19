@@ -11,6 +11,12 @@ public sealed class GmBonesHud : MonoBehaviour
     VisualElement root;
     Label status;
     Label dice;
+    VisualElement diceSlots;
+    VisualElement[] dieSlots;
+    Label[] dieValues;
+    Label displayedReroll;
+    Label observedHonestReroll;
+    VisualElement changedDieMarker;
     VisualElement actions;
     VisualElement intervention;
     Label evidence;
@@ -20,8 +26,10 @@ public sealed class GmBonesHud : MonoBehaviour
     Button[] choiceButtons;
     Button challenge;
     Button proceed;
+    bool subscribed;
 
     public bool IsConfigured => controller != null;
+    public int RefreshRevision { get; private set; }
 
     public bool TryConfigure(GmBonesController tableController, out string error)
     {
@@ -32,7 +40,7 @@ public sealed class GmBonesHud : MonoBehaviour
         }
         Unsubscribe();
         controller = tableController;
-        Subscribe();
+        if (isActiveAndEnabled) Subscribe();
         error = string.Empty;
         if (root != null) Refresh();
         return true;
@@ -45,7 +53,12 @@ public sealed class GmBonesHud : MonoBehaviour
     }
 
     void Start() { if (IsConfigured) BuildUi(); }
-    void OnEnable() { if (controller != null) Subscribe(); }
+    void OnEnable()
+    {
+        if (controller == null) return;
+        Subscribe();
+        Refresh();
+    }
 
     void BuildUi()
     {
@@ -67,6 +80,31 @@ public sealed class GmBonesHud : MonoBehaviour
 
         status = AddLabel(root, "BonesStatus", 18);
         dice = AddLabel(root, "BonesDice", 28);
+        diceSlots = new VisualElement { name = "BonesDiceSlots", pickingMode = PickingMode.Ignore };
+        diceSlots.style.flexDirection = FlexDirection.Row;
+        root.Add(diceSlots);
+        dieSlots = new VisualElement[3];
+        dieValues = new Label[3];
+        for (int index = 0; index < 3; index++)
+        {
+            VisualElement slot = new VisualElement
+            {
+                name = $"BonesDie{index + 1}",
+                pickingMode = PickingMode.Ignore
+            };
+            slot.style.width = 72;
+            slot.style.minHeight = 72;
+            slot.style.marginRight = 12;
+            slot.style.borderTopWidth = 2; slot.style.borderBottomWidth = 2;
+            slot.style.borderLeftWidth = 2; slot.style.borderRightWidth = 2;
+            Label value = AddLabel(slot, $"BonesDie{index + 1}Value", 28);
+            value.style.unityTextAlign = TextAnchor.MiddleCenter;
+            dieSlots[index] = slot;
+            dieValues[index] = value;
+            diceSlots.Add(slot);
+        }
+        displayedReroll = AddLabel(root, "BonesDisplayedReroll", 18);
+        observedHonestReroll = AddLabel(root, "BonesObservedHonestReroll", 18);
         actions = new VisualElement { name = "BonesActions" };
         actions.style.flexDirection = FlexDirection.Row;
         root.Add(actions);
@@ -97,6 +135,7 @@ public sealed class GmBonesHud : MonoBehaviour
     public void Refresh()
     {
         if (root == null || !IsConfigured) return;
+        RefreshRevision++;
         GmBonesPresentationState model = GmBonesPresentationModel.Project(controller);
         bool highContrast = GmAccessibilitySettings.HighContrast;
         float scale = GmAccessibilitySettings.TextScale;
@@ -110,6 +149,41 @@ public sealed class GmBonesHud : MonoBehaviour
                 : "Bones match complete";
         int[] shown = model.Dice;
         dice.text = $"Dice: {shown[0]}  {shown[1]}  {shown[2]}";
+        for (int index = 0; index < dieValues.Length; index++)
+        {
+            dieValues[index].text = shown[index].ToString();
+            dieSlots[index].EnableInClassList("gm-bones-changed-die", index == model.ChangedDieSlot);
+        }
+        changedDieMarker?.RemoveFromHierarchy();
+        changedDieMarker = null;
+        if (model.ChangedDieSlot >= 0 && model.ChangedDieSlot < dieSlots.Length)
+        {
+            changedDieMarker = new VisualElement
+            {
+                name = "BonesChangedDieMarker",
+                pickingMode = PickingMode.Ignore
+            };
+            changedDieMarker.style.width = 18;
+            changedDieMarker.style.height = 18;
+            changedDieMarker.style.borderTopWidth = 4; changedDieMarker.style.borderBottomWidth = 4;
+            changedDieMarker.style.borderLeftWidth = 4; changedDieMarker.style.borderRightWidth = 4;
+            changedDieMarker.style.borderTopLeftRadius = 9; changedDieMarker.style.borderTopRightRadius = 9;
+            changedDieMarker.style.borderBottomLeftRadius = 9; changedDieMarker.style.borderBottomRightRadius = 9;
+            Color markerColor = highContrast ? Color.white : Gold;
+            changedDieMarker.style.borderTopColor = markerColor;
+            changedDieMarker.style.borderBottomColor = markerColor;
+            changedDieMarker.style.borderLeftColor = markerColor;
+            changedDieMarker.style.borderRightColor = markerColor;
+            dieSlots[model.ChangedDieSlot].Add(changedDieMarker);
+        }
+        int[] tableReroll = model.DisplayedReroll;
+        displayedReroll.text = tableReroll.Length == 2
+            ? $"Table showed reroll: {tableReroll[0]}, {tableReroll[1]}"
+            : "Table reroll: none";
+        int[] honestReroll = model.ObservedHonestReroll;
+        observedHonestReroll.text = honestReroll.Length == 2
+            ? $"Observed honest reroll: {honestReroll[0]}, {honestReroll[1]}"
+            : "Honest reroll: not observed";
         GmBonesActionPresentation[] cards = model.Actions;
         for (int index = 0; index < choiceButtons.Length; index++)
         {
@@ -132,7 +206,13 @@ public sealed class GmBonesHud : MonoBehaviour
         proceed.SetEnabled(model.CanProceed);
         evidence.text = model.HasLoadedSixMarker ? "EVIDENCE • " + model.EvidenceText : "No intervention evidence recorded.";
         actionLog.text = model.ActionLog.Length == 0 ? "No choices recorded." : string.Join("\n", model.ActionLog);
-        result.text = model.HasResult ? $"Result: {PresentResult(model.Result)}" : string.Empty;
+        result.text = model.HasResult
+            ? $"Result: {PresentResult(model.Result)}" + (model.HasLoadedSixMarker
+                ? model.CorrectedByChallenge
+                    ? " • Challenge restored the honest throw"
+                    : " • Proceeded with the table-shown throw"
+                : string.Empty)
+            : string.Empty;
         result.style.display = model.HasResult ? DisplayStyle.Flex : DisplayStyle.None;
         caption.text = "CAPTION • Dice and intervention facts are always shown as text.";
         caption.style.display = GmAccessibilitySettings.Captions ? DisplayStyle.Flex : DisplayStyle.None;
@@ -177,14 +257,16 @@ public sealed class GmBonesHud : MonoBehaviour
             controller.OnFocusChanged -= Refresh;
         }
         GmAccessibilitySettings.OnChanged -= Refresh;
+        subscribed = false;
     }
 
     void Subscribe()
     {
-        Unsubscribe();
+        if (subscribed || controller == null) return;
         controller.OnStateChanged += Refresh;
         controller.OnFocusChanged += Refresh;
         GmAccessibilitySettings.OnChanged += Refresh;
+        subscribed = true;
     }
 
     void OnDisable() => Unsubscribe();
