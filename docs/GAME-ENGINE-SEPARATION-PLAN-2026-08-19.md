@@ -12,14 +12,14 @@ the public name.
 
 ## What the audit found
 
-The runtime source currently has 62 files and no assembly definition around the shared scene
+The runtime source currently has 63 files and no assembly definition around the shared scene
 system. The boundary manifest classifies them as:
 
 | Class | Count | Meaning |
 |---|---:|---|
 | Portable now | 24 | Closed composition, intent, placement, lighting-budget, route, and integrity code that has no dependency on game-owned runtime types. |
 | Adapter needed | 17 | Useful engine behavior that still knows about a Games Master player, save shape, UI, cue catalog, scene catalog, or named presentation resource. |
-| Game-owned | 21 | Aldric, Parlor, Seven Debts rules, endings, estate progression, House Memory, the run store, and other content or rules that should remain in this game. |
+| Game-owned | 22 | Aldric, Parlor, Seven Debts rules and match state, endings, estate progression, House Memory, the run store, and other content or rules that should remain in this game. |
 
 `npm run unity:engine:audit` now enforces this classification. A new runtime file fails the normal
 fast test until its owner is declared. A portable candidate also fails if it starts referring to a
@@ -102,7 +102,7 @@ E1  Namespaces and assembly definitions [░░░░░░░░░░░░░
 E2  Unity package foundation            [████████████████████] 100%
 E3  Games Master adapter and data        [░░░░░░░░░░░░░░░░░░░░]   0%
 E4  Clean-room sample game              [░░░░░░░░░░░░░░░░░░░░]   0%
-E5  Separate versioned repository       [████████████████░░░░]  80%
+E5  Separate versioned repository       [████████████████████] 100%
 ```
 
 The GameCraft package now also owns a reusable deterministic game-session lifecycle and a portable
@@ -151,9 +151,10 @@ claim instead of a hope.
 
 Nick directed the repository split before the clean-room sample was complete. The private repository
 is now at [Phaenex/gamecraft-engine](https://github.com/Phaenex/gamecraft-engine), with version
-history, migration notes, and a changelog. The game still uses the sibling checkout so local Unity builds do
-not depend on GitHub credentials. E5 closes after a clean consumer installs the private tag and the
-game deliberately switches from the local development link to a pinned release.
+history, migration notes, and a changelog. A clean Unity 6000.5.3f1 consumer installed private tag
+`v0.2.0` through Git UPM, locked exact commit `39002e4`, compiled without a Games Master assembly,
+and built a standalone macOS player. The game keeps the sibling checkout for active package
+development; the remote proof independently closes E5.
 
 ## Current Unity alignment
 
@@ -177,8 +178,7 @@ Sources checked 2026-08-19:
 
 ## Next safe move
 
-Prove a clean remote consumer can install the published GameCraft `v0.2.0` tag, then extract the
-closed composition and intent types into a runtime assembly in small batches. The first
+Extract the closed composition and intent types into a runtime assembly in small batches. The first
 batch should contain only plain data components with no saved-scene instances, then run source sync,
 EditMode, PlayMode, every registered audit, and the full game build. Components already serialized
 into scenes move later with GUID preservation and a scene reopen check.
