@@ -6,6 +6,13 @@
 **Approval evidence:** Nick approved each design section in the active project task on 2026-08-16; the final presentation and technical standards incorporate the recorded panel consensus from the same task.  
 **Scope:** Cross-run memory, adaptive host behavior, seven-game replayability, physical presentation, accessibility, durability, and proof
 
+> **Canon correction, 2026-08-19:** The game names, order, rules sketches, implementation order, and
+> related decision record in this document are superseded by
+> [`docs/SEVEN-DEBTS-CANON-2026-08-19.md`](../../SEVEN-DEBTS-CANON-2026-08-19.md).
+> In particular, Bones now uses three dice and one bank-or-press choice per round; Black Ledger and
+> Last Candle replace the earlier Inventory and Key and Bell sketches. The cross-run memory and
+> accessibility requirements in this document still apply.
+
 ## 1. Purpose
 
 The Games Master needs repeat play to remain interesting after the player learns that Aldric cheats. The answer is not to hide the premise again. Repeat play changes the question from "does he cheat?" to:
@@ -27,7 +34,8 @@ This design does not claim the seven games are finished.
 
 - Parlor has the strongest foundation: deterministic rules, best-of-three match flow, host logic, cheat and tell behavior, exact snapshots, and durable mid-match continuation.
 - Shut the Box has rules and tests, but not a finished physical match, presentation, animation set, or shipping proof.
-- Bones, Study, Wager, Inventory, and Key and Bell are designs only.
+- Bones has deterministic rules, a durable full-match controller, and exact recovery, but no finished
+  player-facing table. Study, Wager, Black Ledger, and Last Candle have approved rules only.
 - Court, Hidden Room, and Labyrinth are story rooms. They are not part of Aldric's seven table games.
 - Existing interior meshes and lighting improve the rooms, but do not make their game presentation complete.
 
@@ -617,8 +625,8 @@ This master design is too large for one implementation plan. Work proceeds throu
 4. **Bones vertical slice.**
 5. **Study vertical slice.**
 6. **Wager vertical slice.**
-7. **Inventory vertical slice.**
-8. **Key and Bell vertical slice and ending integration.**
+7. **Black Ledger vertical slice.**
+8. **Last Candle vertical slice and ending integration.**
 9. **Story-room adaptive pass:** Court, Hidden Room, and Labyrinth.
 10. **Full-night qualification:** pacing, catches, all endings, accessibility, performance, and release evidence.
 
@@ -641,7 +649,7 @@ Each slice requires its own focused spec and plan before implementation. Shared 
 
 📝 DECISION: Use escalating whole-house recognition with Aldric as its clearest voice | WHY: it preserves the first remembered run's dread and later proves the feature is real | ALT: immediate recognition spends the reveal too early; implication-only may feel like random variation.
 
-📝 DECISION: Use distinct-faculty games with Inventory and Key and Bell as games VI and VII | WHY: each contest owns a different player skill and evidence procedure | ALT: seven period reskins repeat the same catch loop; a genre anthology multiplies production pipelines.
+📝 DECISION: Use distinct-faculty games with Black Ledger and Last Candle as games VI and VII | WHY: each contest owns a different player skill and evidence procedure | ALT: seven period reskins repeat the same catch loop; a genre anthology multiplies production pipelines.
 
 📝 DECISION: Use physical 3D canonical state with equivalent focus views | WHY: physical evidence carries the horror, while equivalent views preserve accessibility and clarity | ALT: flat minigames break immersion; physical-only play excludes players and encourages pixel hunting.
 

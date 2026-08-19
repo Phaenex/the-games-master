@@ -120,6 +120,59 @@ prefab YAML by hand.
 | Covered-room dressing | `WIRE` | Sheet forms, clock, frames, sparse cobwebs and dust | Build two large silhouettes, not twenty tiny covered props |
 | Secret panel | `SHIP` | Existing authored panel and brass seam | Keep the seam readable only after the game state allows it |
 
+### Seven Debts games 3–7
+
+The approved rules and order live in `docs/SEVEN-DEBTS-CANON-2026-08-19.md`. Older four-die Bones,
+Inventory, and Key and Bell sketches are not asset targets.
+
+#### Bones
+
+| Need | Status | Source and placement | Implementation notes |
+|---|---|---|---|
+| Table | `WIRE` | `Assets/ThirdParty/MetalManVictorianInteriors/Table_2.fbx` | Aldric far side, player near side, center 60% clear for three dice |
+| Three readable dice | `BUILD` | Project-authored beveled die with separately controlled pips | Three independent instances; deterministic face transforms and lock state; `assets/models/sourced/dice.glb` is comparison-only because it contains a joined pair |
+| Brass balance | `CURATE` | Selective import candidate at `assets/models/unity-import/ultimate-low-poly-dungeon/BrokenVector/LowPolyDungeon/Models/Clutter/Scales.fbx` | Hold outside the first slice. Current canon has no Weigh action; use only as later-approved noninteractive dressing that cannot imply a missing mechanic |
+| Candles and lantern | `WIRE` | Witch Village `SM_Candles_1..4.prefab`; Abandoned Village `SM_Lantern.prefab` | Low candle cluster back-left, lantern off-table; gameplay light remains stable |
+| Dust and loaded-die evidence | `BUILD` | Witch Village `P_Dust.prefab` plus authored low-opacity tabletop decal and die seam | Dust stays outside pip read cone; challenge evidence remains text, shape, receipt history, and sound, not a visual-only trick |
+| Dice cup | `BUILD` later | No suitable owned or catalog asset | Not required by the rules; omit from the first slice instead of substituting a goblet |
+
+#### Study
+
+| Need | Status | Source and placement | Implementation notes |
+|---|---|---|---|
+| Pieces | `CURATE` | Selective import of `assets/models/unity-import/apartment-kit/Brick Project Studio/Apartment Kit/Common/Models/Apt_Props_01.fbx` and `_Prefabs/Props/Misc/Chess_Board_Base.prefab` | Reuse individual named piece meshes; instantiate only the pieces in each verified FEN |
+| Board | `BUILD` | Project-authored 8×8 surface | Square IDs, legal moves, original position, and override position must remain exact and readable in high contrast |
+| Arbiter token | `BUILD` | Thick brass cylinder with a notched edge and one house stamp | Aldric upper-right; move its marker beside the extra pawn move during intervention |
+| Move explanations | `BUILD` | Three player-side move cards and HUD text | No chess literacy gate; reduced motion swaps snapshots without animation |
+
+#### Wager
+
+| Need | Status | Source and placement | Implementation notes |
+|---|---|---|---|
+| Contracts | `BUILD` | Authored parchment body plus separate insert plane; Witch Village `SM_Scrolls_1/2.prefab` as inactive dressing | One active contract centered, two sealed contracts in side cradles; values and clauses are state-driven text |
+| Seals | `BUILD` | Reuse the Court wax-cylinder construction pattern | A swap leaves broken wax, original insert edge, persistent icon, and text evidence |
+| Four sovereigns | `BUILD` | House-stamped beveled coins; owned `assets/models/unity-import/low-poly-simple-medieval-props/LowPolyMedievalPropsLite/Models/Coin_01.fbx` through `Coin_03.fbx` only as comparison | Player-side rail with spent slots; count never relies on color alone |
+
+#### Black Ledger
+
+| Need | Status | Source and placement | Implementation notes |
+|---|---|---|---|
+| Open ledger | `CURATE` | Selective import of `assets/models/unity-import/books-essentials/DanielRiches/BooksEssentials/Prefabs/BookBasicOpenWriting.prefab` and page dependencies | Stable banker-lamp light; authoritative page text stays project-owned |
+| Ink and pen | `CURATE` | `assets/models/unity-import/metalman-victorian-interior/Victorian Interiors/Victorian Interiors/Small/Ink.fbx` and `Small/Pen.fbx`; existing authored quill helper | Keep clear of the inquiry and citation surfaces |
+| Guests and plates | `SHIP` / `BUILD` | Existing Edwin Marr, Halvard Pike, and Constance portraits; reuse Entry Hall brass plate method | Three plates across the far edge; citations stay visible beside the accused guest |
+| Evidence | `BUILD` | Authored Record, Trace, and Testimony cards | Page layers carry pressure marks, overwritten row, violet wax, fibers, and testimony; data owns `supportsGuestIds` |
+| Plate-swap tell | `BUILD` | Low-opacity dusty-surface decal with a clean rectangle | Challenge restores the plate and guest; persistent text and geometry prevent a spot-the-difference gate |
+
+#### Last Candle
+
+| Need | Status | Source and placement | Implementation notes |
+|---|---|---|---|
+| Eight candles | `CURATE` | Selective import of `assets/models/unity-import/customizable-lights-and-candles/Customizable Lights and Candles/Models/candleNew.fbx`, `candleUsed.fbx`, and `candleLow.fbx` | Seven ivory and one black, each with an independent flame and state marker; Leartes candle clusters remain background dressing |
+| Game surface | `BUILD` | Blackened wood and brass insert on MetalMan `Table_2.fbx` | Layout reads `outer ← 3 white ← BLACK → 4 white → outer`; empty sockets remain visible |
+| Snuffer | `BUILD` | Project-authored brass rod and small conical bell | Rest below the black candle; snap instead of animate under reduced motion |
+| Wax and relight proof | `BUILD` | Restrained wax pools, socket markers, persistent outline and text | An illicit relight is visible through state, shape, and caption, never flame color alone |
+| Finale practical | `WIRE` | Abandoned Village `SM_Lantern.prefab` | Separate from the eight gameplay candles so the ending light cannot corrupt solver state |
+
 ### Hidden room
 
 | Need | Status | Source and placement | Implementation notes |
