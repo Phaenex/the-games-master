@@ -65,3 +65,28 @@ THE NINTH BELL - FINAL CURATED CUES (2026-07-20)
 The reproducible, SHA-256-pinned curation pipeline is scripts/gen-bell-audio.py. The shipping OGG
 files are transformed in-game assets; the three Freesound sources are CC0 and require no credit,
 but remain credited here for durable provenance.
+
+TABLE GAMES + COURT (CC0 curation, 2026-08-19)
+- parlor-card-snap.ogg  Derived from "contact2.wav" in "Playing Card Sounds" by BMacZero
+                 (Brian MacIntosh). License: CC0 1.0. The 0.30s card contact was high-passed,
+                 peak-limited, converted to mono 48 kHz Opus, and renamed to the runtime cue key.
+                 https://opengameart.org/content/playing-card-sounds
+- stb-bone-dice-roll.ogg  Derived from "Holzwürfel_auf_Holztisch_3.flac" in "Wooden dice on
+                 wodden table roll" by Wuzzy. License: CC0 1.0. The 1.37s wooden-die roll was
+                 high-passed, peak-limited, converted to mono 48 kHz Opus, and used for the two
+                 bone dice because its table contact reads clearly without a modern plastic tone.
+                 https://opengameart.org/content/wooden-dice-on-wodden-table-roll
+- court-gavel-strike.ogg  Derived from "wood_hammer_01.ogg" in "100 CC0 metal and wood SFX"
+                 by rubberduck. License: CC0 1.0. The 0.32s wood-hammer impact was band-limited,
+                 peak-limited, converted to mono 48 kHz Opus, and selected over the pack's metal
+                 hits so the Court cue matches the tarnished wooden gavel on the bench.
+                 https://opengameart.org/content/100-cc0-metal-and-wood-sfx
+
+Unity mirrors use underscore cue names and mono 48 kHz PCM WAV because Unity 6000.5 rejects Opus
+streams in an Ogg container. `GmAudioManager` resolves each authored hyphenated cue to that underscore
+resource name. The compact Ogg files remain the canonical web/source copies below.
+
+Shipping SHA-256 values:
+- parlor-card-snap.ogg: 917913ff13bef85692613f9f708c7de53193d2171fab3c8c0e5a8f9add4992ba
+- stb-bone-dice-roll.ogg: 00881d79c2404003e79c95491e9b2a13bf5c6dcf21b02d3dc13859ddf847c058
+- court-gavel-strike.ogg: 937c9109177f10691759a7e4afe702b7ea13e299aad9d9b72fc1795c07569ca2

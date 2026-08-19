@@ -1,5 +1,10 @@
 # Full-Game Asset Book — Modern Guest / Trapped House
 
+> **Superseded 2026-08-19:** the purchase assumptions and implementation statuses in this July
+> snapshot are stale. Use `docs/FULL-GAME-ASSET-PLACEMENT-PLAN-2026-08-19.md` for current holdings,
+> exact deployment, sourcing, licensing, budgets, and verification. This file remains as decision
+> history only.
+
 > **For agentic workers:** sourcing + placement bible, not a coding sprint.
 >
 > **House history canon:** `docs/superpowers/specs/2026-07-14-house-history.md` — coaching inn → club → failed manor → frozen games house. **Wild West saloon is retired.**

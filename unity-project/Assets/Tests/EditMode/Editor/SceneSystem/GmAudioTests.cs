@@ -4,6 +4,26 @@ using UnityEngine;
 
 public class GmAudioTests
 {
+    [Test]
+    public void TableGameAndCourtCueClipsAreShipped()
+    {
+        string[] resourceNames =
+        {
+            "parlor_card_snap",
+            "stb_bone_dice_roll",
+            "court_gavel_strike",
+        };
+
+        foreach (string resourceName in resourceNames)
+        {
+            AudioClip clip = Resources.Load<AudioClip>($"Sfx/{resourceName}");
+            Assert.IsNotNull(clip, $"Resources/Sfx/{resourceName} is missing, so the authored cue is silent");
+            Assert.Greater(clip.length, 0.1f, $"{resourceName} imported as an empty or unusably short clip");
+            Assert.AreEqual(1, clip.channels,
+                $"{resourceName} should stay mono so the game can spatialize it");
+        }
+    }
+
     // Named for the backing setters, not for a slider: nothing in the runtime binds a UI slider to
     // master/ambience/sfx volume yet, so this only proves the clamp the setters apply.
     [Test]

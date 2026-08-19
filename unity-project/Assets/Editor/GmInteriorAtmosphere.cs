@@ -22,6 +22,9 @@ using UnityEngine.Rendering.HighDefinition;
 
 public static class GmInteriorAtmosphere
 {
+    public const string DustPrefabPath =
+        "Assets/LeartesStudios/WitchVillage/HDRP/Art/Particles/P_Dust.prefab";
+
     /// The same fixed exposure the committed night uses outdoors.
     ///
     /// Deliberately identical rather than "tuned for interiors": the player walks from the drive into
@@ -112,9 +115,91 @@ public static class GmInteriorAtmosphere
         volume.isGlobal = true;
         volume.priority = 1f;
         volume.sharedProfile = profile;
+        int dustFields = InstallDust(host.transform, sceneId);
         Debug.Log($"[GmInteriorAtmosphere] '{sceneId}' fixed {InteriorExposureEV} EV, fog {FogMeanFreePath}m, " +
-                  $"{clamped} light(s) clamped, {flickering} flame practical(s) animated -> {path}");
+                  $"{clamped} light(s) clamped, {flickering} flame practical(s) animated, " +
+                  $"{dustFields} bounded dust field(s) -> {path}");
         return host;
+    }
+
+    static int InstallDust(Transform parent, string sceneId)
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(DustPrefabPath);
+        if (prefab == null)
+        {
+            Debug.LogWarning($"[GmInteriorAtmosphere] Owned dust prefab is not installed at {DustPrefabPath}; " +
+                             $"'{sceneId}' keeps its lighting and fog but has no dust field.");
+            return 0;
+        }
+
+        Vector3 position;
+        Vector3 scale;
+        switch (sceneId)
+        {
+            case "entry-hall":
+                position = new Vector3(-2.7f, 1.1f, 0.7f);
+                scale = new Vector3(4.5f, 2.0f, 5.5f);
+                break;
+            case "court":
+                position = new Vector3(2.8f, 1.2f, 2.0f);
+                scale = new Vector3(3.0f, 1.8f, 4.0f);
+                break;
+            case "shut-the-box":
+                position = new Vector3(-2.0f, 1.1f, 1.8f);
+                scale = new Vector3(2.4f, 1.5f, 2.4f);
+                break;
+            case "hidden-room":
+                position = new Vector3(0f, 1.0f, 1.6f);
+                scale = new Vector3(2.0f, 1.4f, 1.6f);
+                break;
+            case "parlor":
+                position = new Vector3(-2.2f, 1.2f, 0.8f);
+                scale = new Vector3(3.0f, 1.6f, 3.0f);
+                break;
+            default:
+                position = new Vector3(-1.5f, 1.1f, 0.8f);
+                scale = new Vector3(2.5f, 1.5f, 2.5f);
+                break;
+        }
+
+        GameObject dust = PrefabUtility.InstantiatePrefab(prefab) as GameObject;
+        if (dust == null) return 0;
+        dust.name = "InteriorDust_Bounded";
+        dust.transform.SetParent(parent, false);
+        dust.transform.localPosition = position;
+        dust.transform.localRotation = Quaternion.identity;
+        dust.transform.localScale = scale;
+
+        ParticleSystem particles = dust.GetComponentInChildren<ParticleSystem>(true);
+        if (particles != null)
+        {
+            var main = particles.main;
+            main.maxParticles = 24;
+            particles.useAutoRandomSeed = false;
+            particles.randomSeed = StableSeed(sceneId);
+            var emission = particles.emission;
+            emission.rateOverTime = 4f;
+        }
+
+        GmAmbientParticleAccessibility accessibility =
+            dust.GetComponent<GmAmbientParticleAccessibility>();
+        if (accessibility == null) accessibility = dust.AddComponent<GmAmbientParticleAccessibility>();
+        EditorUtility.SetDirty(dust);
+        return 1;
+    }
+
+    static uint StableSeed(string value)
+    {
+        unchecked
+        {
+            uint hash = 2166136261;
+            foreach (char c in value)
+            {
+                hash ^= c;
+                hash *= 16777619;
+            }
+            return hash == 0 ? 1u : hash;
+        }
     }
 
     static void Configure(VolumeProfile profile)
