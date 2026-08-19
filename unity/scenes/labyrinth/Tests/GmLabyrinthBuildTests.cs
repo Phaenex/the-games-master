@@ -114,4 +114,23 @@ public class GmLabyrinthBuildTests
         Assert.IsNotNull(GameObject.Find("AssembledMirror"), "the mirror shrine is still an empty cylinder");
         Assert.IsNull(GameObject.Find("ExitGroundMist"), "the authored fog is still represented by an opaque cube");
     }
+
+    [Test]
+    public void ShrineUsesOwnedAltarArtAndARealVolumetricBeam()
+    {
+        GameObject pedestal = GameObject.Find("MirrorShrinePedestal");
+        Assert.IsNotNull(pedestal);
+        Assert.IsNull(pedestal.GetComponent<MeshFilter>(), "the shrine pedestal is still a primitive cylinder");
+        Assert.IsNotEmpty(pedestal.GetComponentsInChildren<Renderer>(true));
+
+        GameObject shaft = GameObject.Find("MoonbeamShaft");
+        Assert.IsNotNull(shaft);
+        Renderer glow = shaft.GetComponent<Renderer>();
+        Assert.IsNotNull(glow, "the composition contract has no visible moonlight support");
+        Assert.AreEqual((int)RenderQueue.Transparent, glow.sharedMaterial.renderQueue,
+            "the moonlight support reverted to an opaque surface");
+        Assert.IsNull(shaft.GetComponent<Collider>(), "the moonlight glow blocks the clearing");
+        Assert.IsTrue(GameObject.Find("MoonbeamAltarLight").GetComponent<HDAdditionalLightData>()
+            .affectsVolumetric);
+    }
 }

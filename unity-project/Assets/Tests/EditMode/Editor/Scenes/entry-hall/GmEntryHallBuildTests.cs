@@ -929,6 +929,8 @@ public class GmEntryHallBuildTests
         Assert.IsNotNull(GameObject.Find("CellarBrazier"));
         Assert.IsNotNull(GameObject.Find("VaultGrate"));
         Assert.IsNotNull(GameObject.Find("VaultTransition"));
+        Assert.IsNotNull(GameObject.Find("CellarStoneDressing"));
+        Assert.IsNotNull(GameObject.Find("CellarRelics"));
         Transform treads = GameObject.Find("CellarStairs").transform;
         int treadCount = Enumerable.Range(0, treads.childCount)
             .Count(i => treads.GetChild(i).name.StartsWith("CellarStairTread_"));

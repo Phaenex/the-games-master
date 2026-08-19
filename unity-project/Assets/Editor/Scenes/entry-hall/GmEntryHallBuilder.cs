@@ -1127,6 +1127,41 @@ public static class GmEntryHallBuilder
             ground: true, surfaceY: CellarFloorY);
         crate.AddComponent<BoxCollider>().size = new Vector3(0.68f, 0.64f, 0.68f);
 
+        var stoneDressing = new GameObject("CellarStoneDressing");
+        stoneDressing.transform.SetParent(vault.transform, false);
+        Material cellarStone = CreateMaterial("EntryHall_CellarMasonry",
+            new Color(0.075f, 0.085f, 0.09f), 0.0f, 0.08f);
+        GmOwnedPropFactory.CreateRoundedProp("CellarStoneWestSouth", stoneDressing.transform,
+            new Vector3(0.31f, CellarFloorY + 1.15f, 2.8f), Quaternion.identity,
+            new Vector3(0.08f, 2.2f, 2.2f), 0.02f, cellarStone);
+        GmOwnedPropFactory.CreateRoundedProp("CellarStoneWestNorth", stoneDressing.transform,
+            new Vector3(0.31f, CellarFloorY + 1.15f, 5.1f), Quaternion.identity,
+            new Vector3(0.08f, 2.2f, 2.2f), 0.02f, cellarStone);
+        GmOwnedPropFactory.CreateRoundedProp("CellarStoneEastSouth", stoneDressing.transform,
+            new Vector3(5.19f, CellarFloorY + 1.15f, 2.8f), Quaternion.identity,
+            new Vector3(0.08f, 2.2f, 2.2f), 0.02f, cellarStone);
+        GmOwnedPropFactory.CreateRoundedProp("CellarStoneSouthWest", stoneDressing.transform,
+            new Vector3(1.02f, CellarFloorY + 1.15f, 1.61f), Quaternion.identity,
+            new Vector3(1.65f, 2.2f, 0.08f), 0.02f, cellarStone);
+        GmOwnedPropFactory.CreateRoundedProp("CellarStoneSouthEast", stoneDressing.transform,
+            new Vector3(4.48f, CellarFloorY + 1.15f, 1.61f), Quaternion.identity,
+            new Vector3(1.65f, 2.2f, 0.08f), 0.02f, cellarStone);
+        authored["cellar-stone-dressing"] = stoneDressing;
+
+        GameObject cellarRelics = new GameObject("CellarRelics");
+        cellarRelics.transform.SetParent(vault.transform, false);
+        GmOwnedPropFactory.PlacePrefab(
+            "Assets/LeartesStudios/WitchVillage/HDRP/Art/Prefabs/SM_GoatSkull.prefab",
+            "CellarGoatSkull", cellarRelics.transform,
+            new Vector3(4.7f, CellarFloorY + 0.74f, 5.05f), new Vector3(0.38f, 0.26f, 0.34f),
+            Quaternion.Euler(0f, -25f, 8f));
+        GmOwnedPropFactory.PlacePrefab(
+            "Assets/LeartesStudios/WitchVillage/HDRP/Art/Prefabs/SM_Bottles_4.prefab",
+            "CellarBottles", cellarRelics.transform,
+            new Vector3(3.95f, CellarFloorY + 0.22f, 5.55f), new Vector3(0.42f, 0.42f, 0.42f),
+            Quaternion.Euler(0f, 16f, 0f), ground: true, surfaceY: CellarFloorY);
+        authored["cellar-relics"] = cellarRelics;
+
         GameObject brazier = new GameObject("CellarBrazier");
         brazier.transform.SetParent(vault.transform, false);
         brazier.transform.position = new Vector3(0.85f, CellarFloorY, 3.55f);
@@ -1174,8 +1209,8 @@ public static class GmEntryHallBuilder
             new Vector3(0.95f, CellarFloorY + 0.82f, 5.25f), 5.8f, 36f,
             new Color(1.0f, 0.5f, 0.2f));
         authored["cellar-vault-fill"] = CreatePointLight(lighting, "CellarVaultFill",
-            new Vector3(2.75f, CellarFloorY + 1.85f, 4.2f), 8.5f, 40f,
-            new Color(1.0f, 0.62f, 0.32f));
+            new Vector3(2.75f, CellarFloorY + 1.85f, 4.2f), 8.5f, 14f,
+            new Color(0.38f, 0.47f, 0.62f));
     }
 
     static GameObject BuildCellarStairs(Transform parent, float wellX)
@@ -1938,6 +1973,15 @@ public static class GmEntryHallBuilder
         authored["attic-rafter"] = firstRafter != null ? firstRafter : rafterRoot;
 
         authored["attic-ladder"] = BuildAtticLadder(loft.transform, hatchX, hatchZ, holeX, holeZ);
+
+        // Close the loft above the rafters. The earlier shell stopped at four vertical walls,
+        // leaving the blue HDRP sky visible between every beam and making this read as a set.
+        GmOwnedPropFactory.CreateRoundedProp("AtticRoofWest", loft.transform,
+            new Vector3(-2.7f, 8.26f, 13.2f), Quaternion.Euler(0f, 0f, 18f),
+            new Vector3(5.8f, 0.14f, 6.35f), 0.025f, beam);
+        GmOwnedPropFactory.CreateRoundedProp("AtticRoofEast", loft.transform,
+            new Vector3(2.7f, 8.26f, 13.2f), Quaternion.Euler(0f, 0f, -18f),
+            new Vector3(5.8f, 0.14f, 6.35f), 0.025f, beam);
 
         GameObject crate = new GameObject("AtticCrate");
         crate.transform.SetParent(loft.transform, false);

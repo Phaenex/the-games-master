@@ -19,7 +19,9 @@ public sealed class GmLabyrinthShotTour : GmSceneReviewTour
         // review shot exists for. Nothing was misplaced; only the camera was too close. Open ground
         // -- the hedge blocks sit at x in [-2,2] and [8,12], so the sightline along x=4.5 is clear.
         new GmReviewShot("05-bone-totem", new Vector3(4.5f, 1.0f, -7.0f), 0f, 12f),
-        new GmReviewShot("06-moonlight-clearing", new Vector3(0f, 1.5f, -9f), 0f, 5f),
+        // The old x=0 sightline sat directly behind a generated hedge cell. The x=4.5 corridor is
+        // physically open, and the diagonal view keeps all four pillars inside the review frame.
+        new GmReviewShot("06-moonlight-clearing", new Vector3(4.5f, 1.6f, -9f), -27f, 20f),
         new GmReviewShot("07-exit-gate", new Vector3(15f, 1.8f, 10.5f), 0f, 8f),
         new GmReviewShot("08-maze-wide", new Vector3(-20f, 5f, -20f), 45f, 20f)
     };

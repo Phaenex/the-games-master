@@ -50,6 +50,24 @@ public class GmHiddenRoomBuildTests
     }
 
     [Test]
+    public void HeroCluesUseOwnedOrAuthoredMeshesInsteadOfPrimitiveBlocks()
+    {
+        GameObject invitation = GameObject.Find("InvitationLetter");
+        Assert.IsNotNull(invitation);
+        Assert.IsNotEmpty(invitation.GetComponentsInChildren<Renderer>(true));
+        Assert.IsNull(invitation.GetComponent<MeshFilter>(), "the invitation fell back to a primitive slab");
+
+        foreach (string name in new[] { "MirrorShard_3", "ShardSlot_Upper", "ShardSlot_Lower" })
+        {
+            MeshFilter filter = GameObject.Find(name)?.GetComponent<MeshFilter>();
+            Assert.IsNotNull(filter, $"{name} has no authored shard mesh");
+            Assert.AreEqual("GmAuthoredExtrudedProp", filter.sharedMesh.name,
+                $"{name} fell back to a cube");
+        }
+        Assert.IsNotNull(GameObject.Find("HiddenCeiling"), "the secret room is open to the sky");
+    }
+
+    [Test]
     public void EveryAuthoredRoomLightCarriesItsHdrpLumenValue()
     {
         foreach (string name in new[] { "DoorSconceLight", "DeskLanternLight", "MirrorColdLight", "ShelfSconceLight" })

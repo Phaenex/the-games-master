@@ -200,17 +200,13 @@ public static class GmLabyrinthBuilder
     static void BuildGameplayProps(Transform parent, GmLabyrinthSceneParts parts)
     {
         // Central Mirror Shrine (0, 0, 0)
-        GameObject pedestal = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        pedestal.name = "MirrorShrinePedestal";
-        pedestal.transform.SetParent(parent, false);
-        pedestal.transform.position = new Vector3(0f, 0.6f, 0f);
-        pedestal.transform.localScale = new Vector3(1.6f, 0.6f, 1.6f);
-        pedestal.GetComponent<Renderer>().sharedMaterial = CreatePbrMaterial(RockAlbedo, RockNormal,
-            new Color(0.46f, 0.49f, 0.52f), 0.32f, 0f, new Vector2(2f, 1f));
+        GameObject pedestal = LoadMesh(PostPath, "MirrorShrinePedestal", parent,
+            new Vector3(0f, 0f, 0f), new Vector3(1.45f, 0.35f, 1.45f),
+            Quaternion.Euler(0f, 22f, 0f));
         parts.MirrorPedestal = pedestal;
 
         GameObject mirror = LoadMesh(MirrorPath, "AssembledMirror", parent,
-            new Vector3(0f, 1.2f, 0f), new Vector3(1.15f, 1.15f, 1.15f),
+            new Vector3(0f, 0.72f, 0f), new Vector3(1.15f, 1.15f, 1.15f),
             Quaternion.identity);
         ApplyPbrTree(mirror, MirrorAlbedo, MirrorNormal, new Color(0.72f, 0.76f, 0.82f), 0.78f, 0.32f);
         parts.AssembledMirror = mirror;
@@ -268,12 +264,12 @@ public static class GmLabyrinthBuilder
         moonbeamHd.volumetricDimmer = 0.55f;
         parts.MoonbeamLight = moonbeam;
 
-        GameObject shaft = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        shaft.name = "MoonbeamShaft";
-        shaft.transform.SetParent(parent, false);
-        shaft.transform.position = new Vector3(0f, 1.22f, 0f);
-        shaft.transform.localScale = new Vector3(1.7f, 0.018f, 1.7f);
-        ApplyMaterial(shaft, "HDRP/Lit", new Color(0.16f, 0.27f, 0.48f), 0.35f, 0.72f);
+        // HDRP supplies the actual volumetric beam. This faint authored disc gives the composition
+        // contract a visible support element without laying an opaque primitive across the altar.
+        Material glow = CreateTransparentGlowMaterial(new Color(0.18f, 0.34f, 0.70f, 0.035f));
+        GameObject shaft = GmOwnedPropFactory.CreateDisc("MoonbeamShaft", parent,
+            new Vector3(0f, 0.73f, 0f), Quaternion.Euler(90f, 0f, 0f),
+            new Vector3(1.75f, 1.75f, 0.012f), glow, 48);
         StripCollider(shaft);
         parts.MoonbeamShaft = shaft;
 
@@ -377,6 +373,21 @@ public static class GmLabyrinthBuilder
         mat.SetFloat("_Metallic", metallic);
         mat.SetFloat("_Smoothness", smoothness);
         r.sharedMaterial = mat;
+    }
+
+    static Material CreateTransparentGlowMaterial(Color tint)
+    {
+        Shader shader = Shader.Find("HDRP/Unlit");
+        if (shader == null) shader = Shader.Find("HDRP/Lit");
+        var material = new Material(shader) { renderQueue = (int)RenderQueue.Transparent };
+        if (material.HasProperty("_UnlitColor")) material.SetColor("_UnlitColor", tint);
+        if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", tint);
+        if (material.HasProperty("_SurfaceType")) material.SetFloat("_SurfaceType", 1f);
+        if (material.HasProperty("_BlendMode")) material.SetFloat("_BlendMode", 0f);
+        if (material.HasProperty("_ZWrite")) material.SetFloat("_ZWrite", 0f);
+        material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        material.EnableKeyword("_ENABLE_FOG_ON_TRANSPARENT");
+        return material;
     }
 
     static void ApplyMaterialTree(GameObject go, Color color, float metallic, float smoothness)

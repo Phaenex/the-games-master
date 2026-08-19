@@ -90,7 +90,7 @@ public static class GmLabyrinthCompositionPlan
 
         GmCompositionAuthoring.Element(parts.AssembledMirror, "assembled-mirror", "shrine-cluster", "shards",
             "The reconstructed standing mirror raised on the central altar.", GmCompositionRole.Gameplay,
-            GmSpatialRelation.Grounded, surfaceY: 1.2f);
+            GmSpatialRelation.Grounded, surfaceY: 0.72f);
 
         GmCompositionAuthoring.Element(parts.ShrinePillars, "shrine-pillars", "shrine-cluster", "maze-architecture",
             "Four weathered gothic stone pillars.", GmCompositionRole.Support);

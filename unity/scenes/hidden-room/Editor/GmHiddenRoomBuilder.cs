@@ -47,6 +47,7 @@ public static class GmHiddenRoomBuilder
     const string Book1Path = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Prefabs/SM_Book_1.prefab";
     const string Book2Path = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Prefabs/SM_Book_2.prefab";
     const string BottlePath = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Prefabs/SM_Bottles_1.prefab";
+    const string ScrollPath = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Prefabs/SM_Scrolls_1.prefab";
     const string LanternPath = "Assets/LeartesStudios/Abandoned Village/HDRP/Art/Prefabs/SM_Lantern.prefab";
     const string HandlePath = "Assets/LeartesStudios/HauntedVillage/Art/Meshes/SM_Handle.fbx";
     const string DoorPrefabPath = "Assets/LeartesStudios/HauntedVillage/Art/Prefabs/SM_Door_01.prefab";
@@ -181,6 +182,9 @@ public static class GmHiddenRoomBuilder
         floor.transform.localScale = new Vector3(6f, 0.2f, 6f);
         floor.GetComponent<MeshRenderer>().sharedMaterial = floorMat;
 
+        ArchitectureCube(parent, "HiddenCeiling", new Vector3(0f, 3.65f, 0f),
+            new Vector3(6f, 0.1f, 6f), wallMat);
+
         // Persian Rug
         var rug = LoadMesh(CarpetPath, "StudyCarpet", parent,
             new Vector3(0f, 0.01f, 0f), new Vector3(1.2f, 1f, 1.4f), Quaternion.identity);
@@ -292,13 +296,11 @@ public static class GmHiddenRoomBuilder
             new Vector3(0f, 0f, 2.2f), new Vector3(0.9f, 0.9f, 0.9f), Quaternion.Euler(0, 180f, 0));
         props.RolltopDesk = desk;
 
-        // Original Invitation Letter
-        GameObject letter = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        letter.name = "InvitationLetter";
-        letter.transform.SetParent(desk.transform, false);
-        letter.transform.localPosition = new Vector3(0f, 0.92f, 0f);
-        letter.transform.localScale = new Vector3(0.3f, 0.02f, 0.22f);
-        ApplyMaterial(letter, "HDRP/Lit", new Color(0.95f, 0.92f, 0.82f), 0.0f, 0.4f);
+        // The invitation owns the desk close-up, so a white cube is not an acceptable stand-in.
+        // Reuse the same period scroll family as the wake-room invitation and keep the contract name.
+        GameObject letter = LoadMesh(ScrollPath, "InvitationLetter", desk.transform,
+            new Vector3(0f, 0.92f, 0f), new Vector3(0.42f, 0.42f, 0.42f),
+            Quaternion.Euler(0f, 18f, 0f));
         props.InvitationLetter = letter;
 
         // Wax inkpot (Glass Bottle FBX)
@@ -316,40 +318,44 @@ public static class GmHiddenRoomBuilder
         props.MirrorFrame = mirror;
 
         // Shard #3 in Mirror Frame
-        GameObject shard = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        shard.name = "MirrorShard_3";
-        shard.transform.SetParent(mirror.transform, false);
+        Material shardMaterial = CreatePbrMaterial("", "", new Color(0.68f, 0.80f, 0.94f),
+            0.9f, 0.82f, Vector2.one);
+        GameObject shard = GmOwnedPropFactory.CreateMirrorShard("MirrorShard_3", mirror.transform,
+            Vector3.zero, Quaternion.identity, new Vector3(0.42f, 0.58f, 0.06f), shardMaterial);
         // Local Y is measured from the frame's base pivot, so 0 puts the shard on the floor. Half of
         // Mirror_1's 2.2654 local height sets it in the middle of the glass, where a shard wedged in
         // a standing mirror belongs and where review shot 03 frames it.
         shard.transform.localPosition = new Vector3(0f, 1.1327f, 0.1f);
-        shard.transform.localScale = new Vector3(0.25f, 0.35f, 0.05f);
-        ApplyMaterial(shard, "HDRP/Lit", new Color(0.9f, 0.95f, 1.0f), 0.9f, 0.95f);
+        shard.transform.localRotation = Quaternion.Euler(0f, 0f, -8f);
         props.ShardThree = shard;
 
-        GameObject receptacle = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        receptacle.name = "ShardReceptacle";
-        receptacle.transform.SetParent(parent, false);
-        receptacle.transform.position = new Vector3(-2.33f, 0.78f, 0f);
-        receptacle.transform.localScale = new Vector3(0.08f, 0.07f, 0.36f);
-        ApplyMaterial(receptacle, "HDRP/Lit", new Color(0.55f, 0.46f, 0.24f), 0.75f, 0.5f);
+        Material brass = CreatePbrMaterial("", "", new Color(0.38f, 0.24f, 0.08f),
+            0.58f, 0.72f, Vector2.one);
+        GameObject receptacle = new GameObject("ShardReceptacle");
+        receptacle.transform.SetParent(mirror.transform, false);
+        GmOwnedPropFactory.CreateLocalRoundedProp("ShardRest", receptacle.transform,
+            new Vector3(0f, 0.83f, 0.125f), Quaternion.identity,
+            new Vector3(0.34f, 0.022f, 0.022f), 0.008f, brass);
+        GmOwnedPropFactory.CreateLocalRoundedProp("ShardClaspUpper", receptacle.transform,
+            new Vector3(-0.16f, 0.87f, 0.125f), Quaternion.identity,
+            new Vector3(0.022f, 0.065f, 0.022f), 0.008f, brass);
+        GmOwnedPropFactory.CreateLocalRoundedProp("ShardClaspLower", receptacle.transform,
+            new Vector3(0.16f, 0.87f, 0.125f), Quaternion.identity,
+            new Vector3(0.022f, 0.065f, 0.022f), 0.008f, brass);
         props.ShardReceptacle = receptacle;
 
         var slots = new GameObject("EmptyShardSlots");
-        slots.transform.SetParent(parent, false);
-        slots.transform.position = new Vector3(-2.33f, 0f, 0f);
-        GameObject upperSlot = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        upperSlot.name = "ShardSlot_Upper";
-        upperSlot.transform.SetParent(slots.transform, false);
-        upperSlot.transform.localPosition = new Vector3(0f, 1.95f, 0f);
-        upperSlot.transform.localScale = new Vector3(0.06f, 0.5f, 0.3f);
-        ApplyMaterial(upperSlot, "HDRP/Lit", new Color(0.06f, 0.05f, 0.05f), 0.0f, 0.15f);
-        GameObject lowerSlot = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        lowerSlot.name = "ShardSlot_Lower";
-        lowerSlot.transform.SetParent(slots.transform, false);
-        lowerSlot.transform.localPosition = new Vector3(0f, 0.5f, 0f);
-        lowerSlot.transform.localScale = new Vector3(0.06f, 0.42f, 0.3f);
-        ApplyMaterial(lowerSlot, "HDRP/Lit", new Color(0.06f, 0.05f, 0.05f), 0.0f, 0.15f);
+        slots.transform.SetParent(mirror.transform, false);
+        Material emptyGlass = CreatePbrMaterial("", "", new Color(0.025f, 0.035f, 0.05f),
+            0.38f, 0.05f, Vector2.one);
+        GameObject upperSlot = GmOwnedPropFactory.CreateMirrorShard("ShardSlot_Upper", slots.transform,
+            Vector3.zero, Quaternion.identity, new Vector3(0.34f, 0.52f, 0.025f), emptyGlass);
+        upperSlot.transform.localPosition = new Vector3(-0.15f, 1.72f, 0.105f);
+        upperSlot.transform.localRotation = Quaternion.Euler(0f, 0f, 11f);
+        GameObject lowerSlot = GmOwnedPropFactory.CreateMirrorShard("ShardSlot_Lower", slots.transform,
+            Vector3.zero, Quaternion.identity, new Vector3(0.38f, 0.46f, 0.025f), emptyGlass);
+        lowerSlot.transform.localPosition = new Vector3(0.14f, 0.49f, 0.105f);
+        lowerSlot.transform.localRotation = Quaternion.Euler(0f, 0f, -14f);
         props.EmptyShardSlots = slots;
 
         // Archive Shelves (BookShelf_1 FBX)
