@@ -32,14 +32,14 @@ public sealed class GmBootMenu : MonoBehaviour
     const int RowFontSize = 20;
     const int NoteFontSize = 14;
 
-    public enum Row { Continue, NewRun, Mirror, Recollection, Settings, Quit }
+    public enum Row { Continue, NewRun, ResetHouseMemory, Mirror, Recollection, Settings, Quit }
 
     PanelSettings panelSettings;
     UIDocument document;
     VisualElement root;
-    Label continueLabel, newRunLabel, mirrorLabel, recollectionLabel, settingsLabel, quitLabel, note;
+    Label continueLabel, newRunLabel, resetHouseLabel, mirrorLabel, recollectionLabel, settingsLabel, quitLabel, note;
     Label titleLabel;
-    VisualElement continueMarker, newRunMarker, mirrorMarker, recollectionMarker,
+    VisualElement continueMarker, newRunMarker, resetHouseMarker, mirrorMarker, recollectionMarker,
         settingsMarker, quitMarker;
     VisualElement settingsPanel;
     GmAccessibilitySettingsView settingsView;
@@ -49,11 +49,13 @@ public sealed class GmBootMenu : MonoBehaviour
     InputAction navigateAction, submitAction, cancelAction, quitAction;
     bool inputActive;
     bool navigationHeld;
+    bool resetArmed;
 
     public Row Focused { get; private set; }
     public bool ContinueAvailable { get; private set; }
     public bool QuitRequested { get; private set; }
     public bool MirrorAvailable { get; private set; }
+    public bool HouseRecoveryRequired { get; private set; }
     public IReadOnlyList<GmHouseKnownPackage> RecollectionPackages { get; private set; } =
         Array.Empty<GmHouseKnownPackage>();
     public int RecollectionSelection { get; private set; }
@@ -284,6 +286,7 @@ public sealed class GmBootMenu : MonoBehaviour
 
         (continueMarker, continueLabel) = AddRow("Continue", "BootContinue");
         (newRunMarker, newRunLabel) = AddRow("New Run", "BootNewRun");
+        (resetHouseMarker, resetHouseLabel) = AddRow("Reset House Memory", "BootResetHouse");
         (mirrorMarker, mirrorLabel) = AddRow("The Mirror", "BootMirror");
         (recollectionMarker, recollectionLabel) = AddRow("Recollection", "BootRecollection");
         (settingsMarker, settingsLabel) = AddRow("Settings", "BootSettings");
@@ -345,13 +348,19 @@ public sealed class GmBootMenu : MonoBehaviour
     /// rather than whatever it happened to be built with.
     public void Refresh()
     {
+        resetArmed = false;
+        HouseRecoveryRequired = false;
         ContinueAvailable = GmSaveSystem.HasSave();
         if (!GmHousePersistenceCoordinator.TryGetTitleUnlocks(out bool mirror,
             out IReadOnlyList<GmHouseKnownPackage> recollections, out string houseError))
         {
             MirrorAvailable = false;
             RecollectionPackages = Array.Empty<GmHouseKnownPackage>();
-            Debug.LogError($"[GmBoot] House title state unavailable: {houseError}");
+            HouseRecoveryRequired = GmHousePersistenceCoordinator.HouseRecoveryRequired;
+            if (HouseRecoveryRequired)
+                Debug.Log($"[GmBoot] House memory unreadable; recovery options on the title: {houseError}");
+            else
+                Debug.LogError($"[GmBoot] House title state unavailable: {houseError}");
         }
         else
         {
@@ -360,6 +369,7 @@ public sealed class GmBootMenu : MonoBehaviour
             RecollectionSelection = Mathf.Clamp(RecollectionSelection, 0,
                 Mathf.Max(0, RecollectionPackages.Count - 1));
         }
+        if (HouseRecoveryRequired) ContinueAvailable = false;
         // Landing on a row that does nothing is the worst first impression a menu can make, so focus
         // starts on New Run whenever there is nothing to continue.
         Focused = ContinueAvailable ? Row.Continue : Row.NewRun;
@@ -368,9 +378,11 @@ public sealed class GmBootMenu : MonoBehaviour
 
     public void MoveFocus(int delta)
     {
+        resetArmed = false;
         var order = new List<Row>();
         if (ContinueAvailable) order.Add(Row.Continue);
         order.Add(Row.NewRun);
+        if (HouseRecoveryRequired) order.Add(Row.ResetHouseMemory);
         if (MirrorAvailable) order.Add(Row.Mirror);
         if (RecollectionPackages.Count > 0) order.Add(Row.Recollection);
         order.Add(Row.Settings);order.Add(Row.Quit);
@@ -386,18 +398,33 @@ public sealed class GmBootMenu : MonoBehaviour
         if (root == null) return;
         SetRow(continueMarker, continueLabel, Focused == Row.Continue, ContinueAvailable);
         SetRow(newRunMarker, newRunLabel, Focused == Row.NewRun, true);
+        SetRow(resetHouseMarker, resetHouseLabel, Focused == Row.ResetHouseMemory,
+            HouseRecoveryRequired);
         SetRow(mirrorMarker, mirrorLabel, Focused == Row.Mirror, MirrorAvailable);
         SetRow(recollectionMarker, recollectionLabel, Focused == Row.Recollection,
             RecollectionPackages.Count > 0);
         SetRow(settingsMarker, settingsLabel, Focused == Row.Settings, true);
         SetRow(quitMarker, quitLabel, Focused == Row.Quit, true);
-        note.text = Focused == Row.Mirror && MirrorAvailable
-            ? "The house remembers."
-            : Focused == Row.Recollection && RecollectionPackages.Count > 0
-                ? $"Known hand {RecollectionSelection + 1} of {RecollectionPackages.Count}. Left or right changes it."
-                : ContinueAvailable
-                    ? "A run is already under way."
-                    : "No run recorded. The house has not met you yet.";
+        note.text = NoteForFocus();
+    }
+
+    string NoteForFocus()
+    {
+        if (HouseRecoveryRequired && Focused == Row.ResetHouseMemory)
+            return resetArmed
+                ? "Confirm again. This starts a new lineage and forgets the unreadable files."
+                : "This forgets the house and starts a new lineage.";
+        if (HouseRecoveryRequired && Focused == Row.NewRun)
+            return "This sitting will not be remembered.";
+        if (HouseRecoveryRequired && Focused == Row.Quit)
+            return "Keeps the unreadable files and leaves.";
+        if (Focused == Row.Mirror && MirrorAvailable)
+            return "The house remembers.";
+        if (Focused == Row.Recollection && RecollectionPackages.Count > 0)
+            return $"Known hand {RecollectionSelection + 1} of {RecollectionPackages.Count}. Left or right changes it.";
+        if (ContinueAvailable)
+            return "A run is already under way.";
+        return "No run recorded. The house has not met you yet.";
     }
 
     static void SetRow(VisualElement marker, Label label, bool focused, bool enabled)
@@ -420,6 +447,7 @@ public sealed class GmBootMenu : MonoBehaviour
         {
             case Row.Continue: return Continue();
             case Row.NewRun: NewRun(); return true;
+            case Row.ResetHouseMemory: return ResetHouseMemory();
             case Row.Mirror: return MirrorAvailable && MirrorRun();
             case Row.Recollection:
                 if (RecollectionPackages.Count == 0) return false;
@@ -451,7 +479,7 @@ public sealed class GmBootMenu : MonoBehaviour
         if (root == null) return;
         float scale = GmAccessibilitySettings.TextScale;
         if (titleLabel != null) titleLabel.style.fontSize = Mathf.RoundToInt(TitleFontSize * scale);
-        foreach (Label label in new[] { continueLabel, newRunLabel, mirrorLabel,
+        foreach (Label label in new[] { continueLabel, newRunLabel, resetHouseLabel, mirrorLabel,
                      recollectionLabel, settingsLabel, quitLabel })
             if (label != null) label.style.fontSize = Mathf.RoundToInt(RowFontSize * scale);
         if (note != null) note.style.fontSize = Mathf.RoundToInt(NoteFontSize * scale);
@@ -473,6 +501,20 @@ public sealed class GmBootMenu : MonoBehaviour
     {
         EnsureSceneDirector();
         GmSaveSystem.TryLoadAccessibilityPreferences();
+        if (HouseRecoveryRequired || ProbeRecoveryRequired())
+        {
+            GmRunStore.BeginNewRun();
+            if (!GmHousePersistenceCoordinator.TryBeginIsolatedOrdinaryRun(GmRunSeed.Value,
+                out string isolatedError))
+            {
+                Debug.LogError($"[GmBoot] isolated New Run refused: {isolatedError}");
+                return;
+            }
+            GmExperienceTelemetry.Record("boot", "new-run-isolated");
+            Debug.Log("[GmBoot] isolated new run — this sitting will not be remembered");
+            StartRun(PrologueSceneId, GmSceneDirector.PrologueScenePath);
+            return;
+        }
         if (!TryRetireCampaignForReplacement(out string retireError))
         {
             Debug.LogError($"[GmBoot] existing campaign could not be retired: {retireError}");
@@ -488,6 +530,34 @@ public sealed class GmBootMenu : MonoBehaviour
         GmExperienceTelemetry.Record("boot", "new-run");
         Debug.Log("[GmBoot] new run — store cleared, entering the Prologue");
         StartRun(PrologueSceneId, GmSceneDirector.PrologueScenePath);
+    }
+
+    bool ProbeRecoveryRequired()
+    {
+        if (GmHousePersistenceCoordinator.TryGetTitleUnlocks(out _, out _, out _))
+            return false;
+        HouseRecoveryRequired = GmHousePersistenceCoordinator.HouseRecoveryRequired;
+        return HouseRecoveryRequired;
+    }
+
+    bool ResetHouseMemory()
+    {
+        if (!HouseRecoveryRequired) return false;
+        if (!resetArmed)
+        {
+            resetArmed = true;
+            Repaint();
+            return true;
+        }
+        if (!GmHousePersistenceCoordinator.TryAuthorizeUnreadableDomainRecovery(
+            out string error))
+        {
+            Debug.LogError($"[GmBoot] House recovery refused: {error}");
+            return false;
+        }
+        resetArmed = false;
+        Refresh();
+        return true;
     }
 
     /// Production entry point for the opt-in campaign mode. The title treatment can bind this to

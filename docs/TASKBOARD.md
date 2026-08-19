@@ -8,9 +8,10 @@
 > Delivery bars live here and in `STEAM-TRACKER.md`; this file carries the task-level detail.
 
 > **Current authority, 2026-08-17/18:** this chat and `docs/HANDOFF-2026-08-17.md`. Active queue is
-> House Memory / Mirror mode. Hub rooms exist. Spawn → vault → back onto the hall is EditMode-proven.
-> Parlor 1080p series **3/3 + coverage** qualified. Lane A's human gates and the five missing table
-> games remain. The 08-16 handoff is the last full opening-gate pack.
+> House Memory remainder (Ledger Review, Restore Last Valid, Export Diagnostics) then five missing
+> table games. Hub rooms exist. Spawn → vault → back onto the hall is EditMode-proven.
+> Parlor 1080p series **3/3 + coverage** qualified. Unreadable House envelope recovery is
+> EditMode-proven. Lane A's human gates remain. The 08-16 handoff is the last full opening-gate pack.
 
 ## How to read and update this
 
@@ -292,6 +293,7 @@ before Aldric, never resolved) are different things sharing a word. Keep distinc
 | C2.6 | Corruption tiers (starts at 1, never 0) | TODO | EditMode | — |
 | **P1** | Editor shipping proof: HUD, dual-channel tells, restore, presentation audit, 24-shot tour | DONE 2026-08-18 | EditMode **944/944**, PlayMode **44/44**, rebuild+audit-saved, tour **24/24 first attempt** after evidence isolation | `docs/playtest/screenshots/parlor-tour-*.png`. Aldric is still the substitute proxy. |
 | **P2** | Built-player 1080p series: 3 consecutive reps + honest/HC200 coverage | DONE 2026-08-18 | `npm run unity:proof:parlor` 3/3 + coverage, p95 8.10–8.26ms, host 0.54–0.67/core, app `cb62fa53…` | `docs/playtest/screenshots/parlor-1080p-*.png`. Visual PARTIAL (lantern pool). |
+| **P3** | House recovery: unreadable envelope, isolated New Run, confirmed Reset | DONE 2026-08-18 mechanical | EditMode **949/949** including `UnreadableEnvelope…`, `UnreadableHouseDomain…`, `BootRecoveryNewRun…` | Title recovery copy not shot this session. Ordinary New Run stays clean when readable. |
 
 **Binds every room:** Aldric cheats only when genuinely about to lose. Never from safety. No exceptions.
 

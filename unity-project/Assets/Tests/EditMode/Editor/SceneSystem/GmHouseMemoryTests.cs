@@ -544,6 +544,79 @@ public sealed class GmHouseMemoryTests
             Does.Not.Contain(store.CurrentProfile.Receipts.First().ReceiptId));
     }
 
+    [Test]
+    public void UnreadableEnvelopeInhibitsWritesUntilAuthorizedRecoveryQuarantinesDomain()
+    {
+        GmHouseMemoryStore store = OpenStore();
+        string originalLineage = store.CurrentProfile.LineageId;
+        byte[] garbage = UnreadableEnvelopeBytes();
+        string commit = Directory.GetFiles(Path.Combine(directory, "root", "commits"),
+            "*.commit").Single();
+        File.WriteAllBytes(commit, garbage);
+
+        var blocked = new GmHouseMemoryStore(directory);
+        Assert.That(blocked.TryOpenOrCreate(out _, out string error), Is.False);
+        StringAssert.Contains("magic", error.ToLowerInvariant());
+        Assert.That(blocked.TryAllocateCampaignRun(GmParlorAdaptiveMode.Ordinary,
+            11, out _, out error), Is.False);
+
+        Assert.That(blocked.TryAuthorizeUnreadableDomainRecovery(
+            out string incidentId, out GmHouseProfileGeneration recovered, out error),
+            Is.True, error);
+        Assert.That(incidentId, Has.Length.EqualTo(32));
+        Assert.That(recovered.LineageId, Has.Length.EqualTo(32));
+        Assert.That(recovered.LineageId, Is.Not.EqualTo(originalLineage));
+        Assert.That(recovered.Epoch, Is.EqualTo(1));
+        Assert.That(recovered.Receipts, Is.Empty);
+
+        string quarantine = directory + ".quarantine-" + incidentId;
+        Assert.That(Directory.Exists(quarantine), Is.True);
+        Assert.That(File.ReadAllBytes(Path.Combine(quarantine, "root", "commits",
+            Path.GetFileName(commit))), Is.EqualTo(garbage));
+        Assert.That(File.Exists(directory + ".recovery-intent"), Is.False);
+
+        var reopened = new GmHouseMemoryStore(directory);
+        Assert.That(reopened.TryOpenOrCreate(out GmHouseProfileGeneration live,
+            out error), Is.True, error);
+        Assert.That(live.LineageId, Is.EqualTo(recovered.LineageId));
+        Assert.That(reopened.TryAllocateCampaignRun(GmParlorAdaptiveMode.Ordinary,
+            12, out _, out error), Is.True, error);
+    }
+
+    [Test]
+    public void PendingRecoveryIntentResumesQuarantineAndGenesisWithoutMergingOldArtifacts()
+    {
+        GmHouseMemoryStore store = OpenStore();
+        string originalLineage = store.CurrentProfile.LineageId;
+        string commit = Directory.GetFiles(Path.Combine(directory, "root", "commits"),
+            "*.commit").Single();
+        File.WriteAllBytes(commit, UnreadableEnvelopeBytes());
+
+        string incidentId = Guid.NewGuid().ToString("N");
+        string intent = directory + ".recovery-intent";
+        GmHouseRecoveryIntent.WritePending(intent, incidentId);
+
+        var resumed = new GmHouseMemoryStore(directory);
+        Assert.That(resumed.TryOpenOrCreate(out GmHouseProfileGeneration profile,
+            out string error), Is.True, error);
+        Assert.That(profile.LineageId, Is.Not.EqualTo(originalLineage));
+        Assert.That(File.Exists(intent), Is.False);
+        Assert.That(Directory.Exists(directory + ".quarantine-" + incidentId), Is.True);
+
+        string extra = Path.Combine(directory, "root", "commits",
+            "reintroduced-old-lineage.commit");
+        File.Copy(Directory.GetFiles(Path.Combine(directory + ".quarantine-" + incidentId,
+            "root", "commits"), "*.commit").Single(), extra, true);
+        var merged = new GmHouseMemoryStore(directory);
+        Assert.That(merged.TryOpenOrCreate(out _, out error), Is.False,
+            "reintroduced old artifacts merged into the recovered lineage");
+        StringAssert.Contains("commit", error.ToLowerInvariant());
+        Assert.That(File.ReadAllBytes(Directory.GetFiles(
+            Path.Combine(directory, "root", "commits"), "root-commit-*.commit").Single())
+            .Take(8).ToArray(),
+            Is.EqualTo(System.Text.Encoding.ASCII.GetBytes("TGMHOUSE")));
+    }
+
     GmHouseMemoryStore OpenStore()
     {
         var store = new GmHouseMemoryStore(directory);
@@ -581,6 +654,13 @@ public sealed class GmHouseMemoryTests
             GmParlorOutcomeKind.CheatCaught);
         accumulator.SealCompletedMatch(package, 1, 0);
         return accumulator;
+    }
+
+    static byte[] UnreadableEnvelopeBytes()
+    {
+        var bytes = new byte[128];
+        System.Text.Encoding.ASCII.GetBytes("NOTHOUSE").CopyTo(bytes, 0);
+        return bytes;
     }
 
     static byte[] Hex(string value)

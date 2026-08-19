@@ -18,8 +18,9 @@ web work credited as design source, because a player on Steam cannot play a desi
 
 > **2026-08-18 update.** Hub rooms exist. A connected walk reaches the parlor door, the vault grate,
 > and back onto the hall. Parlor is 50%: editor table slice plus a qualified 3-rep 1080p player
-> series. Visual still PARTIAL (lantern pool, Aldric proxy). The 08-16 handoff remains the last
-> full opening-gate pack. Live plan: `docs/HANDOFF-2026-08-17.md`.
+> series. Visual still PARTIAL (lantern pool, Aldric proxy). House recovery (unreadable envelope)
+> is EditMode-proven; Mirror still needs a finished ordinary run to unlock. The 08-16 handoff
+> remains the last full opening-gate pack. Live plan: `docs/HANDOFF-2026-08-17.md`.
 > Inherit no later chat's 886/886 or "whole mansion" claim.
 
 > **2026-08-13 update (historical).** Unity EditMode went from **not compiling at all** to **294/296 passing**
@@ -46,7 +47,7 @@ Phase  1 Entry Hall      [█████████████████░
 Phase  2 Parlor          [██████████░░░░░░░░░░]  50%  1080p 3/3 + coverage qualified; Aldric proxy; lantern-pool visual PARTIAL
 Phase  3 Court           [██░░░░░░░░░░░░░░░░░░]  10%  scene spine only; LOCKED behind Nick's Phase 0 walk
 Phase  4 Shut the Box    [██████░░░░░░░░░░░░░░]  30%  rules + tile-9 path in source; no finished match UI
-Phase  5 Shards + save   [████████░░░░░░░░░░░░]  40%  shared run store + save round-trip; true ending still needs 8 catches
+Phase  5 Shards + save   [█████████░░░░░░░░░░░]  45%  House recovery quarantines unreadable envelopes; Mirror still needs a finished run
 Phase  6 Hidden room     [██░░░░░░░░░░░░░░░░░░]  10%  scaffold + transition; player-facing journals remain
 Phase  7 Labyrinth       [██░░░░░░░░░░░░░░░░░░]  10%  scaffold + Huntsman machine; not a finished chase
 Phase  8 Six endings     [████░░░░░░░░░░░░░░░░]  20%  resolver reachable; authored presentation remains

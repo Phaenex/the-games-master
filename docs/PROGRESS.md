@@ -43,6 +43,14 @@ bed: its deep-space/rumble textures would recreate the exact "spaceship" problem
 
 ## Status
 
+### 2026-08-18 night - House Memory recovery when the envelope is unreadable
+
+The 1080p player had been logging `House envelope magic is invalid` on Boot. Title hid The Mirror and `TryResetHouseMemory` could not run because it opened the broken domain first.
+
+Now: sibling recovery intent, domain renamed to `.quarantine-{incidentId}`, new lineage genesis. Isolated New Run is Ordinary with `IsolatedRecovery`, empty house pointer, no receipts. Boot Reset is two confirms. Quit keeps the files. Ordinary New Run is unchanged when House memory is readable.
+
+EditMode **949/949**. `test:fast` green. Recovery title copy is mechanical. No Boot screenshot this session. Ledger Review, Restore Last Valid, and Export Diagnostics are still open.
+
 ### 2026-08-18 night - Parlor 1080p series qualified
 
 `npm run unity:proof:parlor` **3/3 + coverage** on app SHA `cb62fa53c465138b73c88eea5ce0d31c9a1484e8c3f538bdb2c3af6fa3f807a8`.

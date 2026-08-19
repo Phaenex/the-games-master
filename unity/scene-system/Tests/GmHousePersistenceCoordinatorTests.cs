@@ -389,6 +389,99 @@ public sealed class GmHousePersistenceCoordinatorTests
             Is.EqualTo(runId));
     }
 
+    [Test]
+    public void UnreadableHouseDomainRefusesPersistentNewRunButIsolatedOrdinaryDoesNotTeach()
+    {
+        Assert.That(GmHousePersistenceCoordinator.TryBeginOrdinaryRun(1001,
+            out string error), Is.True, error);
+        string house = Path.Combine(directory, "house");
+        string commit = NewestRootCommit(house);
+        File.WriteAllBytes(commit, UnreadableEnvelopeBytes());
+        GmHousePersistenceCoordinator.ForgetActiveForTests();
+
+        Assert.That(GmHousePersistenceCoordinator.TryGetTitleUnlocks(
+            out bool mirror, out _, out error), Is.False);
+        Assert.That(GmHousePersistenceCoordinator.HouseRecoveryRequired, Is.True);
+        Assert.That(mirror, Is.False);
+        StringAssert.Contains("magic", error.ToLowerInvariant());
+        Assert.That(GmHousePersistenceCoordinator.TryBeginOrdinaryRun(1002,
+            out error), Is.False);
+        Assert.That(File.Exists(runPath), Is.False);
+
+        Assert.That(GmHousePersistenceCoordinator.TryBeginIsolatedOrdinaryRun(1003,
+            out error), Is.True, error);
+        GmHouseRunGeneration isolated = GmHousePersistenceCoordinator.ActiveRun;
+        Assert.That(isolated.Mode, Is.EqualTo(GmParlorAdaptiveMode.Ordinary));
+        Assert.That(isolated.IsolatedRecovery, Is.True);
+        Assert.That(isolated.CanTeachProfile, Is.False);
+        Assert.That(GmRunStore.HouseRunId, Is.Empty);
+        Assert.That(Directory.Exists(house + ".quarantine-" + isolated.Identity.LineageId),
+            Is.False, "isolated New Run quarantined House files without authorization");
+
+        GmRunStore.LastCheckpoint = "ending";
+        Assert.That(GmHousePersistenceCoordinator.TryCompleteEnding(GmEndingType.TrueEscape,
+            Completed(isolated.FrozenPackage), out error), Is.True, error);
+        Assert.That(GmHousePersistenceCoordinator.TryGetTitleUnlocks(
+            out mirror, out _, out error), Is.False);
+        Assert.That(mirror, Is.False);
+        Assert.That(GmHousePersistenceCoordinator.HouseRecoveryRequired, Is.True);
+    }
+
+    [Test]
+    public void BootRecoveryNewRunStaysIsolatedAndConfirmedResetStartsANewLineage()
+    {
+        Assert.That(GmHousePersistenceCoordinator.TryBeginOrdinaryRun(1101,
+            out string error), Is.True, error);
+        string house = Path.Combine(directory, "house");
+        string originalLineage = GmHousePersistenceCoordinator.Profile.LineageId;
+        string commit = NewestRootCommit(house);
+        byte[] garbage = UnreadableEnvelopeBytes();
+        File.WriteAllBytes(commit, garbage);
+        Assert.That(GmSaveSystem.Save(), Is.True);
+        GmHousePersistenceCoordinator.ForgetActiveForTests();
+
+        var host = new GameObject("HouseRecoveryMenuFixture");
+        try
+        {
+            var menu = host.AddComponent<GmBootMenu>();
+            menu.Refresh();
+            Assert.That(menu.HouseRecoveryRequired, Is.True);
+            Assert.That(menu.MirrorAvailable, Is.False);
+            Assert.That(menu.ContinueAvailable, Is.False);
+            Assert.That(menu.Focused, Is.EqualTo(GmBootMenu.Row.NewRun));
+            menu.MoveFocus(1);
+            Assert.That(menu.Focused, Is.EqualTo(GmBootMenu.Row.ResetHouseMemory));
+            menu.MoveFocus(-1);
+            Assert.That(menu.Activate(), Is.True);
+            Assert.That(GmHousePersistenceCoordinator.ActiveRun.IsolatedRecovery, Is.True);
+            Assert.That(GmRunStore.HouseRunId, Is.Empty);
+            Assert.That(File.ReadAllBytes(commit), Is.EqualTo(garbage));
+
+            menu.Refresh();
+            menu.MoveFocus(1);
+            Assert.That(menu.Activate(), Is.True,
+                "first confirm should arm reset, not mutate the domain yet");
+            Assert.That(File.ReadAllBytes(commit), Is.EqualTo(garbage));
+            Assert.That(menu.Activate(), Is.True);
+            Assert.That(menu.HouseRecoveryRequired, Is.False);
+            Assert.That(GmHousePersistenceCoordinator.Profile.LineageId,
+                Is.Not.EqualTo(originalLineage));
+            Assert.That(GmSaveSystem.HasSave(), Is.False);
+        }
+        finally { Object.DestroyImmediate(host); }
+    }
+
+    static byte[] UnreadableEnvelopeBytes()
+    {
+        var bytes = new byte[128];
+        System.Text.Encoding.ASCII.GetBytes("NOTHOUSE").CopyTo(bytes, 0);
+        return bytes;
+    }
+
+    static string NewestRootCommit(string house) =>
+        Directory.GetFiles(Path.Combine(house, "root", "commits"), "*.commit")
+            .OrderBy(path => path, StringComparer.Ordinal).Last();
+
     static GmParlorBehaviorAccumulator Completed(GmParlorAdaptivePackage package)
     {
         var accumulator = new GmParlorBehaviorAccumulator(package);

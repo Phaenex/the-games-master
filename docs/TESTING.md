@@ -196,6 +196,7 @@ what it is: covered by its own probe, not by the rig.
 | Renaming a synced C# file leaves the old class still compiling | `sync-unity-scenes.mjs` is **additive only** — it copies repo→Unity and has no prune/delete path. After a rename, `unity-project/` keeps the stale file *and* its `.meta`, so Unity compiles both copies and reports a duplicate-definition CS0101 that does not exist in the repo | After any rename/delete of a synced source, remove the stale `unity-project/` copy **and its `.meta`** by hand, then `unity:scene:check`. The ownership-gap line (`Unity-only project source: …`) is the check naming exactly which orphans to delete. |
 | `test:scene-system:csharp` fails with `CS2001: Source file … could not be found` | The Roslyn smoke test compiles against `Library/Bee/artifacts/**/Assembly-CSharp.rsp`, a **cache regenerated only by a real Unity compile**. After renaming/adding sources, the cached `.rsp` still lists the old file set. In `run-opening-gates.mjs` this check runs in gate 1, *before* the gate 2 Unity EditMode run that would refresh it | Run `node scripts/unity-cli.mjs test` once to refresh the `.rsp`, then re-run gates. A stale-cache failure here is the instrument, not the product. |
 | `EADDRINUSE :::8813` mid-gates | The gates pipeline runs its own `test:archive:web`; a second harness run started by hand (or a leaked server from an earlier crash) already holds the port. Most `verify-*.mjs` scripts bind a hardcoded port with no `try/finally`, so any thrown assertion leaks the listener | Never run a harness script and `npm run gates` concurrently. If the port is stuck, find the owning PID — do not blanket-kill node. |
+| `root commit is invalid: House envelope magic is invalid` on Boot, Mirror hidden, New Run refuses | Title `TryOpenOrCreate` treated a bad envelope as a hard stop. `TryResetHouseMemory` also called Open first, so recovery could not start. Short garbage fails length before magic; a long non-`TGMHOUSE` prefix is the real player case. | Do not auto-wipe. Record a sibling `.recovery-intent`, rename the domain to `.quarantine-{incidentId}`, genesis a new lineage. Crash resume completes that intent. Isolated New Run is in-memory Ordinary with `IsolatedRecovery` and never teaches. Boot: New Run still works, Reset is two confirms, Quit keeps files. Ordinary New Run stays clean when the domain is readable. |
 
 ## The wiring blind spot — unit-tested is not connected (2026-08-13)
 
@@ -518,6 +519,12 @@ facts from a previous case.
 
 **Rule:** a review harness that force-restarts canonical state must also reset player-facing
 observation. Restore proofs compare isolated baselines, not the residue of earlier shots.
+
+## House envelope magic on Boot (2026-08-18)
+
+The 1080p player logged `[GmBoot] House title state unavailable: root commit is invalid: House envelope magic is invalid`. Ordinary New Run in that player still worked because the standalone probe never goes through Boot New Run. A real title click would have refused a persistent New Run, and Reset could not open the broken domain.
+
+**Fix:** unreadable House files stay on disk until the player confirms Reset. New Run during recovery is isolated and cannot teach. A crash after the recovery intent is written finishes quarantine and genesis on the next open.
 
 ## Known coverage boundaries (honest)
 

@@ -331,7 +331,8 @@ public sealed class GmHouseRunGeneration
     public long AcknowledgedProfileGeneration { get; internal set; }
     public string AcknowledgedProfileGenerationHash { get; internal set; } = string.Empty;
     public string AcknowledgedProfileCommitHash { get; internal set; } = string.Empty;
-    public bool CanTeachProfile => Mode != GmParlorAdaptiveMode.Recollection;
+    public bool IsolatedRecovery { get; internal set; }
+    public bool CanTeachProfile => Mode != GmParlorAdaptiveMode.Recollection && !IsolatedRecovery;
 }
 
 public sealed class GmHouseKnownPackage
@@ -750,6 +751,7 @@ enum GmHouseArtifactKind
     RunGeneration = 3,
     ReceiptBlob = 4,
     CommitRecord = 5,
+    RecoveryIntent = 6,
 }
 
 static class GmHouseEnvelope
@@ -801,6 +803,36 @@ static class GmHouseEnvelope
             }
             return payload;
         }
+    }
+}
+
+public static class GmHouseRecoveryIntent
+{
+    public static void WritePending(string path,string incidentId)
+    {
+        if(string.IsNullOrWhiteSpace(path)) throw new ArgumentException("recovery intent path is required");
+        if(!GmHouseBinary.IsLowerHex(incidentId,32))
+            throw new InvalidDataException("recovery incident id is invalid");
+        byte[] bytes=GmHouseEnvelope.Wrap(GmHouseArtifactKind.RecoveryIntent,1,
+            Encoding.ASCII.GetBytes(incidentId));
+        string folder=Path.GetDirectoryName(path);
+        if(!string.IsNullOrEmpty(folder)) Directory.CreateDirectory(folder);
+        File.WriteAllBytes(path,bytes);
+    }
+
+    public static bool TryRead(string path,out string incidentId,out string error)
+    {
+        incidentId=null;
+        try
+        {
+            byte[] payload=GmHouseEnvelope.Unwrap(File.ReadAllBytes(path),
+                GmHouseArtifactKind.RecoveryIntent,1);
+            incidentId=Encoding.ASCII.GetString(payload);
+            if(!GmHouseBinary.IsLowerHex(incidentId,32))
+                throw new InvalidDataException("recovery incident id is invalid");
+            error=string.Empty; return true;
+        }
+        catch(Exception ex) { error=ex.Message; return false; }
     }
 }
 
@@ -1117,6 +1149,7 @@ public sealed class GmHouseMemoryStore
     public IReadOnlyList<string> RootCommitRecords => Files(RootCommitDirectory,"*.commit");
     public IReadOnlyList<string> ProfileCommitRecords => Files(ProfileCommitDirectory,"*.commit");
     public string CurrentProfileCommitHash => CurrentCommitHash(ProfileCommitDirectory,"profile");
+    string RecoveryIntentPath => domain+".recovery-intent";
 
     public GmHouseMemoryStore(string domain, IGmHouseFileSystem fileSystem=null)
     {
@@ -1130,6 +1163,7 @@ public sealed class GmHouseMemoryStore
         profile=null;
         try
         {
+            ResumePendingRecoveryIfNeeded();
             fileSystem.CreateDirectory(domain);
             using(fileSystem.AcquireExclusiveLease(leasePath))
             {
@@ -1146,6 +1180,7 @@ public sealed class GmHouseMemoryStore
                 if(currentRoot.ResetPending) CompletePendingResetUnlocked();
                 profile=currentProfile;
             }
+            ClearRecoveryIntent();
             return Success(out error);
         }
         catch(Exception ex) { return Failure(ex,out error); }
@@ -1168,6 +1203,53 @@ public sealed class GmHouseMemoryStore
             return Success(out error);
         }
         catch(Exception ex) { return Failure(ex,out error); }
+    }
+
+    public bool TryAuthorizeUnreadableDomainRecovery(out string incidentId,
+        out GmHouseProfileGeneration profile,out string error)
+    {
+        incidentId=null; profile=null;
+        if(TryOpenOrCreate(out profile,out error))
+        {
+            error=lastError="House memory is readable; recovery is not authorized";
+            profile=null; return false;
+        }
+        incidentId=Guid.NewGuid().ToString("N");
+        GmHouseRecoveryIntent.WritePending(RecoveryIntentPath,incidentId);
+        return TryOpenOrCreate(out profile,out error);
+    }
+
+    void ResumePendingRecoveryIfNeeded()
+    {
+        if(!File.Exists(RecoveryIntentPath)) return;
+        if(!GmHouseRecoveryIntent.TryRead(RecoveryIntentPath,out string incidentId,out string intentError))
+            throw new InvalidDataException("House recovery intent is invalid: "+intentError);
+        if(ProbeReadable()) return;
+        string quarantine=domain+".quarantine-"+incidentId;
+        if(!Directory.Exists(domain)) return;
+        if(Directory.Exists(quarantine))
+            Directory.Move(domain,quarantine+"-conflict-"+Guid.NewGuid().ToString("N"));
+        else Directory.Move(domain,quarantine);
+    }
+
+    bool ProbeReadable()
+    {
+        if(!Directory.Exists(domain)) return false;
+        try
+        {
+            using(fileSystem.AcquireExclusiveLease(leasePath))
+            {
+                if(Files(RootCommitDirectory,"*.commit").Count==0) return false;
+                LoadAllUnlocked();
+                return true;
+            }
+        }
+        catch { currentRoot=null; currentProfile=null; return false; }
+    }
+
+    void ClearRecoveryIntent()
+    {
+        if(File.Exists(RecoveryIntentPath)) File.Delete(RecoveryIntentPath);
     }
 
     void CreateGenesisUnlocked()
@@ -1849,7 +1931,8 @@ public sealed class GmHouseMemoryStore
       AcknowledgedReceiptId=run.AcknowledgedReceiptId,
       AcknowledgedProfileGeneration=run.AcknowledgedProfileGeneration,
       AcknowledgedProfileGenerationHash=run.AcknowledgedProfileGenerationHash,
-      AcknowledgedProfileCommitHash=run.AcknowledgedProfileCommitHash };
+      AcknowledgedProfileCommitHash=run.AcknowledgedProfileCommitHash,
+      IsolatedRecovery=run.IsolatedRecovery };
     static GmSaveData CloneCheckpoint(GmSaveData checkpoint) => checkpoint==null?null:
         UnityEngine.JsonUtility.FromJson<GmSaveData>(UnityEngine.JsonUtility.ToJson(checkpoint));
 
@@ -1905,6 +1988,7 @@ public static class GmHousePersistenceCoordinator
     public static GmHouseRunGeneration ActiveRun => activeRun;
     public static GmHouseProfileGeneration Profile => store?.CurrentProfile;
     public static string LastError => lastError;
+    public static bool HouseRecoveryRequired { get; private set; }
     public static bool IsRecollectionActive => activeRun?.Mode==GmParlorAdaptiveMode.Recollection;
     // Unity Test Framework runs the editor in batch mode against the developer's real
     // persistentDataPath. Focused persistence tests opt in with ConfigureForTests; an ordinary
@@ -1918,11 +2002,13 @@ public static class GmHousePersistenceCoordinator
     public static void ConfigureForTests(string directory,IGmHouseFileSystem fileSystem=null)
     {
         directoryOverride=directory??throw new ArgumentNullException(nameof(directory));
-        fileSystemOverride=fileSystem; configuredForTests=true; store=null;activeRun=null;lastError=string.Empty;
+        fileSystemOverride=fileSystem; configuredForTests=true; store=null;activeRun=null;
+        lastError=string.Empty; HouseRecoveryRequired=false;
     }
 
     public static void ResetForTests()
-    { directoryOverride=null;fileSystemOverride=null;configuredForTests=false;store=null;activeRun=null;lastError=string.Empty; }
+    { directoryOverride=null;fileSystemOverride=null;configuredForTests=false;store=null;
+        activeRun=null;lastError=string.Empty; HouseRecoveryRequired=false; }
     public static void ForgetActiveForTests() => activeRun=null;
 
     static GmHouseMemoryStore Store => store??(store=new GmHouseMemoryStore(
@@ -1949,22 +2035,64 @@ public static class GmHousePersistenceCoordinator
         out IReadOnlyList<GmHouseKnownPackage> recollections,out string error)
     {
         mirrorUnlocked=false;recollections=Array.Empty<GmHouseKnownPackage>();
-        if(!IsEnabled) { error=string.Empty;return true; }
-        if(!Store.TryOpenOrCreate(out GmHouseProfileGeneration profile,out error))
-        { lastError=error;return false; }
+        if(!IsEnabled) { error=string.Empty; HouseRecoveryRequired=false; return true; }
+        if(!TryEnsureReadableHouse(out error)) return false;
+        GmHouseProfileGeneration profile=Store.CurrentProfile;
         mirrorUnlocked=profile.MirrorUnlocked;
         recollections=profile.KnownMirrorPackages;
         lastError=string.Empty;return true;
     }
 
+    static bool TryEnsureReadableHouse(out string error)
+    {
+        HouseRecoveryRequired=false;
+        if(!IsEnabled) { error=string.Empty; return true; }
+        if(Store.TryOpenOrCreate(out _,out error)) return true;
+        HouseRecoveryRequired=true; lastError=error; return false;
+    }
+
     static bool TryBeginCampaign(GmParlorAdaptiveMode mode,int seed,out string error)
     {
         if(!IsEnabled) { error=string.Empty;return true; }
-        if(!Store.TryOpenOrCreate(out _,out error)||
+        if(!TryEnsureReadableHouse(out error)||
             !Store.TryAllocateCampaignRun(mode,seed,out activeRun,out error))
         { lastError=error;activeRun=null;return false; }
         GmRunStore.SetHouseRunPointer(activeRun.Identity.RunId);
         lastError=string.Empty;return true;
+    }
+
+    public static bool TryBeginIsolatedOrdinaryRun(int seed,out string error)
+    {
+        activeRun=null;
+        if(!IsEnabled)
+        { error=lastError="House memory is unavailable for isolated recovery";return false; }
+        if(Store.TryOpenOrCreate(out _,out error))
+        {
+            HouseRecoveryRequired=false;
+            error=lastError="isolated ordinary is only for unreadable House recovery";
+            return false;
+        }
+        HouseRecoveryRequired=true;
+        GmParlorAdaptivePackage package=GmHouseModeDirector.FreezeOrdinary(seed);
+        string lineage=Guid.NewGuid().ToString("N");
+        string runId=Guid.NewGuid().ToString("N");
+        activeRun=new GmHouseRunGeneration
+        {
+            Generation=1,
+            Identity=new GmHouseRunIdentity(lineage,1,runId,1),
+            Mode=GmParlorAdaptiveMode.Ordinary,Seed=seed,Stage=GmHouseRunStage.Active,
+            FrozenPackage=package,
+            PackageBinding=new GmHousePackageBinding
+            {
+                LineageId=lineage,Epoch=1,ProfileGeneration=0,
+                ProfileDigest=new byte[32],HistoryDigest=new byte[32],
+                PackageHash=package.CanonicalHash,
+                SelectedReceiptIds=Array.Empty<string>(),ConsultedProfile=false
+            },
+            IsolatedRecovery=true
+        };
+        GmRunStore.SetHouseRunPointer(string.Empty);
+        lastError=error=string.Empty;return true;
     }
 
     public static bool TryResume(string runId,out string error)
@@ -2001,6 +2129,7 @@ public static class GmHousePersistenceCoordinator
         out string error)
     {
         if(activeRun==null) { error=lastError="No active House run";return false; }
+        if(activeRun.IsolatedRecovery) { lastError=error=string.Empty;return true; }
         var protocol=new GmHouseTerminalProtocol(Store);
         if(activeRun.Stage==GmHouseRunStage.Prepared)
         {
@@ -2087,6 +2216,17 @@ public static class GmHousePersistenceCoordinator
                     GmSaveSystem.LastError);
         }
         else GmRunStore.BeginNewRun();
+    }
+
+    public static bool TryAuthorizeUnreadableDomainRecovery(out string error)
+    {
+        if(!IsEnabled) { error=lastError="House memory is unavailable";return false; }
+        if(!Store.TryAuthorizeUnreadableDomainRecovery(out _,out _,out error))
+        { lastError=error;return false; }
+        activeRun=null;GmRunStore.SetHouseRunPointer(string.Empty);
+        HouseRecoveryRequired=false;
+        if(!GmSaveSystem.DeleteSave()) { error=lastError=GmSaveSystem.LastError;return false; }
+        lastError=string.Empty;return true;
     }
 
     public static bool TryResetHouseMemory(bool explicitCombinedScope,out string error)
