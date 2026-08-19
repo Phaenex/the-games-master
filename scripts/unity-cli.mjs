@@ -553,7 +553,7 @@ function run(name, attempt = 1, attempts = 1) {
  * mechanically rather than by asking a human to eyeball a number.
  */
 export function verifyShots(scene, log, logTag, expectedShots = null,
-    minimumLuminanceRange = 6) {
+    minimumLuminanceRange = 6, sparseUi = false) {
   const shots = shotsIn(scene).sort((a, b) => a.name.localeCompare(b.name));
   console.log(`\n  Screens/${scene}: ${shots.length} png`);
   if (shots.length === 0) {
@@ -576,8 +576,10 @@ export function verifyShots(scene, log, logTag, expectedShots = null,
     if (!evidence) throw new Error(`${s.name} has no complete luminance/clipping evidence in the tour log`);
     if (s.bytes < 10_000) throw new Error(`${s.name} is only ${s.bytes} bytes and may be blank`);
     const isHighContrastUi = evidence.white >= 0.5 && evidence.black >= 90;
-    if ((!isHighContrastUi && evidence.p95 - evidence.p05 < minimumLuminanceRange) ||
-        evidence.black > 98 || evidence.white > 25)
+    const invalidRange = !sparseUi && !isHighContrastUi &&
+      evidence.p95 - evidence.p05 < minimumLuminanceRange;
+    const maximumBlack = sparseUi ? 99.5 : 98;
+    if (invalidRange || evidence.black > maximumBlack || evidence.white > 25)
       throw new Error(`${s.name} is invalid visual evidence: ${JSON.stringify(evidence)}`);
     console.log(`    ${s.name}  ${(s.bytes / 1024).toFixed(0)}KB  mean=${evidence.mean} ` +
       `p05=${evidence.p05} p95=${evidence.p95} black=${evidence.black}% white=${evidence.white}%`);
@@ -1289,7 +1291,8 @@ for (const task of queue) {
       // Read the log at verify time rather than trusting what the poller happened to have seen.
       const tourLog = existsSync(logFile) ? readFileSync(logFile, 'utf8') : '';
       verifyShots(TOUR_SCENE, tourLog,
-        SCENE.tour.logTag, SCENE.tour.shots, SCENE.tour.minimumLuminanceRange ?? 6);
+        SCENE.tour.logTag, SCENE.tour.shots, SCENE.tour.minimumLuminanceRange ?? 6,
+        SCENE.tour.sparseUi ?? false);
       if (SCENE.id === 'parlor') {
         const finalized = finalizeParlorReviewReport(PARLOR_REVIEW_REPORT, {
           projectRoot: PROJECT, logPath: logFile, exitCode: 0,

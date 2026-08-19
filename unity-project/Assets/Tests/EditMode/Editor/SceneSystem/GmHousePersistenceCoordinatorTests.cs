@@ -4,6 +4,7 @@ using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
+using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
 
 public sealed class GmHousePersistenceCoordinatorTests
@@ -277,6 +278,9 @@ public sealed class GmHousePersistenceCoordinatorTests
                 Completed(mirror.FrozenPackage), out error), Is.True, error);
             menu.Refresh();
             Assert.That(menu.RecollectionPackages.Count, Is.EqualTo(1));
+            Assert.That(menu.LedgerReviewAvailable, Is.True);
+            Assert.That(menu.LedgerReviewLines, Is.Not.Empty);
+            menu.MoveFocus(1);
             menu.MoveFocus(1);
             menu.MoveFocus(1);
             Assert.That(menu.Focused, Is.EqualTo(GmBootMenu.Row.Recollection));
@@ -286,6 +290,34 @@ public sealed class GmHousePersistenceCoordinatorTests
             Assert.That(GmRunStore.HouseRunId, Is.Empty);
         }
         finally { Object.DestroyImmediate(host); }
+    }
+
+    [Test]
+    public void LedgerReviewUnlocksOnlyAfterMirrorAndReportsBroadFactsNotStrategyIds()
+    {
+        Assert.That(GmHousePersistenceCoordinator.TryBeginOrdinaryRun(641,
+            out string error), Is.True, error);
+        GmHouseRunGeneration ordinary = GmHousePersistenceCoordinator.ActiveRun;
+        GmRunStore.LastCheckpoint = "ending";
+        Assert.That(GmHousePersistenceCoordinator.TryCompleteEnding(GmEndingType.TrueEscape,
+            Completed(ordinary.FrozenPackage), out error), Is.True, error);
+        Assert.That(GmHousePersistenceCoordinator.TryGetLedgerReview(out _, out error), Is.False);
+        StringAssert.Contains("Mirror run", error);
+
+        Assert.That(GmHousePersistenceCoordinator.TryBeginMirrorRun(642, out error), Is.True, error);
+        GmHouseRunGeneration mirror = GmHousePersistenceCoordinator.ActiveRun;
+        GmRunStore.LastCheckpoint = "ending";
+        Assert.That(GmHousePersistenceCoordinator.TryCompleteEnding(GmEndingType.TrueEscape,
+            Completed(mirror.FrozenPackage), out error), Is.True, error);
+
+        Assert.That(GmHousePersistenceCoordinator.TryGetLedgerReview(
+            out GmHouseLedgerReview review, out error), Is.True, error);
+        Assert.That(review.CompletedMirrorRuns, Is.EqualTo(1));
+        Assert.That(review.CompletedRunsAnalyzed, Is.EqualTo(2));
+        Assert.That(review.LearnedTendencies, Is.Not.Empty);
+        string joined = string.Join(" ", review.LearnedTendencies);
+        foreach (string strategy in Enum.GetNames(typeof(GmParlorCounterPlanId)))
+            StringAssert.DoesNotContain(strategy, joined);
     }
 
     [Test]
@@ -471,6 +503,265 @@ public sealed class GmHousePersistenceCoordinatorTests
         finally { Object.DestroyImmediate(host); }
     }
 
+    [Test]
+    public void BootOffersConfirmedRestoreOnlyWhenAProfilePredecessorFullyValidates()
+    {
+        Assert.That(GmHousePersistenceCoordinator.TryBeginOrdinaryRun(1201,
+            out string error), Is.True, error);
+        GmHouseRunGeneration firstRun = GmHousePersistenceCoordinator.ActiveRun;
+        GmRunStore.LastCheckpoint = "ending";
+        Assert.That(GmHousePersistenceCoordinator.TryCompleteEnding(GmEndingType.TrueEscape,
+            Completed(firstRun.FrozenPackage), out error), Is.True, error);
+        Assert.That(GmHousePersistenceCoordinator.TryBeginMirrorRun(1202,
+            out error), Is.True, error);
+        GmHouseRunGeneration secondRun = GmHousePersistenceCoordinator.ActiveRun;
+        GmRunStore.LastCheckpoint = "ending";
+        Assert.That(GmHousePersistenceCoordinator.TryCompleteEnding(GmEndingType.TrueEscape,
+            Completed(secondRun.FrozenPackage), out error), Is.True, error);
+        Assert.That(GmSaveSystem.Save(), Is.True, GmSaveSystem.LastError);
+
+        string house = Path.Combine(directory, "house");
+        string newestProfile = Directory.GetFiles(Path.Combine(house, "profile", "generations"),
+            "*.bin").OrderBy(path => path, StringComparer.Ordinal).Last();
+        byte[] damaged = UnreadableEnvelopeBytes();
+        File.WriteAllBytes(newestProfile, damaged);
+        GmHousePersistenceCoordinator.ForgetActiveForTests();
+
+        var host = new GameObject("HouseRestoreMenuFixture");
+        try
+        {
+            var menu = host.AddComponent<GmBootMenu>();
+            menu.Refresh();
+            Assert.That(menu.HouseRecoveryRequired, Is.True);
+            Assert.That(menu.RestoreLastValidAvailable, Is.True);
+            Assert.That(menu.RestoreLastValidGeneration, Is.EqualTo(2));
+            Assert.That(menu.Focused, Is.EqualTo(GmBootMenu.Row.RestoreLastValid));
+            Assert.That(menu.Activate(), Is.True);
+            Assert.That(File.ReadAllBytes(newestProfile), Is.EqualTo(damaged));
+            Assert.That(menu.Activate(), Is.True);
+            Assert.That(menu.HouseRecoveryRequired, Is.False);
+            Assert.That(GmHousePersistenceCoordinator.Profile.Generation, Is.EqualTo(2));
+            Assert.That(GmHousePersistenceCoordinator.Profile.Receipts, Has.Count.EqualTo(1));
+            Assert.That(GmSaveSystem.HasSave(), Is.False,
+                "restore left a Continue pointer bound to the discarded profile tail");
+        }
+        finally { Object.DestroyImmediate(host); }
+    }
+
+    [Test]
+    public void RestoreDoesNotMutateProfileWhenContinueCannotFlushBeforeCleanup()
+    {
+        Assert.That(GmHousePersistenceCoordinator.TryBeginOrdinaryRun(1251,
+            out string error), Is.True, error);
+        GmHouseRunGeneration first = GmHousePersistenceCoordinator.ActiveRun;
+        GmRunStore.LastCheckpoint = "ending";
+        Assert.That(GmHousePersistenceCoordinator.TryCompleteEnding(GmEndingType.TrueEscape,
+            Completed(first.FrozenPackage), out error), Is.True, error);
+        Assert.That(GmHousePersistenceCoordinator.TryBeginMirrorRun(1252,
+            out error), Is.True, error);
+        GmHouseRunGeneration second = GmHousePersistenceCoordinator.ActiveRun;
+        GmRunStore.LastCheckpoint = "ending";
+        Assert.That(GmHousePersistenceCoordinator.TryCompleteEnding(GmEndingType.TrueEscape,
+            Completed(second.FrozenPackage), out error), Is.True, error);
+
+        string house = Path.Combine(directory, "house");
+        string newestProfile = Directory.GetFiles(Path.Combine(house, "profile", "generations"),
+            "*.bin").OrderBy(path => path, StringComparer.Ordinal).Last();
+        byte[] damaged = UnreadableEnvelopeBytes();
+        File.WriteAllBytes(newestProfile, damaged);
+        GmHousePersistenceCoordinator.ForgetActiveForTests();
+        Assert.That(GmHousePersistenceCoordinator.TryGetTitleUnlocks(
+            out _, out _, out error), Is.False);
+
+        GmSaveSystem.ConfigureForTests(runPath, new AlwaysFailBackend());
+        Assert.That(GmSaveSystem.QueueSave(out _), Is.True);
+        LogAssert.Expect(LogType.Error,
+            "[GmSaveSystem] Failed to save game: injected mutable Continue write failure");
+        Assert.That(GmHousePersistenceCoordinator.TryRestoreLastValidProfile(out error),
+            Is.False);
+
+        Assert.That(File.ReadAllBytes(newestProfile), Is.EqualTo(damaged));
+        Assert.That(File.Exists(house + ".profile-restore-intent"), Is.False);
+        Assert.That(Directory.GetDirectories(directory, "house.profile-quarantine-*"), Is.Empty);
+    }
+
+    [Test]
+    public void SupportDiagnosticsPreviewIsRedactedAndExportRequiresANewCallerSelectedPath()
+    {
+        Assert.That(GmHousePersistenceCoordinator.TryBeginOrdinaryRun(1301,
+            out string error), Is.True, error);
+        string house = Path.Combine(directory, "house");
+        string commit = NewestRootCommit(house);
+        File.WriteAllBytes(commit, UnreadableEnvelopeBytes());
+        GmHousePersistenceCoordinator.ForgetActiveForTests();
+        Assert.That(GmHousePersistenceCoordinator.TryGetTitleUnlocks(
+            out _, out _, out error), Is.False);
+
+        Assert.That(GmHousePersistenceCoordinator.TryPreviewSupportDiagnostics(
+            out string preview, out error), Is.True, error);
+        StringAssert.Contains("HOUSE_ENVELOPE_MAGIC", preview);
+        StringAssert.Contains("\"formatVersion\":1", preview);
+        StringAssert.DoesNotContain(directory, preview);
+        StringAssert.DoesNotContain("1301", preview);
+        StringAssert.DoesNotContain(GmRunStore.HouseRunId, preview);
+
+        string destination = Path.Combine(directory, "chosen-support-diagnostics.json");
+        Assert.That(GmHousePersistenceCoordinator.TryExportSupportDiagnostics(
+            destination, out string exportedPreview, out error), Is.True, error);
+        Assert.That(exportedPreview, Is.EqualTo(preview));
+        Assert.That(File.ReadAllText(destination), Is.EqualTo(preview));
+        Assert.That(Directory.GetFiles(directory,"*.tmp-*"),Is.Empty,
+            "successful diagnostics export leaked a staging file");
+
+        byte[] occupied = { 1, 2, 3, 4 };
+        string existing = Path.Combine(directory, "existing.json");
+        File.WriteAllBytes(existing, occupied);
+        Assert.That(GmHousePersistenceCoordinator.TryExportSupportDiagnostics(
+            existing, out _, out error), Is.False);
+        StringAssert.Contains("already exists", error);
+        Assert.That(File.ReadAllBytes(existing), Is.EqualTo(occupied));
+        Assert.That(Directory.GetFiles(directory,"*.tmp-*"),Is.Empty,
+            "refused diagnostics export leaked a staging file");
+        Assert.That(File.ReadAllBytes(commit), Is.EqualTo(UnreadableEnvelopeBytes()));
+    }
+
+    [Test]
+    public void RecoveryDiagnosticsShowsPreviewBeforeNativeDestinationSelectionAndWrite()
+    {
+        Assert.That(GmHousePersistenceCoordinator.TryBeginOrdinaryRun(1401,
+            out string error), Is.True, error);
+        string house = Path.Combine(directory, "house");
+        File.WriteAllBytes(NewestRootCommit(house), UnreadableEnvelopeBytes());
+        GmHousePersistenceCoordinator.ForgetActiveForTests();
+        string destination = Path.Combine(directory, "player-chosen-diagnostics.json");
+
+        var host = new GameObject("HouseDiagnosticsMenuFixture");
+        try
+        {
+            var menu = host.AddComponent<GmBootMenu>();
+            typeof(GmBootMenu).GetMethod("BuildUi",
+                System.Reflection.BindingFlags.Instance|
+                System.Reflection.BindingFlags.NonPublic).Invoke(menu, null);
+            var picker = new FixedDiagnosticsDestinationPicker(destination);
+            menu.SetDiagnosticsDestinationPickerForTests(picker);
+            menu.Refresh();
+            Assert.That(menu.ExportDiagnosticsAvailable, Is.True);
+            menu.MoveFocus(1);
+            Assert.That(menu.Focused, Is.EqualTo(GmBootMenu.Row.ResetHouseMemory));
+            menu.MoveFocus(1);
+            Assert.That(menu.Focused, Is.EqualTo(GmBootMenu.Row.ExportDiagnostics));
+            Assert.That(menu.Activate(), Is.True);
+            Assert.That(menu.DiagnosticsPreviewOpen, Is.True);
+            Assert.That(menu.GetComponent<UIDocument>().rootVisualElement
+                .Q<ScrollView>("BootDiagnosticsPreview"), Is.Not.Null);
+            Assert.That(File.Exists(destination), Is.False,
+                "opening the preview wrote diagnostics before destination selection");
+            Assert.That(picker.RequestCount, Is.Zero);
+
+            Assert.That(menu.ConfirmDiagnosticsExport(), Is.True);
+            Assert.That(picker.RequestCount, Is.EqualTo(1));
+            Assert.That(File.Exists(destination), Is.True);
+            Assert.That(menu.DiagnosticsPreviewOpen, Is.True);
+            StringAssert.Contains("player-chosen-diagnostics.json", menu.DiagnosticsStatus);
+        }
+        finally { Object.DestroyImmediate(host); }
+    }
+
+    [Test]
+    public void RecoveryDiagnosticsPickerCancellationKeepsPreviewOpenAndWritesNothing()
+    {
+        Assert.That(GmHousePersistenceCoordinator.TryBeginOrdinaryRun(1402,
+            out string error), Is.True, error);
+        string house = Path.Combine(directory, "house");
+        File.WriteAllBytes(NewestRootCommit(house), UnreadableEnvelopeBytes());
+        GmHousePersistenceCoordinator.ForgetActiveForTests();
+
+        var host = new GameObject("HouseDiagnosticsCancellationFixture");
+        try
+        {
+            var menu = host.AddComponent<GmBootMenu>();
+            typeof(GmBootMenu).GetMethod("BuildUi",
+                System.Reflection.BindingFlags.Instance|
+                System.Reflection.BindingFlags.NonPublic).Invoke(menu, null);
+            var picker = new CancelledDiagnosticsDestinationPicker();
+            menu.SetDiagnosticsDestinationPickerForTests(picker);
+            menu.Refresh();
+            menu.MoveFocus(1);
+            menu.MoveFocus(1);
+            Assert.That(menu.Activate(), Is.True);
+
+            Assert.That(menu.ConfirmDiagnosticsExport(), Is.False);
+            Assert.That(picker.RequestCount, Is.EqualTo(1));
+            Assert.That(menu.DiagnosticsPreviewOpen, Is.True,
+                "cancelling the save panel should return to the preview");
+            StringAssert.Contains("cancelled", menu.DiagnosticsStatus.ToLowerInvariant());
+            Assert.That(Directory.GetFiles(directory, "*.json"), Is.Empty,
+                "cancelling the save panel wrote a diagnostics file");
+        }
+        finally { Object.DestroyImmediate(host); }
+    }
+
+    [Test]
+    public void MacDiagnosticsPickerDistinguishesCancellationFromExecutionFailure()
+    {
+        Assert.That(GmMacSupportDiagnosticsDestinationPicker.TryInterpretAppleScriptResult(
+            1, string.Empty, "execution error: User canceled. (-128)",
+            out _, out string cancelled), Is.False);
+        Assert.That(cancelled, Is.EqualTo("diagnostics export cancelled"));
+
+        Assert.That(GmMacSupportDiagnosticsDestinationPicker.TryInterpretAppleScriptResult(
+            1, string.Empty, "execution error: Not authorized. (-1743)",
+            out _, out string denied), Is.False);
+        StringAssert.Contains("Not authorized", denied);
+        StringAssert.DoesNotContain("cancelled", denied);
+
+        Assert.That(GmMacSupportDiagnosticsDestinationPicker.TryInterpretAppleScriptResult(
+            0, "/tmp/support report .json\n", string.Empty,
+            out string path, out string error), Is.True, error);
+        Assert.That(path, Is.EqualTo("/tmp/support report .json"));
+    }
+
+    [Test]
+    public void RecoveryDiagnosticsShowsExecutionFailuresAndHonorsHighContrast()
+    {
+        Assert.That(GmHousePersistenceCoordinator.TryBeginOrdinaryRun(1403,
+            out string error), Is.True, error);
+        string house = Path.Combine(directory, "house");
+        File.WriteAllBytes(NewestRootCommit(house), UnreadableEnvelopeBytes());
+        GmHousePersistenceCoordinator.ForgetActiveForTests();
+        GmAccessibilitySettings.SetHighContrast(true);
+
+        var host = new GameObject("HouseDiagnosticsFailureFixture");
+        try
+        {
+            var menu = host.AddComponent<GmBootMenu>();
+            typeof(GmBootMenu).GetMethod("BuildUi",
+                System.Reflection.BindingFlags.Instance|
+                System.Reflection.BindingFlags.NonPublic).Invoke(menu, null);
+            menu.SetDiagnosticsDestinationPickerForTests(
+                new FailedDiagnosticsDestinationPicker("macOS denied Files access"));
+            menu.Refresh();
+            menu.MoveFocus(1);
+            menu.MoveFocus(1);
+            Assert.That(menu.Activate(), Is.True);
+
+            LogAssert.Expect(LogType.Error,
+                "[GmBoot] diagnostics destination unavailable: macOS denied Files access");
+            Assert.That(menu.ConfirmDiagnosticsExport(), Is.False);
+            StringAssert.Contains("denied Files access", menu.DiagnosticsStatus);
+            VisualElement root=menu.GetComponent<UIDocument>().rootVisualElement;
+            Assert.That(root.Q<Label>("BootDiagnosticsHeading").style.color.value,
+                Is.EqualTo(new Color(1f,0.86f,0.2f)));
+            Assert.That(root.Q<Label>("BootDiagnosticsDisclosure").style.color.value,
+                Is.EqualTo(Color.white));
+        }
+        finally
+        {
+            GmAccessibilitySettings.SetHighContrast(false);
+            Object.DestroyImmediate(host);
+        }
+    }
+
     static byte[] UnreadableEnvelopeBytes()
     {
         var bytes = new byte[128];
@@ -495,5 +786,34 @@ public sealed class GmHousePersistenceCoordinatorTests
     {
         public void WriteAtomic(string target,string json) =>
             throw new IOException("injected mutable Continue write failure");
+    }
+
+    sealed class FixedDiagnosticsDestinationPicker : IGmSupportDiagnosticsDestinationPicker
+    {
+        readonly string destination;
+        public int RequestCount { get; private set; }
+        public FixedDiagnosticsDestinationPicker(string destination) =>
+            this.destination = destination;
+        public bool TryChooseDestination(out string path,out string error)
+        {
+            RequestCount++; path=destination; error=string.Empty; return true;
+        }
+    }
+
+    sealed class CancelledDiagnosticsDestinationPicker : IGmSupportDiagnosticsDestinationPicker
+    {
+        public int RequestCount { get; private set; }
+        public bool TryChooseDestination(out string path,out string error)
+        {
+            RequestCount++; path=null; error="diagnostics export cancelled"; return false;
+        }
+    }
+
+    sealed class FailedDiagnosticsDestinationPicker : IGmSupportDiagnosticsDestinationPicker
+    {
+        readonly string failure;
+        public FailedDiagnosticsDestinationPicker(string failure) => this.failure=failure;
+        public bool TryChooseDestination(out string path,out string error)
+        { path=null;error=failure;return false; }
     }
 }

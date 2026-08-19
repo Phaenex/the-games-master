@@ -43,13 +43,48 @@ bed: its deep-space/rumble textures would recreate the exact "spaceship" problem
 
 ## Status
 
+### 2026-08-18 night - recovery review, correction and rendered Boot proof
+
+The Cursor recovery slice was audited before commit. Restore now refuses to mutate the profile when
+Continue cannot be durably cleared, recovery intents cannot replace an existing pending incident,
+and intent deletion flushes the parent directory. The macOS picker distinguishes cancellation from
+execution failure and preserves valid trailing spaces in a chosen filename.
+
+The Boot UI now frames Ledger output as broad completed-run observations, defaults to a validated
+restore when one exists, keeps diagnostics success/cancel/error feedback on screen, applies high
+contrast to dynamic panels and bounds long panels with scroll views. The seven-state backbuffer tour
+passed and every frame was inspected at full size. Copies are in
+`docs/playtest/screenshots/boot-tour-*.png`.
+
+Fresh EditMode XML is **963/963** and PlayMode is **44/44**. The Boot rebuild, audit and seven-state
+tour pass twice consecutively. The real macOS save panel is still a release-candidate human check;
+its result classifier and all file-writing behavior are tested.
+
+Final review: the independent UI slop gate passed at **84/100**, the prose voice gate passed, and
+`npm run gates` passed **14/14** including the macOS build, House entry, 393m route, wall probes and
+captured-frame defect scans.
+
+### 2026-08-18 night - Restore Last Valid and redacted support diagnostics
+
+Recovery now offers Restore Last Valid only when the profile history has a fully validated predecessor. The first confirm arms it. The second writes a durable intent, moves the damaged profile history to an incident quarantine, rebuilds only the validated prefix and clears Continue so no mutable save points into the discarded tail. Restart tests cover interruption after intent and after quarantine. A damaged genesis with no predecessor is refused.
+
+Recovery also offers a redacted diagnostics preview before any write. The payload contains build/platform class, a stable failure code, schema version and artifact counts. It excludes paths, saves, seeds, inputs, evidence and identity. Export requires a caller-selected new path and refuses overwrite. The Boot flow is tested through an injected destination picker; the production macOS path invokes the native save panel, but that panel was not opened or captured in this slice.
+
+Fresh EditMode XML is **958/958**, including picker cancellation with no write. `npm run test:fast` passed and `npm run unity:scene:check` reports **420** synced source files. No PlayMode rerun, recovery-title screenshot or live save-panel proof this slice.
+
+### 2026-08-18 night - post-Mirror Ledger Review
+
+Ledger Review now unlocks only after a completed Mirror run. The title opens a review panel built from durable receipt summaries. It reports broad habits such as accusation timing, Read frequency, suspicious-tell tolerance and early high-card spending. It does not name counter-plan or future strategy IDs.
+
+`npm run test:fast` passed. Fresh EditMode XML was **950/950** at this checkpoint. No title screenshot this slice. Restore Last Valid and redacted diagnostics export closed in the entry above.
+
 ### 2026-08-18 night - House Memory recovery when the envelope is unreadable
 
 The 1080p player had been logging `House envelope magic is invalid` on Boot. Title hid The Mirror and `TryResetHouseMemory` could not run because it opened the broken domain first.
 
 Now: sibling recovery intent, domain renamed to `.quarantine-{incidentId}`, new lineage genesis. Isolated New Run is Ordinary with `IsolatedRecovery`, empty house pointer, no receipts. Boot Reset is two confirms. Quit keeps the files. Ordinary New Run is unchanged when House memory is readable.
 
-EditMode **949/949**. `test:fast` green. Recovery title copy is mechanical. No Boot screenshot this session. Ledger Review, Restore Last Valid, and Export Diagnostics are still open.
+EditMode **949/949**. `test:fast` green. Recovery title copy is mechanical. No Boot screenshot this session. At this checkpoint Ledger Review, Restore Last Valid and Export Diagnostics were still open; the Ledger slice closed in the entry above.
 
 ### 2026-08-18 night - Parlor 1080p series qualified
 

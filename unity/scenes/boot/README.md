@@ -1,14 +1,16 @@
 # Boot Unity scene
 
-Generated scaffold for Phase 0. The C# files in this directory are the source of truth.
+Phase 0 title and recovery scene. The C# files in this directory are the source of truth; do not
+edit the generated `Assets/Scenes/Boot.unity` YAML by hand.
 
 1. Run `npm run unity:scene:sync` to copy sources into `./unity-project`.
-2. Implement deterministic construction in `Editor/GmBootBuilder.cs`.
-3. Author scene grammar in `Editor/GmBootCompositionPlan.cs`; the placeholder keeps tests red.
-4. Replace all `*-replace-me` review shots in `Runtime/GmBootShotTour.cs`.
-5. Add objective room checks to `Editor/GmBootQualityAudit.cs`.
-6. Run `node scripts/unity-cli.mjs rebuild boot`, then `audit boot`.
-7. Run Unity EditMode tests, PlayMode route tests where relevant, and `tour boot`.
-8. Inspect every screenshot at full size and complete the human walk before approval.
+2. Build with `node scripts/unity-cli.mjs rebuild boot`, then run `audit boot`.
+3. Run Unity EditMode tests and `node scripts/unity-cli.mjs tour boot`.
+4. Inspect all seven screenshots at full size. They cover the ordinary title, post-Mirror Ledger
+   Review, recovery focus and confirmation, diagnostics preview, cancellation in high contrast and
+   successful export feedback.
+5. For a release candidate, exercise the real macOS destination panel once in a disposable profile.
 
-The scaffold is intentionally incomplete. A successful compile is not a visual or gameplay pass.
+The Boot tour uses backbuffer capture because UI Toolkit screen-space content is absent from camera
+RenderTextures. Its sparse-UI gate still rejects a fully blank frame, and its perceptual check also
+requires visible title and menu regions.

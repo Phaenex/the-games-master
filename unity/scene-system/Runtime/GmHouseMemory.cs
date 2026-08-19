@@ -15,6 +15,13 @@ public enum GmHouseTerminalFault
     AfterAcknowledgedRunCommit,
 }
 
+public enum GmHouseProfileRestoreFault
+{
+    None,
+    AfterIntent,
+    AfterQuarantine,
+}
+
 public enum GmHouseDurabilityPoint
 {
     None,
@@ -363,6 +370,114 @@ public sealed class GmHouseProfileGeneration
     public bool MirrorUnlocked => Receipts.Count > 0;
     public GmHouseProfileCas Cas => new GmHouseProfileCas(LineageId, Epoch, Generation,
         GenerationHash);
+}
+
+public sealed class GmHouseLedgerReview
+{
+    public int CompletedMirrorRuns { get; internal set; }
+    public int CompletedRunsAnalyzed { get; internal set; }
+    public IReadOnlyList<string> LearnedTendencies { get; internal set; } = Array.Empty<string>();
+
+    public static bool TryBuild(GmHouseProfileGeneration profile,
+        out GmHouseLedgerReview review,out string error)
+    {
+        review=null;
+        if(profile==null) { error="House profile is unavailable"; return false; }
+        GmHouseTerminalReceipt[] mirror=profile.Receipts
+            .Where(item=>item.Mode==GmParlorAdaptiveMode.Mirror)
+            .OrderBy(item=>item.RunOrdinal).ThenBy(item=>item.ReceiptId,StringComparer.Ordinal)
+            .ToArray();
+        if(mirror.Length==0)
+        { error="Ledger Review unlocks after a completed Mirror run"; return false; }
+
+        GmParlorCompletedMatchSummary[] summaries=profile.AdaptiveReceipts
+            .Select(item=>item.Summary).Where(item=>item!=null).ToArray();
+        int judgements=summaries.Sum(item=>item.judgementOpportunities);
+        int reads=summaries.Sum(item=>item.readAttempts);
+        int early=summaries.Sum(item=>item.readFirstThird);
+        int middle=summaries.Sum(item=>item.readMiddleThird);
+        int late=summaries.Sum(item=>item.readFinalThird);
+        int suspicious=summaries.Sum(item=>item.suspiciousObservations);
+        int acceptedSuspicious=summaries.Sum(item=>item.acceptedSuspicious);
+        int cards=summaries.Sum(item=>item.playerPlayedCountBySuit?.Sum()??0);
+        int earlyHigh=summaries.Sum(item=>item.earlyHighRankSpends);
+        var lines=new List<string>();
+
+        if(reads>0)
+        {
+            if(early>=middle&&early>=late)
+                lines.Add("In completed play, accusations most often came while a hand was young.");
+            else if(late>=early&&late>=middle)
+                lines.Add("In completed play, accusations most often waited for the end of a hand.");
+            else lines.Add("In completed play, accusations most often came near the middle of a hand.");
+        }
+        if(judgements>0)
+        {
+            int rate=reads*100/judgements;
+            lines.Add(rate>=60
+                ? "Formal Reads were used in most recorded judgement windows."
+                : "Most recorded judgement windows passed without a formal Read.");
+        }
+        if(suspicious>0)
+            lines.Add(acceptedSuspicious*2>=suspicious
+                ? "Most recorded suspicious tells were tolerated while play continued."
+                : "Most recorded suspicious tells received an answer.");
+        if(cards>0)
+            lines.Add(earlyHigh*5>=cards
+                ? "High cards were often spent early when pressure appeared."
+                : "High cards were usually preserved for later pressure.");
+        if(lines.Count==0) lines.Add("The ledger has too little completed play to name a tendency yet.");
+
+        review=new GmHouseLedgerReview
+        { CompletedMirrorRuns=mirror.Length,CompletedRunsAnalyzed=summaries.Length,
+          LearnedTendencies=lines.ToArray() };
+        error=string.Empty; return true;
+    }
+}
+
+public static class GmHouseSupportDiagnostics
+{
+    public static string BuildPreview(string houseDirectory,string validationError)
+    {
+        string code=FailureCode(validationError);
+        int rootCommits=Count(houseDirectory,"root","commits","*.commit");
+        int profileCommits=Count(houseDirectory,"profile","commits","*.commit");
+        int runDirectories=Directory.Exists(Path.Combine(houseDirectory,"runs"))
+            ? Directory.GetDirectories(Path.Combine(houseDirectory,"runs")).Length : 0;
+        int receiptBlobs=Count(houseDirectory,"receipts",null,"*.receipt");
+        return "{"+
+            "\"formatVersion\":1,"+
+            "\"buildVersion\":\""+Escape(UnityEngine.Application.version)+"\","+
+            "\"platformClass\":\""+Escape(UnityEngine.Application.platform.ToString())+"\","+
+            "\"failureCode\":\""+code+"\","+
+            "\"schemaVersions\":[1],"+
+            "\"artifactCounts\":{"+
+                "\"rootCommits\":"+rootCommits+","+
+                "\"profileCommits\":"+profileCommits+","+
+                "\"runDirectories\":"+runDirectories+","+
+                "\"receiptBlobs\":"+receiptBlobs+"}}";
+    }
+
+    static int Count(string root,string first,string second,string pattern)
+    {
+        string path=second==null?Path.Combine(root,first):Path.Combine(root,first,second);
+        return Directory.Exists(path)?Directory.GetFiles(path,pattern,SearchOption.TopDirectoryOnly).Length:0;
+    }
+
+    static string FailureCode(string error)
+    {
+        string lower=(error??string.Empty).ToLowerInvariant();
+        if(lower.Contains("magic")) return "HOUSE_ENVELOPE_MAGIC";
+        if(lower.Contains("checksum")) return "HOUSE_CHECKSUM_INVALID";
+        if(lower.Contains("root")) return "HOUSE_ROOT_INVALID";
+        if(lower.Contains("profile")) return "HOUSE_PROFILE_INVALID";
+        if(lower.Contains("commit")) return "HOUSE_COMMIT_INVALID";
+        return "HOUSE_VALIDATION_FAILED";
+    }
+
+    static string Escape(string value) => (value??string.Empty)
+        .Replace("\\","\\\\").Replace("\"","\\\"")
+        .Replace("\r","\\r").Replace("\n","\\n");
 }
 
 public static class GmHouseModeDirector
@@ -752,6 +867,7 @@ enum GmHouseArtifactKind
     ReceiptBlob = 4,
     CommitRecord = 5,
     RecoveryIntent = 6,
+    ProfileRestoreIntent = 7,
 }
 
 static class GmHouseEnvelope
@@ -815,9 +931,7 @@ public static class GmHouseRecoveryIntent
             throw new InvalidDataException("recovery incident id is invalid");
         byte[] bytes=GmHouseEnvelope.Wrap(GmHouseArtifactKind.RecoveryIntent,1,
             Encoding.ASCII.GetBytes(incidentId));
-        string folder=Path.GetDirectoryName(path);
-        if(!string.IsNullOrEmpty(folder)) Directory.CreateDirectory(folder);
-        File.WriteAllBytes(path,bytes);
+        GmHouseDurableIntent.WriteNew(path,bytes);
     }
 
     public static bool TryRead(string path,out string incidentId,out string error)
@@ -833,6 +947,67 @@ public static class GmHouseRecoveryIntent
             error=string.Empty; return true;
         }
         catch(Exception ex) { error=ex.Message; return false; }
+    }
+}
+
+public static class GmHouseProfileRestoreIntent
+{
+    public static void WritePending(string path,string incidentId,long generation,
+        string generationHash,string commitHash)
+    {
+        if(string.IsNullOrWhiteSpace(path)) throw new ArgumentException("profile restore intent path is required");
+        if(!GmHouseBinary.IsLowerHex(incidentId,32)||generation<1||
+            !GmHouseBinary.IsLowerHex(generationHash,64)||!GmHouseBinary.IsLowerHex(commitHash,64))
+            throw new InvalidDataException("profile restore intent is invalid");
+        byte[] payload;
+        using(var stream=new MemoryStream())
+        {
+            GmHouseBinary.WriteString(stream,incidentId); GmHouseBinary.WriteInt64(stream,generation);
+            GmHouseBinary.WriteString(stream,generationHash); GmHouseBinary.WriteString(stream,commitHash);
+            payload=stream.ToArray();
+        }
+        byte[] bytes=GmHouseEnvelope.Wrap(GmHouseArtifactKind.ProfileRestoreIntent,1,payload);
+        GmHouseDurableIntent.WriteNew(path,bytes);
+    }
+
+    public static bool TryRead(string path,out string incidentId,out long generation,
+        out string generationHash,out string commitHash,out string error)
+    {
+        incidentId=null; generation=0; generationHash=null; commitHash=null;
+        try
+        {
+            byte[] payload=GmHouseEnvelope.Unwrap(File.ReadAllBytes(path),
+                GmHouseArtifactKind.ProfileRestoreIntent,1);
+            using(var stream=new MemoryStream(payload,false))
+            {
+                incidentId=GmHouseBinary.ReadString(stream); generation=GmHouseBinary.ReadInt64(stream);
+                generationHash=GmHouseBinary.ReadString(stream); commitHash=GmHouseBinary.ReadString(stream);
+                if(stream.Position!=stream.Length||!GmHouseBinary.IsLowerHex(incidentId,32)||generation<1||
+                    !GmHouseBinary.IsLowerHex(generationHash,64)||!GmHouseBinary.IsLowerHex(commitHash,64))
+                    throw new InvalidDataException("profile restore intent is invalid");
+            }
+            error=string.Empty; return true;
+        }
+        catch(Exception ex) { error=ex.Message; return false; }
+    }
+}
+
+static class GmHouseDurableIntent
+{
+    public static void WriteNew(string path,byte[] bytes)
+    {
+        string folder=Path.GetDirectoryName(path);
+        if(!string.IsNullOrEmpty(folder)) Directory.CreateDirectory(folder);
+        string temporary=path+".tmp-"+Guid.NewGuid().ToString("N");
+        try
+        {
+            using(var stream=new FileStream(temporary,FileMode.CreateNew,FileAccess.Write,FileShare.None))
+            { stream.Write(bytes,0,bytes.Length); stream.Flush(true); }
+            File.Move(temporary,path);
+            if(!string.IsNullOrEmpty(folder))
+                new GmHousePhysicalFileSystem().FlushDirectory(folder);
+        }
+        finally { if(File.Exists(temporary)) File.Delete(temporary); }
     }
 }
 
@@ -1127,6 +1302,14 @@ static class GmHouseArtifactCodec
 
 public sealed class GmHouseMemoryStore
 {
+    sealed class ProfileRestoreCandidate
+    {
+        public GmHouseProfileGeneration Profile;
+        public string CommitHash;
+        public string[] CommitFiles;
+        public string[] GenerationFiles;
+    }
+
     readonly string domain;
     readonly IGmHouseFileSystem fileSystem;
     readonly string leasePath;
@@ -1146,10 +1329,12 @@ public sealed class GmHouseMemoryStore
     public GmHouseRootGeneration CurrentRoot => currentRoot;
     public GmHouseProfileGeneration CurrentProfile => currentProfile;
     public string LastError => lastError;
+    public GmHouseProfileRestoreFault ProfileRestoreFaultAfter { get; set; }
     public IReadOnlyList<string> RootCommitRecords => Files(RootCommitDirectory,"*.commit");
     public IReadOnlyList<string> ProfileCommitRecords => Files(ProfileCommitDirectory,"*.commit");
     public string CurrentProfileCommitHash => CurrentCommitHash(ProfileCommitDirectory,"profile");
     string RecoveryIntentPath => domain+".recovery-intent";
+    string ProfileRestoreIntentPath => domain+".profile-restore-intent";
 
     public GmHouseMemoryStore(string domain, IGmHouseFileSystem fileSystem=null)
     {
@@ -1163,6 +1348,7 @@ public sealed class GmHouseMemoryStore
         profile=null;
         try
         {
+            ResumePendingProfileRestoreIfNeeded();
             ResumePendingRecoveryIfNeeded();
             fileSystem.CreateDirectory(domain);
             using(fileSystem.AcquireExclusiveLease(leasePath))
@@ -1181,6 +1367,7 @@ public sealed class GmHouseMemoryStore
                 profile=currentProfile;
             }
             ClearRecoveryIntent();
+            ClearProfileRestoreIntent();
             return Success(out error);
         }
         catch(Exception ex) { return Failure(ex,out error); }
@@ -1219,6 +1406,126 @@ public sealed class GmHouseMemoryStore
         return TryOpenOrCreate(out profile,out error);
     }
 
+    public bool TryRestoreLastValidProfile(out string incidentId,
+        out GmHouseProfileGeneration profile,out string error)
+    {
+        incidentId=null; profile=null;
+        if(TryOpenOrCreate(out profile,out error))
+        { profile=null; error=lastError="House memory is readable; profile restore is not required"; return false; }
+        try
+        {
+            ProfileRestoreCandidate candidate;
+            using(fileSystem.AcquireExclusiveLease(leasePath))
+            {
+                currentRoot=LoadRootUnlocked();
+                candidate=FindLastValidProfilePrefix(ProfileCommitDirectory,
+                    ProfileGenerationDirectory,currentRoot);
+                if(candidate==null)
+                    throw new InvalidDataException("no prior profile generation validates against the current root");
+                if(candidate.CommitFiles.Length==Files(ProfileCommitDirectory,"*.commit").Count)
+                    throw new InvalidDataException("profile history has no damaged tail to restore");
+                incidentId=Guid.NewGuid().ToString("N");
+                GmHouseProfileRestoreIntent.WritePending(ProfileRestoreIntentPath,incidentId,
+                    candidate.Profile.Generation,candidate.Profile.GenerationHash,candidate.CommitHash);
+            }
+            if(ProfileRestoreFaultAfter==GmHouseProfileRestoreFault.AfterIntent)
+                throw new IOException("injected profile restore interruption after intent");
+            ResumePendingProfileRestoreIfNeeded();
+            if(!TryOpenExisting(out profile,out error)) return false;
+            ClearProfileRestoreIntent();
+            return Success(out error);
+        }
+        catch(Exception ex) { profile=null; return Failure(ex,out error); }
+    }
+
+    public bool TryGetLastValidProfileCandidate(out long generation,out string error)
+    {
+        generation=0;
+        try
+        {
+            using(fileSystem.AcquireExclusiveLease(leasePath))
+            {
+                currentRoot=LoadRootUnlocked();
+                ProfileRestoreCandidate candidate=FindLastValidProfilePrefix(
+                    ProfileCommitDirectory,ProfileGenerationDirectory,currentRoot);
+                if(candidate==null||candidate.CommitFiles.Length==Files(
+                    ProfileCommitDirectory,"*.commit").Count)
+                    throw new InvalidDataException(
+                        "no prior profile generation validates against the current root");
+                generation=candidate.Profile.Generation;
+            }
+            return Success(out error);
+        }
+        catch(Exception ex) { generation=0; return Failure(ex,out error); }
+    }
+
+    void ResumePendingProfileRestoreIfNeeded()
+    {
+        if(!File.Exists(ProfileRestoreIntentPath)) return;
+        using(fileSystem.AcquireExclusiveLease(leasePath)) ResumePendingProfileRestoreUnlocked();
+    }
+
+    void ResumePendingProfileRestoreUnlocked()
+    {
+        if(!GmHouseProfileRestoreIntent.TryRead(ProfileRestoreIntentPath,out string incidentId,
+            out long generation,out string generationHash,out string commitHash,out string intentError))
+            throw new InvalidDataException("House profile restore intent is invalid: "+intentError);
+        string quarantine=domain+".profile-quarantine-"+incidentId;
+        string staging=domain+".profile-restore-staging-"+incidentId;
+
+        if(Directory.Exists(ProfileDirectory)&&Directory.Exists(quarantine))
+        {
+            ProfileRestoreCandidate live=FindLastValidProfilePrefix(ProfileCommitDirectory,
+                ProfileGenerationDirectory,LoadRootUnlocked());
+            if(live!=null&&live.Profile.Generation==generation&&
+                live.Profile.GenerationHash==generationHash&&live.CommitHash==commitHash&&
+                live.CommitFiles.Length==Files(ProfileCommitDirectory,"*.commit").Count)
+                return;
+            throw new InvalidDataException("profile restore has both live and quarantined histories");
+        }
+
+        if(Directory.Exists(ProfileDirectory))
+        {
+            if(Directory.Exists(quarantine))
+                throw new InvalidDataException("profile restore quarantine already exists");
+            ProfileRestoreCandidate candidate=FindLastValidProfilePrefix(ProfileCommitDirectory,
+                ProfileGenerationDirectory,LoadRootUnlocked());
+            if(candidate==null||candidate.Profile.Generation!=generation||
+                candidate.Profile.GenerationHash!=generationHash||candidate.CommitHash!=commitHash)
+                throw new InvalidDataException("profile restore target no longer validates");
+            Directory.Move(ProfileDirectory,quarantine);
+            fileSystem.FlushDirectory(domain);
+            string parent=Path.GetDirectoryName(domain);
+            if(!string.IsNullOrEmpty(parent)) fileSystem.FlushDirectory(parent);
+            if(ProfileRestoreFaultAfter==GmHouseProfileRestoreFault.AfterQuarantine)
+                throw new IOException("injected profile restore interruption after quarantine");
+        }
+        if(!Directory.Exists(quarantine))
+            throw new InvalidDataException("profile restore quarantine is missing");
+
+        string sourceCommits=Path.Combine(quarantine,"commits");
+        string sourceGenerations=Path.Combine(quarantine,"generations");
+        ProfileRestoreCandidate source=FindLastValidProfilePrefix(sourceCommits,
+            sourceGenerations,LoadRootUnlocked());
+        if(source==null||source.Profile.Generation!=generation||
+            source.Profile.GenerationHash!=generationHash||source.CommitHash!=commitHash)
+            throw new InvalidDataException("quarantined profile restore target no longer validates");
+
+        if(Directory.Exists(staging)) Directory.Delete(staging,true);
+        string stagedCommits=Path.Combine(staging,"commits");
+        string stagedGenerations=Path.Combine(staging,"generations");
+        Directory.CreateDirectory(stagedCommits); Directory.CreateDirectory(stagedGenerations);
+        foreach(string path in source.CommitFiles)
+            fileSystem.WriteNewDurable(Path.Combine(stagedCommits,Path.GetFileName(path)),
+                File.ReadAllBytes(path),GmHouseDurabilityPoint.ProfileCommitRecord);
+        foreach(string path in source.GenerationFiles)
+            fileSystem.WriteNewDurable(Path.Combine(stagedGenerations,Path.GetFileName(path)),
+                File.ReadAllBytes(path),GmHouseDurabilityPoint.ProfileGeneration);
+        fileSystem.FlushDirectory(staging);
+        Directory.Move(staging,ProfileDirectory);
+        fileSystem.FlushDirectory(domain);
+    }
+
     void ResumePendingRecoveryIfNeeded()
     {
         if(!File.Exists(RecoveryIntentPath)) return;
@@ -1249,7 +1556,61 @@ public sealed class GmHouseMemoryStore
 
     void ClearRecoveryIntent()
     {
-        if(File.Exists(RecoveryIntentPath)) File.Delete(RecoveryIntentPath);
+        ClearIntentDurably(RecoveryIntentPath);
+    }
+
+    void ClearProfileRestoreIntent()
+    {
+        ClearIntentDurably(ProfileRestoreIntentPath);
+    }
+
+    void ClearIntentDurably(string path)
+    {
+        if(!File.Exists(path)) return;
+        File.Delete(path);
+        string parent=Path.GetDirectoryName(path);
+        if(!string.IsNullOrEmpty(parent)) fileSystem.FlushDirectory(parent);
+    }
+
+    ProfileRestoreCandidate FindLastValidProfilePrefix(string commits,string generations,
+        GmHouseRootGeneration root)
+    {
+        IReadOnlyList<string> files=Files(commits,"*.commit");
+        string previousCommit=string.Empty; string previousGeneration=string.Empty;
+        var validCommits=new List<string>(); var validGenerations=new List<string>();
+        GmHouseProfileGeneration lastProfile=null; string lastCommitHash=string.Empty;
+        foreach(string commitPath in files)
+        {
+            try
+            {
+                GmHouseCommitRecord item=GmHouseArtifactCodec.DecodeCommit(fileSystem.ReadAllBytes(commitPath));
+                long sequence=validCommits.Count+1;
+                string expectedPrefix=$"profile-gen-{sequence:D20}-";
+                if(item.Kind!="profile"||item.Sequence!=sequence||item.PreviousCommitHash!=previousCommit||
+                    item.GenerationFile!=Path.GetFileName(item.GenerationFile)||
+                    !item.GenerationFile.StartsWith(expectedPrefix,StringComparison.Ordinal)||
+                    !item.GenerationFile.EndsWith(".bin",StringComparison.Ordinal)||
+                    item.GenerationFile.Length!=expectedPrefix.Length+64+4||
+                    !GmHouseBinary.IsLowerHex(item.GenerationHash,64)||
+                    item.GenerationFile.Substring(expectedPrefix.Length,64)!=item.GenerationHash)
+                    throw new InvalidDataException("profile commit chain is invalid");
+                string generationPath=Path.Combine(generations,item.GenerationFile);
+                byte[] bytes=fileSystem.ReadAllBytes(generationPath);
+                string hash=GmHouseBinary.Hex(GmHouseBinary.Sha256(bytes));
+                if(hash!=item.GenerationHash) throw new InvalidDataException("profile generation checksum invalid");
+                GmHouseProfileGeneration profile=GmHouseArtifactCodec.DecodeProfile(bytes,LoadReceiptBlobUnlocked);
+                if(profile.LineageId!=root.LineageId||profile.Epoch!=root.Epoch||
+                    profile.Generation!=sequence||profile.PreviousGenerationHash!=previousGeneration)
+                    throw new InvalidDataException("profile generation does not bind current root history");
+                profile.GenerationHash=hash; lastProfile=profile; lastCommitHash=item.CommitHash;
+                previousCommit=item.CommitHash; previousGeneration=hash;
+                validCommits.Add(commitPath); validGenerations.Add(generationPath);
+            }
+            catch { break; }
+        }
+        return lastProfile==null?null:new ProfileRestoreCandidate
+        { Profile=lastProfile,CommitHash=lastCommitHash,CommitFiles=validCommits.ToArray(),
+          GenerationFiles=validGenerations.ToArray() };
     }
 
     void CreateGenesisUnlocked()
@@ -1998,6 +2359,7 @@ public static class GmHousePersistenceCoordinator
 
     static string DefaultDirectory => Path.Combine(UnityEngine.Application.persistentDataPath,
         "the_games_master_house");
+    static string HouseDirectory => directoryOverride??DefaultDirectory;
 
     public static void ConfigureForTests(string directory,IGmHouseFileSystem fileSystem=null)
     {
@@ -2012,7 +2374,7 @@ public static class GmHousePersistenceCoordinator
     public static void ForgetActiveForTests() => activeRun=null;
 
     static GmHouseMemoryStore Store => store??(store=new GmHouseMemoryStore(
-        directoryOverride??DefaultDirectory,fileSystemOverride));
+        HouseDirectory,fileSystemOverride));
 
     public static bool TryBeginOrdinaryRun(int seed,out string error) =>
         TryBeginCampaign(GmParlorAdaptiveMode.Ordinary,seed,out error);
@@ -2041,6 +2403,89 @@ public static class GmHousePersistenceCoordinator
         mirrorUnlocked=profile.MirrorUnlocked;
         recollections=profile.KnownMirrorPackages;
         lastError=string.Empty;return true;
+    }
+
+    public static bool TryGetLedgerReview(out GmHouseLedgerReview review,out string error)
+    {
+        review=null;
+        if(!IsEnabled) { error=lastError="House memory is unavailable for Ledger Review";return false; }
+        if(!TryEnsureReadableHouse(out error)||
+            !GmHouseLedgerReview.TryBuild(Store.CurrentProfile,out review,out error))
+        { lastError=error;return false; }
+        lastError=string.Empty;return true;
+    }
+
+    public static bool TryGetLastValidProfileCandidate(out long generation,out string error)
+    {
+        generation=0;
+        if(!IsEnabled) { error=lastError="House memory is unavailable";return false; }
+        if(!Store.TryGetLastValidProfileCandidate(out generation,out error))
+        { lastError=error;return false; }
+        lastError=string.Empty;return true;
+    }
+
+    public static bool TryRestoreLastValidProfile(out string error)
+    {
+        if(!IsEnabled) { error=lastError="House memory is unavailable";return false; }
+        if(!Store.TryGetLastValidProfileCandidate(out _,out error))
+        { lastError=error;return false; }
+        if(!GmSaveSystem.DeleteSave())
+        { error=lastError=GmSaveSystem.LastError;return false; }
+        if(!Store.TryRestoreLastValidProfile(out _,out _,out error))
+        { lastError=error;return false; }
+        activeRun=null;GmRunStore.SetHouseRunPointer(string.Empty);HouseRecoveryRequired=false;
+        lastError=string.Empty;return true;
+    }
+
+    public static bool TryPreviewSupportDiagnostics(out string preview,out string error)
+    {
+        preview=null;
+        if(!IsEnabled) { error=lastError="House diagnostics are unavailable";return false; }
+        if(!HouseRecoveryRequired)
+        { error="House diagnostics preview is available from recovery";return false; }
+        preview=GmHouseSupportDiagnostics.BuildPreview(HouseDirectory,lastError);
+        error=string.Empty;return true;
+    }
+
+    public static bool TryExportSupportDiagnostics(string destination,
+        out string preview,out string error)
+    {
+        preview=null;
+        if(!TryPreviewSupportDiagnostics(out preview,out error)) return false;
+        try
+        {
+            if(string.IsNullOrWhiteSpace(destination))
+                throw new ArgumentException("diagnostics destination is required");
+            string path=Path.GetFullPath(destination);
+            string parent=Path.GetDirectoryName(path);
+            if(string.IsNullOrEmpty(parent)||!Directory.Exists(parent))
+                throw new DirectoryNotFoundException("diagnostics destination directory does not exist");
+            byte[] bytes=new UTF8Encoding(false).GetBytes(preview);
+            string temporary=path+".tmp-"+Guid.NewGuid().ToString("N");
+            bool published=false;
+            try
+            {
+                using(var stream=new FileStream(temporary,FileMode.CreateNew,
+                    FileAccess.Write,FileShare.None))
+                { stream.Write(bytes,0,bytes.Length);stream.Flush(true); }
+                File.Move(temporary,path);
+                published=true;
+                new GmHousePhysicalFileSystem().FlushDirectory(parent);
+                return true;
+            }
+            catch(IOException ex)
+            {
+                if(!published&&File.Exists(path))
+                    error="diagnostics destination already exists";
+                else if(published)
+                    error="diagnostics file was written but durability could not be confirmed: "+
+                        ex.Message;
+                else error=ex.Message;
+                return false;
+            }
+            finally { if(File.Exists(temporary)) File.Delete(temporary); }
+        }
+        catch(Exception ex) { error=ex.Message;return false; }
     }
 
     static bool TryEnsureReadableHouse(out string error)

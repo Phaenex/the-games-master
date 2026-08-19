@@ -21,6 +21,10 @@ public class GmBootBuildTests
         Assert.IsNotNull(tour, "review tour component is missing");
         Assert.IsFalse(tour.HasPlaceholderShots,
             "replace every generated '*-replace-me' waypoint before this scene can pass");
+        Assert.That(tour.ShotCount, Is.EqualTo(7),
+            "Boot recovery states are missing from the rendered evidence contract");
+        Assert.That(tour.UsesBackbufferCaptureForAudit, Is.True,
+            "camera capture cannot see the screen-space Boot UI");
     }
 
     [Test]

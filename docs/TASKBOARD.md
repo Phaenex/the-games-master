@@ -7,9 +7,10 @@
 > Established 2026-08-03. Ordered by **dependency**, not by phase number — see "Why this order".
 > Delivery bars live here and in `STEAM-TRACKER.md`; this file carries the task-level detail.
 
-> **Current authority, 2026-08-17/18:** this chat and `docs/HANDOFF-2026-08-17.md`. Active queue is
-> House Memory remainder (Ledger Review, Restore Last Valid, Export Diagnostics) then five missing
-> table games. Hub rooms exist. Spawn → vault → back onto the hall is EditMode-proven.
+> **Current authority, 2026-08-17/18:** this chat and `docs/HANDOFF-2026-08-17.md`.
+> House Memory recovery is mechanically complete and has a seven-state inspected Boot tour through
+> Restore Last Valid and redacted Export Diagnostics. The remaining release-candidate check is one
+> live macOS save-panel exercise. Then five missing table games. Hub rooms exist.
 > Parlor 1080p series **3/3 + coverage** qualified. Unreadable House envelope recovery is
 > EditMode-proven. Lane A's human gates remain. The 08-16 handoff is the last full opening-gate pack.
 
@@ -294,6 +295,9 @@ before Aldric, never resolved) are different things sharing a word. Keep distinc
 | **P1** | Editor shipping proof: HUD, dual-channel tells, restore, presentation audit, 24-shot tour | DONE 2026-08-18 | EditMode **944/944**, PlayMode **44/44**, rebuild+audit-saved, tour **24/24 first attempt** after evidence isolation | `docs/playtest/screenshots/parlor-tour-*.png`. Aldric is still the substitute proxy. |
 | **P2** | Built-player 1080p series: 3 consecutive reps + honest/HC200 coverage | DONE 2026-08-18 | `npm run unity:proof:parlor` 3/3 + coverage, p95 8.10–8.26ms, host 0.54–0.67/core, app `cb62fa53…` | `docs/playtest/screenshots/parlor-1080p-*.png`. Visual PARTIAL (lantern pool). |
 | **P3** | House recovery: unreadable envelope, isolated New Run, confirmed Reset | DONE 2026-08-18 mechanical | EditMode **949/949** including `UnreadableEnvelope…`, `UnreadableHouseDomain…`, `BootRecoveryNewRun…` | Title recovery copy not shot this session. Ordinary New Run stays clean when readable. |
+| **P4** | Post-Mirror Ledger Review | DONE 2026-08-18 | EditMode **963/963** final slice; lock/unlock, completed-run scope and broad-disclosure coverage | Inspected `boot-tour-02-ledger-interpretation.png`. |
+| **P5** | Restore Last Valid validated profile prefix | DONE 2026-08-18 | Predecessor-only refusal, quarantine integrity, directory flushes and restart after interruption | Inspected focus and two-confirm frames `boot-tour-03/04`. |
+| **P6** | Redacted support diagnostics preview/export | DONE automated/rendered | Preview redaction, create-new/no-overwrite, cancellation/no-write and visible result states | Inspected `boot-tour-05/06/07`; live macOS panel remains a release-candidate human check. |
 
 **Binds every room:** Aldric cheats only when genuinely about to lose. Never from safety. No exceptions.
 

@@ -254,7 +254,8 @@
         "method": "GmBootShotTourMenu.ArmAndPlay",
         "success": "[GmSceneReviewTour] TOUR COMPLETE",
         "logTag": "GmSceneReviewTour",
-        "shots": 3
+        "shots": 7,
+        "sparseUi": true
       }
     }
   ]

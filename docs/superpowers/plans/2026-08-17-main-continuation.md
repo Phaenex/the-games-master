@@ -31,7 +31,7 @@
 | Hub Session 4 attic loft | yes | yes | yes | tour-18/19/20 this run | function CONFIRMED, visual PARTIAL |
 | Hub Session 5 cellar + vault | yes | yes | yes | tour-21/22/23 this run | descent+grate+climb-out CONFIRMED, visual PARTIAL |
 | Hub Session 6 remaining doors | yes | yes | yes | tour-24/25 this run | doors CONFIRMED, visual PARTIAL |
-| Parlor physical slice / House Memory | yes | yes | yes | 24/24 editor + qualified 1080p 3/3 | table CONFIRMED; 1080p series qualified; House recovery mechanical; Aldric proxy; visual PARTIAL |
+| Parlor physical slice / House Memory | yes | yes | yes | 24/24 editor + qualified 1080p 3/3; Boot recovery 7/7 inspected | table CONFIRMED; 1080p series qualified; House recovery automated/rendered; Aldric proxy; visual PARTIAL |
 | Five missing table games | names/design only | — | — | — | Nick still owns rules for 6–7 |
 
 ## Session 2 closeout (DONE 2026-08-17)
@@ -83,7 +83,7 @@ This is hub reachability. It is not Court trial content.
 ## After the hub
 
 1. Parlor shipping proof from `docs/superpowers/plans/2026-08-16-parlor-physical-vertical-slice.md`. Direct frame inspection. Test green is not enough. **DONE 2026-08-18** editor table. **DONE 2026-08-18 night** built-player 1080p 3/3 + coverage. Aldric art remains.
-2. House Memory remainder from `docs/superpowers/specs/2026-08-16-house-remembers-replayability-design.md`. Recovery UX for an unreadable envelope is in. Still open: Ledger Review, Restore Last Valid, Export Diagnostics. Ordinary New Run stays clean.
+2. House Memory remainder from `docs/superpowers/specs/2026-08-16-house-remembers-replayability-design.md`. Recovery UX, post-Mirror Ledger Review, crash-resumable Restore Last Valid and redacted Export Diagnostics are automated and rendered. One live macOS save-panel exercise remains for the release candidate. Ordinary New Run stays clean.
 3. Five missing table games. Do not invent rules for games 6–7.
 4. Nick's Phase 0 walk. Then Court.
 

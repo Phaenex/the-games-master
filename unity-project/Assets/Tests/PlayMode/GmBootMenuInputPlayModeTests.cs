@@ -27,9 +27,14 @@ public sealed class GmBootMenuInputPlayModeTests
         startedSceneId = null;
         startedSceneCount = 0;
         secondGamepad = null;
+        Type accessibility = TypeNamed("GmAccessibilitySettings");
+        accessibility.GetMethod("ResetToDefaultsForTests",
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)?.Invoke(null, null);
         saveDirectory = Path.Combine(Path.GetTempPath(), "gm-boot-play-" + Guid.NewGuid().ToString("N"));
         savePath = Path.Combine(saveDirectory, "save.json");
         StaticCall(TypeNamed("GmSaveSystem"), "ConfigureForTests", savePath, null);
+        StaticCall(TypeNamed("GmHousePersistenceCoordinator"), "ConfigureForTests",
+            Path.Combine(saveDirectory, "house"), null);
 
         SceneManager.LoadScene("Boot", LoadSceneMode.Single);
         yield return null;
@@ -37,6 +42,10 @@ public sealed class GmBootMenuInputPlayModeTests
 
         menu = Behaviours("GmBootMenu").SingleOrDefault();
         Assert.IsNotNull(menu, "Boot loaded without its shipping GmBootMenu");
+        StaticCall(TypeNamed("GmRunStore"), "BeginNewRun");
+        Assert.That((bool)StaticCall(TypeNamed("GmSaveSystem"), "DeleteSave"), Is.True);
+        menu.GetType().GetMethod("Refresh", BindingFlags.Public | BindingFlags.Instance)
+            ?.Invoke(menu, null);
         EventInfo startRun = menu.GetType().GetEvent("OnStartRun");
         Assert.IsNotNull(startRun, "GmBootMenu no longer exposes its run-start result");
         startRun.AddEventHandler(menu, (Action<string>)RecordStartedScene);
@@ -53,10 +62,15 @@ public sealed class GmBootMenuInputPlayModeTests
             if (director != null) UnityEngine.Object.Destroy(director.gameObject);
         yield return null;
 
+        Type accessibility = TypeNamed("GmAccessibilitySettings");
+        accessibility.GetMethod("ResetToDefaultsForTests",
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)?.Invoke(null, null);
+        StaticCall(TypeNamed("GmRunStore"), "BeginNewRun");
+        StaticCall(TypeNamed("GmSaveSystem"), "DeleteSave");
         StaticCall(TypeNamed("GmSaveSystem"), "Flush");
+        StaticCall(TypeNamed("GmHousePersistenceCoordinator"), "ResetForTests");
         StaticCall(TypeNamed("GmSaveSystem"), "ResetTestConfiguration");
         if (Directory.Exists(saveDirectory)) Directory.Delete(saveDirectory, true);
-        StaticCall(TypeNamed("GmRunStore"), "BeginNewRun");
     }
 
     [UnityTest]
@@ -154,6 +168,8 @@ public sealed class GmBootMenuInputPlayModeTests
         Type accessibility = TypeNamed("GmAccessibilitySettings");
         StaticCall(accessibility, "SetTextScale", 2f);
         StaticCall(accessibility, "SetHighContrast", true);
+        Assert.That((bool)StaticCall(accessibility, "FlushPendingSave"), Is.True,
+            "accessibility preferences did not reach their independent durable store");
         Assert.That((bool)StaticCall(TypeNamed("GmSaveSystem"), "Save"), Is.True);
         accessibility.GetMethod("ResetToDefaultsForTests",
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)?.Invoke(null, null);
@@ -185,6 +201,8 @@ public sealed class GmBootMenuInputPlayModeTests
         UIDocument prologueDocument = prologueHud.GetComponent<UIDocument>();
         Assert.That(prologueDocument.rootVisualElement.Q<Label>("CardBody").style.fontSize.value.value,
             Is.EqualTo(76f).Within(0.01f), "Prologue discarded Boot's durable text scale");
+        Assert.That((bool)StaticProperty(accessibility, "HighContrast"), Is.True,
+            "the Boot-to-Prologue transition changed the process-wide high contrast preference");
         Assert.That(prologueDocument.rootVisualElement.ClassListContains("gm-high-contrast"), Is.True,
             "Prologue discarded Boot's durable high contrast");
         Assert.That(Behaviours("GmPauseMenu"), Has.Length.EqualTo(1),

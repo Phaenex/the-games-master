@@ -16,6 +16,15 @@ public sealed class GmHouseMemoryTests
     public void TearDown()
     {
         if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        string parent = Path.GetDirectoryName(directory);
+        string name = Path.GetFileName(directory);
+        if (!string.IsNullOrEmpty(parent) && Directory.Exists(parent))
+        {
+            foreach (string sibling in Directory.GetDirectories(parent, name + ".*"))
+                Directory.Delete(sibling, true);
+            foreach (string sibling in Directory.GetFiles(parent, name + ".*"))
+                File.Delete(sibling);
+        }
     }
 
     [Test]
@@ -617,6 +626,140 @@ public sealed class GmHouseMemoryTests
             Is.EqualTo(System.Text.Encoding.ASCII.GetBytes("TGMHOUSE")));
     }
 
+    [Test]
+    public void RecoveryIntentCannotReplaceAnExistingPendingIncident()
+    {
+        string path = directory + ".recovery-intent";
+        string first = "00112233445566778899aabbccddeeff";
+        string second = "ffeeddccbbaa99887766554433221100";
+        GmHouseRecoveryIntent.WritePending(path, first);
+
+        Assert.Throws<IOException>(() => GmHouseRecoveryIntent.WritePending(path, second));
+        Assert.That(GmHouseRecoveryIntent.TryRead(path, out string stored,
+            out string error), Is.True, error);
+        Assert.That(stored, Is.EqualTo(first));
+    }
+
+    [Test]
+    public void RestoreLastValidProfileQuarantinesDamagedTailAndReopensValidatedPredecessor()
+    {
+        GmHouseMemoryStore store = OpenStore();
+        GmHouseTerminalReceipt first = Prepare(store, 701, GmEndingType.TrueEscape);
+        Assert.That(store.TryApplyReceipt(first, store.CurrentProfile.Cas,
+            out _, out string error), Is.True, error);
+        GmHouseTerminalReceipt second = Prepare(store, 702, GmEndingType.TrappedLoop);
+        Assert.That(store.TryApplyReceipt(second, store.CurrentProfile.Cas,
+            out _, out error), Is.True, error);
+
+        string newestGeneration = Directory.GetFiles(
+            Path.Combine(directory, "profile", "generations"), "*.bin")
+            .OrderBy(path => path, StringComparer.Ordinal).Last();
+        File.WriteAllBytes(newestGeneration, UnreadableEnvelopeBytes());
+        byte[] damagedBytes = File.ReadAllBytes(newestGeneration);
+        var blocked = new GmHouseMemoryStore(directory);
+        Assert.That(blocked.TryOpenOrCreate(out _, out error), Is.False);
+
+        Assert.That(blocked.TryRestoreLastValidProfile(out string incidentId,
+            out GmHouseProfileGeneration restored, out error), Is.True, error);
+        Assert.That(restored.Generation, Is.EqualTo(2));
+        Assert.That(restored.Receipts.Select(item => item.ReceiptId),
+            Is.EqualTo(new[] { first.ReceiptId }));
+        string quarantine = directory + ".profile-quarantine-" + incidentId;
+        string quarantinedGeneration = Directory.GetFiles(
+            Path.Combine(quarantine, "generations"), "*.bin")
+            .Single(path => Path.GetFileName(path) == Path.GetFileName(newestGeneration));
+        Assert.That(File.ReadAllBytes(quarantinedGeneration), Is.EqualTo(damagedBytes));
+        Assert.That(File.Exists(directory + ".profile-restore-intent"), Is.False);
+
+        var reopened = new GmHouseMemoryStore(directory);
+        Assert.That(reopened.TryOpenOrCreate(out GmHouseProfileGeneration live,
+            out error), Is.True, error);
+        Assert.That(live.Generation, Is.EqualTo(2));
+        Assert.That(live.Receipts.Select(item => item.ReceiptId),
+            Is.EqualTo(new[] { first.ReceiptId }));
+    }
+
+    [Test]
+    public void RestoreLastValidProfileRefusesWhenGenesisHasNoValidatedPredecessor()
+    {
+        OpenStore();
+        string generation = Directory.GetFiles(
+            Path.Combine(directory, "profile", "generations"), "*.bin").Single();
+        File.WriteAllBytes(generation, UnreadableEnvelopeBytes());
+        byte[] before = File.ReadAllBytes(generation);
+
+        var blocked = new GmHouseMemoryStore(directory);
+        Assert.That(blocked.TryRestoreLastValidProfile(out _, out _,
+            out string error), Is.False);
+        StringAssert.Contains("no prior profile generation", error.ToLowerInvariant());
+        Assert.That(File.ReadAllBytes(generation), Is.EqualTo(before));
+        Assert.That(File.Exists(directory + ".profile-restore-intent"), Is.False);
+        Assert.That(Directory.GetDirectories(Path.GetDirectoryName(directory),
+            Path.GetFileName(directory) + ".profile-quarantine-*"), Is.Empty);
+    }
+
+    [TestCase(GmHouseProfileRestoreFault.AfterIntent)]
+    [TestCase(GmHouseProfileRestoreFault.AfterQuarantine)]
+    public void InterruptedProfileRestoreResumesFromIntentWithoutChangingQuarantinedBytes(
+        GmHouseProfileRestoreFault fault)
+    {
+        GmHouseMemoryStore store = OpenStore();
+        GmHouseTerminalReceipt first = Prepare(store, 711, GmEndingType.TrueEscape);
+        Assert.That(store.TryApplyReceipt(first, store.CurrentProfile.Cas,
+            out _, out string error), Is.True, error);
+        GmHouseTerminalReceipt second = Prepare(store, 712, GmEndingType.TrappedLoop);
+        Assert.That(store.TryApplyReceipt(second, store.CurrentProfile.Cas,
+            out _, out error), Is.True, error);
+        string newest = Directory.GetFiles(
+            Path.Combine(directory, "profile", "generations"), "*.bin")
+            .OrderBy(path => path, StringComparer.Ordinal).Last();
+        File.WriteAllBytes(newest, UnreadableEnvelopeBytes());
+        byte[] damaged = File.ReadAllBytes(newest);
+
+        var interrupted = new GmHouseMemoryStore(directory)
+            { ProfileRestoreFaultAfter = fault };
+        Assert.That(interrupted.TryRestoreLastValidProfile(out string incidentId,
+            out _, out error), Is.False);
+        StringAssert.Contains("injected profile restore interruption", error);
+        Assert.That(File.Exists(directory + ".profile-restore-intent"), Is.True);
+
+        var resumed = new GmHouseMemoryStore(directory);
+        Assert.That(resumed.TryOpenOrCreate(out GmHouseProfileGeneration restored,
+            out error), Is.True, error);
+        Assert.That(restored.Generation, Is.EqualTo(2));
+        Assert.That(restored.Receipts.Select(item => item.ReceiptId),
+            Is.EqualTo(new[] { first.ReceiptId }));
+        string quarantine = directory + ".profile-quarantine-" + incidentId;
+        string quarantined = Directory.GetFiles(Path.Combine(quarantine, "generations"), "*.bin")
+            .Single(path => Path.GetFileName(path) == Path.GetFileName(newest));
+        Assert.That(File.ReadAllBytes(quarantined), Is.EqualTo(damaged));
+        Assert.That(File.Exists(directory + ".profile-restore-intent"), Is.False);
+    }
+
+    [Test]
+    public void SuccessfulProfileRestoreFlushesTheDirectoryAfterClearingItsIntent()
+    {
+        var fileSystem = new RecordingFlushFileSystem(new GmHousePhysicalFileSystem());
+        var store = new GmHouseMemoryStore(directory, fileSystem);
+        Assert.That(store.TryOpenOrCreate(out _, out string error), Is.True, error);
+        GmHouseTerminalReceipt first = Prepare(store, 721, GmEndingType.TrueEscape);
+        Assert.That(store.TryApplyReceipt(first, store.CurrentProfile.Cas,
+            out _, out error), Is.True, error);
+        GmHouseTerminalReceipt second = Prepare(store, 722, GmEndingType.TrappedLoop);
+        Assert.That(store.TryApplyReceipt(second, store.CurrentProfile.Cas,
+            out _, out error), Is.True, error);
+        string newest = Directory.GetFiles(
+            Path.Combine(directory, "profile", "generations"), "*.bin")
+            .OrderBy(path => path, StringComparer.Ordinal).Last();
+        File.WriteAllBytes(newest, UnreadableEnvelopeBytes());
+
+        Assert.That(store.TryRestoreLastValidProfile(out _, out _, out error),
+            Is.True, error);
+        Assert.That(File.Exists(directory + ".profile-restore-intent"), Is.False);
+        Assert.That(fileSystem.LastFlushedDirectory,
+            Is.EqualTo(Path.GetDirectoryName(directory)));
+    }
+
     GmHouseMemoryStore OpenStore()
     {
         var store = new GmHouseMemoryStore(directory);
@@ -678,4 +821,26 @@ public sealed class GmHouseMemoryTests
         target.GetType().GetProperty(name,
             BindingFlags.Instance|BindingFlags.Public|BindingFlags.NonPublic)
             .SetValue(target,value);
+
+    sealed class RecordingFlushFileSystem : IGmHouseFileSystem
+    {
+        readonly IGmHouseFileSystem inner;
+        public string LastFlushedDirectory { get; private set; }
+
+        public RecordingFlushFileSystem(IGmHouseFileSystem inner) => this.inner = inner;
+        public IDisposable AcquireExclusiveLease(string path) => inner.AcquireExclusiveLease(path);
+        public bool FileExists(string path) => inner.FileExists(path);
+        public bool DirectoryExists(string path) => inner.DirectoryExists(path);
+        public void CreateDirectory(string path) => inner.CreateDirectory(path);
+        public string[] GetFiles(string path,string pattern) => inner.GetFiles(path,pattern);
+        public byte[] ReadAllBytes(string path) => inner.ReadAllBytes(path);
+        public void WriteNewDurable(string path,byte[] bytes,GmHouseDurabilityPoint point,
+            Action<GmHouseDurabilityEdge> observeEdge=null) =>
+            inner.WriteNewDurable(path,bytes,point,observeEdge);
+        public void FlushDirectory(string path)
+        {
+            inner.FlushDirectory(path);
+            LastFlushedDirectory=path;
+        }
+    }
 }

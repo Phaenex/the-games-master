@@ -268,6 +268,11 @@ public sealed class GmBootMenuTests
         // Second channel: an unavailable row is dimmer than the focused one, not merely a different hue.
         Assert.Less(continueLabel.style.color.value.r, newRunLabel.style.color.value.r,
             "an unavailable Continue is not visibly dimmer than the focused row");
+        foreach(string name in new[]
+                { "BootRestoreLastValid", "BootResetHouse", "BootExportDiagnostics" })
+            Assert.That(root.Q<VisualElement>(name).style.display.value,
+                Is.EqualTo(DisplayStyle.None),
+                $"exceptional recovery row {name} cluttered the healthy title");
     }
 
     [Test]

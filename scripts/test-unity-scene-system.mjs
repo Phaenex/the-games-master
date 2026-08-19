@@ -43,6 +43,14 @@ test('production registry validates and resolves its default scene', () => {
   assert.equal(resolveScene(registry).id, 'wend-hill-prologue');
   assert.equal(resolveScene(registry).tour.shots, 10);
   assert.equal(resolveScene(registry).performance.p95Milliseconds, 16.7);
+  assert.equal(registry.scenes.find((scene) => scene.id === 'boot').tour.sparseUi, true);
+});
+
+test('registry accepts only boolean sparse UI evidence declarations', () => {
+  const registry = loadSceneRegistry();
+  const boot = registry.scenes.find((scene) => scene.id === 'boot');
+  boot.tour.sparseUi = 'yes';
+  assert.throws(() => validateSceneRegistry(registry), /sparseUi must be a boolean/);
 });
 
 test('standalone opening evidence includes a distinct cemetery frame and exact eight-frame gate', () => {
