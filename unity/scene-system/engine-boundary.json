@@ -70,6 +70,8 @@
       "GmSaveSystem.cs",
       "GmSceneDirector.cs",
       "GmSequenceExit.cs",
+      "GmStudyMatch.cs",
+      "GmStudyRules.cs",
       "GmVillageSave.cs",
       "GmWeightedShelf.cs"
     ]
