@@ -156,6 +156,12 @@ public static class GmInteriorAtmosphere
                 position = new Vector3(-2.2f, 1.2f, 0.8f);
                 scale = new Vector3(3.0f, 1.6f, 3.0f);
                 break;
+            case "bones":
+                // The dice occupy the centre sight cone. Keep this fallback in the far west
+                // corner; the Bones builder adds its own two readable HDRP dust fields there.
+                position = new Vector3(-3.1f, 1.2f, 2.8f);
+                scale = new Vector3(1.0f, 2.0f, 1.0f);
+                break;
             default:
                 position = new Vector3(-1.5f, 1.1f, 0.8f);
                 scale = new Vector3(2.5f, 1.5f, 2.5f);
@@ -179,6 +185,19 @@ public static class GmInteriorAtmosphere
             particles.randomSeed = StableSeed(sceneId);
             var emission = particles.emission;
             emission.rateOverTime = 4f;
+            if (sceneId == "bones")
+            {
+                ParticleSystemRenderer renderer = particles.GetComponent<ParticleSystemRenderer>();
+                Shader shader = Shader.Find("HDRP/Unlit");
+                if (renderer != null && shader != null && shader.isSupported)
+                {
+                    var material = new Material(shader) { name = "Bones Dust HDRP Material" };
+                    Color tint = new Color(0.82f, 0.72f, 0.52f, 0.18f);
+                    if (material.HasProperty("_UnlitColor")) material.SetColor("_UnlitColor", tint);
+                    if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", tint);
+                    renderer.sharedMaterial = material;
+                }
+            }
         }
 
         GmAmbientParticleAccessibility accessibility =

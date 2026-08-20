@@ -206,7 +206,14 @@ public sealed class GmBonesControllerTests
         Assert.That(source, Does.Not.Contain("scene-registry"));
         string registryPath = Path.GetFullPath(Path.Combine(Application.dataPath,
             "../../unity/scene-system/scene-registry.json"));
-        Assert.That(File.ReadAllText(registryPath), Does.Not.Contain("\"bones\""));
+        string registry = File.ReadAllText(registryPath);
+        Assert.That(registry, Does.Contain("\"id\": \"bones\""));
+        Assert.That(registry, Does.Contain("\"status\": \"scaffold\""));
+
+        string directorPath = Path.GetFullPath(Path.Combine(Application.dataPath,
+            "../../unity/scene-system/Runtime/GmSceneDirector.cs"));
+        Assert.That(File.ReadAllText(directorPath), Does.Not.Contain("Bones"),
+            "direct-review scene registration must not silently create a campaign route");
     }
 
     [Test]

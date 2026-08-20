@@ -269,6 +269,93 @@ public static class GmOwnedPropFactory
         return prop;
     }
 
+    /// <summary>Creates one readable 10.5cm casino die from authored meshes.</summary>
+    public static GmBonesDieView CreatePhysicalDie(string objectName, Transform parent,
+        Vector3 localPosition, Material boneMaterial, Material pipMaterial, Material brassMaterial)
+    {
+        if (parent == null) throw new ArgumentNullException(nameof(parent));
+        var root = new GameObject(objectName);
+        root.transform.SetParent(parent, false);
+        root.transform.localPosition = localPosition;
+
+        GameObject body = CreateLocalRoundedProp("AuthoredDieBody", root.transform, Vector3.zero,
+            Quaternion.identity, Vector3.one * 0.105f, 0.014f, boneMaterial);
+        MeshFilter bodyMesh = body.GetComponent<MeshFilter>();
+        bodyMesh.sharedMesh.name = "GmAuthoredPhysicalDie";
+
+        foreach (var face in GmPhysicalDieFaces.All)
+            CreateDieFacePips(root.transform, face.value, face.normal, pipMaterial);
+
+        var evidence = new GameObject("ChangedDieBrassSeam");
+        evidence.transform.SetParent(root.transform, false);
+        const float edge = 0.055f;
+        const float span = 0.092f;
+        const float gauge = 0.0035f;
+        for (int x = -1; x <= 1; x += 2)
+            for (int y = -1; y <= 1; y += 2)
+                CreateLocalRoundedProp($"SeamZ_{x}_{y}", evidence.transform,
+                    new Vector3(x * edge, y * edge, 0f), Quaternion.identity,
+                    new Vector3(gauge, gauge, span), gauge * 0.45f, brassMaterial);
+        for (int x = -1; x <= 1; x += 2)
+            for (int z = -1; z <= 1; z += 2)
+                CreateLocalRoundedProp($"SeamY_{x}_{z}", evidence.transform,
+                    new Vector3(x * edge, 0f, z * edge), Quaternion.identity,
+                    new Vector3(gauge, span, gauge), gauge * 0.45f, brassMaterial);
+        for (int y = -1; y <= 1; y += 2)
+            for (int z = -1; z <= 1; z += 2)
+                CreateLocalRoundedProp($"SeamX_{y}_{z}", evidence.transform,
+                    new Vector3(0f, y * edge, z * edge), Quaternion.identity,
+                    new Vector3(span, gauge, gauge), gauge * 0.45f, brassMaterial);
+        evidence.SetActive(false);
+
+        var collider = root.AddComponent<BoxCollider>();
+        collider.size = Vector3.one * 0.108f;
+        var view = root.AddComponent<GmBonesDieView>();
+        view.Configure(bodyMesh, evidence);
+        return view;
+    }
+
+    static void CreateDieFacePips(Transform root, int value, Vector3 normal, Material material)
+    {
+        const float surface = 0.0532f;
+        const float spacing = 0.024f;
+        Vector2[] pattern = DiePipPattern(value);
+        Quaternion rotation = Quaternion.FromToRotation(Vector3.forward, normal);
+        Vector3 right = rotation * Vector3.right;
+        Vector3 up = rotation * Vector3.up;
+        for (int index = 0; index < pattern.Length; index++)
+        {
+            Vector3 position = normal * surface + right * (pattern[index].x * spacing) +
+                up * (pattern[index].y * spacing);
+            GameObject pip = CreateDisc($"Pip_{value}_{index + 1}", root, Vector3.zero,
+                Quaternion.identity, new Vector3(0.0105f, 0.0105f, 0.0022f), material, 20);
+            pip.transform.localPosition = position;
+            pip.transform.localRotation = rotation;
+            pip.AddComponent<GmPhysicalDiePip>().Configure(value, normal);
+        }
+    }
+
+    static Vector2[] DiePipPattern(int value)
+    {
+        Vector2 center = Vector2.zero;
+        Vector2 nw = new Vector2(-1f, 1f);
+        Vector2 ne = new Vector2(1f, 1f);
+        Vector2 sw = new Vector2(-1f, -1f);
+        Vector2 se = new Vector2(1f, -1f);
+        Vector2 w = new Vector2(-1f, 0f);
+        Vector2 e = new Vector2(1f, 0f);
+        switch (value)
+        {
+            case 1: return new[] { center };
+            case 2: return new[] { nw, se };
+            case 3: return new[] { nw, center, se };
+            case 4: return new[] { nw, ne, sw, se };
+            case 5: return new[] { nw, ne, center, sw, se };
+            case 6: return new[] { nw, w, sw, ne, e, se };
+            default: throw new ArgumentOutOfRangeException(nameof(value));
+        }
+    }
+
     static bool[] DigitSegments(int digit)
     {
         // top, upper-right, lower-right, bottom, lower-left, upper-left, middle

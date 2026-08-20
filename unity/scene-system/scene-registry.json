@@ -189,6 +189,29 @@
       }
     },
     {
+      "id": "bones",
+      "displayName": "Bones",
+      "phase": 5,
+      "status": "scaffold",
+      "sceneName": "Bones",
+      "scenePath": "Assets/Scenes/Bones.unity",
+      "sourceDir": "unity/scenes/bones",
+      "build": {
+        "method": "GmBonesBuilder.Build",
+        "success": "[GmBones] BUILD PASS"
+      },
+      "audit": {
+        "method": "GmBonesQualityAudit.Run",
+        "success": "[GmBonesAudit] PASS"
+      },
+      "tour": {
+        "method": "GmBonesShotTourMenu.ArmAndPlay",
+        "success": "[GmSceneReviewTour] TOUR COMPLETE",
+        "logTag": "GmSceneReviewTour",
+        "shots": 10
+      }
+    },
+    {
       "id": "hidden-room",
       "displayName": "Hidden Room",
       "phase": 6,

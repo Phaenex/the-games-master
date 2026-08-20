@@ -138,6 +138,10 @@ public static class GmInteriorDustRuntime
                 position = new Vector3(-2.2f, 1.2f, 0.8f);
                 size = new Vector3(3.0f, 1.6f, 3.0f);
                 return true;
+            case "Bones":
+                position = new Vector3(-3.1f, 1.2f, 2.8f);
+                size = new Vector3(1.0f, 2.0f, 1.0f);
+                return true;
             default:
                 position = default;
                 size = default;

@@ -8,6 +8,7 @@ public class GmInteriorDustRuntimeTests
     [TestCase("ShutTheBox")]
     [TestCase("Court")]
     [TestCase("HiddenRoom")]
+    [TestCase("Bones")]
     public void EveryInteriorSceneHasABoundedDustPlacement(string sceneName)
     {
         Assert.IsTrue(GmInteriorDustRuntime.TryGetPlacement(sceneName,

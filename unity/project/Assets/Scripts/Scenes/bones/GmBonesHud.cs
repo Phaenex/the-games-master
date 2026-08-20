@@ -83,10 +83,12 @@ public sealed class GmBonesHud : MonoBehaviour
         root = document.rootVisualElement;
         root.name = "GmBonesHudRoot";
         root.style.position = Position.Absolute;
-        root.style.left = 28; root.style.right = 28; root.style.top = 28; root.style.bottom = 28;
+        root.style.left = 28; root.style.right = StyleKeyword.Auto;
+        root.style.top = 28; root.style.bottom = StyleKeyword.Auto;
+        root.style.width = 660;
         root.style.paddingLeft = 24; root.style.paddingRight = 24;
         root.style.paddingTop = 20; root.style.paddingBottom = 20;
-        root.style.backgroundColor = new Color(0.015f, 0.012f, 0.01f, 0.94f);
+        root.style.backgroundColor = new Color(0.015f, 0.012f, 0.01f, 0.84f);
 
         status = AddLabel(root, "BonesStatus", 18);
         dice = AddLabel(root, "BonesDice", 28);
@@ -149,7 +151,7 @@ public sealed class GmBonesHud : MonoBehaviour
         float scale = GmAccessibilitySettings.TextScale;
         root.EnableInClassList("gm-high-contrast", highContrast);
         root.EnableInClassList("gm-reduced-motion", GmAccessibilitySettings.ReducedMotion);
-        root.style.backgroundColor = highContrast ? Color.black : new Color(0.015f, 0.012f, 0.01f, 0.94f);
+        root.style.backgroundColor = highContrast ? Color.black : new Color(0.015f, 0.012f, 0.01f, 0.84f);
         status.text = model.Phase == GmBonesPresentationPhase.PlayerChoice
             ? $"Round {model.Round} • You {model.PlayerTotal} • Aldric {model.AldricTotal}"
             : model.Phase == GmBonesPresentationPhase.Intervention
