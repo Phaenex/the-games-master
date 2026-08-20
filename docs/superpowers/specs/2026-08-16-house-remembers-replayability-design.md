@@ -34,8 +34,11 @@ This design does not claim the seven games are finished.
 
 - Parlor has the strongest foundation: deterministic rules, best-of-three match flow, host logic, cheat and tell behavior, exact snapshots, and durable mid-match continuation.
 - Shut the Box has rules and tests, but not a finished physical match, presentation, animation set, or shipping proof.
-- Bones has deterministic rules, a durable full-match controller, and exact recovery, but no finished
-  player-facing table. Study, Wager, Black Ledger, and Last Candle have approved rules only.
+- Bones has deterministic rules, a durable full-match controller, exact recovery, accessible input
+  and HUD, and a direct-review physical table, but no campaign route, production art, or human play
+  sign-off. Study has deterministic rules and a match/intervention snapshot core; it has no
+  controller, save, input, HUD, or scene yet. Wager, Black Ledger, and Last Candle have approved
+  rules only.
 - Court, Hidden Room, and Labyrinth are story rooms. They are not part of Aldric's seven table games.
 - Existing interior meshes and lighting improve the rooms, but do not make their game presentation complete.
 

@@ -61,7 +61,7 @@ Canonical rules and order: `docs/SEVEN-DEBTS-CANON-2026-08-19.md`.
 Rules and order          [████████████████████] 100%  Nick approved the panel's 5/5 recommendation
 Shared game shell        [████████████████░░░░]  80%  controller, save, input, accessibility, presenter, shared audio and direct-review proof proven; API freeze and human play remain
 Bones vertical slice     [██████████████░░░░░░]  70%  full match and direct-review table are proven by build, audit and 10-shot gates; campaign route, production art and human play remain
-Study                    [░░░░░░░░░░░░░░░░░░░░]   0%  three verified authored positions
+Study                    [███░░░░░░░░░░░░░░░░░]  15%  deterministic rules and match/intervention snapshot core proven; controller, save, input and player-facing game remain
 Wager                    [░░░░░░░░░░░░░░░░░░░░]   0%  three sealed contracts
 Black Ledger             [░░░░░░░░░░░░░░░░░░░░]   0%  one three-guest case
 Last Candle              [░░░░░░░░░░░░░░░░░░░░]   0%  solved bounded finale
@@ -72,7 +72,7 @@ Last Candle              [░░░░░░░░░░░░░░░░░░
 | SD0 | Approve names, order, rules, accessibility boundary, catch boundary, and content caps | DONE 2026-08-19 | [five-participant review](reviews/SEVEN-DEBTS-PANEL-2026-08-19.md) plus Nick's explicit approval |
 | SD1 | Build and freeze the reusable deterministic game shell | WIP | package runtime tests, save/resume, controller, accessibility and consumer build |
 | SD2 | Ship Bones as the complete quality and cost vertical slice | WIP | exhaustive rules, full match, intervention, save, input, visual, audio and human play |
-| SD3 | Build Study | TODO after SD2 | all three original/override snapshots and accessible move explanations |
+| SD3 | Build Study | WIP | all three original/override snapshots and accessible move explanations |
 | SD4 | Build Wager | TODO after SD2 | every seed permutation, economy, clause swap and no-soft-lock proof |
 | SD5 | Build Black Ledger | TODO after SD2 | all eight inquiry sets and every accusation/citation pair |
 | SD6 | Build Last Candle | TODO after SD2 | exhaustive reachable-state solver and intervention proof |

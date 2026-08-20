@@ -526,6 +526,29 @@ The 1080p player logged `[GmBoot] House title state unavailable: root commit is 
 
 **Fix:** unreadable House files stay on disk until the player confirms Reset. New Run during recovery is isolated and cannot teach. A crash after the recovery intent is written finishes quarantine and genesis on the next open.
 
+## Bones/GameCraft defect classes beaten (2026-08-19/20)
+
+Building the durable Bones controller, its physical review scene, and the GameCraft remote-consumer
+proof went through repeated independent-review rejections. Each one is a real class that will recur
+in Study, Wager, Black Ledger and Last Candle — consult this before their controller/save/scene work.
+
+| Symptom | Root cause pattern | The fix that worked |
+|---|---|---|
+| A save with no Bones field at all and a save with an explicit empty/malformed Bones payload were treated the same on reload | `JsonUtility` deserializes a **missing** nested field into a fully-populated all-default object, indistinguishable from a genuinely present-but-empty one by a naive null check | One canonical save encoder with explicit presence bits per nested evidence group. Strip only the serializer-invented all-default shape when the presence bit says false; an object present with the bit true fails closed even if it looks empty. |
+| A save already marked `completedRooms` could re-finish Bones and award zero result deltas | Idempotence was keyed on "the room was visited," which is a different fact from "this table game already resolved" | Key idempotence on `completedTableGames`, the exact fact being guarded, not a nearby room-state flag. |
+| A caller could mutate live match state and skip persistence/events entirely | The controller exposed its live mutable match object as public API | Return a clone/read-only projection. No public reference to the live object ever leaves the controller. |
+| A forged terminal Result/session pair, or a forged action-journal entry, could restore as if legitimate | Restore trusted stored state at face value instead of re-deriving it | Replay the entire match from seed + replay dice + the independent action journal, then compare every field plus evidence against what was stored. Journal entries carry an authenticated per-match ID. |
+| A failure surfaced through input, then retried through the HUD (or vice versa), could resurrect a stale error banner | Input and HUD each owned their own transient feedback string | One single owner for transient feedback state; regression-test both cross-channel failure→retry directions. |
+| A crafted envelope could claim a presence bit true with no matching nested object, or an object present with the bit false — independently at the outer-payload level and each nested-evidence level, independently through disk load and through House recovery-checkpoint clone/encode | Presence bits and nested objects were validated in isolation instead of as a matched pair, and disk vs. checkpoint used different code paths | Enumerate the full contradiction matrix (2 directions × N nested groups × 2 persistence paths) and validate all of it through one canonical validator called from both disk load and House checkpoint serialization. |
+| Re-entering a review scene (rebuild-while-open, domain-reload-disabled teardown, or opening it outside Play Mode from the editor) could leave production save writes pointed at the temporary review file, or leave live input enabled after isolation was released | Isolation acquire/release order didn't match Unity's actual lifecycle: teardown released isolation before disabling input, and edit-time `OnEnable` could acquire a scope a later rebuild would dispose out of order | Disable every persistence-capable input surface **before** releasing isolation on any failure/disable path. Never acquire isolation from edit-time `OnEnable` — only from an explicit Play/tour entry point. Regression-test rebuild-while-open and domain-reload-disabled teardown explicitly. |
+| A stub `Unity` binary that exits 0 without building anything passed an early remote-consumer proof | The proof asserted only a zero exit code, not that an artifact existed | Assert the actual built `.app` plus an independent proof-sentinel file exist. Negative-path tests must include a zero-exit/no-build fake to prove the proof rejects it. |
+| A remote-consumer proof compiled successfully against a local worktree clone instead of the published Git-tag dependency it claimed to test | Unity's `manifest.json` pointed at a local path, so the proof never exercised real UPM Git-tag resolution | Point the manifest at the real `git+https://...#vX.Y.Z` dependency and read Unity's own resolved `Packages/packages-lock.json` to confirm the locked commit hash matches the tag — compiling is not evidence of which source it compiled against. |
+| Remote/version strings reaching `git` unvalidated | Any caller-supplied remote string (unsafe transport scheme, option-shaped argument like `--upload-pack=...`, embedded credentials) can reach a `git` invocation | Validate against an explicit safe-transport allowlist and reject option-shaped/credentialed inputs before they ever reach `git`. |
+
+**Rule:** every one of these is a "looked done, one adversarial review pass later it wasn't" case. Budget
+a spec review AND a separate quality/adversarial review for every new controller/save/scene slice — do
+not skip straight to commit because the happy-path tests are green.
+
 ## Known coverage boundaries (honest)
 
 - **Court / Shut the Box**: boot + phase screenshots only. Their gameplay is Phase 1/2 work,
