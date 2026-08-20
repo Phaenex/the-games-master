@@ -27,7 +27,7 @@ public sealed class GmBonesShotTour : GmSceneReviewTour
 
     protected override void BeforeTour()
     {
-        GmBonesReviewPersistence.EnsureActive("shot-tour");
+        Host.ActivateDirectReviewPersistence();
         GmAccessibilitySettings.SetHighContrast(false);
         GmAccessibilitySettings.SetTextScale(1f);
         GmAccessibilitySettings.SetReducedMotion(false);
@@ -69,8 +69,11 @@ public sealed class GmBonesShotTour : GmSceneReviewTour
         Host.RestartForReview(ReviewSeed);
         for (int round = 0; round < confirmedRounds; round++) input.FocusThenConfirm(0);
         if (Host.Controller.Phase != GmBonesMatchPhase.AwaitingIntervention)
+        {
+            Host.ReleaseDirectReviewPersistence();
             throw new InvalidOperationException(
                 "[GmBonesShotTour] deterministic public action replay did not reach loaded-six intervention");
+        }
     }
     GmBonesSceneHost Host => GetComponent<GmBonesSceneHost>();
 }

@@ -4,54 +4,47 @@ using System.IO;
 /// <summary>Owns an isolated save backend for the direct-review Bones scaffold.</summary>
 public static class GmBonesReviewPersistence
 {
-    static bool active;
+    static int activeScopeCount;
     static string activeSavePath = string.Empty;
 
-    public static bool IsActive => active;
+    public static bool IsActive => activeScopeCount > 0;
     public static string ActiveSavePath => activeSavePath;
 
-    public static string EnsureActive(string purpose)
+    public static IDisposable BeginScope(string purpose)
     {
-        if (active) return activeSavePath;
         string safePurpose = string.IsNullOrWhiteSpace(purpose) ? "review" : purpose;
         foreach (char invalid in Path.GetInvalidFileNameChars())
             safePurpose = safePurpose.Replace(invalid, '-');
         string directory = Path.Combine(Directory.GetCurrentDirectory(), "Library",
             "GmSceneIntelligence", "bones-review", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
-        activeSavePath = Path.Combine(directory, safePurpose + "-run-save.json");
-        GmSaveSystem.ConfigureForTests(activeSavePath);
-        active = true;
-        return activeSavePath;
-    }
-
-    public static IDisposable BeginScope(string purpose)
-    {
-        bool ownsConfiguration = !active;
-        EnsureActive(purpose);
-        return new ReviewScope(ownsConfiguration);
-    }
-
-    public static void EndReview()
-    {
-        if (!active) return;
-        GmSaveSystem.ResetTestConfiguration();
-        active = false;
-        activeSavePath = string.Empty;
+        string previousReviewPath = activeSavePath;
+        string savePath = Path.Combine(directory, safePurpose + "-run-save.json");
+        IDisposable saveScope = GmSaveSystem.BeginTemporaryConfiguration(savePath);
+        activeScopeCount++;
+        activeSavePath = savePath;
+        return new ReviewScope(saveScope, previousReviewPath);
     }
 
     sealed class ReviewScope : IDisposable
     {
-        readonly bool ownsConfiguration;
+        readonly IDisposable saveScope;
+        readonly string previousReviewPath;
         bool disposed;
 
-        public ReviewScope(bool ownsConfiguration) => this.ownsConfiguration = ownsConfiguration;
+        public ReviewScope(IDisposable saveScope, string previousReviewPath)
+        {
+            this.saveScope = saveScope;
+            this.previousReviewPath = previousReviewPath;
+        }
 
         public void Dispose()
         {
             if (disposed) return;
             disposed = true;
-            if (ownsConfiguration) EndReview();
+            saveScope.Dispose();
+            activeScopeCount = Math.Max(0, activeScopeCount - 1);
+            activeSavePath = activeScopeCount == 0 ? string.Empty : previousReviewPath;
         }
     }
 }

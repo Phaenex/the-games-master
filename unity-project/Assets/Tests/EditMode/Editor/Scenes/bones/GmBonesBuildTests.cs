@@ -8,6 +8,7 @@ using Object = UnityEngine.Object;
 
 public sealed class GmBonesBuildTests
 {
+    GmBonesSceneHost fixtureHost;
     string productionSavePath;
     bool productionSaveExisted;
     byte[] productionSaveBytes;
@@ -15,28 +16,28 @@ public sealed class GmBonesBuildTests
     [OneTimeSetUp]
     public void BuildOnce()
     {
-        GmBonesReviewPersistence.EndReview();
         GmSaveSystem.ResetTestConfiguration();
         productionSavePath = GmSaveSystem.SavePath;
         Assert.That(Path.GetDirectoryName(productionSavePath),
             Is.EqualTo(Application.persistentDataPath));
         productionSaveExisted = File.Exists(productionSavePath);
         productionSaveBytes = productionSaveExisted ? File.ReadAllBytes(productionSavePath) : null;
-        GmBonesReviewPersistence.EnsureActive("editmode-fixture");
         GmBonesBuilder.Build();
+        fixtureHost = Object.FindAnyObjectByType<GmBonesSceneHost>();
+        fixtureHost.ActivateDirectReviewPersistence();
     }
 
     [OneTimeTearDown]
     public void TearDownOnce()
     {
-        GmBonesReviewPersistence.EndReview();
+        fixtureHost?.ReleaseDirectReviewPersistence();
         EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
     }
 
     [Test]
     public void RebuildAuditAndTourReplayNeverTouchProductionSave()
     {
-        GmBonesReviewPersistence.EndReview();
+        fixtureHost?.ReleaseDirectReviewPersistence();
         Assert.That(GmSaveSystem.SavePath, Is.EqualTo(productionSavePath));
         try
         {
@@ -45,10 +46,11 @@ public sealed class GmBonesBuildTests
                 "builder must restore the production backend after its isolated review scope");
             AssertProductionSaveUnchanged();
 
-            GmBonesReviewPersistence.EnsureActive("editmode-persistence-proof");
+            fixtureHost = Object.FindAnyObjectByType<GmBonesSceneHost>();
+            fixtureHost.ActivateDirectReviewPersistence();
             Assert.That(GmSaveSystem.SavePath, Is.Not.EqualTo(productionSavePath));
             Assert.That(GmBonesQualityAudit.ValidateOpenScene(), Is.Empty);
-            GmBonesSceneHost host = Object.FindAnyObjectByType<GmBonesSceneHost>();
+            GmBonesSceneHost host = fixtureHost;
             GmBonesInput input = Object.FindAnyObjectByType<GmBonesInput>();
             GmBonesShotTour tour = Object.FindAnyObjectByType<GmBonesShotTour>();
             host.RestartForReview(1);
@@ -58,9 +60,10 @@ public sealed class GmBonesBuildTests
         }
         finally
         {
-            GmBonesReviewPersistence.EndReview();
+            fixtureHost?.ReleaseDirectReviewPersistence();
             AssertProductionSaveUnchanged();
-            GmBonesReviewPersistence.EnsureActive("editmode-fixture-resume");
+            fixtureHost = Object.FindAnyObjectByType<GmBonesSceneHost>();
+            fixtureHost?.ActivateDirectReviewPersistence();
         }
     }
 
@@ -181,7 +184,7 @@ public sealed class GmBonesBuildTests
         Assert.That(Object.FindAnyObjectByType<GmBonesPresenter>(), Is.Not.Null);
         GmBonesAudio audio = Object.FindAnyObjectByType<GmBonesAudio>();
         Assert.That(audio, Is.Not.Null);
-        Assert.That(audio.GetComponent<GmAudioIntent>(), Is.Not.Null);
+        Assert.That(Object.FindAnyObjectByType<GmAudioManager>().GetComponent<GmAudioIntent>(), Is.Not.Null);
         Assert.That(audio.UsesSharedAudioManager, Is.True);
         Assert.That(Object.FindAnyObjectByType<GmAudioManager>(), Is.Not.Null);
         Assert.That(Object.FindAnyObjectByType<GmBonesPresenter>().SupportsAccessibility, Is.True);
@@ -197,8 +200,77 @@ public sealed class GmBonesBuildTests
         GmBonesSceneHost host = Object.FindAnyObjectByType<GmBonesSceneHost>();
         GmBonesInput input = Object.FindAnyObjectByType<GmBonesInput>();
         GmBonesShotTour tour = Object.FindAnyObjectByType<GmBonesShotTour>();
-        host.RestartForReview(1);
-        Assert.Throws<InvalidOperationException>(() => tour.ReplayToPendingForReview(input, 0));
+        fixtureHost?.ReleaseDirectReviewPersistence();
+        GmSaveSystem.ResetTestConfiguration();
+        try
+        {
+            host.ActivateDirectReviewPersistence();
+            Assert.That(GmSaveSystem.SavePath, Is.Not.EqualTo(productionSavePath));
+            host.RestartForReview(1);
+            Assert.Throws<InvalidOperationException>(() => tour.ReplayToPendingForReview(input, 0));
+            Assert.That(GmSaveSystem.SavePath, Is.EqualTo(productionSavePath),
+                "failed deterministic tour staging must release its review override");
+            AssertProductionSaveUnchanged();
+        }
+        finally
+        {
+            fixtureHost = Object.FindAnyObjectByType<GmBonesSceneHost>();
+            fixtureHost?.ActivateDirectReviewPersistence();
+        }
+    }
+
+    [Test]
+    public void DestroyingDirectReviewHostRestoresExactProductionBackendAndBytes()
+    {
+        fixtureHost?.ReleaseDirectReviewPersistence();
+        GmSaveSystem.ResetTestConfiguration();
+        var owner = new GameObject("BonesReviewLifetimeProof");
+        GmBonesSceneHost host = owner.AddComponent<GmBonesSceneHost>();
+        host.ConfigureForDirectReview();
+        try
+        {
+            host.ActivateDirectReviewPersistence();
+            Assert.That(GmSaveSystem.SavePath, Is.Not.EqualTo(productionSavePath));
+            Object.DestroyImmediate(owner);
+            Assert.That(GmSaveSystem.SavePath, Is.EqualTo(productionSavePath));
+            AssertProductionSaveUnchanged();
+        }
+        finally
+        {
+            if (owner != null) Object.DestroyImmediate(owner);
+            fixtureHost?.ActivateDirectReviewPersistence();
+        }
+    }
+
+    [Test]
+    public void DestroyingDirectReviewHostRestoresPriorCustomBackendAndPath()
+    {
+        fixtureHost?.ReleaseDirectReviewPersistence();
+        var backend = new CountingBackend();
+        string priorPath = Path.Combine(Directory.GetCurrentDirectory(), "Library",
+            "GmSceneIntelligence", "bones-review-prior", "prior-save.json");
+        GmSaveSystem.ConfigureForTests(priorPath, backend);
+        var owner = new GameObject("BonesReviewBackendProof");
+        GmBonesSceneHost host = owner.AddComponent<GmBonesSceneHost>();
+        host.ConfigureForDirectReview();
+        try
+        {
+            host.ActivateDirectReviewPersistence();
+            Assert.That(GmSaveSystem.SavePath, Is.Not.EqualTo(priorPath));
+            Object.DestroyImmediate(owner);
+            Assert.That(GmSaveSystem.SavePath, Is.EqualTo(priorPath));
+            GmRunStore.BeginNewRun();
+            Assert.That(GmSaveSystem.Save(), Is.True);
+            Assert.That(backend.WriteCount, Is.EqualTo(1),
+                "disposing the review scope must restore the exact prior backend instance");
+            AssertProductionSaveUnchanged();
+        }
+        finally
+        {
+            if (owner != null) Object.DestroyImmediate(owner);
+            GmSaveSystem.ResetTestConfiguration();
+            fixtureHost?.ActivateDirectReviewPersistence();
+        }
     }
 
     [Test]
@@ -257,5 +329,11 @@ public sealed class GmBonesBuildTests
         Assert.That(File.Exists(productionSavePath), Is.EqualTo(productionSaveExisted));
         if (productionSaveExisted)
             CollectionAssert.AreEqual(productionSaveBytes, File.ReadAllBytes(productionSavePath));
+    }
+
+    sealed class CountingBackend : IGmAtomicSaveBackend
+    {
+        public int WriteCount { get; private set; }
+        public void WriteAtomic(string target, string json) => WriteCount++;
     }
 }

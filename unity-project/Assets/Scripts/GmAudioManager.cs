@@ -61,11 +61,12 @@ public sealed class GmAudioManager : MonoBehaviour
         AmbienceVolume = feel.ambienceVolume;
         SfxVolume = feel.sfxVolume;
 
-        ambienceSource = gameObject.AddComponent<AudioSource>();
+        AudioSource[] authoredSources = GetComponents<AudioSource>();
+        sfxSource = authoredSources.Length > 0 ? authoredSources[0] : gameObject.AddComponent<AudioSource>();
+        ambienceSource = authoredSources.Length > 1 ? authoredSources[1] : gameObject.AddComponent<AudioSource>();
         ambienceSource.loop = true;
         ambienceSource.playOnAwake = false;
 
-        sfxSource = gameObject.AddComponent<AudioSource>();
         sfxSource.loop = false;
         sfxSource.playOnAwake = false;
 

@@ -1,9 +1,12 @@
+using System;
 using UnityEngine;
 
+[ExecuteAlways]
 public sealed class GmBonesSceneHost : MonoBehaviour
 {
     [SerializeField] bool directReviewOnly;
     GmBonesController controller;
+    IDisposable reviewScope;
 
     public GmBonesController Controller => controller;
     public bool IsConfigured { get; private set; }
@@ -11,9 +14,23 @@ public sealed class GmBonesSceneHost : MonoBehaviour
 
     public void ConfigureForDirectReview() => directReviewOnly = true;
 
+    public void ActivateDirectReviewPersistence()
+    {
+        if (reviewScope == null)
+            reviewScope = GmBonesReviewPersistence.BeginScope("direct-review-host");
+    }
+
+    public void ReleaseDirectReviewPersistence()
+    {
+        IDisposable owned = reviewScope;
+        reviewScope = null;
+        owned?.Dispose();
+    }
+
     void Awake()
     {
-        if (directReviewOnly) GmBonesReviewPersistence.EnsureActive("direct-review-play");
+        if (!Application.isPlaying) return;
+        if (directReviewOnly) ActivateDirectReviewPersistence();
         if (!IsConfigured) InitializeCurrentRun();
     }
 
@@ -29,7 +46,7 @@ public sealed class GmBonesSceneHost : MonoBehaviour
 
     public GmBonesInitializeResult RestartForReview(int runSeed)
     {
-        GmBonesReviewPersistence.EnsureActive("deterministic-replay");
+        ActivateDirectReviewPersistence();
         GmRunSeed.ForceForReview(runSeed);
         GmRunStore.BeginNewRun();
         IsConfigured = false;
@@ -53,4 +70,9 @@ public sealed class GmBonesSceneHost : MonoBehaviour
             !audio.TryConfigure(controller, out _))
             IsConfigured = false;
     }
+
+    // OnDisable fires for DestroyImmediate in EditMode even when this component never received
+    // Awake. OnDestroy remains the runtime/domain-reload lifetime boundary; both are idempotent.
+    void OnDisable() => ReleaseDirectReviewPersistence();
+    void OnDestroy() => ReleaseDirectReviewPersistence();
 }

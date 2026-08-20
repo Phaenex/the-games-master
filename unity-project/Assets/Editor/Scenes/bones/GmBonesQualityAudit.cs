@@ -55,10 +55,10 @@ public static class GmBonesQualityAudit
             issues.Add("configured Bones presentation-model presenter is missing");
         else if (!presenter.SupportsAccessibility)
             issues.Add("Bones presenter does not declare reduced-motion/high-contrast support");
-        if (audio == null || !audio.UsesSharedAudioManager ||
-            Object.FindAnyObjectByType<GmAudioManager>() == null)
+        GmAudioManager sharedAudio = Object.FindAnyObjectByType<GmAudioManager>();
+        if (audio == null || !audio.UsesSharedAudioManager || sharedAudio == null)
             issues.Add("Bones dice cue is not routed through the shared audio manager/SFX settings");
-        else if (audio.GetComponent<GmAudioIntent>() == null)
+        else if (sharedAudio.GetComponent<GmAudioIntent>() == null)
             issues.Add("Bones shared-manager dice cue has no authored audio intent");
 
         foreach (string propName in MajorProps)

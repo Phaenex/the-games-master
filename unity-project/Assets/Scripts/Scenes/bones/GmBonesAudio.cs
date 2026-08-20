@@ -1,6 +1,5 @@
 using UnityEngine;
 
-[RequireComponent(typeof(AudioSource))]
 public sealed class GmBonesAudio : MonoBehaviour
 {
     GmBonesController controller;

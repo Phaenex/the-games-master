@@ -123,9 +123,11 @@ public static class GmSaveSystem
 {
     static string pathOverride;
     static string preferencesPathOverride;
-    static GmCoalescingSaveWriter writer = new GmCoalescingSaveWriter(new GmFileAtomicSaveBackend());
+    static IGmAtomicSaveBackend runBackend = new GmFileAtomicSaveBackend();
+    static IGmAtomicSaveBackend preferenceBackend = new GmFileAtomicSaveBackend();
+    static GmCoalescingSaveWriter writer = new GmCoalescingSaveWriter(runBackend);
     static GmCoalescingSaveWriter preferencesWriter =
-        new GmCoalescingSaveWriter(new GmFileAtomicSaveBackend());
+        new GmCoalescingSaveWriter(preferenceBackend);
     static string lastError = string.Empty;
 
     public static string SavePath => pathOverride ??
@@ -150,10 +152,20 @@ public static class GmSaveSystem
         pathOverride = runPath ?? throw new ArgumentNullException(nameof(runPath));
         preferencesPathOverride = preferencePath ??
             throw new ArgumentNullException(nameof(preferencePath));
-        writer = new GmCoalescingSaveWriter(runBackend ?? new GmFileAtomicSaveBackend());
-        preferencesWriter = new GmCoalescingSaveWriter(
-            preferenceBackend ?? new GmFileAtomicSaveBackend());
+        GmSaveSystem.runBackend = runBackend ?? new GmFileAtomicSaveBackend();
+        GmSaveSystem.preferenceBackend = preferenceBackend ?? new GmFileAtomicSaveBackend();
+        writer = new GmCoalescingSaveWriter(GmSaveSystem.runBackend);
+        preferencesWriter = new GmCoalescingSaveWriter(GmSaveSystem.preferenceBackend);
         lastError = string.Empty;
+    }
+
+    public static IDisposable BeginTemporaryConfiguration(string runPath,
+        IGmAtomicSaveBackend temporaryRunBackend = null)
+    {
+        string preferencePath = Path.Combine(Path.GetDirectoryName(runPath) ?? string.Empty,
+            "preferences.json");
+        return new TemporaryConfigurationScope(runPath, temporaryRunBackend,
+            preferencePath, temporaryRunBackend);
     }
 
     public static void ResetTestConfiguration()
@@ -161,9 +173,51 @@ public static class GmSaveSystem
         FlushAllSilently();
         pathOverride = null;
         preferencesPathOverride = null;
-        writer = new GmCoalescingSaveWriter(new GmFileAtomicSaveBackend());
-        preferencesWriter = new GmCoalescingSaveWriter(new GmFileAtomicSaveBackend());
+        runBackend = new GmFileAtomicSaveBackend();
+        preferenceBackend = new GmFileAtomicSaveBackend();
+        writer = new GmCoalescingSaveWriter(runBackend);
+        preferencesWriter = new GmCoalescingSaveWriter(preferenceBackend);
         lastError = string.Empty;
+    }
+
+    sealed class TemporaryConfigurationScope : IDisposable
+    {
+        readonly string previousRunPath;
+        readonly string previousPreferencePath;
+        readonly IGmAtomicSaveBackend previousRunBackend;
+        readonly IGmAtomicSaveBackend previousPreferenceBackend;
+        bool disposed;
+
+        public TemporaryConfigurationScope(string runPath, IGmAtomicSaveBackend temporaryRunBackend,
+            string preferencePath, IGmAtomicSaveBackend temporaryPreferenceBackend)
+        {
+            previousRunPath = pathOverride;
+            previousPreferencePath = preferencesPathOverride;
+            previousRunBackend = runBackend;
+            previousPreferenceBackend = preferenceBackend;
+            ConfigureForTests(runPath, temporaryRunBackend, preferencePath,
+                temporaryPreferenceBackend);
+        }
+
+        public void Dispose()
+        {
+            if (disposed) return;
+            disposed = true;
+            FlushAllSilently();
+            if (previousRunPath == null)
+            {
+                pathOverride = null;
+                preferencesPathOverride = null;
+                runBackend = previousRunBackend;
+                preferenceBackend = previousPreferenceBackend;
+                writer = new GmCoalescingSaveWriter(runBackend);
+                preferencesWriter = new GmCoalescingSaveWriter(preferenceBackend);
+                lastError = string.Empty;
+                return;
+            }
+            ConfigureForTests(previousRunPath, previousRunBackend,
+                previousPreferencePath, previousPreferenceBackend);
+        }
     }
 
     public static bool HasSave() => File.Exists(SavePath);

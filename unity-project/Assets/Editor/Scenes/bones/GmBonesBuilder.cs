@@ -35,13 +35,16 @@ public static class GmBonesBuilder
         GmBonesPresenter presenter = systems.AddComponent<GmBonesPresenter>();
         GmBonesAudio audio = systems.AddComponent<GmBonesAudio>();
         systems.AddComponent<GmBonesShotTour>();
-        GmAdaptiveIntentAuthoring.Audio(audio.gameObject, "bones-dice-roll", GmAudioIntentKind.Foley,
-            GmAudioLoopPolicy.Never,
-            "The existing bone-dice roll is heard only when a new throw becomes visible, never when a Challenge corrects evidence.",
-            "bones-dice");
 
         var sharedAudio = new GameObject("SharedAudio");
         sharedAudio.AddComponent<GmAudioManager>();
+        AudioSource sharedSfx = sharedAudio.AddComponent<AudioSource>();
+        sharedSfx.playOnAwake = false;
+        sharedSfx.loop = false;
+        GmAdaptiveIntentAuthoring.Audio(sharedAudio, "bones-dice-roll", GmAudioIntentKind.Foley,
+            GmAudioLoopPolicy.Never,
+            "The shared SFX manager plays the existing bone-dice roll only when a new throw becomes visible, never when a Challenge corrects evidence.",
+            "bones-dice");
         var environment = new GameObject("Environment");
         var gameplay = new GameObject("Gameplay");
         var lighting = new GameObject("Lighting");
