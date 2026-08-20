@@ -212,6 +212,29 @@
       }
     },
     {
+      "id": "study",
+      "displayName": "Study",
+      "phase": 5,
+      "status": "scaffold",
+      "sceneName": "Study",
+      "scenePath": "Assets/Scenes/Study.unity",
+      "sourceDir": "unity/scenes/study",
+      "build": {
+        "method": "GmStudyBuilder.Build",
+        "success": "[GmStudy] BUILD PASS"
+      },
+      "audit": {
+        "method": "GmStudyQualityAudit.Run",
+        "success": "[GmStudyAudit] PASS"
+      },
+      "tour": {
+        "method": "GmStudyShotTourMenu.ArmAndPlay",
+        "success": "[GmSceneReviewTour] TOUR COMPLETE",
+        "logTag": "GmSceneReviewTour",
+        "shots": 10
+      }
+    },
+    {
       "id": "hidden-room",
       "displayName": "Hidden Room",
       "phase": 6,

@@ -35,4 +35,7 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/Bones.unity
     guid: b7b93f22ae18847dc8dfa51e070429ed
+  - enabled: 1
+    path: Assets/Scenes/Study.unity
+    guid: 4c601ace1a8c643c182a87179a87fd6d
   m_configObjects: {}

@@ -315,6 +315,102 @@ public static class GmOwnedPropFactory
         return view;
     }
 
+    static readonly Quaternion DiscFaceUp = Quaternion.Euler(-90f, 0f, 0f);
+
+    /// <summary>Creates one turned-silhouette chess piece from stacked authored disc/box meshes.
+    /// No King/Queen/Rook/Bishop/Knight meshes exist in the local asset vault (verified
+    /// 2026-08-20); Bishop and Knight are unimplemented because Study's three authored positions
+    /// never place one.</summary>
+    public static GmStudyPieceView CreatePhysicalChessPiece(string objectName, Transform parent,
+        GmChessPieceType type, bool isWhite, Material bodyMaterial, Material evidenceMaterial)
+    {
+        if (parent == null) throw new ArgumentNullException(nameof(parent));
+        var root = new GameObject(objectName);
+        root.transform.SetParent(parent, false);
+
+        float y = 0f;
+        y = StackDisc(root.transform, "Base", y, 0.052f, 0.010f, bodyMaterial);
+        switch (type)
+        {
+            case GmChessPieceType.Pawn:
+                y = StackDisc(root.transform, "Neck", y, 0.024f, 0.026f, bodyMaterial);
+                y = StackDisc(root.transform, "Head", y, 0.030f, 0.020f, bodyMaterial);
+                break;
+            case GmChessPieceType.Rook:
+                y = StackDisc(root.transform, "Body", y, 0.034f, 0.052f, bodyMaterial);
+                y = StackDisc(root.transform, "Rim", y, 0.040f, 0.008f, bodyMaterial);
+                CreateCrenellations(root.transform, y, 0.036f, bodyMaterial);
+                y += 0.010f;
+                break;
+            case GmChessPieceType.Queen:
+                y = StackDisc(root.transform, "LowerBody", y, 0.036f, 0.030f, bodyMaterial);
+                y = StackDisc(root.transform, "UpperBody", y, 0.026f, 0.030f, bodyMaterial);
+                y = StackDisc(root.transform, "Collar", y, 0.032f, 0.006f, bodyMaterial);
+                CreateLocalRoundedProp("Crown", root.transform, new Vector3(0f, y + 0.012f, 0f),
+                    Quaternion.identity, Vector3.one * 0.024f, 0.012f, bodyMaterial);
+                y += 0.024f;
+                break;
+            case GmChessPieceType.King:
+                y = StackDisc(root.transform, "LowerBody", y, 0.036f, 0.030f, bodyMaterial);
+                y = StackDisc(root.transform, "UpperBody", y, 0.026f, 0.034f, bodyMaterial);
+                y = StackDisc(root.transform, "Collar", y, 0.032f, 0.006f, bodyMaterial);
+                CreateLocalRoundedProp("CrossVertical", root.transform,
+                    new Vector3(0f, y + 0.014f, 0f), Quaternion.identity,
+                    new Vector3(0.007f, 0.028f, 0.007f), 0.003f, bodyMaterial);
+                CreateLocalRoundedProp("CrossHorizontal", root.transform,
+                    new Vector3(0f, y + 0.020f, 0f), Quaternion.identity,
+                    new Vector3(0.020f, 0.007f, 0.007f), 0.003f, bodyMaterial);
+                y += 0.028f;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(type), type,
+                    $"[GmOwnedPropFactory] no authored chess piece mesh exists for {type}");
+        }
+
+        var evidence = new GameObject("MovedPieceEvidenceRing");
+        evidence.transform.SetParent(root.transform, false);
+        for (int i = 0; i < 6; i++)
+        {
+            float angle = i * 60f * Mathf.Deg2Rad;
+            CreateLocalRoundedProp($"EvidenceMark_{i}", evidence.transform,
+                new Vector3(Mathf.Cos(angle) * 0.058f, 0.004f, Mathf.Sin(angle) * 0.058f),
+                Quaternion.identity, new Vector3(0.012f, 0.008f, 0.012f), 0.004f, evidenceMaterial);
+        }
+        evidence.SetActive(false);
+
+        var collider = root.AddComponent<CapsuleCollider>();
+        collider.height = Mathf.Max(0.05f, y);
+        collider.radius = 0.03f;
+        collider.center = new Vector3(0f, collider.height * 0.5f, 0f);
+        var view = root.AddComponent<GmStudyPieceView>();
+        view.Configure(type, isWhite, evidence);
+        return view;
+    }
+
+    static float StackDisc(Transform parent, string name, float baseY, float diameter, float height,
+        Material material)
+    {
+        // CreateDisc/CreateMeshObject apply their position argument in world space. Create at the
+        // origin, then assign localPosition explicitly so this is safe regardless of where the
+        // piece root sits in the scene -- see CreateDieFacePips for the same pattern.
+        GameObject disc = CreateDisc(name, parent, Vector3.zero, Quaternion.identity,
+            new Vector3(diameter, diameter, height), material);
+        disc.transform.localPosition = new Vector3(0f, baseY + height * 0.5f, 0f);
+        disc.transform.localRotation = DiscFaceUp;
+        return baseY + height;
+    }
+
+    static void CreateCrenellations(Transform parent, float baseY, float ringRadius, Material material)
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            float angle = i * 90f * Mathf.Deg2Rad;
+            CreateLocalRoundedProp($"Crenellation_{i}", parent,
+                new Vector3(Mathf.Cos(angle) * ringRadius, baseY + 0.005f, Mathf.Sin(angle) * ringRadius),
+                Quaternion.identity, new Vector3(0.012f, 0.010f, 0.012f), 0.002f, material);
+        }
+    }
+
     static void CreateDieFacePips(Transform root, int value, Vector3 normal, Material material)
     {
         const float surface = 0.0532f;

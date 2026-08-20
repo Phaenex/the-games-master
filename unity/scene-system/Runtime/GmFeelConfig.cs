@@ -215,6 +215,10 @@ public sealed class GmFeelConfig : ScriptableObject
     [Tooltip("Relative volume of a court gavel strike.")]
     public float gavelStrikeVolume = 0.95f;
 
+    [Range(0f, 1f)]
+    [Tooltip("Relative volume of a Study chess piece placed on the board.")]
+    public float studyPieceMoveVolume = 0.7f;
+
     [Header("Display calibration")]
 
     [Range(-6, 0)]

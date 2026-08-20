@@ -148,6 +148,7 @@ public sealed class GmAudioManager : MonoBehaviour
     public void PlayCardSnap() => PlaySfx("parlor-card-snap", GmFeelConfig.Active.cardSnapVolume);
     public void PlayDiceRoll() => PlaySfx("stb-bone-dice-roll", GmFeelConfig.Active.diceRollVolume);
     public void PlayGavelStrike() => PlaySfx("court-gavel-strike", GmFeelConfig.Active.gavelStrikeVolume);
+    public void PlayPieceMove() => PlaySfx("study-piece-move", GmFeelConfig.Active.studyPieceMoveVolume);
 
     // A low-pass filter only touches sources on its own object, or the whole mix when it sits on the
     // AudioListener. The Read dilates the world, not just this manager's two sources, so reuse the
