@@ -389,6 +389,155 @@ public sealed class GmHouseMemoryTests
     }
 
     [Test]
+    public void TerminalCheckpointPreservesExplicitEmptyStudyEvidenceAsCorrupt()
+    {
+        GmHouseMemoryStore store = OpenStore();
+        Assert.That(store.TryAllocateCampaignRun(GmParlorAdaptiveMode.Ordinary, 25,
+            out GmHouseRunGeneration run, out string error), Is.True, error);
+        GmParlorBehaviorAccumulator behavior = CompletedAccumulator(run.FrozenPackage);
+        Assert.That(store.TryCreateReceipt(run, GmEndingType.TrappedLoop, behavior,
+            out GmHouseTerminalReceipt receipt, out error), Is.True, error);
+        GmStudyMatchSnapshot corrupt = new GmStudyMatch(23UL).ExportSnapshot();
+        corrupt.interventionReceipt = new GmStudyInterventionReceipt();
+        var checkpoint = new GmSaveData
+        {
+            currentSceneId = "labyrinth",
+            lastCheckpoint = "ending",
+            houseRunId = run.Identity.RunId,
+            houseRunPointerVersion = 1,
+            studyMatch = corrupt
+        };
+        Assert.That(store.TryCommitPreparedRun(run, receipt, checkpoint,
+            out _, out error), Is.True, error);
+
+        var restarted = new GmHouseMemoryStore(directory);
+        Assert.That(restarted.TryOpenExisting(out _, out error), Is.True, error);
+        var recovery = new GmHouseTerminalProtocol(restarted);
+        Assert.That(recovery.TryRecover(run.Identity.RunId,
+            out GmHouseRunGeneration loaded, out error), Is.True, error);
+        GmRunStore.LoadFromSaveData(loaded.TerminalCheckpoint);
+        Assert.That(GmRunStore.HasStudyMatch, Is.True);
+        Assert.That(GmRunStore.StudyRestoreError, Is.Not.Empty);
+    }
+
+    [Test]
+    public void TerminalCheckpointPreservesValidModernStudyEnvelope()
+    {
+        GmHouseMemoryStore store = OpenStore();
+        Assert.That(store.TryAllocateCampaignRun(GmParlorAdaptiveMode.Ordinary, 26,
+            out GmHouseRunGeneration run, out string error), Is.True, error);
+        GmParlorBehaviorAccumulator behavior = CompletedAccumulator(run.FrozenPackage);
+        Assert.That(store.TryCreateReceipt(run, GmEndingType.TrappedLoop, behavior,
+            out GmHouseTerminalReceipt receipt, out error), Is.True, error);
+        GmStudyMatchSnapshot snapshot = new GmStudyMatch(29UL).ExportSnapshot();
+        var checkpoint = new GmSaveData
+        {
+            currentSceneId = "labyrinth",
+            lastCheckpoint = "ending",
+            houseRunId = run.Identity.RunId,
+            houseRunPointerVersion = 1,
+            studyEnvelopeVersion = 1,
+            studyPayloadPresent = true,
+            studyMatch = snapshot
+        };
+        Assert.That(store.TryCommitPreparedRun(run, receipt, checkpoint,
+            out _, out error), Is.True, error);
+
+        var restarted = new GmHouseMemoryStore(directory);
+        Assert.That(restarted.TryOpenExisting(out _, out error), Is.True, error);
+        var recovery = new GmHouseTerminalProtocol(restarted);
+        Assert.That(recovery.TryRecover(run.Identity.RunId,
+            out GmHouseRunGeneration loaded, out error), Is.True, error);
+        GmRunStore.LoadFromSaveData(loaded.TerminalCheckpoint);
+        Assert.That(GmRunStore.StudyRestoreError, Is.Empty);
+        Assert.That(GmRunStore.GetStudyMatchSnapshot().stateFingerprint,
+            Is.EqualTo(snapshot.stateFingerprint));
+    }
+
+    [TestCase("payload-false-turn-bit")]
+    [TestCase("payload-false-session-bit")]
+    [TestCase("payload-false-outer-present")]
+    [TestCase("payload-true-outer-absent")]
+    [TestCase("turn-true-object-absent")]
+    [TestCase("turn-false-object-present")]
+    [TestCase("session-true-object-absent")]
+    [TestCase("session-false-object-present")]
+    public void TerminalCheckpointRejectsModernStudyEnvelopeContradictions(string scenario)
+    {
+        string root = Path.Combine(directory, "study-" + scenario);
+        var store = new GmHouseMemoryStore(root);
+        Assert.That(store.TryOpenOrCreate(out _, out string error), Is.True, error);
+        Assert.That(store.TryAllocateCampaignRun(GmParlorAdaptiveMode.Ordinary, 27,
+            out GmHouseRunGeneration run, out error), Is.True, error);
+        GmParlorBehaviorAccumulator behavior = CompletedAccumulator(run.FrozenPackage);
+        Assert.That(store.TryCreateReceipt(run, GmEndingType.TrappedLoop, behavior,
+            out GmHouseTerminalReceipt receipt, out error), Is.True, error);
+        GmSaveData checkpoint = ContradictoryStudyEnvelope(scenario);
+        checkpoint.currentSceneId = "labyrinth";
+        checkpoint.lastCheckpoint = "ending";
+        checkpoint.houseRunId = run.Identity.RunId;
+        checkpoint.houseRunPointerVersion = 1;
+
+        Assert.That(store.TryCommitPreparedRun(run, receipt, checkpoint,
+            out _, out error), Is.False);
+        StringAssert.Contains("envelope", error.ToLowerInvariant());
+    }
+
+    static GmSaveData ContradictoryStudyEnvelope(string scenario)
+    {
+        var data = new GmSaveData
+        {
+            studyEnvelopeVersion = 1,
+            studyPayloadPresent = true,
+            studyMatch = new GmStudyMatch(37UL).ExportSnapshot()
+        };
+        switch (scenario)
+        {
+            case "payload-false-turn-bit":
+                data.studyPayloadPresent = false;
+                data.studyTurnEvidencePresent = true;
+                data.studyMatch = null;
+                break;
+            case "payload-false-session-bit":
+                data.studyPayloadPresent = false;
+                data.studySessionEventPresent = true;
+                data.studyMatch = null;
+                break;
+            case "payload-false-outer-present":
+                data.studyPayloadPresent = false;
+                break;
+            case "payload-true-outer-absent":
+                data.studyMatch = null;
+                break;
+            case "turn-true-object-absent":
+                data.studyTurnEvidencePresent = true;
+                break;
+            case "turn-false-object-present":
+                data.studyMatch = PendingStudyIntervention();
+                data.studySessionEventPresent = true;
+                break;
+            case "session-true-object-absent":
+                data.studySessionEventPresent = true;
+                break;
+            case "session-false-object-present":
+                data.studyMatch = PendingStudyIntervention();
+                data.studyTurnEvidencePresent = true;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(scenario), scenario, null);
+        }
+        return data;
+    }
+
+    static GmStudyMatchSnapshot PendingStudyIntervention()
+    {
+        var match = new GmStudyMatch(3UL);
+        match.TryChoose(GmStudyRules.GetPosition(0).cards.First(card => card.isCorrect).actionId, out _);
+        match.TryChoose(GmStudyRules.GetPosition(1).cards.First(card => card.isCorrect).actionId, out _);
+        return match.ExportSnapshot();
+    }
+
+    [Test]
     public void OutcomeSequenceOtherThanOneIsRejectedBeforeProfileMutation()
     {
         GmHouseMemoryStore store = OpenStore();

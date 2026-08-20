@@ -25,6 +25,9 @@ public static class GmRunStore
     static GmBonesMatchSnapshot bonesMatch;
     static bool bonesMatchPresent;
     static string bonesRestoreError = string.Empty;
+    static GmStudyMatchSnapshot studyMatch;
+    static bool studyMatchPresent;
+    static string studyRestoreError = string.Empty;
     static string houseRunId = string.Empty;
 
     // A room being complete and a table game being complete are deliberately separate facts.
@@ -63,6 +66,8 @@ public static class GmRunStore
     public static string ParlorPresentationRestoreError { get; private set; } = string.Empty;
     public static bool HasBonesMatch => bonesMatchPresent;
     public static string BonesRestoreError => bonesRestoreError;
+    public static bool HasStudyMatch => studyMatchPresent;
+    public static string StudyRestoreError => studyRestoreError;
     public static string HouseRunId => houseRunId;
 
     public static void SetHouseRunPointer(string runId)
@@ -128,6 +133,55 @@ public static class GmRunStore
     }
 
     internal static void CommitBonesSaveData(GmSaveData candidate)
+    {
+        if (candidate == null) throw new ArgumentNullException(nameof(candidate));
+        LoadFromSaveData(candidate);
+    }
+
+    public static GmStudyMatchSnapshot GetStudyMatchSnapshot() => CloneStudySnapshot(studyMatch);
+
+    internal static bool TryCreateStudySaveData(GmStudyMatchSnapshot snapshot,
+        out GmSaveData candidate, out string error)
+    {
+        candidate = null;
+        if (!GmStudyMatch.TryRestore(snapshot, out GmStudyMatch restored, out error)) return false;
+        GmStudyMatchSnapshot current = restored.ExportSnapshot();
+        candidate = ToSaveData();
+        candidate.studyMatch = CloneStudySnapshot(current);
+        candidate.studyEnvelopeVersion = 1;
+        candidate.studyPayloadPresent = true;
+        candidate.studyTurnEvidencePresent = current.interventionReceipt != null;
+        candidate.studySessionEventPresent = current.session?.intervention != null;
+
+        bool challenged = current.session != null && current.session.intervention != null &&
+            current.session.intervention.resolved && current.session.intervention.challenged;
+        if (challenged && !candidate.discoveredClues.Any(value =>
+                string.Equals(value, "study-arbiter-override-intervention", StringComparison.OrdinalIgnoreCase)))
+            candidate.discoveredClues.Add("study-arbiter-override-intervention");
+
+        if (restored.HasResult)
+        {
+            if (!candidate.completedRooms.Any(value =>
+                    string.Equals(value, "study", StringComparison.OrdinalIgnoreCase)))
+                candidate.completedRooms.Add("study");
+
+            if (!candidate.completedTableGames.Any(value =>
+                    string.Equals(value, "study", StringComparison.OrdinalIgnoreCase)))
+            {
+                candidate.completedTableGames.Add("study");
+                if (restored.Result == GmStudyMatchResult.PlayerWin) candidate.defiance += 2;
+                else
+                {
+                    candidate.compliance += 2;
+                    candidate.sanity = Mathf.Clamp01(candidate.sanity - 0.05f);
+                }
+            }
+        }
+        error = string.Empty;
+        return true;
+    }
+
+    internal static void CommitStudySaveData(GmSaveData candidate)
     {
         if (candidate == null) throw new ArgumentNullException(nameof(candidate));
         LoadFromSaveData(candidate);
@@ -473,6 +527,9 @@ public static class GmRunStore
         bonesMatch = null;
         bonesMatchPresent = false;
         bonesRestoreError = string.Empty;
+        studyMatch = null;
+        studyMatchPresent = false;
+        studyRestoreError = string.Empty;
         ParlorPresentationRestoreError = string.Empty;
         houseRunId = string.Empty;
         CurrentSceneId = "wend-hill-prologue";
@@ -505,6 +562,11 @@ public static class GmRunStore
             bonesTurnEvidencePresent = bonesMatch?.interventionReceipt != null,
             bonesSessionEventPresent = bonesMatch?.session?.intervention != null,
             bonesMatch = CloneBonesSnapshot(bonesMatch),
+            studyEnvelopeVersion = 1,
+            studyPayloadPresent = studyMatchPresent,
+            studyTurnEvidencePresent = studyMatch?.interventionReceipt != null,
+            studySessionEventPresent = studyMatch?.session?.intervention != null,
+            studyMatch = CloneStudySnapshot(studyMatch),
             houseRunPointerVersion = string.IsNullOrEmpty(houseRunId) ? 0 : 1,
             houseRunId = houseRunId,
             timestampUtc = DateTime.UtcNow.ToString("o")
@@ -639,6 +701,17 @@ public static class GmRunStore
         else if (bonesMatchPresent &&
                  !GmBonesMatch.TryRestore(bonesMatch, out _, out string bonesError))
             bonesRestoreError = bonesError;
+        studyMatchPresent = data.studyMatch != null;
+        studyMatch = CloneStudySnapshot(data.studyMatch);
+        studyRestoreError = string.Empty;
+        if (data.studyEnvelopeVersion != 0 && data.studyEnvelopeVersion != 1)
+            studyRestoreError = $"Study save envelope {data.studyEnvelopeVersion} is unsupported";
+        else if (data.studyEnvelopeVersion == 1 &&
+                 !data.TryValidateStudyEnvelope(out string studyEnvelopeError))
+            studyRestoreError = studyEnvelopeError;
+        else if (studyMatchPresent &&
+                 !GmStudyMatch.TryRestore(studyMatch, out _, out string studyError))
+            studyRestoreError = studyError;
         OnStateChanged?.Invoke();
     }
 
@@ -794,6 +867,9 @@ public static class GmRunStore
 
     static GmBonesMatchSnapshot CloneBonesSnapshot(GmBonesMatchSnapshot snapshot)
         => snapshot?.DeepCopy();
+
+    static GmStudyMatchSnapshot CloneStudySnapshot(GmStudyMatchSnapshot snapshot)
+        => snapshot?.DeepCopy();
 }
 
 [Serializable]
@@ -819,6 +895,11 @@ public sealed class GmSaveData
     public bool bonesTurnEvidencePresent;
     public bool bonesSessionEventPresent;
     public GmBonesMatchSnapshot bonesMatch;
+    public int studyEnvelopeVersion;
+    public bool studyPayloadPresent;
+    public bool studyTurnEvidencePresent;
+    public bool studySessionEventPresent;
+    public GmStudyMatchSnapshot studyMatch;
     public int houseRunPointerVersion;
     public string houseRunId = "";
     public int accessibilitySettingsVersion;
@@ -836,24 +917,29 @@ public sealed class GmSaveData
         GmSaveData data = JsonUtility.FromJson<GmSaveData>(json);
         if (data == null) return null;
 
+        StripInventedBonesEvidence(json, data);
+        StripInventedStudyEvidence(json, data);
+        return data;
+    }
+
+    static void StripInventedBonesEvidence(string json, GmSaveData data)
+    {
         bool hasBonesObject = TryFindObjectProperty(json, "bonesMatch", 0, json.Length,
             out int bonesStart, out int bonesEnd);
         if (!hasBonesObject)
         {
             data.bonesMatch = null;
-            return data;
+            return;
         }
-        if (data.bonesMatch == null) return data;
+        if (data.bonesMatch == null) return;
 
-        bool hasTurnEvidence = hasBonesObject && TryFindObjectProperty(json,
+        bool hasTurnEvidence = TryFindObjectProperty(json,
             "interventionReceipt", bonesStart, bonesEnd, out _, out _);
         if (!hasTurnEvidence)
             data.bonesMatch.interventionReceipt = null;
 
-        int sessionStart = -1;
-        int sessionEnd = -1;
-        bool hasSession = hasBonesObject && TryFindObjectProperty(json, "session",
-            bonesStart, bonesEnd, out sessionStart, out sessionEnd);
+        bool hasSession = TryFindObjectProperty(json, "session",
+            bonesStart, bonesEnd, out int sessionStart, out int sessionEnd);
         if (!hasSession)
             data.bonesMatch.session = null;
         else if (data.bonesMatch.session != null)
@@ -863,27 +949,67 @@ public sealed class GmSaveData
             if (!hasSessionEvent)
                 data.bonesMatch.session.intervention = null;
         }
-        return data;
+    }
+
+    static void StripInventedStudyEvidence(string json, GmSaveData data)
+    {
+        bool hasStudyObject = TryFindObjectProperty(json, "studyMatch", 0, json.Length,
+            out int studyStart, out int studyEnd);
+        if (!hasStudyObject)
+        {
+            data.studyMatch = null;
+            return;
+        }
+        if (data.studyMatch == null) return;
+
+        bool hasTurnEvidence = TryFindObjectProperty(json,
+            "interventionReceipt", studyStart, studyEnd, out _, out _);
+        if (!hasTurnEvidence)
+            data.studyMatch.interventionReceipt = null;
+
+        bool hasSession = TryFindObjectProperty(json, "session",
+            studyStart, studyEnd, out int sessionStart, out int sessionEnd);
+        if (!hasSession)
+            data.studyMatch.session = null;
+        else if (data.studyMatch.session != null)
+        {
+            bool hasSessionEvent = TryFindObjectProperty(json, "intervention",
+                sessionStart, sessionEnd, out _, out _);
+            if (!hasSessionEvent)
+                data.studyMatch.session.intervention = null;
+        }
     }
 
     public string ToJson(bool pretty = false)
     {
-        if (bonesEnvelopeVersion == 1 && !TryValidateBonesEnvelope(out string error))
-            throw new InvalidDataException(error);
+        if (bonesEnvelopeVersion == 1 && !TryValidateBonesEnvelope(out string bonesError))
+            throw new InvalidDataException(bonesError);
+        if (studyEnvelopeVersion == 1 && !TryValidateStudyEnvelope(out string studyError))
+            throw new InvalidDataException(studyError);
         string json = JsonUtility.ToJson(this, pretty);
-        if (bonesEnvelopeVersion != 1) return json;
-        if (!bonesPayloadPresent)
-            return RemoveObjectProperty(json, "bonesMatch", 0, json.Length);
+        json = StripAbsentEvidence(json, "bonesMatch", bonesEnvelopeVersion == 1, bonesPayloadPresent,
+            bonesTurnEvidencePresent, bonesSessionEventPresent);
+        json = StripAbsentEvidence(json, "studyMatch", studyEnvelopeVersion == 1, studyPayloadPresent,
+            studyTurnEvidencePresent, studySessionEventPresent);
+        return json;
+    }
 
-        if (!TryFindObjectProperty(json, "bonesMatch", 0, json.Length,
-            out int bonesStart, out int bonesEnd)) return json;
-        if (!bonesTurnEvidencePresent)
-            json = RemoveObjectProperty(json, "interventionReceipt", bonesStart, bonesEnd);
-        if (!TryFindObjectProperty(json, "bonesMatch", 0, json.Length,
-            out bonesStart, out bonesEnd) ||
-            !TryFindObjectProperty(json, "session", bonesStart, bonesEnd,
+    static string StripAbsentEvidence(string json, string matchProperty, bool envelopeActive,
+        bool payloadPresent, bool turnEvidencePresent, bool sessionEventPresent)
+    {
+        if (!envelopeActive) return json;
+        if (!payloadPresent)
+            return RemoveObjectProperty(json, matchProperty, 0, json.Length);
+
+        if (!TryFindObjectProperty(json, matchProperty, 0, json.Length,
+            out int matchStart, out int matchEnd)) return json;
+        if (!turnEvidencePresent)
+            json = RemoveObjectProperty(json, "interventionReceipt", matchStart, matchEnd);
+        if (!TryFindObjectProperty(json, matchProperty, 0, json.Length,
+            out matchStart, out matchEnd) ||
+            !TryFindObjectProperty(json, "session", matchStart, matchEnd,
                 out int sessionStart, out int sessionEnd)) return json;
-        if (!bonesSessionEventPresent)
+        if (!sessionEventPresent)
             json = RemoveObjectProperty(json, "intervention", sessionStart, sessionEnd);
         return json;
     }
@@ -919,6 +1045,42 @@ public sealed class GmSaveData
         if (bonesSessionEventPresent != hasSessionEvent)
         {
             error = "Bones save envelope session event presence disagrees with its payload";
+            return false;
+        }
+        return true;
+    }
+
+    public bool TryValidateStudyEnvelope(out string error)
+    {
+        error = string.Empty;
+        if (studyEnvelopeVersion != 1) return true;
+
+        bool hasPayload = studyMatch != null;
+        if (studyPayloadPresent != hasPayload)
+        {
+            error = "Study save envelope payload presence disagrees with its payload";
+            return false;
+        }
+        if (!studyPayloadPresent)
+        {
+            if (studyTurnEvidencePresent || studySessionEventPresent)
+            {
+                error = "Study save envelope declares nested evidence without a payload";
+                return false;
+            }
+            return true;
+        }
+
+        bool hasTurnEvidence = studyMatch.interventionReceipt != null;
+        if (studyTurnEvidencePresent != hasTurnEvidence)
+        {
+            error = "Study save envelope turn evidence presence disagrees with its payload";
+            return false;
+        }
+        bool hasSessionEvent = studyMatch.session?.intervention != null;
+        if (studySessionEventPresent != hasSessionEvent)
+        {
+            error = "Study save envelope session event presence disagrees with its payload";
             return false;
         }
         return true;
