@@ -7,6 +7,7 @@ public sealed class GmBonesPresenter : MonoBehaviour
 
     public bool IsConfigured => controller != null && dice != null && dice.Length == 3 &&
         dice[0] != null && dice[1] != null && dice[2] != null;
+    public bool SupportsAccessibility => true;
 
     public void BindDice(GmBonesDieView[] dieViews) => dice = dieViews ?? new GmBonesDieView[0];
 

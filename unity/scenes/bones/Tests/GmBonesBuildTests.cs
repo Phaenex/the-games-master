@@ -1,16 +1,68 @@
+using System;
+using System.IO;
 using System.Linq;
 using NUnit.Framework;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 public sealed class GmBonesBuildTests
 {
+    string productionSavePath;
+    bool productionSaveExisted;
+    byte[] productionSaveBytes;
+
     [OneTimeSetUp]
-    public void BuildOnce() => GmBonesBuilder.Build();
+    public void BuildOnce()
+    {
+        GmBonesReviewPersistence.EndReview();
+        GmSaveSystem.ResetTestConfiguration();
+        productionSavePath = GmSaveSystem.SavePath;
+        Assert.That(Path.GetDirectoryName(productionSavePath),
+            Is.EqualTo(Application.persistentDataPath));
+        productionSaveExisted = File.Exists(productionSavePath);
+        productionSaveBytes = productionSaveExisted ? File.ReadAllBytes(productionSavePath) : null;
+        GmBonesReviewPersistence.EnsureActive("editmode-fixture");
+        GmBonesBuilder.Build();
+    }
 
     [OneTimeTearDown]
-    public void TearDownOnce() =>
+    public void TearDownOnce()
+    {
+        GmBonesReviewPersistence.EndReview();
         EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+    }
+
+    [Test]
+    public void RebuildAuditAndTourReplayNeverTouchProductionSave()
+    {
+        GmBonesReviewPersistence.EndReview();
+        Assert.That(GmSaveSystem.SavePath, Is.EqualTo(productionSavePath));
+        try
+        {
+            GmBonesBuilder.Build();
+            Assert.That(GmSaveSystem.SavePath, Is.EqualTo(productionSavePath),
+                "builder must restore the production backend after its isolated review scope");
+            AssertProductionSaveUnchanged();
+
+            GmBonesReviewPersistence.EnsureActive("editmode-persistence-proof");
+            Assert.That(GmSaveSystem.SavePath, Is.Not.EqualTo(productionSavePath));
+            Assert.That(GmBonesQualityAudit.ValidateOpenScene(), Is.Empty);
+            GmBonesSceneHost host = Object.FindAnyObjectByType<GmBonesSceneHost>();
+            GmBonesInput input = Object.FindAnyObjectByType<GmBonesInput>();
+            GmBonesShotTour tour = Object.FindAnyObjectByType<GmBonesShotTour>();
+            host.RestartForReview(1);
+            tour.ReplayToPendingForReview(input);
+            Assert.That(host.Controller.Phase, Is.EqualTo(GmBonesMatchPhase.AwaitingIntervention));
+            AssertProductionSaveUnchanged();
+        }
+        finally
+        {
+            GmBonesReviewPersistence.EndReview();
+            AssertProductionSaveUnchanged();
+            GmBonesReviewPersistence.EnsureActive("editmode-fixture-resume");
+        }
+    }
 
     [Test]
     public void PhysicalSceneContractPasses()
@@ -80,6 +132,30 @@ public sealed class GmBonesBuildTests
     }
 
     [Test]
+    public void MajorPropsAndRoomUseTexturedHdrpSurfaces()
+    {
+        foreach (string name in new[] { "BonesTable", "PlayerChair", "AldricChair", "BonesCarpet", "TableCandles" })
+        {
+            GameObject prop = GameObject.Find(GmOwnedPropFactory.VisualPrefix + name);
+            Renderer[] renderers = prop.GetComponentsInChildren<Renderer>(true);
+            Assert.That(renderers, Is.Not.Empty, name);
+            Assert.That(renderers.SelectMany(renderer => renderer.sharedMaterials).Where(material => material != null)
+                .All(material => material.shader != null &&
+                    !material.shader.name.Contains("InternalErrorShader")), Is.True, name);
+            Assert.That(renderers.SelectMany(renderer => renderer.sharedMaterials).Where(material => material != null)
+                .Any(material => material.HasProperty("_BaseColorMap") &&
+                    material.GetTexture("_BaseColorMap") != null), Is.True,
+                name + " must retain a real PBR albedo texture");
+        }
+        foreach (string roomSurface in new[] { "BonesFloor", "NorthWall", "SouthWall", "WestWall", "EastWall", "BonesCeiling" })
+        {
+            Material material = GameObject.Find(roomSurface).GetComponent<Renderer>().sharedMaterial;
+            Assert.That(material.GetTexture("_BaseColorMap"), Is.Not.Null, roomSurface);
+            Assert.That(material.GetTexture("_NormalMap"), Is.Not.Null, roomSurface);
+        }
+    }
+
+    [Test]
     public void DustStaysOutOfTheReadableDiceConeAndTableLightNeverFlickers()
     {
         GmBonesDustField[] dust = Object.FindObjectsByType<GmBonesDustField>(
@@ -106,10 +182,36 @@ public sealed class GmBonesBuildTests
         GmBonesAudio audio = Object.FindAnyObjectByType<GmBonesAudio>();
         Assert.That(audio, Is.Not.Null);
         Assert.That(audio.GetComponent<GmAudioIntent>(), Is.Not.Null);
+        Assert.That(audio.UsesSharedAudioManager, Is.True);
+        Assert.That(Object.FindAnyObjectByType<GmAudioManager>(), Is.Not.Null);
+        Assert.That(Object.FindAnyObjectByType<GmBonesPresenter>().SupportsAccessibility, Is.True);
         GmBonesShotTour tour = Object.FindAnyObjectByType<GmBonesShotTour>();
         Assert.That(tour, Is.Not.Null);
         Assert.That(tour.ShotCount, Is.EqualTo(10));
         Assert.That(tour.HasPlaceholderShots, Is.False);
+    }
+
+    [Test]
+    public void TourAbortsWhenDeterministicReplayDoesNotReachPendingIntervention()
+    {
+        GmBonesSceneHost host = Object.FindAnyObjectByType<GmBonesSceneHost>();
+        GmBonesInput input = Object.FindAnyObjectByType<GmBonesInput>();
+        GmBonesShotTour tour = Object.FindAnyObjectByType<GmBonesShotTour>();
+        host.RestartForReview(1);
+        Assert.Throws<InvalidOperationException>(() => tour.ReplayToPendingForReview(input, 0));
+    }
+
+    [Test]
+    public void AuditRejectsAPlayerFacingPrimitive()
+    {
+        GameObject primitive = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        primitive.name = "ForbiddenPlayerFacingPrimitive";
+        try
+        {
+            Assert.That(GmBonesQualityAudit.ValidateOpenScene(),
+                Has.Some.Contains("player-facing primitive"));
+        }
+        finally { Object.DestroyImmediate(primitive); }
     }
 
     [Test]
@@ -147,5 +249,13 @@ public sealed class GmBonesBuildTests
         Assert.That(Physics.OverlapBox(clearance.transform.position,
             clearance.transform.localScale * 0.49f, Quaternion.identity)
             .All(collider => collider.transform.IsChildOf(clearance.transform)), Is.True);
+    }
+
+
+    void AssertProductionSaveUnchanged()
+    {
+        Assert.That(File.Exists(productionSavePath), Is.EqualTo(productionSaveExisted));
+        if (productionSaveExisted)
+            CollectionAssert.AreEqual(productionSaveBytes, File.ReadAllBytes(productionSavePath));
     }
 }

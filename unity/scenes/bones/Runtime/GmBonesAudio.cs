@@ -4,11 +4,11 @@ using UnityEngine;
 public sealed class GmBonesAudio : MonoBehaviour
 {
     GmBonesController controller;
-    AudioSource source;
-    AudioClip roll;
+    GmAudioManager audioManager;
     int visibleThrowRevision;
 
     public int VisibleThrowRevision => visibleThrowRevision;
+    public bool UsesSharedAudioManager => audioManager != null;
 
     public bool TryConfigure(GmBonesController tableController, out string error)
     {
@@ -19,10 +19,12 @@ public sealed class GmBonesAudio : MonoBehaviour
         }
         if (controller != null) controller.OnStateChanged -= HandleStateChanged;
         controller = tableController;
-        source = GetComponent<AudioSource>();
-        source.playOnAwake = false;
-        source.loop = false;
-        roll = Resources.Load<AudioClip>("Sfx/stb_bone_dice_roll");
+        audioManager = GmAudioManager.EnsureExists();
+        if (audioManager == null)
+        {
+            error = "Bones audio could not acquire the shared audio manager";
+            return false;
+        }
         visibleThrowRevision = controller.PlayerDecisionCount;
         controller.OnStateChanged += HandleStateChanged;
         error = string.Empty;
@@ -34,7 +36,7 @@ public sealed class GmBonesAudio : MonoBehaviour
         int next = controller.PlayerDecisionCount;
         if (next <= visibleThrowRevision) return;
         visibleThrowRevision = next;
-        if (roll != null) source.PlayOneShot(roll);
+        audioManager.PlayDiceRoll();
     }
 
     void OnDestroy() { if (controller != null) controller.OnStateChanged -= HandleStateChanged; }

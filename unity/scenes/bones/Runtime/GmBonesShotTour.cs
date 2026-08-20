@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System;
 using UnityEngine;
 #if UNITY_EDITOR
 using UnityEditor;
@@ -26,6 +27,7 @@ public sealed class GmBonesShotTour : GmSceneReviewTour
 
     protected override void BeforeTour()
     {
+        GmBonesReviewPersistence.EnsureActive("shot-tour");
         GmAccessibilitySettings.SetHighContrast(false);
         GmAccessibilitySettings.SetTextScale(1f);
         GmAccessibilitySettings.SetReducedMotion(false);
@@ -42,14 +44,14 @@ public sealed class GmBonesShotTour : GmSceneReviewTour
             case "05-round-three": input.FocusThenConfirm(0); break;
             case "06-pending-loaded-six": input.FocusThenConfirm(0); break;
             case "07-challenge-evidence": input.ChallengeAction(); break;
-            case "08-proceed-evidence": ReplayToPending(input); input.ConfirmAction(); break;
+            case "08-proceed-evidence": ReplayToPendingForReview(input); input.ConfirmAction(); break;
             case "09-high-contrast-200":
                 GmAccessibilitySettings.SetHighContrast(true);
                 GmAccessibilitySettings.SetTextScale(GmAccessibilitySettings.MaxTextScale);
                 break;
             case "10-reduced-motion-complete":
                 GmAccessibilitySettings.SetReducedMotion(true);
-                ReplayToPending(input); input.ChallengeAction();
+                ReplayToPendingForReview(input); input.ChallengeAction();
                 break;
         }
     }
@@ -61,12 +63,14 @@ public sealed class GmBonesShotTour : GmSceneReviewTour
         yield return null; yield return null; yield return null; yield return null;
     }
 
-    void ReplayToPending(GmBonesInput input)
+    public void ReplayToPendingForReview(GmBonesInput input, int confirmedRounds = 3)
     {
+        if (input == null) throw new ArgumentNullException(nameof(input));
         Host.RestartForReview(ReviewSeed);
-        input.FocusThenConfirm(0); input.FocusThenConfirm(0); input.FocusThenConfirm(0);
+        for (int round = 0; round < confirmedRounds; round++) input.FocusThenConfirm(0);
         if (Host.Controller.Phase != GmBonesMatchPhase.AwaitingIntervention)
-            Debug.LogError("[GmBonesShotTour] deterministic public action replay did not reach loaded-six intervention");
+            throw new InvalidOperationException(
+                "[GmBonesShotTour] deterministic public action replay did not reach loaded-six intervention");
     }
     GmBonesSceneHost Host => GetComponent<GmBonesSceneHost>();
 }

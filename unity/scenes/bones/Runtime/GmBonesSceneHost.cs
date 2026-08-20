@@ -2,13 +2,18 @@ using UnityEngine;
 
 public sealed class GmBonesSceneHost : MonoBehaviour
 {
+    [SerializeField] bool directReviewOnly;
     GmBonesController controller;
 
     public GmBonesController Controller => controller;
     public bool IsConfigured { get; private set; }
+    public bool IsDirectReviewOnly => directReviewOnly;
+
+    public void ConfigureForDirectReview() => directReviewOnly = true;
 
     void Awake()
     {
+        if (directReviewOnly) GmBonesReviewPersistence.EnsureActive("direct-review-play");
         if (!IsConfigured) InitializeCurrentRun();
     }
 
@@ -24,6 +29,7 @@ public sealed class GmBonesSceneHost : MonoBehaviour
 
     public GmBonesInitializeResult RestartForReview(int runSeed)
     {
+        GmBonesReviewPersistence.EnsureActive("deterministic-replay");
         GmRunSeed.ForceForReview(runSeed);
         GmRunStore.BeginNewRun();
         IsConfigured = false;

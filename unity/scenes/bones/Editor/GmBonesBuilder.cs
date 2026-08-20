@@ -19,10 +19,17 @@ public static class GmBonesBuilder
     [MenuItem("GamesMaster/Scenes/Rebuild Bones")]
     public static void Build()
     {
+        using (GmBonesReviewPersistence.BeginScope("builder")) BuildIsolated();
+    }
+
+    static void BuildIsolated()
+    {
+        GmVictorianInteriorKit.Prepare();
         Scene scene = GmSceneBuildUtility.CreateEmptyScene();
         var systems = new GameObject("SceneSystems");
         GmSceneBuildUtility.MarkScene(systems, SceneId, DisplayName);
         GmBonesSceneHost host = systems.AddComponent<GmBonesSceneHost>();
+        host.ConfigureForDirectReview();
         systems.AddComponent<GmBonesInput>();
         GmBonesHud hud = systems.AddComponent<GmBonesHud>();
         GmBonesPresenter presenter = systems.AddComponent<GmBonesPresenter>();
@@ -33,37 +40,38 @@ public static class GmBonesBuilder
             "The existing bone-dice roll is heard only when a new throw becomes visible, never when a Challenge corrects evidence.",
             "bones-dice");
 
+        var sharedAudio = new GameObject("SharedAudio");
+        sharedAudio.AddComponent<GmAudioManager>();
         var environment = new GameObject("Environment");
         var gameplay = new GameObject("Gameplay");
         var lighting = new GameObject("Lighting");
         var composition = new GameObject("Composition");
-        Material wall = Material("BonesWallpaper", new Color(0.19f, 0.14f, 0.12f), 0.18f, 0f);
-        Material wood = Material("BonesFloorboards", new Color(0.16f, 0.09f, 0.055f), 0.28f, 0f);
         Material bone = Material("AgedBone", new Color(0.88f, 0.82f, 0.68f), 0.38f, 0f);
         Material pip = Material("CutPips", new Color(0.035f, 0.025f, 0.018f), 0.16f, 0f);
         Material brass = Material("AlteredBrassEvidence", new Color(0.62f, 0.38f, 0.08f), 0.55f, 0.7f);
-        Material wax = Material("PeriodCandleWax", new Color(0.58f, 0.46f, 0.28f), 0.24f, 0f);
-        Material mahogany = Material("BonesMahogany", new Color(0.29f, 0.105f, 0.045f), 0.42f, 0f);
-        Material burgundy = Material("BonesBurgundyCarpet", new Color(0.24f, 0.035f, 0.045f), 0.22f, 0f);
-        BuildShell(environment.transform, wall, wood);
+        Material tableSurface = GmVictorianInteriorKit.Surface("table", "Bones_Table_PBR", Vector2.one);
+        Material chairSurface = GmVictorianInteriorKit.Surface("chair", "Bones_Chair_PBR", Vector2.one);
+        Material carpetSurface = GmVictorianInteriorKit.Surface("carpet", "Bones_Carpet_PBR", Vector2.one);
+        Material candleSurface = CandlePackSurface();
+        BuildShell(environment.transform);
 
         GameObject carpet = GmOwnedPropFactory.PlacePrefab(CarpetPath, "BonesCarpet",
             environment.transform, new Vector3(0f, 0.012f, 0f), new Vector3(4.8f, 0.08f, 5.4f),
-            Quaternion.identity, true, 0.01f, burgundy);
+            Quaternion.identity, true, 0.01f, carpetSurface);
         GameObject table = GmOwnedPropFactory.PlacePrefab(TablePath, "BonesTable",
             gameplay.transform, new Vector3(0f, 0.43f, 0f), new Vector3(2.45f, 0.84f, 1.42f),
-            Quaternion.identity, false, 0f, mahogany);
+            Quaternion.identity, false, 0f, tableSurface);
         AddInvisibleBox("BonesTableCollision", gameplay.transform, new Vector3(0f, 0.43f, 0f),
             new Vector3(2.38f, 0.84f, 1.34f));
         GameObject playerChair = GmOwnedPropFactory.PlacePrefab(ChairPath, "PlayerChair",
             gameplay.transform, new Vector3(-1.5f, 0.55f, -2.2f), new Vector3(0.8f, 1.1f, 0.8f),
-            Quaternion.Euler(0f, 28f, 0f), true, 0f, mahogany);
+            Quaternion.Euler(0f, 28f, 0f), true, 0f, chairSurface);
         GameObject aldricChair = GmOwnedPropFactory.PlacePrefab(ChairPath, "AldricChair",
             gameplay.transform, new Vector3(0f, 0.55f, 2.05f), new Vector3(0.8f, 1.1f, 0.8f),
-            Quaternion.Euler(0f, 180f, 0f), true, 0f, mahogany);
+            Quaternion.Euler(0f, 180f, 0f), true, 0f, chairSurface);
         GmOwnedPropFactory.PlacePrefab(CandlePath, "TableCandles",
             gameplay.transform, new Vector3(0.82f, TableTop + 0.15f, 0.34f),
-            new Vector3(0.24f, 0.3f, 0.24f), Quaternion.identity, true, TableTop, wax);
+            new Vector3(0.24f, 0.3f, 0.24f), Quaternion.identity, true, TableTop, candleSurface);
 
         var diceRoot = new GameObject("BonesDice");
         diceRoot.transform.SetParent(gameplay.transform, false);
@@ -79,7 +87,7 @@ public static class GmBonesBuilder
 
         GameObject stableFixture = GmOwnedPropFactory.PlacePrefab(CandlePath, "TaskLightFixture",
             lighting.transform, new Vector3(-0.75f, TableTop + 0.15f, 0.35f),
-            new Vector3(0.24f, 0.3f, 0.24f), Quaternion.identity, true, TableTop, wax);
+            new Vector3(0.24f, 0.3f, 0.24f), Quaternion.identity, true, TableTop, candleSurface);
         GameObject tableLight = CreateLight("BonesTableTaskLight", lighting.transform,
             new Vector3(0f, 2.55f, -0.25f), new Color(1f, 0.68f, 0.36f), 240f,
             LightType.Spot, new Vector3(0f, TableTop, 0f));
@@ -108,7 +116,7 @@ public static class GmBonesBuilder
             GmOwnedPropFactory.PlacePrefab(CandlePath,
                 side < 0 ? "WestDecorativeCandles" : "EastDecorativeCandles", lighting.transform,
                 new Vector3(side * 3.25f, 1.3f, 1.75f), new Vector3(0.25f, 0.32f, 0.25f),
-                Quaternion.identity, false, 0f, wax);
+                Quaternion.identity, false, 0f, candleSurface);
             GameObject flame = CreateLight(side < 0 ? "WestDecorativeFlicker" : "EastDecorativeFlicker",
                 lighting.transform, new Vector3(side * 3.25f, 1.75f, 1.75f),
                 new Color(1f, 0.48f, 0.20f), 115f, LightType.Point, Vector3.zero);
@@ -137,22 +145,23 @@ public static class GmBonesBuilder
         Debug.Log("[GmBones] BUILD PASS: " + ScenePath);
     }
 
-    static void BuildShell(Transform parent, Material wall, Material floor)
+    static void BuildShell(Transform parent)
     {
-        Architecture("BonesFloor", parent, new Vector3(0f, -0.1f, 0f), new Vector3(8f, 0.2f, 8f), floor);
-        Architecture("NorthWall", parent, new Vector3(0f, 2.5f, 4f), new Vector3(8f, 5f, 0.2f), wall);
-        Architecture("SouthWall", parent, new Vector3(0f, 2.5f, -4f), new Vector3(8f, 5f, 0.2f), wall);
-        Architecture("WestWall", parent, new Vector3(-4f, 2.5f, 0f), new Vector3(0.2f, 5f, 8f), wall);
-        Architecture("EastWall", parent, new Vector3(4f, 2.5f, 0f), new Vector3(0.2f, 5f, 8f), wall);
-        Architecture("BonesCeiling", parent, new Vector3(0f, 5f, 0f), new Vector3(8f, 0.2f, 8f), wall);
+        Architecture("BonesFloor", parent, new Vector3(0f, -0.1f, 0f), new Vector3(8f, 0.2f, 8f), "floor", 2.2f);
+        Architecture("NorthWall", parent, new Vector3(0f, 2.5f, 4f), new Vector3(8f, 5f, 0.2f), "wall", 2.6f);
+        Architecture("SouthWall", parent, new Vector3(0f, 2.5f, -4f), new Vector3(8f, 5f, 0.2f), "wall", 2.6f);
+        Architecture("WestWall", parent, new Vector3(-4f, 2.5f, 0f), new Vector3(0.2f, 5f, 8f), "wall", 2.6f);
+        Architecture("EastWall", parent, new Vector3(4f, 2.5f, 0f), new Vector3(0.2f, 5f, 8f), "wall", 2.6f);
+        Architecture("BonesCeiling", parent, new Vector3(0f, 5f, 0f), new Vector3(8f, 0.2f, 8f), "ceiling", 2.6f);
     }
 
-    static void Architecture(string name, Transform parent, Vector3 position, Vector3 scale, Material material)
+    static void Architecture(string name, Transform parent, Vector3 position, Vector3 scale,
+        string surfaceFamily, float metresPerTile)
     {
         GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
         go.name = name; go.transform.SetParent(parent, false);
         go.transform.position = position; go.transform.localScale = scale;
-        go.GetComponent<MeshRenderer>().sharedMaterial = material;
+        GmSceneBuildUtility.ApplyVictorianSurface(go, surfaceFamily, metresPerTile);
     }
 
     static void AddInvisibleBox(string name, Transform parent, Vector3 position, Vector3 size)
@@ -195,6 +204,26 @@ public static class GmBonesBuilder
         var material = new Material(Shader.Find(shaderName)) { name = name, color = color };
         if (material.HasProperty("_Smoothness")) material.SetFloat("_Smoothness", smoothness);
         if (material.HasProperty("_Metallic")) material.SetFloat("_Metallic", metallic);
+        return material;
+    }
+
+    static Material CandlePackSurface()
+    {
+        const string textureRoot = "Assets/LeartesStudios/WitchVillage/HDRP/Art/Textures/";
+        Shader shader = Shader.Find("HDRP/Lit");
+        if (shader == null) throw new System.InvalidOperationException("[GmBones] HDRP/Lit is unavailable");
+        var material = new Material(shader) { name = "Bones_Candles_Pack_PBR" };
+        Texture2D albedo = AssetDatabase.LoadAssetAtPath<Texture2D>(textureRoot + "T_Candles_B.PNG");
+        Texture2D normal = AssetDatabase.LoadAssetAtPath<Texture2D>(textureRoot + "T_Candles_N.PNG");
+        Texture2D mask = AssetDatabase.LoadAssetAtPath<Texture2D>(textureRoot + "T_Candles_ORM.PNG");
+        if (albedo == null || normal == null || mask == null)
+            throw new System.InvalidOperationException("[GmBones] Witch Village candle PBR textures are missing");
+        material.SetTexture("_BaseColorMap", albedo);
+        material.SetTexture("_NormalMap", normal);
+        material.SetTexture("_MaskMap", mask);
+        material.SetColor("_BaseColor", Color.white);
+        material.SetFloat("_Smoothness", 0.32f);
+        material.SetFloat("_Metallic", 0f);
         return material;
     }
 }
