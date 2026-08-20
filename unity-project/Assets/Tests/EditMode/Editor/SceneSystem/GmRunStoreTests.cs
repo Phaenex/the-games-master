@@ -238,6 +238,42 @@ public sealed class GmRunStoreTests
     }
 
     [Test]
+    public void SovereignsGrantedOncePerTableGameCompletionNotStoryRoomsAndSurviveSaveLoad()
+    {
+        Assert.AreEqual(0, GmRunStore.Sovereigns);
+
+        Assert.IsTrue(GmRunStore.CompleteRoom("shut-the-box", countsAsTableGame: true));
+        Assert.AreEqual(1, GmRunStore.Sovereigns);
+
+        Assert.IsFalse(GmRunStore.CompleteRoom("shut-the-box", countsAsTableGame: true),
+            "re-entering a completed table game granted a second sovereign");
+        Assert.AreEqual(1, GmRunStore.Sovereigns);
+
+        Assert.IsTrue(GmRunStore.CompleteRoom("court", countsAsTableGame: false));
+        Assert.AreEqual(1, GmRunStore.Sovereigns,
+            "the Court is a trial, not one of Aldric's seven table games, and must not grant a sovereign");
+
+        Assert.IsTrue(GmRunStore.CompleteRoom("parlor", countsAsTableGame: true));
+        Assert.AreEqual(2, GmRunStore.Sovereigns);
+
+        GmSaveData saved = GmRunStore.ToSaveData();
+        Assert.AreEqual(2, saved.sovereigns);
+        GmRunStore.BeginNewRun();
+        Assert.AreEqual(0, GmRunStore.Sovereigns);
+        GmRunStore.LoadFromSaveData(saved);
+        Assert.AreEqual(2, GmRunStore.Sovereigns);
+    }
+
+    [Test]
+    public void LoadingASaveWithNegativeSovereignsClampsToZero()
+    {
+        var data = GmRunStore.ToSaveData();
+        data.sovereigns = -3;
+        GmRunStore.LoadFromSaveData(data);
+        Assert.AreEqual(0, GmRunStore.Sovereigns);
+    }
+
+    [Test]
     public void SaveDataRoundTripPreservesExactState()
     {
         GmRunStore.RaiseCorruption("test-raise");

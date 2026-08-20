@@ -178,11 +178,14 @@ public sealed class GmStudyControllerTests
         Assert.That(GmRunStore.Sanity, Is.EqualTo(sanityBefore - 0.05f).Within(0.001f));
         Assert.That(GmRunStore.IsRoomComplete("study"), Is.True);
         Assert.That(GmRunStore.TableGameIndex, Is.EqualTo(1));
+        Assert.That(GmRunStore.Sovereigns, Is.EqualTo(1));
 
         var restored = new GmStudyController();
         Assert.That(restored.InitializeOrRestore(), Is.EqualTo(GmStudyInitializeResult.Restored),
             restored.LastRestoreError);
         Assert.That(GmRunStore.Compliance, Is.EqualTo(2));
+        Assert.That(GmRunStore.Sovereigns, Is.EqualTo(1),
+            "restoring an already-completed match must not grant a second sovereign");
         Assert.That(GmRunStore.TableGameIndex, Is.EqualTo(1));
     }
 

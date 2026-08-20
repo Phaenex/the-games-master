@@ -344,9 +344,12 @@ public class GmParlorRulesTests
             Assert.That(games, Is.EqualTo(1));
             Assert.That(GmRunStore.IsRoomComplete("parlor"), Is.True);
             Assert.That(GmRunStore.TableGameIndex, Is.EqualTo(1));
+            Assert.That(GmRunStore.Sovereigns, Is.EqualTo(1));
             Assert.That(rules.ContinueResult(), Is.EqualTo(GmParlorActionError.WrongPhase));
             Assert.That(games, Is.EqualTo(1));
             Assert.That(GmRunStore.TableGameIndex, Is.EqualTo(1));
+            Assert.That(GmRunStore.Sovereigns, Is.EqualTo(1),
+                "a rejected repeat completion attempt must not grant a second sovereign");
         }
         finally { Object.DestroyImmediate(rulesObject); }
     }

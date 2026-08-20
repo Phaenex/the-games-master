@@ -71,10 +71,13 @@ public sealed class GmShutTheBoxControllerTests
             Assert.AreEqual(1, completed);
             Assert.IsTrue(GmRunStore.IsRoomComplete("shut-the-box"));
             Assert.AreEqual(1, GmRunStore.TableGameIndex);
+            Assert.AreEqual(1, GmRunStore.Sovereigns);
 
             Assert.IsFalse(controller.BankHostBox(), "a finished match completed itself twice");
             Assert.AreEqual(1, completed);
             Assert.AreEqual(1, GmRunStore.TableGameIndex);
+            Assert.AreEqual(1, GmRunStore.Sovereigns,
+                "a rejected repeat completion attempt must not grant a second sovereign");
         }
         finally { Object.DestroyImmediate(host); }
     }

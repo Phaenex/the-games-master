@@ -46,6 +46,10 @@ public static class GmRunStore
     public static float Sanity { get; private set; } = 1.0f;
     public static int Defiance { get; private set; } = 0;
     public static int Compliance { get; private set; } = 0;
+    // One house sovereign per completed table game -- Flames, Shut the Box, Bones and Study --
+    // whether the player wins or loses. Wager spends this pool; it is never negative and never
+    // resets except at BeginNewRun. See docs/SEVEN-DEBTS-CANON-2026-08-19.md "Game 5: Wager".
+    public static int Sovereigns { get; private set; } = 0;
     public static string CurrentSceneId { get; set; } = "wend-hill-prologue";
     public static string LastCheckpoint { get; set; } = "spawn";
 
@@ -115,6 +119,7 @@ public static class GmRunStore
                     string.Equals(value, "bones", StringComparison.OrdinalIgnoreCase)))
             {
                 candidate.completedTableGames.Add("bones");
+                candidate.sovereigns++;
                 if (restored.Result == GmBonesMatchResult.PlayerWin) candidate.defiance += 2;
                 else if (restored.Result == GmBonesMatchResult.AldricWin)
                 {
@@ -169,6 +174,7 @@ public static class GmRunStore
                     string.Equals(value, "study", StringComparison.OrdinalIgnoreCase)))
             {
                 candidate.completedTableGames.Add("study");
+                candidate.sovereigns++;
                 if (restored.Result == GmStudyMatchResult.PlayerWin) candidate.defiance += 2;
                 else
                 {
@@ -329,7 +335,10 @@ public static class GmRunStore
             if (!candidate.completedRooms.Contains("parlor"))
                 candidate.completedRooms.Add("parlor");
             if (!candidate.completedTableGames.Contains("parlor"))
+            {
                 candidate.completedTableGames.Add("parlor");
+                candidate.sovereigns++;
+            }
         }
         error = string.Empty;
         return true;
@@ -457,7 +466,11 @@ public static class GmRunStore
         if (string.IsNullOrWhiteSpace(sceneId)) return false;
         string id = sceneId.Trim();
         if (!completedRooms.Add(id)) return false;
-        if (countsAsTableGame) completedTableGames.Add(id);
+        if (countsAsTableGame)
+        {
+            completedTableGames.Add(id);
+            Sovereigns++;
+        }
         OnStateChanged?.Invoke();
         Debug.Log($"[GmRunStore] Room complete: {id} (table {TableGameIndex}/7)");
         return true;
@@ -519,6 +532,7 @@ public static class GmRunStore
         Sanity = 1.0f;
         Defiance = 0;
         Compliance = 0;
+        Sovereigns = 0;
         parlorMatch = null;
         parlorPresentation = GmParlorPresentationState.Empty();
         parlorOutcomeNamespace = 0;
@@ -546,6 +560,7 @@ public static class GmRunStore
             sanity = Sanity,
             defiance = Defiance,
             compliance = Compliance,
+            sovereigns = Sovereigns,
             cheatsCaught = new List<string>(cheatsCaught),
             discoveredClues = new List<string>(discoveredClues),
             completedRooms = new List<string>(completedRooms),
@@ -630,6 +645,7 @@ public static class GmRunStore
         Sanity = Mathf.Clamp01(data.sanity);
         Defiance = Mathf.Max(0, data.defiance);
         Compliance = Mathf.Max(0, data.compliance);
+        Sovereigns = Mathf.Max(0, data.sovereigns);
         CurrentSceneId = !string.IsNullOrEmpty(data.currentSceneId) ? data.currentSceneId : "wend-hill-prologue";
         LastCheckpoint = !string.IsNullOrEmpty(data.lastCheckpoint) ? data.lastCheckpoint : "spawn";
         // Keep even an invalid payload intact. The Parlor adapter validates and refuses it with a
@@ -879,6 +895,7 @@ public sealed class GmSaveData
     public float sanity = 1.0f;
     public int defiance = 0;
     public int compliance = 0;
+    public int sovereigns = 0;
     public List<string> cheatsCaught = new List<string>();
     public List<string> discoveredClues = new List<string>();
     public List<string> completedRooms = new List<string>();

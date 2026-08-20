@@ -164,6 +164,7 @@ public sealed class GmBonesControllerTests
         Assert.That(GmRunStore.Sanity, Is.EqualTo(sanityBefore + sanityDelta).Within(0.001f));
         Assert.That(GmRunStore.IsRoomComplete("bones"), Is.True);
         Assert.That(GmRunStore.TableGameIndex, Is.EqualTo(1));
+        Assert.That(GmRunStore.Sovereigns, Is.EqualTo(1));
 
         var restored = new GmBonesController();
         Assert.That(restored.InitializeOrRestore(), Is.EqualTo(GmBonesInitializeResult.Restored),
@@ -171,6 +172,8 @@ public sealed class GmBonesControllerTests
         Assert.That(GmRunStore.Defiance, Is.EqualTo(defiance));
         Assert.That(GmRunStore.Compliance, Is.EqualTo(compliance));
         Assert.That(GmRunStore.TableGameIndex, Is.EqualTo(1));
+        Assert.That(GmRunStore.Sovereigns, Is.EqualTo(1),
+            "restoring an already-completed match must not grant a second sovereign");
     }
 
     [Test]
