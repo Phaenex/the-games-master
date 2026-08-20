@@ -33,7 +33,8 @@ public sealed class GmBonesSceneHost : MonoBehaviour
 
     void OnEnable()
     {
-        if (directReviewOnly) ActivateDirectReviewPersistence();
+        if (!Application.isPlaying || !directReviewOnly) return;
+        ActivateDirectReviewPersistence();
     }
 
     void Awake()

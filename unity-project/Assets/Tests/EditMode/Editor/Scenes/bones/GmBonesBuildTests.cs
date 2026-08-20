@@ -68,6 +68,59 @@ public sealed class GmBonesBuildTests
     }
 
     [Test]
+    public void OpeningSavedBonesInEditModeDoesNotActivateReviewPersistence()
+    {
+        fixtureHost?.ReleaseDirectReviewPersistence();
+        GmSaveSystem.ResetTestConfiguration();
+        GmBonesSceneHost openedHost = null;
+        try
+        {
+            EditorSceneManager.OpenScene("Assets/Scenes/Bones.unity", OpenSceneMode.Single);
+            openedHost = Object.FindAnyObjectByType<GmBonesSceneHost>();
+            Assert.That(openedHost, Is.Not.Null);
+            Assert.That(openedHost.IsDirectReviewOnly, Is.True);
+            Assert.That(GmSaveSystem.SavePath, Is.EqualTo(productionSavePath),
+                "EditMode OnEnable must not acquire the direct-review persistence scope");
+            AssertProductionSaveUnchanged();
+        }
+        finally
+        {
+            openedHost?.ReleaseDirectReviewPersistence();
+            GmSaveSystem.ResetTestConfiguration();
+            GmBonesBuilder.Build();
+            fixtureHost = Object.FindAnyObjectByType<GmBonesSceneHost>();
+            fixtureHost?.ActivateDirectReviewPersistence();
+        }
+    }
+
+    [Test]
+    public void RebuildingWhileSavedBonesIsOpenRestoresExactCustomBackend()
+    {
+        fixtureHost?.ReleaseDirectReviewPersistence();
+        var backend = new CountingBackend();
+        string priorPath = Path.Combine(Directory.GetCurrentDirectory(), "Library",
+            "GmSceneIntelligence", "bones-open-rebuild-prior", "prior-save.json");
+        GmSaveSystem.ConfigureForTests(priorPath, backend);
+        try
+        {
+            EditorSceneManager.OpenScene("Assets/Scenes/Bones.unity", OpenSceneMode.Single);
+            GmBonesBuilder.Build();
+            Assert.That(GmSaveSystem.SavePath, Is.EqualTo(priorPath));
+            Assert.That(backend.WriteCount, Is.Zero,
+                "an EditMode scene host must not unwind the builder's nested review scope");
+            AssertProductionSaveUnchanged();
+        }
+        finally
+        {
+            Object.FindAnyObjectByType<GmBonesSceneHost>()?.ReleaseDirectReviewPersistence();
+            GmSaveSystem.ResetTestConfiguration();
+            GmBonesBuilder.Build();
+            fixtureHost = Object.FindAnyObjectByType<GmBonesSceneHost>();
+            fixtureHost?.ActivateDirectReviewPersistence();
+        }
+    }
+
+    [Test]
     public void PhysicalSceneContractPasses()
     {
         Assert.That(GmBonesQualityAudit.ValidateOpenScene(), Is.Empty);
@@ -287,8 +340,14 @@ public sealed class GmBonesBuildTests
             AssertProductionSaveUnchanged();
 
             host.enabled = true;
+            Assert.That(GmSaveSystem.SavePath, Is.EqualTo(priorPath),
+                "EditMode re-enable must remain inert until review code explicitly activates it");
+            Assert.That(host.MutationSurfacesSuspended, Is.True);
+            Assert.That(input.InteractionsEnabled, Is.False);
+
+            host.ActivateDirectReviewPersistence();
             Assert.That(GmSaveSystem.SavePath, Is.Not.EqualTo(priorPath),
-                "re-enable must reacquire isolation before controls resume");
+                "explicit EditMode activation must acquire isolation before controls resume");
             Assert.That(host.MutationSurfacesSuspended, Is.False);
             Assert.That(input.InteractionsEnabled, Is.True);
         }
