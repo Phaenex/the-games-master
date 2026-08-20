@@ -30,6 +30,7 @@ Everything else in this plan should be mined from owned material before another 
 | `CURATE` | Several owned candidates exist; choose through a visual proof |
 | `BUILD` | Project-authored geometry, material, VFX, UI, or code is the right answer |
 | `SOURCE` | A focused external acquisition is still justified |
+| `MISSING` | No owned candidate passes the production contract; keep the slot visibly empty until one does |
 | `HUMAN` | Requires Nick's taste, performance, or final casting decision after an in-game comparison |
 
 ## Asset source palette
@@ -129,12 +130,14 @@ Inventory, and Key and Bell sketches are not asset targets.
 
 | Need | Status | Source and placement | Implementation notes |
 |---|---|---|---|
-| Table | `WIRE` | `Assets/ThirdParty/MetalManVictorianInteriors/Table_2.fbx` | Aldric far side, player near side, center 60% clear for three dice |
-| Three readable dice | `BUILD` | Project-authored beveled die with separately controlled pips | Three independent instances; deterministic face transforms and lock state; `assets/models/sourced/dice.glb` is comparison-only because it contains a joined pair |
+| Table | `SHIP` scaffold | `Assets/ThirdParty/MetalManVictorianInteriors/Table_2.fbx` | The direct-review scene uses the pack's PBR surface; Aldric far side, player near side, center clear for three dice |
+| Three readable dice | `SHIP` scaffold | Project-authored beveled die with 63 separately modeled pips | Three independent instances and deterministic face transforms; Press is recorded as an action, not invented as a saved lock state; `assets/models/sourced/dice.glb` remains comparison-only because it contains a joined pair |
 | Brass balance | `CURATE` | Selective import candidate at `assets/models/unity-import/ultimate-low-poly-dungeon/BrokenVector/LowPolyDungeon/Models/Clutter/Scales.fbx` | Hold outside the first slice. Current canon has no Weigh action; use only as later-approved noninteractive dressing that cannot imply a missing mechanic |
-| Candles and lantern | `WIRE` | Witch Village `SM_Candles_1..4.prefab`; Abandoned Village `SM_Lantern.prefab` | Low candle cluster back-left, lantern off-table; gameplay light remains stable |
-| Dust and loaded-die evidence | `BUILD` | Witch Village `P_Dust.prefab` plus authored low-opacity tabletop decal and die seam | Dust stays outside pip read cone; challenge evidence remains text, shape, receipt history, and sound, not a visual-only trick |
-| Dice cup | `BUILD` later | No suitable owned or catalog asset | Not required by the rules; omit from the first slice instead of substituting a goblet |
+| Candles and lantern | `SHIP` scaffold / `CURATE` later | Witch Village candle clusters are wired with PBR surfaces and decorative flicker; Abandoned Village `SM_Lantern.prefab` remains optional | Gameplay and evidence lighting stay stable. Later dressing must not crowd the dice cone |
+| Dust and loaded-die evidence | `SHIP` scaffold | Bounded authored dust plus the modeled brass changed-die seam | Dust stays outside the pip read cone; challenge evidence remains text, shape, and receipt history, not a visual-only trick. A distinct evidence sound is later supporting work |
+| Aldric and table hands | `MISSING` | Local audit rejected the Synty male, MazeLowMan tutorial rig, Heretic Morgan, and static oven glove | Keep the far chair empty until a period-compatible humanoid with seated pose, finger rig, face controls, clear commercial rights, and production LODs is acquired |
+| Dice cup or tray | `BUILD` later | No suitable owned or catalog cup; `candleTrayCircle.fbx` and MetalMan `Ashtray.fbx` are only comparison candidates | Not required by the rules; omit it instead of making a candle tray or ashtray pretend to be game equipment |
+| Period clutter | `CURATE` later | MetalMan `Small/Ink.fbx`, `Small/Pen.fbx`, `Paper_1..4.fbx`, and `Book_1..10.fbx` | Use a few pieces on the room edge after selective HDRP conversion. Keep the active table surface clear |
 
 #### Study
 
