@@ -74,6 +74,8 @@
       "GmStudyMatch.cs",
       "GmStudyRules.cs",
       "GmVillageSave.cs",
+      "GmWagerMatch.cs",
+      "GmWagerRules.cs",
       "GmWeightedShelf.cs"
     ]
   },
