@@ -4,6 +4,7 @@ public sealed class GmBonesPresenter : MonoBehaviour
 {
     [SerializeField] GmBonesDieView[] dice = new GmBonesDieView[0];
     GmBonesController controller;
+    bool presentationSuspended;
 
     public bool IsConfigured => controller != null && dice != null && dice.Length == 3 &&
         dice[0] != null && dice[1] != null && dice[2] != null;
@@ -20,17 +21,20 @@ public sealed class GmBonesPresenter : MonoBehaviour
         }
         if (controller != null) controller.OnStateChanged -= Refresh;
         controller = tableController;
-        controller.OnStateChanged += Refresh;
-        GmAccessibilitySettings.OnChanged -= Refresh;
-        GmAccessibilitySettings.OnChanged += Refresh;
-        Refresh();
+        if (!presentationSuspended)
+        {
+            controller.OnStateChanged += Refresh;
+            GmAccessibilitySettings.OnChanged -= Refresh;
+            GmAccessibilitySettings.OnChanged += Refresh;
+            Refresh();
+        }
         error = string.Empty;
         return true;
     }
 
     public void Refresh()
     {
-        if (!IsConfigured)
+        if (presentationSuspended || !IsConfigured)
         {
             GmAccessibilitySettings.OnChanged -= Refresh;
             return;
@@ -39,6 +43,24 @@ public sealed class GmBonesPresenter : MonoBehaviour
         for (int index = 0; index < dice.Length; index++)
             dice[index].SetFace(state.Dice[index], index == state.ChangedDieSlot,
                 GmAccessibilitySettings.ReducedMotion);
+    }
+
+    public void SuspendPresentation()
+    {
+        presentationSuspended = true;
+        if (controller != null) controller.OnStateChanged -= Refresh;
+        GmAccessibilitySettings.OnChanged -= Refresh;
+    }
+
+    public void ResumePresentation()
+    {
+        presentationSuspended = false;
+        if (!IsConfigured) return;
+        controller.OnStateChanged -= Refresh;
+        controller.OnStateChanged += Refresh;
+        GmAccessibilitySettings.OnChanged -= Refresh;
+        GmAccessibilitySettings.OnChanged += Refresh;
+        Refresh();
     }
 
     void OnDestroy()

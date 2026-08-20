@@ -29,8 +29,10 @@ public sealed class GmBonesHud : MonoBehaviour
     Button challenge;
     Button proceed;
     bool subscribed;
+    bool interactionsSuspended;
 
     public bool IsConfigured => controller != null;
+    public bool InteractionsEnabled => !interactionsSuspended && enabled;
     public int RefreshRevision { get; private set; }
 
     public bool TryConfigure(GmBonesController tableController, out string error)
@@ -50,7 +52,7 @@ public sealed class GmBonesHud : MonoBehaviour
         Unsubscribe();
         controller = tableController;
         tableInput = input;
-        if (isActiveAndEnabled) Subscribe();
+        if (isActiveAndEnabled && !interactionsSuspended) Subscribe();
         error = string.Empty;
         if (root != null) Refresh();
         return true;
@@ -65,7 +67,7 @@ public sealed class GmBonesHud : MonoBehaviour
     void Start() { if (IsConfigured) BuildUi(); }
     void OnEnable()
     {
-        if (controller == null) return;
+        if (controller == null || interactionsSuspended) return;
         Subscribe();
         Refresh();
     }
@@ -126,14 +128,14 @@ public sealed class GmBonesHud : MonoBehaviour
         {
             int target = index;
             choiceButtons[index] = AddButton(actions, names[index], () =>
-                tableInput.FocusThenConfirm(target));
+                InvokeButtonAction(target == 0 ? "BonesBank" : $"BonesPress{target}"));
         }
 
         intervention = new VisualElement { name = "BonesIntervention" };
         intervention.style.flexDirection = FlexDirection.Row;
         root.Add(intervention);
-        challenge = AddButton(intervention, "BonesChallenge", () => tableInput.ChallengeAction());
-        proceed = AddButton(intervention, "BonesProceed", () => tableInput.ConfirmAction());
+        challenge = AddButton(intervention, "BonesChallenge", () => InvokeButtonAction("BonesChallenge"));
+        proceed = AddButton(intervention, "BonesProceed", () => InvokeButtonAction("BonesProceed"));
         evidence = AddLabel(root, "BonesEvidence", 18);
         actionLog = AddLabel(root, "BonesActionLog", 16);
         result = AddLabel(root, "BonesResult", 22);
@@ -144,7 +146,7 @@ public sealed class GmBonesHud : MonoBehaviour
 
     public void Refresh()
     {
-        if (root == null || !IsConfigured) return;
+        if (interactionsSuspended || root == null || !IsConfigured) return;
         RefreshRevision++;
         GmBonesPresentationState model = GmBonesPresentationModel.Project(controller);
         bool highContrast = GmAccessibilitySettings.HighContrast;
@@ -240,6 +242,42 @@ public sealed class GmBonesHud : MonoBehaviour
 
     static string PresentResult(GmBonesMatchResult value) => value == GmBonesMatchResult.PlayerWin
         ? "You win" : value == GmBonesMatchResult.AldricWin ? "Aldric wins" : "Tie";
+
+    GmBonesActionError InvokeButtonAction(string buttonName)
+    {
+        if (tableInput == null) return GmBonesActionError.NotInitialized;
+        switch (buttonName)
+        {
+            case "BonesBank": return tableInput.FocusThenConfirm(0);
+            case "BonesPress1": return tableInput.FocusThenConfirm(1);
+            case "BonesPress2": return tableInput.FocusThenConfirm(2);
+            case "BonesPress3": return tableInput.FocusThenConfirm(3);
+            case "BonesChallenge": return tableInput.ChallengeAction();
+            case "BonesProceed": return tableInput.ConfirmAction();
+            default: return GmBonesActionError.WrongPhase;
+        }
+    }
+
+    public GmBonesActionError InvokeButtonActionForTests(string buttonName) =>
+        InvokeButtonAction(buttonName);
+
+    public void SuspendInteractions()
+    {
+        interactionsSuspended = true;
+        Unsubscribe();
+        root?.SetEnabled(false);
+    }
+
+    public void ResumeInteractions()
+    {
+        interactionsSuspended = false;
+        root?.SetEnabled(true);
+        if (isActiveAndEnabled && controller != null)
+        {
+            Subscribe();
+            Refresh();
+        }
+    }
 
     static Label AddLabel(VisualElement parent, string name, int size)
     {

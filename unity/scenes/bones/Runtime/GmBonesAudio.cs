@@ -5,6 +5,7 @@ public sealed class GmBonesAudio : MonoBehaviour
     GmBonesController controller;
     GmAudioManager audioManager;
     int visibleThrowRevision;
+    bool audioSuspended;
 
     public int VisibleThrowRevision => visibleThrowRevision;
     public bool UsesSharedAudioManager => audioManager != null;
@@ -25,7 +26,7 @@ public sealed class GmBonesAudio : MonoBehaviour
             return false;
         }
         visibleThrowRevision = controller.PlayerDecisionCount;
-        controller.OnStateChanged += HandleStateChanged;
+        if (!audioSuspended) controller.OnStateChanged += HandleStateChanged;
         error = string.Empty;
         return true;
     }
@@ -36,6 +37,21 @@ public sealed class GmBonesAudio : MonoBehaviour
         if (next <= visibleThrowRevision) return;
         visibleThrowRevision = next;
         audioManager.PlayDiceRoll();
+    }
+
+    public void SuspendAudio()
+    {
+        audioSuspended = true;
+        if (controller != null) controller.OnStateChanged -= HandleStateChanged;
+    }
+
+    public void ResumeAudio()
+    {
+        audioSuspended = false;
+        if (controller == null || audioManager == null) return;
+        visibleThrowRevision = controller.PlayerDecisionCount;
+        controller.OnStateChanged -= HandleStateChanged;
+        controller.OnStateChanged += HandleStateChanged;
     }
 
     void OnDestroy() { if (controller != null) controller.OnStateChanged -= HandleStateChanged; }

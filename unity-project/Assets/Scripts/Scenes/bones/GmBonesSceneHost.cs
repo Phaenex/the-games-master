@@ -7,10 +7,12 @@ public sealed class GmBonesSceneHost : MonoBehaviour
     [SerializeField] bool directReviewOnly;
     GmBonesController controller;
     IDisposable reviewScope;
+    bool mutationSurfacesSuspended;
 
     public GmBonesController Controller => controller;
     public bool IsConfigured { get; private set; }
     public bool IsDirectReviewOnly => directReviewOnly;
+    public bool MutationSurfacesSuspended => mutationSurfacesSuspended;
 
     public void ConfigureForDirectReview() => directReviewOnly = true;
 
@@ -18,13 +20,20 @@ public sealed class GmBonesSceneHost : MonoBehaviour
     {
         if (reviewScope == null)
             reviewScope = GmBonesReviewPersistence.BeginScope("direct-review-host");
+        ResumeMutationSurfaces();
     }
 
     public void ReleaseDirectReviewPersistence()
     {
+        SuspendMutationSurfaces();
         IDisposable owned = reviewScope;
         reviewScope = null;
         owned?.Dispose();
+    }
+
+    void OnEnable()
+    {
+        if (directReviewOnly) ActivateDirectReviewPersistence();
     }
 
     void Awake()
@@ -71,8 +80,37 @@ public sealed class GmBonesSceneHost : MonoBehaviour
             IsConfigured = false;
     }
 
-    // OnDisable fires for DestroyImmediate in EditMode even when this component never received
-    // Awake. OnDestroy remains the runtime/domain-reload lifetime boundary; both are idempotent.
+    void SuspendMutationSurfaces()
+    {
+        GmBonesInput input = GetComponent<GmBonesInput>();
+        GmBonesHud hud = GetComponent<GmBonesHud>();
+        GmBonesPresenter presenter = GetComponent<GmBonesPresenter>();
+        GmBonesAudio audio = GetComponent<GmBonesAudio>();
+        input?.SuspendInteractions();
+        hud?.SuspendInteractions();
+        presenter?.SuspendPresentation();
+        audio?.SuspendAudio();
+        if (input != null) input.enabled = false;
+        if (hud != null) hud.enabled = false;
+        if (presenter != null) presenter.enabled = false;
+        if (audio != null) audio.enabled = false;
+        mutationSurfacesSuspended = true;
+    }
+
+    void ResumeMutationSurfaces()
+    {
+        GmBonesInput input = GetComponent<GmBonesInput>();
+        GmBonesHud hud = GetComponent<GmBonesHud>();
+        GmBonesPresenter presenter = GetComponent<GmBonesPresenter>();
+        GmBonesAudio audio = GetComponent<GmBonesAudio>();
+        if (input != null) { input.enabled = true; input.ResumeInteractions(); }
+        if (hud != null) { hud.enabled = true; hud.ResumeInteractions(); }
+        if (presenter != null) { presenter.enabled = true; presenter.ResumePresentation(); }
+        if (audio != null) { audio.enabled = true; audio.ResumeAudio(); }
+        mutationSurfacesSuspended = false;
+    }
+
+    // Sibling mutation surfaces are suspended before the prior backend is made visible again.
     void OnDisable() => ReleaseDirectReviewPersistence();
     void OnDestroy() => ReleaseDirectReviewPersistence();
 }

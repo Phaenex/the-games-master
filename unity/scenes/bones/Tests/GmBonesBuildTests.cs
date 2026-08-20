@@ -220,6 +220,89 @@ public sealed class GmBonesBuildTests
     }
 
     [Test]
+    public void FailedTourReplayCannotWriteToRestoredCustomBackendThroughLiveInput()
+    {
+        GmBonesSceneHost host = Object.FindAnyObjectByType<GmBonesSceneHost>();
+        GmBonesInput input = Object.FindAnyObjectByType<GmBonesInput>();
+        GmBonesHud hud = Object.FindAnyObjectByType<GmBonesHud>();
+        GmBonesShotTour tour = Object.FindAnyObjectByType<GmBonesShotTour>();
+        fixtureHost?.ReleaseDirectReviewPersistence();
+        var backend = new CountingBackend();
+        string priorPath = Path.Combine(Directory.GetCurrentDirectory(), "Library",
+            "GmSceneIntelligence", "bones-review-failure-prior", "prior-save.json");
+        GmSaveSystem.ConfigureForTests(priorPath, backend);
+        try
+        {
+            host.ActivateDirectReviewPersistence();
+            host.RestartForReview(1);
+            Assert.Throws<InvalidOperationException>(() => tour.ReplayToPendingForReview(input, 0));
+            Assert.That(GmSaveSystem.SavePath, Is.EqualTo(priorPath));
+            Assert.That(host.MutationSurfacesSuspended, Is.True);
+            Assert.That(input.InteractionsEnabled, Is.False);
+
+            input.ConfirmAction();
+            input.ChallengeAction();
+            hud.InvokeButtonActionForTests("BonesBank");
+            hud.InvokeButtonActionForTests("BonesChallenge");
+
+            Assert.That(backend.WriteCount, Is.Zero,
+                "a failed tour must close input before restoring the prior backend");
+            AssertProductionSaveUnchanged();
+        }
+        finally
+        {
+            GmSaveSystem.ResetTestConfiguration();
+            fixtureHost = Object.FindAnyObjectByType<GmBonesSceneHost>();
+            fixtureHost?.ActivateDirectReviewPersistence();
+        }
+    }
+
+    [Test]
+    public void DisablingHostCannotLeaveInputWritingToRestoredBackend()
+    {
+        GmBonesSceneHost host = Object.FindAnyObjectByType<GmBonesSceneHost>();
+        GmBonesInput input = Object.FindAnyObjectByType<GmBonesInput>();
+        GmBonesHud hud = Object.FindAnyObjectByType<GmBonesHud>();
+        fixtureHost?.ReleaseDirectReviewPersistence();
+        var backend = new CountingBackend();
+        string priorPath = Path.Combine(Directory.GetCurrentDirectory(), "Library",
+            "GmSceneIntelligence", "bones-review-disable-prior", "prior-save.json");
+        GmSaveSystem.ConfigureForTests(priorPath, backend);
+        try
+        {
+            host.ActivateDirectReviewPersistence();
+            host.RestartForReview(1);
+            host.enabled = false;
+            Assert.That(GmSaveSystem.SavePath, Is.EqualTo(priorPath));
+            Assert.That(host.MutationSurfacesSuspended, Is.True);
+            Assert.That(input.InteractionsEnabled, Is.False);
+
+            input.ConfirmAction();
+            input.ChallengeAction();
+            hud.InvokeButtonActionForTests("BonesBank");
+            hud.InvokeButtonActionForTests("BonesChallenge");
+
+            Assert.That(backend.WriteCount, Is.Zero,
+                "disabled host siblings must be inert before the prior backend is restored");
+            AssertProductionSaveUnchanged();
+
+            host.enabled = true;
+            Assert.That(GmSaveSystem.SavePath, Is.Not.EqualTo(priorPath),
+                "re-enable must reacquire isolation before controls resume");
+            Assert.That(host.MutationSurfacesSuspended, Is.False);
+            Assert.That(input.InteractionsEnabled, Is.True);
+        }
+        finally
+        {
+            if (!host.enabled) host.enabled = true;
+            host.ReleaseDirectReviewPersistence();
+            GmSaveSystem.ResetTestConfiguration();
+            fixtureHost = Object.FindAnyObjectByType<GmBonesSceneHost>();
+            fixtureHost?.ActivateDirectReviewPersistence();
+        }
+    }
+
+    [Test]
     public void DestroyingDirectReviewHostRestoresExactProductionBackendAndBytes()
     {
         fixtureHost?.ReleaseDirectReviewPersistence();

@@ -30,9 +30,11 @@ public sealed class GmBonesInput : MonoBehaviour
     GmPlayer player;
     Func<bool> pauseProbe;
     bool navigationLatched;
+    bool interactionsSuspended;
 
     public bool HasRequiredActions { get; private set; }
     public bool IsConfigured => controller != null;
+    public bool InteractionsEnabled => !interactionsSuspended && enabled;
     public bool IsConfiguredFor(GmBonesController tableController) =>
         ReferenceEquals(controller, tableController);
     public GmBonesActionError LastActionError { get; private set; }
@@ -56,12 +58,12 @@ public sealed class GmBonesInput : MonoBehaviour
         pause = gameplay?.FindAction("Pause", false);
         HasRequiredActions = gameplay != null && move != null && confirm != null && challenge != null &&
             cancel != null && pause != null;
-        if (HasRequiredActions) gameplay.Enable();
+        if (HasRequiredActions && !interactionsSuspended) gameplay.Enable();
     }
 
     void Update()
     {
-        if (!HasRequiredActions || controller == null) return;
+        if (interactionsSuspended || !HasRequiredActions || controller == null) return;
         GmBonesFrameIntentResult result = ResolveFrameIntents(pause.WasPressedThisFrame(),
             cancel.WasPressedThisFrame(), challenge.WasPressedThisFrame(), confirm.WasPressedThisFrame());
         if (result.Consumed == GmBonesFrameIntent.None)
@@ -90,6 +92,8 @@ public sealed class GmBonesInput : MonoBehaviour
     public GmBonesFrameIntentResult ResolveFrameIntents(bool pausePressed, bool cancelPressed,
         bool challengePressed, bool confirmPressed)
     {
+        if (interactionsSuspended)
+            return Result(GmBonesFrameIntent.None, GmBonesActionError.NotInitialized);
         if (GameplayIsPaused()) return Result(GmBonesFrameIntent.None, GmBonesActionError.None);
         if (pausePressed) return Result(GmBonesFrameIntent.Pause, GmBonesActionError.None);
         if (cancelPressed) return Result(GmBonesFrameIntent.Cancel, GmBonesActionError.None);
@@ -116,6 +120,7 @@ public sealed class GmBonesInput : MonoBehaviour
 
     public GmBonesActionError FocusThenConfirm(int focusIndex)
     {
+        if (interactionsSuspended) return Execute(null);
         if (controller == null) return Execute(null);
         if (focusIndex < 0 || focusIndex > 3)
         {
@@ -128,6 +133,7 @@ public sealed class GmBonesInput : MonoBehaviour
 
     GmBonesActionError Execute(Func<GmBonesActionError> action)
     {
+        if (interactionsSuspended) action = null;
         GmBonesActionError error = action?.Invoke() ?? GmBonesActionError.NotInitialized;
         PublishFeedback(error);
         return error;
@@ -135,7 +141,7 @@ public sealed class GmBonesInput : MonoBehaviour
 
     public void HandleNavigationIntent(Vector2 intent)
     {
-        if (GameplayIsPaused()) return;
+        if (interactionsSuspended || GameplayIsPaused()) return;
         float magnitude = Mathf.Max(Mathf.Abs(intent.x), Mathf.Abs(intent.y));
         if (navigationLatched)
         {
@@ -182,6 +188,19 @@ public sealed class GmBonesInput : MonoBehaviour
 
     static GmBonesFrameIntentResult Result(GmBonesFrameIntent intent, GmBonesActionError error) =>
         new GmBonesFrameIntentResult(intent, error);
+
+    public void SuspendInteractions()
+    {
+        interactionsSuspended = true;
+        navigationLatched = false;
+        gameplay?.Disable();
+    }
+
+    public void ResumeInteractions()
+    {
+        interactionsSuspended = false;
+        if (enabled && HasRequiredActions) gameplay.Enable();
+    }
 
     void OnDisable() => gameplay?.Disable();
     void OnDestroy() { if (controls != null) Destroy(controls); }
